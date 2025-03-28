@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,10 +30,8 @@ const Profile = () => {
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   
-  // This checks if we're viewing the current user's profile
   const isCurrentUser = !username || (profile?.username === username);
   
-  // Fetch user creation date for accurate join date
   useEffect(() => {
     const fetchUserCreationDate = async () => {
       if (user) {
@@ -62,7 +59,6 @@ const Profile = () => {
     fetchUserCreationDate();
   }, [user]);
   
-  // Verify NFT ownership when profile loads
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
@@ -124,7 +120,6 @@ const Profile = () => {
     );
   }
   
-  // Process website URL to ensure it has proper format
   const formatWebsiteUrl = (url: string | null): string | null => {
     if (!url) return null;
     
@@ -145,15 +140,14 @@ const Profile = () => {
         ethereumAddress={profile.ethereum_address}
         solanaAddress={profile.solana_address}
         isCurrentUser={isCurrentUser}
-        followersCount={0} // placeholder
-        followingCount={0} // placeholder
+        followersCount={0}
+        followingCount={0}
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
         isNFTVerified={isNFTVerified}
       />
       
-      {/* Profile Tabs */}
       <div className="border-b border-gray-200">
         <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="w-full flex justify-between bg-transparent border-b px-0">
@@ -216,9 +210,8 @@ const Profile = () => {
           </TabsContent>
           
           <TabsContent value="assets" className="mt-0 pt-4">
-            {(profile.ethereum_address || profile.solana_address) ? (
+            {(profile?.solana_address) ? (
               <WalletAssets 
-                ethereumAddress={profile.ethereum_address} 
                 solanaAddress={profile.solana_address}
               />
             ) : (
@@ -245,7 +238,6 @@ const Profile = () => {
         </Tabs>
       </div>
       
-      {/* Edit Profile Dialog */}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -255,7 +247,6 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
       
-      {/* NFT Browser Dialog */}
       <Dialog open={showNFTBrowser} onOpenChange={setShowNFTBrowser}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
