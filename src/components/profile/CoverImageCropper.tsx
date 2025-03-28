@@ -6,6 +6,9 @@ import { Slider } from "@/components/ui/slider";
 import { Loader, ZoomIn, ZoomOut, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 
 interface CoverImageCropperProps {
   imageFile: File | null;
@@ -20,6 +23,8 @@ const CoverImageCropper = ({
   onClose,
   onSave,
 }: CoverImageCropperProps) => {
+  const { user } = useAuth();
+  const { updateProfile } = useProfile();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -128,7 +133,7 @@ const CoverImageCropper = ({
   
   // Crop and save the image
   const handleSave = async () => {
-    if (!containerRef.current || !imageRef.current || !imageSrc) {
+    if (!containerRef.current || !imageRef.current || !imageSrc || !user?.id) {
       toast({
         title: "Error",
         description: "Could not process the image. Please try again.",
@@ -182,13 +187,50 @@ const CoverImageCropper = ({
       
       // Convert canvas to blob with high quality
       canvas.toBlob(
-        (blob) => {
+        async (blob) => {
           if (blob) {
+            // Call the onSave callback with the cropped image blob
             onSave(blob);
-            toast({
-              title: "Success",
-              description: "Cover image processed successfully",
-            });
+            
+            try {
+              // Generate a unique filename
+              const fileExt = "jpeg";
+              const filePath = `${user.id}/cover.${fileExt}`;
+              
+              // Upload the file to Supabase Storage
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('avatars') // Using the avatars bucket for cover images too
+                .upload(filePath, blob, { 
+                  upsert: true,
+                  contentType: 'image/jpeg' 
+                });
+              
+              if (uploadError) {
+                throw uploadError;
+              }
+              
+              // Get the public URL
+              const { data: urlData } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(filePath);
+              
+              // Update the profile with the new cover URL
+              await updateProfile({ 
+                cover_url: urlData.publicUrl
+              });
+              
+              toast({
+                title: "Success",
+                description: "Cover image updated successfully",
+              });
+            } catch (error) {
+              console.error('Error uploading cover image:', error);
+              toast({
+                title: "Error uploading to storage",
+                description: error.message,
+                variant: "destructive",
+              });
+            }
           } else {
             toast({
               title: "Error",
