@@ -67,6 +67,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
       .upload(filePath, file, { upsert: true });
       
     if (error) {
+      console.error("Storage upload error:", error);
       throw new Error(`Error uploading file: ${error.message}`);
     }
     

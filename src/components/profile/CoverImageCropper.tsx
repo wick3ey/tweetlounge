@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Loader, ZoomIn, ZoomOut, Check } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface CoverImageCropperProps {
   imageFile: File | null;
@@ -58,7 +59,7 @@ const CoverImageCropper = ({
     e.preventDefault();
   }, [position]);
   
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !containerRef.current || !imageRef.current) return;
     
     const newX = e.clientX - dragStart.x;
@@ -90,18 +91,25 @@ const CoverImageCropper = ({
   useEffect(() => {
     // Add global mouse event listeners
     if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove as any);
+      window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
     
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove as any);
+      window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
   
   const handleSave = async () => {
-    if (!containerRef.current || !imageRef.current || !imageSrc) return;
+    if (!containerRef.current || !imageRef.current || !imageSrc) {
+      toast({
+        title: "Error",
+        description: "Could not process the image. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsProcessing(true);
     
@@ -119,8 +127,6 @@ const CoverImageCropper = ({
       // Calculate the area to crop
       const containerRect = containerRef.current.getBoundingClientRect();
       const imageRect = imageRef.current.getBoundingClientRect();
-      
-      const scaleRatio = 1500 / containerRect.width;
       
       // Draw the image to the canvas with the adjusted position and scale
       ctx.drawImage(
@@ -140,6 +146,16 @@ const CoverImageCropper = ({
         (blob) => {
           if (blob) {
             onSave(blob);
+            toast({
+              title: "Success",
+              description: "Cover image processed successfully",
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: "Failed to process image. Please try again.",
+              variant: "destructive",
+            });
           }
           setIsProcessing(false);
           onClose();
@@ -149,6 +165,11 @@ const CoverImageCropper = ({
       );
     } catch (error) {
       console.error('Error processing image:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while processing the image.",
+        variant: "destructive",
+      });
       setIsProcessing(false);
     }
   };
