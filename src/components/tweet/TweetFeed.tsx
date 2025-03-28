@@ -62,20 +62,20 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-8 bg-crypto-darkgray rounded-lg">
-        <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
-        <span className="ml-2 text-gray-400">Loading tweets...</span>
+      <div className="flex justify-center items-center p-4 sm:p-8 bg-crypto-darkgray rounded-lg">
+        <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin text-crypto-blue" />
+        <span className="ml-2 text-sm sm:text-base text-gray-400">Loading tweets...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 text-center bg-crypto-darkgray rounded-lg">
-        <p className="text-red-500 mb-4">{error}</p>
+      <div className="p-4 sm:p-6 text-center bg-crypto-darkgray rounded-lg">
+        <p className="text-red-500 mb-4 text-sm sm:text-base">{error}</p>
         <button 
           onClick={() => window.location.reload()}
-          className="bg-crypto-blue text-white px-4 py-2 rounded-full hover:bg-crypto-blue/80"
+          className="bg-crypto-blue text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm hover:bg-crypto-blue/80"
         >
           Try Again
         </button>
@@ -85,8 +85,8 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   if (tweets.length === 0) {
     return (
-      <div className="p-6 text-center border-b border-gray-800 rounded-lg bg-crypto-darkgray">
-        <p className="text-gray-400">
+      <div className="p-4 sm:p-6 text-center border-b border-gray-800 rounded-lg bg-crypto-darkgray">
+        <p className="text-gray-400 text-sm sm:text-base">
           {feedType === 'user' ? 'No tweets yet. Post something to get started!' : 
            feedType === 'user-retweets' ? 'No retweets yet.' : 
            'No tweets yet. Be the first to post!'}

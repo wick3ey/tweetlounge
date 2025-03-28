@@ -1,9 +1,10 @@
-import React from 'react'
+
+import React, { useState } from 'react'
 import Header from '@/components/layout/Header'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
-import { ZapIcon, RefreshCwIcon } from 'lucide-react'
+import { ZapIcon, RefreshCwIcon, Menu } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
 import TweetComposer from '@/components/tweet/TweetComposer'
 import TweetFeed from '@/components/tweet/TweetFeed'
@@ -11,10 +12,17 @@ import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
@@ -47,16 +55,30 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-crypto-black crypto-pattern">
+    <div className="flex flex-col min-h-screen bg-crypto-black crypto-pattern">
       <Header />
       <CryptoTicker />
       
-      <div className="flex flex-1 overflow-hidden">
-        <LeftSidebar />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sidebar for mobile */}
+        {isMobile && (
+          <LeftSidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+        )}
+        
+        {/* Desktop sidebar */}
+        {!isMobile && <LeftSidebar />}
         
         <div className="flex-1 overflow-y-auto">
-          <main className="max-w-2xl mx-auto px-1">
+          <main className="max-w-2xl mx-auto px-2 sm:px-4">
             <div className="flex gap-3 items-center mb-4 mt-2">
+              {isMobile && (
+                <button
+                  onClick={toggleSidebar}
+                  className="p-2 rounded-full hover:bg-crypto-gray/20 transition-colors"
+                >
+                  <Menu className="h-5 w-5 text-foreground" />
+                </button>
+              )}
               <div className="rounded-lg bg-crypto-gray/20 p-1.5">
                 <ZapIcon className="text-crypto-blue h-5 w-5" />
               </div>

@@ -53,18 +53,18 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
       {user ? (
         <ReplyComposer tweetId={tweetId} onReplySuccess={fetchReplies} />
       ) : (
-        <div className="p-4 text-center text-gray-400">
+        <div className="p-3 sm:p-4 text-center text-gray-400 text-sm sm:text-base">
           Please sign in to reply to this tweet.
         </div>
       )}
       
       {loading ? (
-        <div className="p-6 text-center">
-          <Loader2 className="h-6 w-6 animate-spin text-crypto-blue mx-auto" />
-          <p className="text-gray-400 mt-2">Loading replies...</p>
+        <div className="p-4 sm:p-6 text-center">
+          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-crypto-blue mx-auto" />
+          <p className="text-gray-400 mt-2 text-sm sm:text-base">Loading replies...</p>
         </div>
       ) : error ? (
-        <div className="p-6 text-center text-red-500">
+        <div className="p-4 sm:p-6 text-center text-red-500 text-sm sm:text-base">
           {error}
         </div>
       ) : replies.length > 0 ? (
@@ -74,7 +74,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
           ))}
         </div>
       ) : (
-        <div className="p-6 text-center text-gray-400">
+        <div className="p-4 sm:p-6 text-center text-gray-400 text-sm sm:text-base">
           No replies yet. Be the first to reply!
         </div>
       )}

@@ -31,10 +31,10 @@ const Reply = ({ reply }: ReplyProps) => {
   };
 
   return (
-    <div className="p-4 border-t border-gray-800 bg-crypto-darkgray">
-      <div className="flex gap-3">
+    <div className="p-3 sm:p-4 border-t border-gray-800 bg-crypto-darkgray">
+      <div className="flex gap-2 sm:gap-3">
         <Link to={`/profile/${reply.profiles.username}`}>
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
             {reply.profiles.avatar_url ? (
               <AvatarImage src={reply.profiles.avatar_url} alt={reply.profiles.display_name} />
             ) : null}
@@ -43,9 +43,9 @@ const Reply = ({ reply }: ReplyProps) => {
             </AvatarFallback>
           </Avatar>
         </Link>
-        <div className="flex-1">
-          <div className="flex items-center">
-            <Link to={`/profile/${reply.profiles.username}`} className="font-bold hover:underline text-sm">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-x-1 sm:gap-x-0">
+            <Link to={`/profile/${reply.profiles.username}`} className="font-bold hover:underline text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
               {reply.profiles.display_name}
             </Link>
             
@@ -54,11 +54,11 @@ const Reply = ({ reply }: ReplyProps) => {
                 <HoverCardTrigger asChild>
                   <div className="inline-flex items-center ml-1">
                     <div className="bg-crypto-blue rounded-full p-0.5 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white stroke-[3]" />
+                      <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-white stroke-[3]" />
                     </div>
                   </div>
                 </HoverCardTrigger>
-                <HoverCardContent className="w-64 text-sm">
+                <HoverCardContent className="w-64 text-xs sm:text-sm">
                   <p className="font-semibold">Verified NFT Owner</p>
                   <p className="text-gray-500 mt-1">
                     This user owns the NFT used as their profile picture.
@@ -67,21 +67,21 @@ const Reply = ({ reply }: ReplyProps) => {
               </HoverCard>
             )}
             
-            <span className="text-gray-500 ml-1 text-sm">
+            <span className="text-gray-500 text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">
               @{reply.profiles.username}
             </span>
-            <span className="text-gray-500 mx-1 text-xs">·</span>
-            <span className="text-gray-500 text-xs">{timeAgo}</span>
+            <span className="text-gray-500 mx-1 text-xs hidden sm:inline">·</span>
+            <span className="text-gray-500 text-xs block sm:inline w-full sm:w-auto">{timeAgo}</span>
           </div>
           
-          <div className="mt-1 text-sm text-gray-100">{reply.content}</div>
+          <div className="mt-1 text-xs sm:text-sm text-gray-100">{reply.content}</div>
           
           {reply.image_url && (
             <div className="mt-2">
               <img 
                 src={reply.image_url} 
                 alt="Reply media"
-                className="rounded-xl max-h-60 object-contain" 
+                className="rounded-xl max-h-48 sm:max-h-60 object-contain" 
               />
             </div>
           )}

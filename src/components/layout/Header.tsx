@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react'
-import { BellIcon, Search, Wallet } from 'lucide-react'
+import { BellIcon, Search, Wallet, Menu } from 'lucide-react'
 import { CryptoButton } from '../ui/crypto-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -11,6 +11,7 @@ import {
   updateWalletAddress 
 } from '@/utils/walletConnector'
 import { useToast } from '@/components/ui/use-toast'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 const Header: React.FC = () => {
   const { user } = useAuth()
@@ -18,6 +19,7 @@ const Header: React.FC = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   const [connecting, setConnecting] = useState(false)
+  const isMobile = useIsMobile()
 
   const handleConnectWallet = async () => {
     if (!user) {
@@ -74,10 +76,10 @@ const Header: React.FC = () => {
   const hasConnectedWallet = !!profile?.solana_address
 
   return (
-    <div className="w-full bg-crypto-darkgray border-b border-crypto-gray p-3 flex items-center justify-between">
+    <div className="w-full bg-crypto-darkgray border-b border-crypto-gray p-2 sm:p-3 flex items-center justify-between">
       <div className="flex items-center">
-        <h1 className="text-xl text-crypto-blue font-display font-bold mr-4">KryptoSphere</h1>
-        <div className="bg-crypto-black rounded-full border border-crypto-gray flex items-center px-3 py-1.5 w-64">
+        <h1 className="text-lg sm:text-xl text-crypto-blue font-display font-bold mr-2 sm:mr-4">KryptoSphere</h1>
+        <div className="hidden sm:flex bg-crypto-black rounded-full border border-crypto-gray items-center px-3 py-1.5 w-64">
           <Search className="w-4 h-4 text-crypto-lightgray mr-2" />
           <input
             type="text"
@@ -87,8 +89,8 @@ const Header: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex items-center space-x-4">
-        <button className="relative p-2 rounded-full hover:bg-crypto-gray/20">
+      <div className="flex items-center space-x-2 sm:space-x-4">
+        <button className="relative p-1.5 sm:p-2 rounded-full hover:bg-crypto-gray/20">
           <BellIcon className="w-5 h-5 text-crypto-lightgray" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-crypto-blue rounded-full"></span>
         </button>
@@ -96,27 +98,28 @@ const Header: React.FC = () => {
         {user ? (
           hasConnectedWallet ? (
             <CryptoButton 
-              className="rounded-full bg-crypto-green/10 text-crypto-green border border-crypto-green/20 hover:bg-crypto-green/20"
+              className="rounded-full bg-crypto-green/10 text-crypto-green border border-crypto-green/20 hover:bg-crypto-green/20 text-xs sm:text-sm"
               onClick={() => navigate('/profile')}
             >
-              <Wallet className="h-4 w-4 mr-1" />
-              Wallet Connected
+              <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
+              <span className="hidden sm:inline">Wallet Connected</span>
+              <span className="sm:hidden">Wallet</span>
             </CryptoButton>
           ) : (
             <CryptoButton 
-              className="rounded-full bg-crypto-blue text-white hover:bg-crypto-darkblue"
+              className="rounded-full bg-crypto-blue text-white hover:bg-crypto-darkblue text-xs sm:text-sm py-1 sm:py-2 px-2 sm:px-4"
               onClick={handleConnectWallet}
               disabled={connecting}
             >
-              {connecting ? 'Connecting...' : 'Connect Wallet'}
+              {connecting ? 'Connecting...' : isMobile ? 'Connect' : 'Connect Wallet'}
             </CryptoButton>
           )
         ) : (
           <CryptoButton 
-            className="rounded-full bg-crypto-blue text-white hover:bg-crypto-darkblue"
+            className="rounded-full bg-crypto-blue text-white hover:bg-crypto-darkblue text-xs sm:text-sm py-1 sm:py-2 px-2 sm:px-4"
             onClick={() => navigate('/login')}
           >
-            Connect Wallet
+            {isMobile ? 'Connect' : 'Connect Wallet'}
           </CryptoButton>
         )}
         
