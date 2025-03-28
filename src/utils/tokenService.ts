@@ -37,18 +37,28 @@ export const fetchWalletTokens = async (
     }
     
     // The response should have a tokens array
-    if (!data || !data.tokens || !Array.isArray(data.tokens)) {
-      console.error(`Invalid token data response for ${chain}:`, data);
-      return []; // Return empty array
+    if (!data) {
+      console.error(`No data returned for ${chain} tokens`);
+      return [];
     }
     
-    console.log(`Successfully retrieved ${data.tokens.length} ${chain} tokens`);
+    console.log(`${chain} tokens raw response:`, data);
     
-    return data.tokens.map((token: any) => ({
+    if (!data.tokens || !Array.isArray(data.tokens)) {
+      console.error(`Invalid token data response structure for ${chain}:`, data);
+      return [];
+    }
+    
+    // Process the tokens
+    const processedTokens = data.tokens.map((token: any) => ({
       ...token,
       chain,
       explorerUrl: getExplorerUrl(chain, token.address || address)
     }));
+    
+    console.log(`Successfully processed ${processedTokens.length} ${chain} tokens`);
+    return processedTokens;
+    
   } catch (error) {
     console.error(`Error in fetchWalletTokens for ${chain}:`, error);
     return []; // Return empty array in case of error

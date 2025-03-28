@@ -1,6 +1,5 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { Connection, PublicKey, GetProgramAccountsFilter } from 'https://esm.sh/@solana/web3.js@1.89.1';
+import { Connection, PublicKey } from 'https://esm.sh/@solana/web3.js@1.89.1';
 import { TOKEN_PROGRAM_ID } from 'https://esm.sh/@solana/spl-token@0.3.11';
 
 // Define the request body type
@@ -79,7 +78,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
     
     try {
       // Define filters for token accounts
-      const filters: GetProgramAccountsFilter[] = [
+      const filters = [
         {
           dataSize: 165, // Size of token account (bytes)
         },
@@ -187,7 +186,7 @@ function getEthereumTokens(address: string): TokenResponse {
     }
   ];
   
-  console.log(`Returning ${tokens.length} Ethereum tokens`);
+  console.log(`Returning 3 Ethereum tokens`);
   return { tokens };
 }
 
@@ -197,6 +196,7 @@ serve(async (req) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Content-Type': 'application/json'
   };
 
   // Handle OPTIONS request for CORS
@@ -238,7 +238,7 @@ serve(async (req) => {
     console.error('Error in getWalletTokens function:', error);
     
     return new Response(
-      JSON.stringify({ error: 'Failed to get wallet tokens' }),
+      JSON.stringify({ error: 'Failed to get wallet tokens', message: error.message }),
       { headers, status: 500 }
     );
   }

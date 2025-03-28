@@ -36,31 +36,55 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
       // Fetch tokens for Solana address if available
       if (solanaAddress) {
         console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
-        const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
-        if (solTokens && solTokens.length > 0) {
-          console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
-          allTokens = [...allTokens, ...solTokens];
-        } else {
-          console.log('No Solana tokens found or returned');
+        try {
+          const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
+          console.log('Solana tokens response:', solTokens);
+          if (solTokens && solTokens.length > 0) {
+            console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
+            allTokens = [...allTokens, ...solTokens];
+          } else {
+            console.log('No Solana tokens found or returned');
+          }
+        } catch (err) {
+          console.error('Error fetching Solana tokens:', err);
+          toast({
+            title: "Error loading Solana tokens",
+            description: "There was a problem fetching your Solana tokens. Other tokens may still be available.",
+            variant: "destructive"
+          });
         }
       }
       
       // Fetch tokens for Ethereum address if available
       if (ethereumAddress) {
         console.log(`Attempting to fetch Ethereum tokens for: ${ethereumAddress}`);
-        const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
-        if (ethTokens && ethTokens.length > 0) {
-          console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
-          allTokens = [...allTokens, ...ethTokens];
-        } else {
-          console.log('No Ethereum tokens found or returned');
+        try {
+          const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
+          console.log('Ethereum tokens response:', ethTokens);
+          if (ethTokens && ethTokens.length > 0) {
+            console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
+            allTokens = [...allTokens, ...ethTokens];
+          } else {
+            console.log('No Ethereum tokens found or returned');
+          }
+        } catch (err) {
+          console.error('Error fetching Ethereum tokens:', err);
+          toast({
+            title: "Error loading Ethereum tokens",
+            description: "There was a problem fetching your Ethereum tokens. Other tokens may still be available.",
+            variant: "destructive"
+          });
         }
       }
       
-      console.log(`Total tokens loaded: ${allTokens.length}`);
+      console.log(`Total tokens loaded: ${allTokens.length}`, allTokens);
       setTokens(allTokens);
+      
+      if (allTokens.length === 0 && (solanaAddress || ethereumAddress)) {
+        setError('No tokens found for your connected wallets. If you believe this is an error, please try again.');
+      }
     } catch (err) {
-      console.error('Error fetching wallet tokens:', err);
+      console.error('Error in loadTokens function:', err);
       setError('Failed to load tokens. Please try again later.');
       toast({
         title: "Error loading tokens",
@@ -134,7 +158,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     );
   }
 
-  // Calculate total USD value (if available)
   const totalUsdValue = tokens.reduce((sum, token) => {
     const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
     return sum + tokenValue;
@@ -152,7 +175,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
         )}
       </div>
       
-      {/* Mobile view: Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
         {tokens.map((token) => (
           <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -201,7 +223,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
         ))}
       </div>
       
-      {/* Desktop view: Table */}
       <div className="hidden md:block">
         <Card>
           <Table>
