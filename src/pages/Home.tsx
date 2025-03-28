@@ -6,6 +6,7 @@ import CryptoTicker from '@/components/crypto/CryptoTicker'
 import MarketStats from '@/components/crypto/MarketStats'
 import TrendingTopics from '@/components/crypto/TrendingTopics'
 import TweetInput from '@/components/crypto/TweetInput'
+import NewsSection from '@/components/crypto/NewsSection'
 import { ZapIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
 
@@ -29,6 +30,8 @@ const Home: React.FC = () => {
             </div>
             
             <TweetInput />
+            
+            <NewsSection />
             
             <div className="mt-4 flex items-center justify-between">
               <h2 className="font-medium">No tweets to display</h2>

@@ -1,0 +1,138 @@
+
+import { useQuery } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
+
+// News article interface
+export interface NewsArticle {
+  id: number;
+  title: string;
+  published_at: string;
+  url: string;
+  source: {
+    title: string;
+    domain: string;
+  };
+  currencies: Array<{
+    code: string;
+    title: string;
+    slug: string;
+  }>;
+  votes: {
+    negative: number;
+    positive: number;
+    important: number;
+    liked: number;
+    disliked: number;
+    lol: number;
+    toxic: number;
+    saved: number;
+    comments: number;
+  };
+}
+
+interface CryptoPanicResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: NewsArticle[];
+}
+
+// API constants
+const API_BASE_URL = 'https://cryptopanic.com/api/v1';
+const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
+const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Fetches news from CryptoPanic API
+ */
+const fetchNews = async (): Promise<NewsArticle[]> => {
+  console.info('Fetching fresh crypto news');
+  
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch news: ${response.status}`);
+    }
+    
+    const data: CryptoPanicResponse = await response.json();
+    return data.results;
+  } catch (error) {
+    console.error('Error fetching news:', error);
+    throw error;
+  }
+};
+
+/**
+ * Hook for fetching and managing crypto news
+ */
+export const useNewsData = () => {
+  const { 
+    data: newsArticles = [], 
+    isLoading: loading, 
+    error,
+    refetch,
+    isRefetching
+  } = useQuery({
+    queryKey: ['cryptoNews'],
+    queryFn: fetchNews,
+    refetchInterval: REFRESH_INTERVAL,
+    // Stale time to avoid refreshing data too often
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  const refreshData = async () => {
+    try {
+      await refetch();
+      toast({
+        title: "News Updated",
+        description: "Latest crypto news has been loaded",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Refreshing News",
+        description: error instanceof Error ? error.message : "Failed to refresh news",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  return {
+    newsArticles,
+    loading,
+    error: error ? (error instanceof Error ? error.message : "Unknown error") : null,
+    refreshData,
+    isRefreshing: isRefetching
+  };
+};
+
+/**
+ * Format a date string into a more readable format
+ */
+export const formatNewsDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMilliseconds = now.getTime() - date.getTime();
+  const diffInHours = diffInMilliseconds / (1000 * 60 * 60);
+  
+  if (diffInHours < 1) {
+    const minutes = Math.floor(diffInMilliseconds / (1000 * 60));
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  } else if (diffInHours < 24) {
+    const hours = Math.floor(diffInHours);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  } else {
+    const days = Math.floor(diffInHours / 24);
+    if (days < 7) {
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+  }
+};
