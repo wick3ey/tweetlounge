@@ -86,16 +86,13 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
     }
   };
 
-  // Check if the user has a verified NFT profile picture
-  const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
-
   // Calculate remaining characters
   const remainingChars = 280 - content.length;
   const isNearLimit = remainingChars <= 20;
   const isAtLimit = remainingChars <= 0;
 
   return (
-    <div className="p-4 rounded-xl bg-gray-900/50 border border-gray-800 mb-4">
+    <div className="p-4 rounded-xl bg-crypto-darkgray border border-crypto-gray/50 mb-4 shadow-sm">
       <div className="flex gap-3">
         <Avatar className="h-10 w-10 mt-1">
           {profile?.avatar_url ? (
@@ -112,7 +109,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
             value={content}
             onChange={handleContentChange}
             rows={2}
-            className="w-full resize-none border-0 bg-transparent focus-visible:ring-0 p-0 text-base placeholder:text-gray-500"
+            className="w-full resize-none border-crypto-gray/40 bg-crypto-gray/10 focus-visible:ring-crypto-blue focus-visible:border-crypto-blue p-2 text-base placeholder:text-crypto-lightgray"
           />
           
           {imagePreview && (
@@ -133,7 +130,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
             </div>
           )}
           
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
+          <div className="flex justify-between items-center mt-3 pt-3 border-t border-crypto-gray/40">
             <div className="flex gap-1">
               <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8" asChild>
                 <label>
@@ -151,9 +148,6 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
               </Button>
               <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
                 <Smile className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
-                <MapPin className="h-4 w-4" />
               </Button>
             </div>
             
