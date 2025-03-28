@@ -56,6 +56,19 @@
   body {
     @apply bg-crypto-black text-crypto-text antialiased;
   }
+
+  /* Förbättrade scrollbars */
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-crypto-darkgray/50;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-crypto-gray/80 rounded-full hover:bg-crypto-gray transition-colors;
+  }
 }
 
 @layer components {
@@ -64,31 +77,40 @@
   }
 
   .crypto-card {
-    @apply bg-crypto-darkgray rounded-xl border border-crypto-gray shadow-sm;
+    @apply bg-crypto-darkgray rounded-xl border border-crypto-gray/60 shadow-md backdrop-blur-sm transition-all duration-200 hover:border-crypto-gray/80 hover:shadow-lg;
   }
   
   .crypto-btn {
-    @apply bg-crypto-blue text-white hover:bg-crypto-darkblue transition-colors;
+    @apply bg-crypto-blue text-white hover:bg-crypto-darkblue transition-all duration-200 shadow-sm hover:shadow-md active:shadow-inner active:translate-y-px;
   }
   
   .crypto-stats-card {
-    @apply bg-crypto-darkgray border border-crypto-gray/50 rounded-xl p-4;
+    @apply bg-crypto-darkgray border border-crypto-gray/50 rounded-xl p-4 shadow-sm backdrop-blur-sm hover:shadow-md transition-all;
   }
   
   .crypto-ticker-item {
-    @apply flex items-center space-x-2 whitespace-nowrap;
+    @apply flex items-center space-x-2 whitespace-nowrap font-medium;
   }
   
   .crypto-price-up {
-    @apply text-crypto-green;
+    @apply text-crypto-green font-medium;
   }
   
   .crypto-price-down {
-    @apply text-crypto-red;
+    @apply text-crypto-red font-medium;
   }
   
   .crypto-sidebar-item {
-    @apply flex items-center justify-center p-3 hover:bg-crypto-gray/20 rounded-lg transition-colors;
+    @apply flex items-center justify-center p-3 hover:bg-crypto-gray/20 rounded-lg transition-colors relative;
+  }
+  
+  .crypto-sidebar-item.active {
+    @apply bg-crypto-gray/30 text-white;
+  }
+  
+  .crypto-sidebar-item.active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-crypto-blue rounded-r;
   }
   
   .crypto-tab {
@@ -96,11 +118,57 @@
   }
   
   .crypto-tab-active {
-    @apply bg-crypto-gray text-white;
+    @apply bg-crypto-gray text-white shadow-sm;
   }
   
   .crypto-tab-inactive {
     @apply text-crypto-lightgray hover:bg-crypto-gray/30;
+  }
+
+  /* Nya klasser för UI-förbättring */
+  .glass-card {
+    @apply bg-crypto-darkgray/90 backdrop-blur-md border border-crypto-gray/40 rounded-xl shadow-md;
+  }
+  
+  .crypto-gradient-bg {
+    background: linear-gradient(135deg, hsla(222, 47%, 11%, 1) 0%, hsla(222, 44%, 8%, 1) 100%);
+  }
+  
+  .crypto-gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-crypto-blue to-blue-400;
+  }
+  
+  .crypto-highlight {
+    @apply relative;
+  }
+  
+  .crypto-highlight::after {
+    content: '';
+    @apply absolute -bottom-0.5 left-0 w-full h-0.5 bg-crypto-blue/70 rounded-full transform scale-x-0 transition-transform duration-300 origin-bottom-left;
+  }
+  
+  .crypto-highlight:hover::after {
+    @apply scale-x-100;
+  }
+
+  .crypto-input {
+    @apply bg-crypto-gray/20 border border-crypto-gray/40 rounded-lg px-3 py-2 placeholder:text-crypto-lightgray/60 focus:outline-none focus:ring-2 focus:ring-crypto-blue/50 transition-all;
+  }
+  
+  .crypto-loader {
+    @apply flex items-center justify-center space-x-1;
+  }
+  
+  .crypto-loader div {
+    @apply w-1.5 h-1.5 rounded-full bg-crypto-blue animate-pulse;
+  }
+  
+  .crypto-loader div:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  
+  .crypto-loader div:nth-child(3) {
+    animation-delay: 0.4s;
   }
 }
 
@@ -117,4 +185,52 @@
   display: flex;
   animation: marquee 30s linear infinite;
   width: max-content;
+}
+
+/* Förbättrade animationer */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.8;
+    filter: brightness(1.2);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Glasmorphism effekter */
+.glass-effect {
+  @apply backdrop-blur-md bg-opacity-20 border border-white/10 shadow-xl;
+}
+
+/* Subtila mönster och texturer */
+.crypto-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Förbättrade gradient effekter */
+.crypto-gradient-blue {
+  background: linear-gradient(135deg, #0b4f95 0%, #0077ff 100%);
+}
+
+.crypto-gradient-card {
+  background: linear-gradient(135deg, rgba(22, 25, 32, 0.7) 0%, rgba(26, 29, 36, 0.8) 100%);
 }
