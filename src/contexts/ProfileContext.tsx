@@ -54,6 +54,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           updated_at: data.updated_at,
           ethereum_address: data.ethereum_address,
           solana_address: data.solana_address,
+          avatar_nft_id: data.avatar_nft_id, // Add missing property
         };
         setProfile(profileData);
       }

@@ -182,30 +182,6 @@ const ProfileHeader = ({
       <div className="pt-2 px-4 flex justify-end">
         {isCurrentUser ? (
           <div className="flex space-x-3">
-            {!hasWallet && (
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full font-medium border-gray-300 hover:bg-gray-100"
-                  onClick={() => handleConnectWallet('ethereum')}
-                  disabled={isConnectingWallet}
-                >
-                  <Wallet className="h-4 w-4 mr-1" />
-                  Connect ETH
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full font-medium border-gray-300 hover:bg-gray-100"
-                  onClick={() => handleConnectWallet('solana')}
-                  disabled={isConnectingWallet}
-                >
-                  <Wallet className="h-4 w-4 mr-1" />
-                  Connect SOL
-                </Button>
-              </div>
-            )}
             <Button 
               variant="outline" 
               className="rounded-full font-semibold border-gray-300 hover:bg-gray-100" 
@@ -296,6 +272,32 @@ const ProfileHeader = ({
             <CalendarDays className="h-4 w-4 mr-1" />
             <span>{joinedString}</span>
           </div>
+          
+          {/* Add wallet connect buttons here next to the "joined" date */}
+          {isCurrentUser && !hasWallet && (
+            <div className="flex space-x-2 items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full font-medium border-gray-300 hover:bg-gray-100"
+                onClick={() => handleConnectWallet('ethereum')}
+                disabled={isConnectingWallet}
+              >
+                <Wallet className="h-4 w-4 mr-1" />
+                Connect ETH
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full font-medium border-gray-300 hover:bg-gray-100"
+                onClick={() => handleConnectWallet('solana')}
+                disabled={isConnectingWallet}
+              >
+                <Wallet className="h-4 w-4 mr-1" />
+                Connect SOL
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className="flex gap-5 mt-3 mb-4">
