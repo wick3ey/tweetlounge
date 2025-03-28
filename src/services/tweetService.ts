@@ -360,12 +360,9 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
 
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
-    // Check user authentication first
-    const { data: userData, error: authError } = await supabase.auth.getUser();
-    
-    if (authError) {
-      console.error('Authentication error:', authError);
-      // We'll still attempt to fetch public replies
+    if (!tweetId) {
+      console.error('Invalid tweet ID provided');
+      return [];
     }
     
     const { data, error } = await supabase

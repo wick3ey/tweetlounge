@@ -22,7 +22,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   const isMobile = useIsMobile();
   
   const fetchReplies = async () => {
-    if (!isOpen) return;
+    if (!isOpen || !tweetId) return;
     
     try {
       setLoading(true);
@@ -43,7 +43,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   };
   
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && tweetId) {
       fetchReplies();
     }
   }, [tweetId, isOpen]);

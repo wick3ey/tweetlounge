@@ -24,11 +24,17 @@ interface ReplyProps {
 }
 
 const Reply = ({ reply }: ReplyProps) => {
+  // Add defensive check for reply data
+  if (!reply || !reply.profiles) {
+    return null;
+  }
+  
   const timeAgo = formatDistanceToNow(new Date(reply.created_at), { addSuffix: true });
   const isNFTVerified = reply.profiles.avatar_nft_id && reply.profiles.avatar_nft_chain;
   const isMobile = useIsMobile();
   
   const getInitials = (name: string) => {
+    if (!name) return "??";
     return name.substring(0, 2).toUpperCase();
   };
 
@@ -52,7 +58,7 @@ const Reply = ({ reply }: ReplyProps) => {
                 to={`/profile/${reply.profiles.username}`} 
                 className="font-bold hover:underline text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none"
               >
-                {reply.profiles.display_name}
+                {reply.profiles.display_name || reply.profiles.username}
               </Link>
               
               {isNFTVerified && (

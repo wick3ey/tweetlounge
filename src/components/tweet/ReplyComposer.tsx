@@ -67,6 +67,15 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
       return;
     }
     
+    if (!tweetId) {
+      toast({
+        title: "Error",
+        description: "Invalid tweet reference",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!content.trim() && !imageFile) {
       toast({
         title: "Empty Reply",
@@ -84,6 +93,9 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
         setContent('');
         setImageFile(null);
         setImagePreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         
         toast({
           title: "Reply Posted",
