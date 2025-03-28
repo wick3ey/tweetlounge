@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, type Profile, type ProfileUpdatePayload } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,12 +11,26 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader } from 'lucide-react';
 
+// Define clear types for our profile data
+type Profile = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
+
 const ProfileForm = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [profile, setProfile] = useState<ProfileUpdatePayload>({
     username: '',
@@ -34,30 +48,43 @@ const ProfileForm = () => {
   const getProfile = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
       
       // Check if profile exists
+      console.log('Fetching profile for user:', user.id);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
       
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        if (error.code !== 'PGRST116') { // Not found error
+          throw error;
+        }
       }
       
       if (data) {
+        console.log('Profile data retrieved:', data);
         setProfile({
-          username: data.username,
-          display_name: data.display_name,
-          bio: data.bio,
-          avatar_url: data.avatar_url,
+          username: data.username || '',
+          display_name: data.display_name || '',
+          bio: data.bio || '',
+          avatar_url: data.avatar_url || '',
         });
       } else {
+        console.log('No profile found, creating default profile');
         // Create a default profile if one doesn't exist
         await createDefaultProfile();
       }
     } catch (error) {
+      console.error('Profile loading error:', error);
+      setError('Error loading profile: ' + error.message);
       toast({
         title: 'Error loading profile',
         description: error.message,
@@ -69,8 +96,11 @@ const ProfileForm = () => {
   };
 
   const createDefaultProfile = async () => {
+    if (!user?.id) return;
+    
+    console.log('Creating default profile for user:', user.id);
     const newProfile = {
-      id: user?.id,
+      id: user.id,
       username: user?.email?.split('@')[0] || '',
       display_name: user?.email?.split('@')[0] || '',
       bio: '',
@@ -79,14 +109,25 @@ const ProfileForm = () => {
 
     const { error } = await supabase.from('profiles').insert([newProfile]);
 
-    if (!error) {
-      setProfile({
-        username: newProfile.username,
-        display_name: newProfile.display_name,
-        bio: newProfile.bio,
-        avatar_url: newProfile.avatar_url,
+    if (error) {
+      console.error('Error creating default profile:', error);
+      setError('Error creating profile: ' + error.message);
+      toast({
+        title: 'Error creating profile',
+        description: error.message,
+        variant: 'destructive',
       });
+      return;
     }
+
+    setProfile({
+      username: newProfile.username,
+      display_name: newProfile.display_name,
+      bio: newProfile.bio,
+      avatar_url: newProfile.avatar_url,
+    });
+    
+    console.log('Default profile created successfully');
   };
 
   const updateProfile = async (e: React.FormEvent) => {
@@ -96,7 +137,9 @@ const ProfileForm = () => {
     
     try {
       setSaving(true);
+      setError(null);
       
+      console.log('Updating profile for user:', user.id);
       const updates = {
         id: user.id,
         ...profile,
@@ -114,7 +157,11 @@ const ProfileForm = () => {
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
       });
+      
+      console.log('Profile updated successfully');
     } catch (error) {
+      console.error('Error updating profile:', error);
+      setError('Error updating profile: ' + error.message);
       toast({
         title: 'Error updating profile',
         description: error.message,
@@ -128,14 +175,22 @@ const ProfileForm = () => {
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
+      setError(null);
       
       if (!event.target.files || event.target.files.length === 0) {
         throw new Error('You must select an image to upload.');
       }
       
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+      
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}/avatar.${fileExt}`;
+      const filePath = `${user.id}/avatar.${fileExt}`;
+      
+      // Make sure storage bucket exists
+      console.log('Uploading avatar to storage:', filePath);
       
       // Upload the image
       const { error: uploadError } = await supabase.storage
@@ -157,7 +212,7 @@ const ProfileForm = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: data.publicUrl })
-        .eq('id', user?.id);
+        .eq('id', user.id);
       
       if (updateError) throw updateError;
       
@@ -165,7 +220,11 @@ const ProfileForm = () => {
         title: 'Avatar updated',
         description: 'Your avatar has been successfully updated.',
       });
+      
+      console.log('Avatar updated successfully');
     } catch (error) {
+      console.error('Error uploading avatar:', error);
+      setError('Error uploading avatar: ' + error.message);
       toast({
         title: 'Error uploading avatar',
         description: error.message,
@@ -191,6 +250,27 @@ const ProfileForm = () => {
       <div className="flex items-center justify-center h-64">
         <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
       </div>
+    );
+  }
+
+  if (error && !profile.username) {
+    return (
+      <Card className="w-full">
+        <CardContent className="pt-6">
+          <div className="bg-red-50 p-4 rounded-md mb-4 border border-red-200">
+            <h3 className="text-lg font-medium text-red-800">Profile Error</h3>
+            <div className="mt-2 text-sm text-red-700">{error}</div>
+            <div className="mt-4">
+              <Button 
+                onClick={() => getProfile()}
+                className="bg-red-100 text-red-800 hover:bg-red-200"
+              >
+                Retry Loading Profile
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
