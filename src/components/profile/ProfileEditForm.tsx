@@ -28,6 +28,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverCropperOpen, setCoverCropperOpen] = useState(false);
+  const [croppedCoverBlob, setCroppedCoverBlob] = useState<Blob | null>(null);
   const [saving, setSaving] = useState(false);
   
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,20 +48,18 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   };
   
   const handleCroppedCover = (croppedBlob: Blob) => {
+    // Store the cropped blob for later upload
+    setCroppedCoverBlob(croppedBlob);
+    
+    // Create preview URL
     const previewUrl = URL.createObjectURL(croppedBlob);
     setCoverUrl(previewUrl);
-    
-    // Convert Blob to File for later upload
-    const newFile = new File([croppedBlob], coverFile?.name || "cover.jpg", {
-      type: "image/jpeg",
-    });
-    setCoverFile(newFile);
   };
   
-  const uploadFile = async (file: File, bucket: string, path: string): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${path}/${fileName}`;
+  const uploadFile = async (file: File | Blob, bucket: string, path: string, fileName?: string): Promise<string> => {
+    const fileExt = fileName ? fileName.split('.').pop() : 'jpg';
+    const finalFileName = fileName || `${user?.id}-${Date.now()}.${fileExt}`;
+    const filePath = `${path}/${finalFileName}`;
     
     const { error, data } = await supabase.storage
       .from(bucket)
@@ -101,9 +100,10 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
       }
       
       // Upload cover if changed
-      if (coverFile) {
+      if (croppedCoverBlob) {
         try {
-          newCoverUrl = await uploadFile(coverFile, 'profiles', 'covers');
+          const coverFileName = coverFile?.name || `cover-${Date.now()}.jpg`;
+          newCoverUrl = await uploadFile(croppedCoverBlob, 'profiles', 'covers', coverFileName);
         } catch (error) {
           console.error('Error uploading cover:', error);
           toast({

@@ -11,6 +11,7 @@ interface ProfileHeaderProps {
   username: string;
   displayName: string;
   avatarUrl?: string;
+  coverUrl?: string;
   bio?: string;
   isCurrentUser: boolean;
   followersCount: number;
@@ -25,6 +26,7 @@ const ProfileHeader = ({
   username,
   displayName,
   avatarUrl,
+  coverUrl,
   bio,
   isCurrentUser,
   followersCount,
@@ -57,7 +59,14 @@ const ProfileHeader = ({
   return (
     <div className="border-b border-gray-200 pb-4">
       {/* Cover photo */}
-      <div className="h-48 bg-twitter-extraExtraLight relative">
+      <div 
+        className="h-48 bg-twitter-extraExtraLight relative"
+        style={coverUrl ? {
+          backgroundImage: `url(${coverUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : {}}
+      >
         {/* Profile picture */}
         <div className="absolute -bottom-16 left-4">
           <Avatar className="h-32 w-32 border-4 border-white">

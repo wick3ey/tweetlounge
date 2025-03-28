@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Loader, ZoomIn, ZoomOut, Check } from "lucide-react";
+import { Loader, ZoomIn, ZoomOut, Check, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 interface CoverImageCropperProps {
@@ -29,6 +29,10 @@ const CoverImageCropper = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const cropBoxRef = useRef<HTMLDivElement>(null);
+  
+  // Target aspect ratio for the crop (3:1 for cover image)
+  const targetAspectRatio = 3;
   
   // Load the image when file changes
   useEffect(() => {
@@ -102,7 +106,7 @@ const CoverImageCropper = ({
   }, [isDragging, handleMouseMove, handleMouseUp]);
   
   const handleSave = async () => {
-    if (!containerRef.current || !imageRef.current || !imageSrc) {
+    if (!containerRef.current || !imageRef.current || !imageSrc || !cropBoxRef.current) {
       toast({
         title: "Error",
         description: "Could not process the image. Please try again.",
@@ -124,17 +128,29 @@ const CoverImageCropper = ({
         throw new Error('Could not get canvas context');
       }
       
-      // Calculate the area to crop
+      // Get dimensions
+      const cropBoxRect = cropBoxRef.current.getBoundingClientRect();
       const containerRect = containerRef.current.getBoundingClientRect();
       const imageRect = imageRef.current.getBoundingClientRect();
       
-      // Draw the image to the canvas with the adjusted position and scale
+      // Calculate the scaling factor
+      const scaleFactorX = 1500 / cropBoxRect.width;
+      const scaleFactorY = 500 / cropBoxRect.height;
+      
+      // Calculate the source coordinates for cropping
+      // Convert the crop box coordinates to be relative to the image
+      const sourceX = (cropBoxRect.left - containerRect.left - position.x) / scale;
+      const sourceY = (cropBoxRect.top - containerRect.top - position.y) / scale;
+      const sourceWidth = cropBoxRect.width / scale;
+      const sourceHeight = cropBoxRect.height / scale;
+      
+      // Draw the image to the canvas
       ctx.drawImage(
         imageRef.current,
-        -position.x / scale,
-        -position.y / scale,
-        imageRect.width / scale,
-        imageRect.height / scale,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
         0,
         0,
         1500,
@@ -176,9 +192,19 @@ const CoverImageCropper = ({
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Adjust Cover Photo</DialogTitle>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        <DialogHeader className="p-4 border-b">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="mr-2 h-8 w-8" 
+              onClick={onClose}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <DialogTitle>Edit media</DialogTitle>
+          </div>
         </DialogHeader>
         
         {isLoading ? (
@@ -187,58 +213,76 @@ const CoverImageCropper = ({
           </div>
         ) : (
           <div className="space-y-4">
-            <div 
-              ref={containerRef}
-              className="relative overflow-hidden w-full h-64 bg-gray-100 rounded-lg cursor-move"
-              onMouseDown={handleMouseDown}
-              style={{ touchAction: 'none' }}
-            >
-              {imageSrc && (
-                <img
-                  ref={imageRef}
-                  src={imageSrc}
-                  alt="Cover image preview"
-                  className="absolute transform-gpu"
+            <div className="p-0 bg-black min-h-[400px] flex flex-col items-center justify-center">
+              <div 
+                ref={containerRef}
+                className="relative overflow-hidden w-full bg-black cursor-move flex items-center justify-center"
+                onMouseDown={handleMouseDown}
+                style={{ touchAction: 'none', height: '400px' }}
+              >
+                {imageSrc && (
+                  <img
+                    ref={imageRef}
+                    src={imageSrc}
+                    alt="Cover image preview"
+                    className="absolute transform-gpu"
+                    style={{
+                      transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                      transformOrigin: '0 0',
+                      maxWidth: 'none',
+                    }}
+                    draggable={false}
+                  />
+                )}
+                
+                {/* Crop box with guidelines */}
+                <div 
+                  ref={cropBoxRef}
+                  className="absolute pointer-events-none border-2 border-blue-500"
                   style={{
-                    transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                    transformOrigin: '0 0',
-                    maxWidth: 'none',
+                    width: '100%',
+                    height: '33.33%',  // 3:1 aspect ratio
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6)',
                   }}
-                  draggable={false}
+                >
+                  {/* Grid lines for visual guidance */}
+                  <div className="absolute inset-0 grid grid-cols-3 pointer-events-none">
+                    <div className="border-r border-blue-500 opacity-70 h-full"></div>
+                    <div className="border-r border-blue-500 opacity-70 h-full"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2 p-4 w-full bg-black">
+                <ZoomOut className="h-4 w-4 text-white" />
+                <Slider
+                  value={[scale]}
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  onValueChange={(values) => setScale(values[0])}
+                  className="flex-1"
                 />
-              )}
+                <ZoomIn className="h-4 w-4 text-white" />
+              </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              <ZoomOut className="h-4 w-4" />
-              <Slider
-                value={[scale]}
-                min={1}
-                max={2}
-                step={0.01}
-                onValueChange={(values) => setScale(values[0])}
-                className="flex-1"
-              />
-              <ZoomIn className="h-4 w-4" />
-            </div>
-            
-            <div className="text-xs text-gray-500 text-center">
-              Drag to position and use the slider to zoom
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onClose} disabled={isProcessing}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={isProcessing}>
+            <div className="p-4 flex justify-end">
+              <Button 
+                onClick={handleSave} 
+                variant="default" 
+                disabled={isProcessing} 
+                className="rounded-full font-medium px-6"
+              >
                 {isProcessing ? (
                   <>
                     <Loader className="mr-2 h-4 w-4 animate-spin" /> Processing
                   </>
                 ) : (
-                  <>
-                    <Check className="mr-2 h-4 w-4" /> Apply
-                  </>
+                  "Apply"
                 )}
               </Button>
             </div>
