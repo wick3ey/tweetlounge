@@ -1,134 +1,45 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Database } from '@/integrations/supabase/types';
-
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
 
 const ProfileForm = () => {
   const { user } = useAuth();
+  const { profile, isLoading, error: profileError, updateProfile } = useProfile();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  const [profile, setProfile] = useState<ProfileUpdatePayload>({
-    username: null,
-    display_name: null,
-    bio: null,
-    avatar_url: null,
-    updated_at: new Date().toISOString()
+  const [localProfile, setLocalProfile] = useState({
+    username: '',
+    display_name: '',
+    bio: '',
   });
 
-  useEffect(() => {
-    if (user) {
-      getProfile();
-    }
-  }, [user]);
-
-  const getProfile = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!user?.id) {
-        throw new Error('User not authenticated');
-      }
-      
-      console.log("Fetching profile for user:", user.id);
-      const { data, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      if (fetchError) {
-        console.error('Error fetching profile:', fetchError);
-        if (fetchError.code !== 'PGRST116') { // Not found error
-          throw fetchError;
-        }
-        // If profile not found, create one
-        await createDefaultProfile();
-        return;
-      }
-      
-      if (data) {
-        console.log("Profile found:", data);
-        setProfile({
-          username: data.username,
-          display_name: data.display_name,
-          bio: data.bio,
-          avatar_url: data.avatar_url,
-          updated_at: new Date().toISOString()
-        });
-      } else {
-        console.log('No profile found, creating default profile');
-        await createDefaultProfile();
-      }
-    } catch (error) {
-      console.error('Profile loading error:', error);
-      setError('Error loading profile: ' + error.message);
-      toast({
-        title: 'Error loading profile',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createDefaultProfile = async () => {
-    if (!user?.id) return;
-    
-    try {
-      console.log('Creating default profile for user:', user.id);
-      const newProfile = {
-        username: user?.email?.split('@')[0] || null,
-        display_name: user?.email?.split('@')[0] || null,
-        bio: null,
-        avatar_url: null,
-        updated_at: new Date().toISOString()
-      };
-
-      const { error: insertError } = await supabase.from('profiles').insert([{
-        id: user.id,
-        ...newProfile
-      }]);
-
-      if (insertError) {
-        console.error('Error creating default profile:', insertError);
-        throw insertError;
-      }
-
-      setProfile(newProfile);
-      console.log('Default profile created successfully');
-      setSuccess('Default profile created successfully');
-    } catch (error) {
-      console.error('Error creating default profile:', error);
-      setError('Error creating profile: ' + error.message);
-      toast({
-        title: 'Error creating profile',
-        description: error.message,
-        variant: 'destructive',
+  // Update local form state when profile data loads
+  useState(() => {
+    if (profile) {
+      setLocalProfile({
+        username: profile.username || '',
+        display_name: profile.display_name || '',
+        bio: profile.bio || '',
       });
     }
-  };
+  });
 
-  const updateProfile = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) return;
@@ -138,26 +49,17 @@ const ProfileForm = () => {
       setError(null);
       setSuccess(null);
       
-      console.log('Updating profile for user:', user.id);
-      const updates = {
-        ...profile,
-        updated_at: new Date().toISOString()
-      };
-      
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
-      
-      if (updateError) throw updateError;
+      await updateProfile({
+        username: localProfile.username || null,
+        display_name: localProfile.display_name || null,
+        bio: localProfile.bio || null
+      });
       
       setSuccess('Profile updated successfully');
       toast({
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
       });
-      
-      console.log('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       setError('Error updating profile: ' + error.message);
@@ -207,21 +109,9 @@ const ProfileForm = () => {
         .getPublicUrl(filePath);
       
       // Update the profile with the new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          avatar_url: urlData.publicUrl,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-      
-      if (updateError) throw updateError;
-      
-      // Update local state
-      setProfile(prev => ({
-        ...prev,
+      await updateProfile({ 
         avatar_url: urlData.publicUrl
-      }));
+      });
       
       setSuccess('Avatar updated successfully');
       toast({
@@ -229,7 +119,6 @@ const ProfileForm = () => {
         description: 'Your avatar has been successfully updated.',
       });
       
-      console.log('Avatar updated successfully');
     } catch (error) {
       console.error('Error uploading avatar:', error);
       setError('Error uploading avatar: ' + error.message);
@@ -244,16 +133,16 @@ const ProfileForm = () => {
   };
 
   const getInitials = () => {
-    if (profile.display_name) {
+    if (profile?.display_name) {
       return profile.display_name.substring(0, 2).toUpperCase();
-    } else if (profile.username) {
+    } else if (profile?.username) {
       return profile.username.substring(0, 2).toUpperCase();
     } else {
       return user?.email?.substring(0, 2).toUpperCase() || 'UN';
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
@@ -275,6 +164,13 @@ const ProfileForm = () => {
           </Alert>
         )}
         
+        {profileError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{profileError}</AlertDescription>
+          </Alert>
+        )}
+        
         {success && (
           <Alert variant="default" className="mb-4 bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
@@ -282,11 +178,11 @@ const ProfileForm = () => {
           </Alert>
         )}
         
-        <form onSubmit={updateProfile} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center gap-2">
               <Avatar className="h-20 w-20">
-                {profile.avatar_url ? (
+                {profile?.avatar_url ? (
                   <AvatarImage src={profile.avatar_url} alt="Profile avatar" />
                 ) : null}
                 <AvatarFallback className="text-lg bg-twitter-blue text-white">
@@ -317,8 +213,8 @@ const ProfileForm = () => {
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
-                  value={profile.username || ''}
-                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                  value={localProfile.username}
+                  onChange={(e) => setLocalProfile({ ...localProfile, username: e.target.value })}
                   placeholder="@username"
                 />
               </div>
@@ -326,8 +222,8 @@ const ProfileForm = () => {
                 <Label htmlFor="displayName">Display Name</Label>
                 <Input
                   id="displayName"
-                  value={profile.display_name || ''}
-                  onChange={(e) => setProfile({ ...profile, display_name: e.target.value })}
+                  value={localProfile.display_name}
+                  onChange={(e) => setLocalProfile({ ...localProfile, display_name: e.target.value })}
                   placeholder="Your display name"
                 />
               </div>
@@ -338,8 +234,8 @@ const ProfileForm = () => {
             <Label htmlFor="bio">Bio</Label>
             <Textarea
               id="bio"
-              value={profile.bio || ''}
-              onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+              value={localProfile.bio}
+              onChange={(e) => setLocalProfile({ ...localProfile, bio: e.target.value })}
               placeholder="Tell us about yourself"
               className="min-h-[120px]"
             />
