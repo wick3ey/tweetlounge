@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +15,6 @@ const Home = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Mock data for demonstration
   useEffect(() => {
     const mockTweets: TweetWithAuthor[] = [
       {
@@ -69,14 +67,13 @@ const Home = () => {
       }
     ];
 
-    // Simulate loading data
     setTimeout(() => {
       setTweets(mockTweets);
       setIsLoading(false);
     }, 1000);
   }, []);
 
-  const handleTweetSubmit = (content: string) => {
+  const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) return;
     
     const newTweet: TweetWithAuthor = {
@@ -97,25 +94,23 @@ const Home = () => {
     };
 
     setTweets([newTweet, ...tweets]);
+    
+    return Promise.resolve();
   };
 
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-white">
         <div className="container mx-auto flex">
-          {/* Left Sidebar */}
           <LeftSidebar />
 
-          {/* Main Content */}
           <main className="flex-1 min-h-screen border-x border-gray-200">
             <div className="p-4 border-b border-gray-200">
               <h1 className="text-xl font-bold">Home</h1>
             </div>
 
-            {/* Tweet Composer */}
-            <TweetComposer onSubmit={handleTweetSubmit} />
+            <TweetComposer onTweetSubmit={handleTweetSubmit} placeholder="What's happening?" />
 
-            {/* Tweet Feed */}
             <div className="divide-y divide-gray-200">
               {isLoading ? (
                 <div className="flex justify-center items-center p-10">
@@ -129,7 +124,6 @@ const Home = () => {
             </div>
           </main>
 
-          {/* Right Sidebar */}
           <RightSidebar />
         </div>
       </div>

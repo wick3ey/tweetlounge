@@ -1,4 +1,5 @@
 
 export interface TweetComposerProps {
-  onSubmit: (content: string) => void;
+  onTweetSubmit: (content: string, imageFile?: File) => Promise<void>;
+  placeholder?: string;
 }
