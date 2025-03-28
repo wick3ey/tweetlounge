@@ -319,9 +319,10 @@ export async function retweet(tweetId: string): Promise<boolean> {
 
 export async function replyToTweet(tweetId: string, content: string, imageFile?: File): Promise<boolean> {
   try {
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
     
-    if (!userData.user) {
+    if (userError || !userData.user) {
+      console.error('Authentication error:', userError);
       throw new Error('User must be logged in to reply to a tweet');
     }
     
@@ -331,7 +332,8 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
       imageUrl = await uploadFile(imageFile, 'tweet-replies');
       
       if (!imageUrl) {
-        throw new Error('Failed to upload image');
+        console.error('Failed to upload image but continuing with text-only reply');
+        // We'll continue with a text-only reply instead of failing completely
       }
     }
     
@@ -358,6 +360,14 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
 
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
+    // Check user authentication first
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('Authentication error:', authError);
+      // We'll still attempt to fetch public replies
+    }
+    
     const { data, error } = await supabase
       .from('replies')
       .select(`
@@ -376,7 +386,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       
     if (error) {
       console.error('Error fetching tweet replies:', error);
-      throw error;
+      return [];
     }
     
     return data || [];

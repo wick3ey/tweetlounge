@@ -110,13 +110,8 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  if (!user) {
-    return (
-      <div className="p-4 border-t border-gray-800 text-center text-gray-500 bg-crypto-darkgray">
-        You need to be logged in to reply to this tweet.
-      </div>
-    );
-  }
+  // If no user is logged in, don't render the composer at all
+  if (!user) return null;
 
   return (
     <div className="p-4 border-t border-gray-800 bg-crypto-darkgray">
