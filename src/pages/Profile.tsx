@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
+import NFTBrowser from '@/components/profile/NFTBrowser';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ const Profile = () => {
   const { username } = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState('posts');
   const [isNFTVerified, setIsNFTVerified] = useState(false);
+  const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   
   // This checks if we're viewing the current user's profile
   const isCurrentUser = !username || (profile?.username === username);
@@ -83,6 +85,14 @@ const Profile = () => {
   
   const handleCloseEditForm = () => {
     setIsEditing(false);
+  };
+
+  const handleOpenNFTBrowser = () => {
+    setShowNFTBrowser(true);
+  };
+
+  const handleCloseNFTBrowser = () => {
+    setShowNFTBrowser(false);
   };
   
   if (isLoading) {
@@ -218,6 +228,22 @@ const Profile = () => {
             <DialogTitle>Edit profile</DialogTitle>
           </DialogHeader>
           <ProfileEditForm onClose={handleCloseEditForm} />
+        </DialogContent>
+      </Dialog>
+      
+      {/* NFT Browser Dialog */}
+      <Dialog open={showNFTBrowser} onOpenChange={setShowNFTBrowser}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Choose NFT as Profile Picture</DialogTitle>
+          </DialogHeader>
+          {profile && (
+            <NFTBrowser 
+              ethereumAddress={profile.ethereum_address} 
+              solanaAddress={profile.solana_address}
+              onNFTSelected={handleCloseNFTBrowser}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
