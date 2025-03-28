@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { getTweets } from '@/services/tweetService';
+import { getTweets, getUserTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
@@ -10,9 +10,10 @@ import { useToast } from '@/components/ui/use-toast';
 interface TweetFeedProps {
   userId?: string;
   limit?: number;
+  feedType?: 'all' | 'user' | 'following' | 'user-retweets';
 }
 
-const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
+const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +26,22 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
         setLoading(true);
         setError(null);
         
-        const fetchedTweets = await getTweets(limit, 0);
+        let fetchedTweets: TweetWithAuthor[] = [];
+        
+        if (feedType === 'all') {
+          // Fetch global feed
+          fetchedTweets = await getTweets(limit, 0);
+        } else if (feedType === 'user' && userId) {
+          // Fetch user's posts only
+          fetchedTweets = await getUserTweets(userId, limit, 0);
+        } else if (feedType === 'user-retweets' && userId) {
+          // Fetch user's retweets
+          fetchedTweets = await getUserTweets(userId, limit, 0, true);
+        } else {
+          // Default to global feed
+          fetchedTweets = await getTweets(limit, 0);
+        }
+        
         setTweets(fetchedTweets);
       } catch (err) {
         console.error('Failed to fetch tweets:', err);
@@ -42,7 +58,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
     };
 
     fetchTweets();
-  }, [limit, toast]);
+  }, [limit, toast, feedType, userId]);
 
   if (loading) {
     return (
@@ -70,7 +86,11 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
   if (tweets.length === 0) {
     return (
       <div className="p-6 text-center border-b border-gray-800 rounded-lg bg-gray-900/20">
-        <p className="text-gray-400">No tweets yet. Be the first to post!</p>
+        <p className="text-gray-400">
+          {feedType === 'user' ? 'No tweets yet. Post something to get started!' : 
+           feedType === 'user-retweets' ? 'No retweets yet.' : 
+           'No tweets yet. Be the first to post!'}
+        </p>
       </div>
     );
   }

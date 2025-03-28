@@ -30,6 +30,7 @@ import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { CryptoButton } from '@/components/ui/crypto-button';
+import TweetFeed from '@/components/tweet/TweetFeed';
 
 // Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
@@ -215,6 +216,13 @@ const Profile = () => {
               <span className="hidden sm:inline">Media</span>
             </TabsTrigger>
             <TabsTrigger 
+              value="retweets" 
+              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
+            >
+              <Repeat className="mr-2 h-4 w-4 sm:hidden" />
+              <span className="hidden sm:inline">Retweets</span>
+            </TabsTrigger>
+            <TabsTrigger 
               value="assets" 
               className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
             >
@@ -224,18 +232,9 @@ const Profile = () => {
           </TabsList>
           
           <TabsContent value="posts" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              {activeTab === 'posts' && (
-                <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                  <div className="text-xl font-bold mb-2 text-crypto-text">No posts yet</div>
-                  <p className="text-crypto-lightgray text-center mb-6">When you post, your tweets will show up here</p>
-                  {isCurrentUser && (
-                    <CryptoButton className="px-6 py-2">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Create your first post
-                    </CryptoButton>
-                  )}
-                </div>
+            <div className="px-4">
+              {profile.id && (
+                <TweetFeed userId={profile.id} limit={10} feedType="user" />
               )}
             </div>
           </TabsContent>
@@ -257,6 +256,14 @@ const Profile = () => {
                 <div className="text-xl font-bold mb-2 text-crypto-text">No media yet</div>
                 <p className="text-crypto-lightgray text-center">When you post photos or videos, they will show up here</p>
               </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="retweets" className="mt-0 pt-4">
+            <div className="px-4">
+              {profile.id && (
+                <TweetFeed userId={profile.id} limit={10} feedType="user-retweets" />
+              )}
             </div>
           </TabsContent>
           

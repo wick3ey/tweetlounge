@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 
@@ -12,7 +11,6 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
     
     let imageUrl = null;
     
-    // If image file is provided, upload it to storage
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -34,7 +32,6 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       imageUrl = data.publicUrl;
     }
     
-    // Insert tweet into database
     const { data, error } = await supabase
       .from('tweets')
       .insert({
@@ -70,7 +67,6 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
       throw error;
     }
     
-    // Transform the data to match the TweetWithAuthor type
     const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
       id: item.id,
       content: item.content,
@@ -99,21 +95,27 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
   }
 }
 
-export async function getUserTweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
+export async function getUserTweets(
+  userId: string, 
+  limit = 20, 
+  offset = 0, 
+  retweetsOnly = false
+): Promise<TweetWithAuthor[]> {
   try {
+    const functionName = retweetsOnly ? 'get_user_retweets' : 'get_user_tweets';
+    
     const { data, error } = await supabase
-      .rpc('get_user_tweets', { 
+      .rpc(functionName, { 
         user_id: userId,
         limit_count: limit, 
         offset_count: offset 
       });
       
     if (error) {
-      console.error('Error fetching user tweets:', error);
+      console.error(`Error fetching user ${retweetsOnly ? 'retweets' : 'tweets'}:`, error);
       throw error;
     }
     
-    // Transform the data to match the TweetWithAuthor type
     const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
       id: item.id,
       content: item.content,
@@ -137,7 +139,7 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
     
     return transformedData;
   } catch (error) {
-    console.error('Failed to fetch user tweets:', error);
+    console.error(`Failed to fetch user ${retweetsOnly ? 'retweets' : 'tweets'}:`, error);
     return [];
   }
 }
@@ -158,9 +160,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
       });
       
     if (error) {
-      // If error is because user already liked tweet
       if (error.code === '23505') {
-        // Delete the like instead (unlike)
         const { error: unlikeError } = await supabase
           .from('likes')
           .delete()
@@ -195,7 +195,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
-    // First check if user already retweeted this tweet
     const { data: existingRetweet, error: checkError } = await supabase
       .from('retweets')
       .select()
@@ -209,7 +208,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // If user already retweeted, remove the retweet
     if (existingRetweet && existingRetweet.length > 0) {
       const { error: deleteError } = await supabase
         .from('retweets')
@@ -227,7 +225,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return true;
     }
     
-    // Otherwise create a new retweet
     const { error } = await supabase
       .from('retweets')
       .insert({
@@ -240,7 +237,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // Also create a tweet entry that is marked as a retweet
     const { error: tweetError } = await supabase
       .from('tweets')
       .insert({
@@ -252,7 +248,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
-      // Try to rollback the retweet entry
       await supabase
         .from('retweets')
         .delete()
