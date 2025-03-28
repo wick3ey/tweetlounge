@@ -14,6 +14,8 @@ interface ProfileHeaderProps {
   avatarUrl?: string;
   coverUrl?: string;
   bio?: string;
+  location?: string;
+  website?: string;
   isCurrentUser: boolean;
   followersCount: number;
   followingCount: number;
@@ -29,6 +31,8 @@ const ProfileHeader = ({
   avatarUrl,
   coverUrl,
   bio,
+  location,
+  website,
   isCurrentUser,
   followersCount,
   followingCount,
@@ -56,6 +60,16 @@ const ProfileHeader = ({
   const joinedString = joinedDate 
     ? `Joined ${formatDistance(new Date(joinedDate), new Date(), { addSuffix: true })}`
     : 'Recently joined';
+
+  // Function to get domain from URL
+  const getDomainFromUrl = (url: string): string => {
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname.replace('www.', '');
+    } catch (e) {
+      return url;
+    }
+  };
 
   return (
     <div className="border-b border-gray-200 pb-4">
@@ -117,7 +131,28 @@ const ProfileHeader = ({
         
         {bio && <p className="mt-3 text-gray-900">{bio}</p>}
         
-        <div className="flex items-center text-gray-500 mt-3 text-sm gap-4">
+        <div className="flex flex-wrap items-center text-gray-500 mt-3 text-sm gap-4">
+          {location && (
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span>{location}</span>
+            </div>
+          )}
+          
+          {website && (
+            <div className="flex items-center">
+              <LinkIcon className="h-4 w-4 mr-1" />
+              <a 
+                href={website.startsWith('http') ? website : `https://${website}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-twitter-blue hover:underline"
+              >
+                {getDomainFromUrl(website.startsWith('http') ? website : `https://${website}`)}
+              </a>
+            </div>
+          )}
+          
           <div className="flex items-center">
             <CalendarDays className="h-4 w-4 mr-1" />
             <span>{joinedString}</span>
