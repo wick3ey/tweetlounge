@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { fetchWalletTokens, Token } from '@/utils/tokenService';
-import { TokenCardUI, WalletAssetsUI } from '@/components/profile/WalletAssetsUI';
+import { WalletAssetsUI } from '@/components/profile/WalletAssetsUI';
 
 interface WalletAssetsProps {
   solanaAddress: string;
@@ -14,7 +14,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<string>("grid");
-  const [isCompactView, setIsCompactView] = useState(false);
   
   const fetchTokens = async () => {
     if (!solanaAddress) return;
@@ -105,9 +104,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       onRefresh={handleRefresh}
       solPrice={solPrice}
       viewMode={viewMode}
-      isCompactView={isCompactView}
       setViewMode={setViewMode}
-      setIsCompactView={setIsCompactView}
     />
   );
 };

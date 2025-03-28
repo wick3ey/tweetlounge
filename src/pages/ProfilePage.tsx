@@ -9,7 +9,6 @@ import { Loader } from "lucide-react";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import Navbar from "@/components/layout/Navbar";
-import { ThemeProvider } from "@/components/ui/theme-provider";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();

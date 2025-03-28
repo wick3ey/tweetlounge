@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Toggle } from "@/components/ui/toggle";
 import { 
   ChevronDown,
   ChevronUp,
@@ -31,10 +30,9 @@ import { Token } from "@/utils/tokenService";
 interface TokenCardUIProps {
   token: Token;
   solPrice?: number;
-  isCompact: boolean;
 }
 
-export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) => {
+export const TokenCardUI = ({ token, solPrice }: TokenCardUIProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if the token has a price/value
@@ -100,47 +98,6 @@ export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) =>
     return `bg-gradient-to-r from-[hsl(${h},70%,40%)] to-[hsl(${h},70%,30%)]`;
   };
   
-  // Compact card view
-  if (isCompact) {
-    return (
-      <div className="token-card transition-all duration-300 hover:scale-[1.02]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Avatar className={`h-7 w-7 mr-2 ${getTokenColor()}`}>
-              {(token.logoURI || token.logo) ? (
-                <AvatarImage src={token.logoURI || token.logo} alt={token.name} />
-              ) : (
-                <AvatarFallback className="text-xs text-white font-medium">
-                  {token.symbol.substring(0, 2)}
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <div>
-              <div className="font-medium text-sm">
-                {token.symbol} 
-                <span className="ml-2 text-xs text-muted-foreground">{formatAmount(token.amount)}</span>
-              </div>
-            </div>
-          </div>
-          
-          {hasPrice ? (
-            <div className="text-sm font-medium">{calculateUsdValue()}</div>
-          ) : (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-6 w-6 p-0"
-              onClick={() => window.open(getDexScreenerLink(), '_blank')}
-            >
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Regular, expanded card view
   return (
     <Card className="overflow-hidden interactive-card border-border/50 shadow-none">
       <div className="flex flex-col">
@@ -161,11 +118,6 @@ export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) =>
           <div className="flex-1 min-w-0">
             <div className="flex items-center">
               <div className="font-medium leading-none mb-1">{token.name}</div>
-              {token.symbol === 'SOL' && (
-                <Badge variant="outline" className="ml-2 py-0 h-5 bg-primary/10 text-primary border-primary/20">
-                  Solana Native
-                </Badge>
-              )}
             </div>
             <div className="text-sm text-muted-foreground truncate">
               {token.symbol} • {formatAmount(token.amount)}
@@ -244,9 +196,7 @@ interface WalletAssetsUIProps {
   onRefresh: () => void;
   solPrice: number | null;
   viewMode: string;
-  isCompactView: boolean;
   setViewMode: (mode: string) => void;
-  setIsCompactView: (isCompact: boolean) => void;
 }
 
 export const WalletAssetsUI = ({
@@ -258,12 +208,9 @@ export const WalletAssetsUI = ({
   onRefresh,
   solPrice,
   viewMode,
-  isCompactView,
-  setViewMode,
-  setIsCompactView
+  setViewMode
 }: WalletAssetsUIProps) => {
   const [hideSmallBalances, setHideSmallBalances] = useState(false);
-  const [showPercentages, setShowPercentages] = useState(false);
   
   // Filter tokens based on settings
   const filteredTokens = hideSmallBalances 
@@ -302,39 +249,6 @@ export const WalletAssetsUI = ({
         </div>
         
         <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                aria-label="Filter options"
-              >
-                <ListFilter className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 glass-card border-border/60">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Hide small balances</span>
-                  <Toggle 
-                    pressed={hideSmallBalances}
-                    onPressedChange={setHideSmallBalances}
-                    size="sm"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Show percentages</span>
-                  <Toggle 
-                    pressed={showPercentages}
-                    onPressedChange={setShowPercentages}
-                    size="sm"
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-          
           <Button
             variant="ghost"
             size="sm"
@@ -361,20 +275,6 @@ export const WalletAssetsUI = ({
               </svg>
             </ToggleGroupItem>
           </ToggleGroup>
-          
-          <Toggle
-            pressed={isCompactView}
-            onPressedChange={setIsCompactView}
-            aria-label="Toggle compact view"
-            className="h-8 w-8 p-0"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 19H2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h13.3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2z" />
-              <path d="M22 5H9" />
-              <path d="M18 19l4-8" />
-              <path d="M22 19l-4-8" />
-            </svg>
-          </Toggle>
         </div>
       </div>
       
@@ -423,7 +323,6 @@ export const WalletAssetsUI = ({
                   key={`${token.address}-${index}`} 
                   token={token} 
                   solPrice={solPrice || undefined}
-                  isCompact={isCompactView}
                 />
               ))}
             </div>

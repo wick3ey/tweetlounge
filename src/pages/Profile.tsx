@@ -29,8 +29,6 @@ import {
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import WalletAssets from '@/components/profile/WalletAssets';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Switch } from '@/components/ui/switch';
 import { CryptoButton } from '@/components/ui/crypto-button';
 
 // Badge component
@@ -50,7 +48,6 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
-  const [isCompactView, setIsCompactView] = useState(false);
   
   const isCurrentUser = !username || (profile?.username === username);
   
@@ -164,19 +161,7 @@ const Profile = () => {
   };
   
   return (
-    <div className="w-full transition-all duration-300 bg-crypto-black text-crypto-text">
-      <div className="flex justify-end p-2 gap-2 items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-crypto-lightgray mr-1 hidden sm:inline">Compact view</span>
-          <Switch 
-            checked={isCompactView}
-            onCheckedChange={setIsCompactView}
-            className="data-[state=checked]:bg-crypto-blue"
-          />
-        </div>
-        <ThemeToggle />
-      </div>
-      
+    <div className="w-full bg-crypto-black text-crypto-text">
       <ProfileHeader
         userId={user?.id || ''}
         username={profile.username || 'username'}
@@ -269,17 +254,9 @@ const Profile = () => {
           
           <TabsContent value="assets" className="mt-0 pt-4">
             {profile.solana_address ? (
-              <div className={`transition-all duration-300 ${isCompactView ? 'px-2' : 'px-4'}`}>
-                <div className="mb-4 flex items-center justify-between">
+              <div className="px-4">
+                <div className="mb-4">
                   <h2 className="font-bold text-lg text-crypto-blue">Wallet Assets</h2>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="text-xs h-8 bg-crypto-darkgray border-crypto-gray text-crypto-lightgray hover:bg-crypto-gray/20">
-                      Hide small balances
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs h-8 bg-crypto-darkgray border-crypto-gray text-crypto-lightgray hover:bg-crypto-gray/20">
-                      Show %
-                    </Button>
-                  </div>
                 </div>
                 <WalletAssets 
                   solanaAddress={profile.solana_address}
