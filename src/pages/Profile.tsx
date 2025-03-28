@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +32,6 @@ import WalletAssets from '@/components/profile/WalletAssets';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import TweetFeed from '@/components/tweet/TweetFeed';
 
-// Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
     {children}
@@ -234,7 +232,7 @@ const Profile = () => {
           
           <TabsContent value="posts" className="mt-0 pt-4">
             <div className="px-4">
-              {profile.id && (
+              {profile && profile.id && (
                 <TweetFeed userId={profile.id} limit={10} feedType="user" />
               )}
             </div>
@@ -262,7 +260,7 @@ const Profile = () => {
           
           <TabsContent value="retweets" className="mt-0 pt-4">
             <div className="px-4">
-              {profile.id && (
+              {profile && profile.id && (
                 <TweetFeed userId={profile.id} limit={10} feedType="user-retweets" />
               )}
             </div>
@@ -328,7 +326,6 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for enlarged profile image */}
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">

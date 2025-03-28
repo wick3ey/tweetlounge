@@ -274,6 +274,30 @@ export type Database = {
           avatar_nft_chain: string
         }[]
       }
+      get_user_retweets: {
+        Args: {
+          user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
       get_user_tweets: {
         Args: {
           user_id: string
