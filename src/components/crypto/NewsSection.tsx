@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsService';
-import { AlertTriangle, ExternalLink, Loader2, Newspaper, RefreshCw, Rss } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Newspaper, RefreshCw, Rss, TrendingUp, Tag, Clock, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Component for a single news article
+// Component for a single news article with enhanced design
 const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
   const formattedDate = formatNewsDate(article.published_at);
   
@@ -18,51 +19,91 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
       href={article.url} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block p-3 border-b border-crypto-gray hover:bg-crypto-gray/10 transition-colors"
+      className="group block p-4 border-b border-crypto-gray hover:bg-crypto-gray/10 transition-colors rounded-md"
     >
-      <div className="flex justify-between items-start">
-        <div className="flex-1 pr-3">
-          <h3 className="font-medium text-xs text-white mb-1 line-clamp-2">
+      <div className="flex justify-between items-start gap-3">
+        <div className="flex-1">
+          <h3 className="font-medium text-sm text-white group-hover:text-crypto-blue transition-colors line-clamp-2 leading-tight">
             {article.title}
           </h3>
-          <div className="flex items-center text-xs text-crypto-lightgray">
-            <span className="mr-2 text-[10px]">{article.source.title}</span>
-            <span className="text-[10px]">{formattedDate}</span>
+          
+          <div className="flex items-center mt-2 text-xs text-crypto-lightgray">
+            <div className="flex items-center">
+              <Clock className="h-3 w-3 mr-1" />
+              <span>{formattedDate}</span>
+            </div>
+            <span className="mx-2">•</span>
+            <div className="flex items-center">
+              <Tag className="h-3 w-3 mr-1" />
+              <span className="truncate max-w-[100px]">{article.source.title}</span>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {article.currencies.slice(0, 2).map((currency) => (
+          
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {article.currencies.slice(0, 3).map((currency) => (
               <span 
                 key={currency.code} 
-                className="bg-crypto-blue/20 text-crypto-blue text-[10px] px-1.5 py-0.5 rounded-full"
+                className="bg-crypto-blue/20 text-crypto-blue text-[10px] px-2 py-0.5 rounded-full flex items-center"
               >
                 {currency.code}
               </span>
             ))}
+            
+            {article.votes && (
+              <div className="flex gap-1 ml-auto">
+                {article.votes.positive > 0 && (
+                  <span className="bg-crypto-green/20 text-crypto-green text-[10px] px-1.5 py-0.5 rounded-full flex items-center">
+                    +{article.votes.positive}
+                  </span>
+                )}
+                {article.votes.negative > 0 && (
+                  <span className="bg-crypto-red/20 text-crypto-red text-[10px] px-1.5 py-0.5 rounded-full flex items-center">
+                    -{article.votes.negative}
+                  </span>
+                )}
+                {article.votes.important > 0 && (
+                  <span className="bg-crypto-blue/20 text-crypto-blue text-[10px] px-1.5 py-0.5 rounded-full flex items-center">
+                    !{article.votes.important}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
-        <ExternalLink className="w-3 h-3 text-crypto-lightgray shrink-0" />
+        <div className="bg-crypto-darkgray rounded-full p-1.5 group-hover:bg-crypto-blue/20 transition-colors">
+          <ExternalLink className="w-3.5 h-3.5 text-crypto-lightgray group-hover:text-crypto-blue transition-colors" />
+        </div>
       </div>
     </a>
   );
 };
 
-// Loading skeleton for news items
+// Loading skeleton for news items - enhanced with more details
 const NewsItemSkeleton: React.FC = () => (
-  <div className="p-3 border-b border-crypto-gray">
+  <div className="p-4 border-b border-crypto-gray">
     <div className="flex justify-between items-start">
       <div className="flex-1 pr-3">
-        <Skeleton className="h-3 w-full mb-2" />
-        <Skeleton className="h-3 w-3/4 mb-2" />
-        <div className="flex items-center space-x-2 mt-1">
-          <Skeleton className="h-2 w-12" />
-          <Skeleton className="h-2 w-16" />
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-3/4 mb-3" />
+        
+        <div className="flex items-center space-x-4 mt-2">
+          <div className="flex items-center space-x-1">
+            <Skeleton className="h-3 w-3 rounded-full" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <div className="flex items-center space-x-1">
+            <Skeleton className="h-3 w-3 rounded-full" />
+            <Skeleton className="h-3 w-20" />
+          </div>
         </div>
-        <div className="flex space-x-1 mt-1">
-          <Skeleton className="h-4 w-8 rounded-full" />
-          <Skeleton className="h-4 w-8 rounded-full" />
+        
+        <div className="flex space-x-2 mt-2">
+          <Skeleton className="h-4 w-10 rounded-full" />
+          <Skeleton className="h-4 w-10 rounded-full" />
+          <Skeleton className="h-4 w-10 rounded-full" />
         </div>
       </div>
-      <Skeleton className="h-3 w-3 rounded" />
+      <Skeleton className="h-6 w-6 rounded-full" />
     </div>
   </div>
 );
@@ -91,8 +132,8 @@ const NewsSection: React.FC = () => {
   };
 
   return (
-    <Card className="crypto-news-card mt-4 bg-crypto-black border-crypto-gray">
-      <CardHeader className="pb-2">
+    <Card className="crypto-news-card bg-crypto-black border-crypto-gray shadow-md overflow-hidden">
+      <CardHeader className="pb-2 border-b border-crypto-gray">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Newspaper className="w-5 h-5 text-crypto-blue mr-2" />
@@ -148,7 +189,7 @@ const NewsSection: React.FC = () => {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="max-h-[300px] overflow-y-auto">
+          <ScrollArea className="max-h-[400px]">
             {loading ? (
               // Loading skeletons
               Array(4).fill(0).map((_, index) => (
@@ -156,13 +197,14 @@ const NewsSection: React.FC = () => {
               ))
             ) : newsArticles.length === 0 ? (
               // Empty state
-              <div className="p-4 text-center">
-                <Rss className="h-6 w-6 text-crypto-lightgray mx-auto mb-2" />
-                <p className="text-crypto-lightgray text-sm">No news available</p>
+              <div className="p-6 text-center">
+                <Rss className="h-8 w-8 text-crypto-lightgray mx-auto mb-2 opacity-50" />
+                <p className="text-crypto-lightgray text-sm mb-2">No news available</p>
+                <p className="text-xs text-crypto-lightgray/70 mb-3">Check back later for crypto updates</p>
                 <CryptoButton 
                   variant="outline" 
                   size="sm" 
-                  className="mt-3"
+                  className="mt-2"
                   onClick={handleRefresh}
                 >
                   Refresh
@@ -170,11 +212,24 @@ const NewsSection: React.FC = () => {
               </div>
             ) : (
               // Articles
-              newsArticles.slice(0, 6).map((article) => (
-                <NewsItem key={article.id} article={article} />
-              ))
+              <div className="p-2 space-y-1">
+                {newsArticles.map((article) => (
+                  <NewsItem key={article.id} article={article} />
+                ))}
+                
+                <div className="p-3 flex justify-center">
+                  <CryptoButton 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-crypto-blue hover:text-crypto-blue hover:bg-crypto-blue/10 w-full"
+                  >
+                    <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                    Show More News
+                  </CryptoButton>
+                </div>
+              </div>
             )}
-          </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
