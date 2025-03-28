@@ -21,14 +21,33 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
+  // Validate tweetId when component mounts
+  useEffect(() => {
+    if (!tweetId || tweetId.trim() === '') {
+      console.error('Invalid tweetId provided to RepliesSection:', tweetId);
+      setError('Invalid tweet reference');
+    }
+  }, [tweetId]);
+  
   const fetchReplies = async () => {
-    if (!isOpen || !tweetId) return;
+    if (!isOpen) return;
+    if (!tweetId || tweetId.trim() === '') {
+      setError('Invalid tweet reference');
+      return;
+    }
     
     try {
       setLoading(true);
       setError(null);
       const data = await getTweetReplies(tweetId);
-      setReplies(data);
+      
+      if (Array.isArray(data)) {
+        setReplies(data);
+      } else {
+        console.error('Unexpected response format:', data);
+        setReplies([]);
+        setError('Error loading replies: Unexpected data format');
+      }
     } catch (error) {
       console.error('Failed to fetch replies:', error);
       setError('Could not load replies. Please try again later.');
@@ -43,7 +62,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   };
   
   useEffect(() => {
-    if (isOpen && tweetId) {
+    if (isOpen && tweetId && tweetId.trim() !== '') {
       fetchReplies();
     }
   }, [tweetId, isOpen]);

@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { CryptoButton } from '@/components/ui/crypto-button';
@@ -27,6 +27,13 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Validate the tweetId when component mounts
+  useEffect(() => {
+    if (!tweetId || tweetId.trim() === '') {
+      console.error('Invalid tweet ID provided to ReplyComposer:', tweetId);
+    }
+  }, [tweetId]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -50,6 +57,15 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   };
 
   const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const resetForm = () => {
+    setContent('');
     setImageFile(null);
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -90,12 +106,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
       const success = await replyToTweet(tweetId, content, imageFile || undefined);
       
       if (success) {
-        setContent('');
-        setImageFile(null);
-        setImagePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
+        resetForm();
         
         toast({
           title: "Reply Posted",
