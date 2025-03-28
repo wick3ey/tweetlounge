@@ -57,10 +57,10 @@ const ProfilePage = () => {
 
   if (isLoading || profileLoading) {
     return (
-      <div className="min-h-screen bg-background bg-mesh-gradient flex items-center justify-center">
-        <div className="glass-card p-8 flex flex-col items-center">
-          <Loader className="h-10 w-10 animate-spin text-primary mb-4" />
-          <p className="gradient-text animate-pulse font-medium">Loading profile...</p>
+      <div className="min-h-screen bg-crypto-black flex items-center justify-center">
+        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
+          <Loader className="h-10 w-10 animate-spin text-crypto-blue mb-4" />
+          <p className="text-crypto-blue animate-pulse font-medium">Loading profile...</p>
         </div>
       </div>
     );
@@ -68,13 +68,13 @@ const ProfilePage = () => {
 
   if (!profileExists) {
     return (
-      <div className="min-h-screen bg-background bg-mesh-gradient flex flex-col items-center justify-center px-4">
-        <div className="glass-card p-8 max-w-md text-center">
-          <h1 className="text-2xl font-bold mb-4 gradient-text font-display">User not found</h1>
-          <p className="text-muted-foreground mb-6">The user you're looking for doesn't exist or has been removed.</p>
+      <div className="min-h-screen bg-crypto-black flex flex-col items-center justify-center px-4">
+        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
+          <h1 className="text-2xl font-bold mb-4 text-crypto-blue font-display">User not found</h1>
+          <p className="text-crypto-lightgray mb-6">The user you're looking for doesn't exist or has been removed.</p>
           <button 
             onClick={() => navigate('/home')}
-            className="interactive-button px-4 py-2"
+            className="bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
           >
             Return Home
           </button>
@@ -84,11 +84,11 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background bg-mesh-gradient">
+    <div className="min-h-screen bg-crypto-black">
       <Navbar />
       <div className="container mx-auto flex flex-col lg:flex-row">
         <LeftSidebar />
-        <main className="flex-1 min-h-screen border-x border-border/30">
+        <main className="flex-1 min-h-screen border-x border-crypto-gray/30">
           <Profile />
         </main>
         <RightSidebar />

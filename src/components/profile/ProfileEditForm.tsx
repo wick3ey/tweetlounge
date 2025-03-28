@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,7 @@ import {
   updateWalletAddress, 
   WalletType 
 } from '@/utils/walletConnector';
+import { CryptoButton } from '@/components/ui/crypto-button';
 
 interface ProfileEditFormProps {
   onClose?: () => void;
@@ -287,30 +289,30 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
-        <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
+        <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
       </div>
     );
   }
   
   if (error) {
     return (
-      <div className="p-4 text-red-500">
+      <div className="p-4 text-crypto-red">
         Error loading profile: {error}
       </div>
     );
   }
   
   return (
-    <div>
+    <div className="text-crypto-text">
       {/* Cover Image Section */}
       <div className="relative mb-16">
-        <AspectRatio ratio={3/1} className="bg-gray-100 w-full">
+        <AspectRatio ratio={3/1} className="bg-crypto-darkgray w-full">
           <div className="h-full w-full relative">
             {coverUrl ? (
               <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <p className="text-gray-500">No cover image</p>
+              <div className="w-full h-full bg-crypto-black flex items-center justify-center">
+                <p className="text-crypto-lightgray">No cover image</p>
               </div>
             )}
             
@@ -334,11 +336,11 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
         
         <div className="absolute -bottom-12 left-6">
           <div className="relative group">
-            <Avatar className="h-24 w-24 border-4 border-white">
+            <Avatar className="h-24 w-24 border-4 border-crypto-darkgray">
               {avatarUrl ? (
                 <AvatarImage src={avatarUrl} alt="Profile" />
               ) : null}
-              <AvatarFallback className="bg-twitter-blue text-white text-2xl">
+              <AvatarFallback className="bg-crypto-blue text-white text-2xl">
                 {getInitials()}
               </AvatarFallback>
             </Avatar>
@@ -374,6 +376,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="Your name"
+            className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
           />
         </div>
         
@@ -384,6 +387,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="username"
+            className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
           />
         </div>
         
@@ -394,7 +398,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Tell us about yourself"
-            className="min-h-[100px]"
+            className="min-h-[100px] bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
           />
         </div>
         
@@ -408,8 +412,9 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             onChange={(e) => setLocation(e.target.value)}
             placeholder="e.g., Malmö"
             maxLength={30}
+            className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
           />
-          <p className="text-xs text-gray-500">{location.length}/30 characters</p>
+          <p className="text-xs text-crypto-lightgray">{location.length}/30 characters</p>
         </div>
         
         <div className="space-y-2">
@@ -421,34 +426,35 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             placeholder="e.g., https://www.google.com"
+            className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
           />
-          <p className="text-xs text-gray-500">Enter your website URL</p>
+          <p className="text-xs text-crypto-lightgray">Enter your website URL</p>
         </div>
         
-        <Separator className="my-6" />
+        <Separator className="my-6 bg-crypto-gray" />
         <div className="space-y-4">
           <h3 className="text-lg font-medium flex items-center">
             <Wallet className="h-5 w-5 mr-2" /> 
             Connect Crypto Wallets
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-crypto-lightgray">
             Connect your crypto wallets to use your NFTs as profile pictures
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border rounded-md p-4">
+            <div className="border border-crypto-gray rounded-md p-4 bg-crypto-black">
               <h4 className="font-medium">Ethereum (MetaMask)</h4>
               {ethereumAddress ? (
                 <div className="mt-2">
-                  <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                  <p className="text-xs font-mono bg-crypto-darkgray p-2 rounded break-all text-crypto-text">
                     {ethereumAddress}
                   </p>
-                  <p className="text-xs text-green-600 mt-1">✓ Connected</p>
+                  <p className="text-xs text-crypto-green mt-1">✓ Connected</p>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500 mt-1">Not connected</p>
+                <p className="text-xs text-crypto-lightgray mt-1">Not connected</p>
               )}
-              <Button 
+              <CryptoButton 
                 type="button"
                 size="sm" 
                 className="mt-3 w-full"
@@ -457,22 +463,22 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
               >
                 {connectingWallet ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
                 {ethereumAddress ? 'Reconnect Wallet' : 'Connect MetaMask'}
-              </Button>
+              </CryptoButton>
             </div>
             
-            <div className="border rounded-md p-4">
+            <div className="border border-crypto-gray rounded-md p-4 bg-crypto-black">
               <h4 className="font-medium">Solana (Phantom)</h4>
               {solanaAddress ? (
                 <div className="mt-2">
-                  <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                  <p className="text-xs font-mono bg-crypto-darkgray p-2 rounded break-all text-crypto-text">
                     {solanaAddress}
                   </p>
-                  <p className="text-xs text-green-600 mt-1">✓ Connected</p>
+                  <p className="text-xs text-crypto-green mt-1">✓ Connected</p>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500 mt-1">Not connected</p>
+                <p className="text-xs text-crypto-lightgray mt-1">Not connected</p>
               )}
-              <Button 
+              <CryptoButton 
                 type="button"
                 size="sm" 
                 className="mt-3 w-full"
@@ -481,31 +487,32 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
               >
                 {connectingWallet ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
                 {solanaAddress ? 'Reconnect Wallet' : 'Connect Phantom'}
-              </Button>
+              </CryptoButton>
             </div>
           </div>
           
-          <Button 
+          <CryptoButton 
             type="button" 
             variant="outline" 
-            className="w-full mt-2" 
+            className="w-full mt-2 border-crypto-gray text-crypto-text hover:bg-crypto-gray/20" 
             disabled={!ethereumAddress && !solanaAddress}
             onClick={handleOpenNFTBrowser}
           >
             <ImagePlus className="h-4 w-4 mr-2" />
             Browse NFTs for Profile Picture
-          </Button>
+          </CryptoButton>
         </div>
         
         <div className="flex justify-end space-x-2 pt-4">
-          <Button 
+          <CryptoButton 
             type="button" 
             variant="outline" 
             onClick={onClose}
+            className="border-crypto-gray text-crypto-text hover:bg-crypto-gray/20"
           >
             Cancel
-          </Button>
-          <Button 
+          </CryptoButton>
+          <CryptoButton 
             type="submit" 
             disabled={saving}
           >
@@ -516,7 +523,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             ) : (
               'Save'
             )}
-          </Button>
+          </CryptoButton>
         </div>
       </form>
       
@@ -528,9 +535,9 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
       />
       
       <Dialog open={isNFTBrowserOpen} onOpenChange={setIsNFTBrowserOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
           <DialogHeader>
-            <DialogTitle>Choose NFT as Profile Picture</DialogTitle>
+            <DialogTitle className="text-crypto-blue">Choose NFT as Profile Picture</DialogTitle>
           </DialogHeader>
           <NFTBrowser 
             ethereumAddress={ethereumAddress} 

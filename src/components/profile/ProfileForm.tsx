@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CryptoButton } from '@/components/ui/crypto-button';
 
 const ProfileForm = () => {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ const ProfileForm = () => {
   });
 
   // Update local form state when profile data loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setLocalProfile({
         username: profile.username || '',
@@ -37,7 +38,7 @@ const ProfileForm = () => {
         bio: profile.bio || '',
       });
     }
-  });
+  }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,36 +146,36 @@ const ProfileForm = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
+        <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
       </div>
     );
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full bg-crypto-darkgray border-crypto-gray text-crypto-text">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Your Profile</CardTitle>
-        <CardDescription>Manage your account and profile information</CardDescription>
+        <CardTitle className="text-2xl font-bold text-crypto-text">Your Profile</CardTitle>
+        <CardDescription className="text-crypto-lightgray">Manage your account and profile information</CardDescription>
       </CardHeader>
       <CardContent>
         {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+          <Alert variant="destructive" className="mb-4 bg-crypto-red/10 border-crypto-red">
+            <AlertCircle className="h-4 w-4 text-crypto-red" />
+            <AlertDescription className="text-crypto-red">{error}</AlertDescription>
           </Alert>
         )}
         
         {profileError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{profileError}</AlertDescription>
+          <Alert variant="destructive" className="mb-4 bg-crypto-red/10 border-crypto-red">
+            <AlertCircle className="h-4 w-4 text-crypto-red" />
+            <AlertDescription className="text-crypto-red">{profileError}</AlertDescription>
           </Alert>
         )}
         
         {success && (
-          <Alert variant="default" className="mb-4 bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-700">{success}</AlertDescription>
+          <Alert variant="default" className="mb-4 bg-crypto-green/10 border-crypto-green">
+            <CheckCircle className="h-4 w-4 text-crypto-green" />
+            <AlertDescription className="text-crypto-green">{success}</AlertDescription>
           </Alert>
         )}
         
@@ -185,20 +186,20 @@ const ProfileForm = () => {
                 {profile?.avatar_url ? (
                   <AvatarImage src={profile.avatar_url} alt="Profile avatar" />
                 ) : null}
-                <AvatarFallback className="text-lg bg-twitter-blue text-white">
+                <AvatarFallback className="text-lg bg-crypto-blue text-white">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
               <div className="relative">
-                <Button
+                <CryptoButton
                   type="button"
                   variant="outline"
                   size="sm"
                   disabled={uploading}
-                  className="text-xs"
+                  className="text-xs border-crypto-gray text-crypto-text hover:bg-crypto-gray/20"
                 >
                   {uploading ? 'Uploading...' : 'Change Avatar'}
-                </Button>
+                </CryptoButton>
                 <input
                   type="file"
                   accept="image/*"
@@ -210,40 +211,42 @@ const ProfileForm = () => {
             </div>
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username" className="text-crypto-text">Username</Label>
                 <Input
                   id="username"
                   value={localProfile.username}
                   onChange={(e) => setLocalProfile({ ...localProfile, username: e.target.value })}
                   placeholder="@username"
+                  className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name</Label>
+                <Label htmlFor="displayName" className="text-crypto-text">Display Name</Label>
                 <Input
                   id="displayName"
                   value={localProfile.display_name}
                   onChange={(e) => setLocalProfile({ ...localProfile, display_name: e.target.value })}
                   placeholder="Your display name"
+                  className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
                 />
               </div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="bio">Bio</Label>
+            <Label htmlFor="bio" className="text-crypto-text">Bio</Label>
             <Textarea
               id="bio"
               value={localProfile.bio}
               onChange={(e) => setLocalProfile({ ...localProfile, bio: e.target.value })}
               placeholder="Tell us about yourself"
-              className="min-h-[120px]"
+              className="min-h-[120px] bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
             />
           </div>
           
-          <Button type="submit" className="btn-twitter" disabled={saving}>
+          <CryptoButton type="submit" disabled={saving}>
             {saving ? 'Saving...' : 'Save Profile'}
-          </Button>
+          </CryptoButton>
         </form>
       </CardContent>
     </Card>
