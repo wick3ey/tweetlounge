@@ -65,6 +65,7 @@ export default {
 				},
 				twitter: {
 					blue: '#1DA1F2',
+					'blue-hover': '#1A91DA',
 					dark: '#14171A',
 					light: '#AAB8C2',
 					extraLight: '#E1E8ED',
