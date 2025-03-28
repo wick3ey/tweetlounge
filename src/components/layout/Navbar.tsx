@@ -12,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User, Check, Zap, Settings } from 'lucide-react';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -56,8 +55,6 @@ const Navbar = () => {
         </Link>
         
         <div className="flex items-center gap-4">
-          <ThemeToggle />
-          
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

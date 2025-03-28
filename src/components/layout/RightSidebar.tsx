@@ -3,7 +3,6 @@ import { Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const RightSidebar = () => {
   // Mock data
@@ -23,10 +22,6 @@ const RightSidebar = () => {
 
   return (
     <div className="hidden lg:block w-80 p-4 sticky top-0 h-screen overflow-y-auto scrollbar-thin">
-      <div className="flex justify-end mb-6">
-        <ThemeToggle />
-      </div>
-      
       <div className="relative mb-4">
         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-muted-foreground" />
