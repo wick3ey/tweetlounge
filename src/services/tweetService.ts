@@ -102,10 +102,8 @@ export async function getUserTweets(
   retweetsOnly = false
 ): Promise<TweetWithAuthor[]> {
   try {
-    const functionName = retweetsOnly ? 'get_user_retweets' : 'get_user_tweets';
-    
     const { data, error } = await supabase
-      .rpc(functionName, { 
+      .rpc('get_user_tweets', { 
         user_id: userId,
         limit_count: limit, 
         offset_count: offset 
@@ -116,7 +114,11 @@ export async function getUserTweets(
       throw error;
     }
     
-    const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
+    const filteredData = retweetsOnly 
+      ? data.filter((item: any) => item.is_retweet)
+      : data;
+    
+    const transformedData: TweetWithAuthor[] = filteredData.map((item: any) => ({
       id: item.id,
       content: item.content,
       author_id: item.author_id,

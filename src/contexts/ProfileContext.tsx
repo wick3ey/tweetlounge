@@ -1,11 +1,10 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
-type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
+type ProfileUpdatePayload = Omit<Profile, 'created_at'>;
 
 type ProfileContextType = {
   profile: ProfileUpdatePayload | null;
@@ -75,11 +74,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       if (!user) return;
       
-      // Handle clearing NFT data when changing profile picture
       const updatedData = { ...updates };
       
-      // If avatar_url is being changed and it's not from an NFT selection,
-      // clear the NFT-related fields to remove verification badge
       if (updates.avatar_url && !updates.avatar_nft_id) {
         updatedData.avatar_nft_id = null;
         updatedData.avatar_nft_chain = null;

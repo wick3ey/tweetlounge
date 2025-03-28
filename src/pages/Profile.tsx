@@ -18,7 +18,8 @@ import {
   Wallet,
   MessageSquare,
   FileImage,
-  Sparkles
+  Sparkles,
+  Repeat
 } from 'lucide-react';
 import {
   Dialog,
