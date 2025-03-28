@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -108,6 +109,7 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     loadTokens();
   };
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="p-4">
@@ -135,6 +137,7 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
@@ -145,6 +148,7 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     );
   }
 
+  // Empty state
   if (tokens.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
@@ -158,23 +162,14 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     );
   }
 
-  const totalUsdValue = tokens.reduce((sum, token) => {
-    const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
-    return sum + tokenValue;
-  }, 0);
-
+  // Render tokens
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4">
         <h2 className="text-xl font-semibold">Wallet Assets</h2>
-        {totalUsdValue > 0 && (
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Total Value</p>
-            <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-          </div>
-        )}
       </div>
       
+      {/* Mobile view (cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
         {tokens.map((token) => (
           <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -200,9 +195,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
                 </div>
                 <div className="ml-auto text-right">
                   <p className="font-semibold">{parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                  {token.usdValue && (
-                    <p className="text-gray-500 text-sm">${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-                  )}
                 </div>
               </div>
               {token.explorerUrl && (
@@ -223,6 +215,7 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
         ))}
       </div>
       
+      {/* Desktop view (table) */}
       <div className="hidden md:block">
         <Card>
           <Table>
@@ -230,7 +223,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
               <TableRow>
                 <TableHead>Token</TableHead>
                 <TableHead>Balance</TableHead>
-                <TableHead className="text-right">Value</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -261,13 +253,6 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
                   </TableCell>
                   <TableCell>
                     {parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {token.usdValue ? (
-                      `$${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                    ) : (
-                      '—'
-                    )}
                   </TableCell>
                   <TableCell>
                     {token.explorerUrl && (
