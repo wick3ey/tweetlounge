@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsService';
-import { AlertTriangle, ArrowUpRight, ExternalLink, Loader2, Newspaper, RefreshCw, Rss } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Newspaper, RefreshCw, Rss } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -18,29 +18,29 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
       href={article.url} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block p-4 border-b border-crypto-gray hover:bg-crypto-gray/10 transition-colors"
+      className="block p-3 border-b border-crypto-gray hover:bg-crypto-gray/10 transition-colors"
     >
       <div className="flex justify-between items-start">
-        <div className="flex-1 pr-4">
-          <h3 className="font-medium text-sm text-white mb-1 line-clamp-2">
+        <div className="flex-1 pr-3">
+          <h3 className="font-medium text-xs text-white mb-1 line-clamp-2">
             {article.title}
           </h3>
           <div className="flex items-center text-xs text-crypto-lightgray">
-            <span className="mr-2">{article.source.title}</span>
-            <span>{formattedDate}</span>
+            <span className="mr-2 text-[10px]">{article.source.title}</span>
+            <span className="text-[10px]">{formattedDate}</span>
           </div>
-          <div className="flex flex-wrap gap-1 mt-2">
-            {article.currencies.map((currency) => (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {article.currencies.slice(0, 2).map((currency) => (
               <span 
                 key={currency.code} 
-                className="bg-crypto-blue/20 text-crypto-blue text-xs px-2 py-0.5 rounded-full"
+                className="bg-crypto-blue/20 text-crypto-blue text-[10px] px-1.5 py-0.5 rounded-full"
               >
                 {currency.code}
               </span>
             ))}
           </div>
         </div>
-        <ExternalLink className="w-4 h-4 text-crypto-lightgray shrink-0" />
+        <ExternalLink className="w-3 h-3 text-crypto-lightgray shrink-0" />
       </div>
     </a>
   );
@@ -48,21 +48,21 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
 
 // Loading skeleton for news items
 const NewsItemSkeleton: React.FC = () => (
-  <div className="p-4 border-b border-crypto-gray">
+  <div className="p-3 border-b border-crypto-gray">
     <div className="flex justify-between items-start">
-      <div className="flex-1 pr-4">
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-3/4 mb-2" />
-        <div className="flex items-center space-x-2 mt-2">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-3 w-20" />
+      <div className="flex-1 pr-3">
+        <Skeleton className="h-3 w-full mb-2" />
+        <Skeleton className="h-3 w-3/4 mb-2" />
+        <div className="flex items-center space-x-2 mt-1">
+          <Skeleton className="h-2 w-12" />
+          <Skeleton className="h-2 w-16" />
         </div>
-        <div className="flex space-x-1 mt-2">
-          <Skeleton className="h-5 w-10 rounded-full" />
-          <Skeleton className="h-5 w-10 rounded-full" />
+        <div className="flex space-x-1 mt-1">
+          <Skeleton className="h-4 w-8 rounded-full" />
+          <Skeleton className="h-4 w-8 rounded-full" />
         </div>
       </div>
-      <Skeleton className="h-4 w-4 rounded" />
+      <Skeleton className="h-3 w-3 rounded" />
     </div>
   </div>
 );
@@ -91,7 +91,7 @@ const NewsSection: React.FC = () => {
   };
 
   return (
-    <Card className="crypto-news-card mt-4 mb-4 bg-crypto-black border-crypto-gray">
+    <Card className="crypto-news-card mt-4 bg-crypto-black border-crypto-gray">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -134,7 +134,7 @@ const NewsSection: React.FC = () => {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Error fetching news</AlertTitle>
             <AlertDescription className="text-sm">
-              Unable to load news from CryptoPanic API. This may be due to CORS restrictions.
+              Unable to load news from CryptoPanic API.
               <div className="mt-2">
                 <CryptoButton 
                   variant="outline" 
@@ -148,21 +148,21 @@ const NewsSection: React.FC = () => {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[300px] overflow-y-auto">
             {loading ? (
               // Loading skeletons
-              Array(5).fill(0).map((_, index) => (
+              Array(4).fill(0).map((_, index) => (
                 <NewsItemSkeleton key={index} />
               ))
             ) : newsArticles.length === 0 ? (
               // Empty state
-              <div className="p-8 text-center">
-                <Rss className="h-8 w-8 text-crypto-lightgray mx-auto mb-2" />
-                <p className="text-crypto-lightgray">No news articles available</p>
+              <div className="p-4 text-center">
+                <Rss className="h-6 w-6 text-crypto-lightgray mx-auto mb-2" />
+                <p className="text-crypto-lightgray text-sm">No news available</p>
                 <CryptoButton 
                   variant="outline" 
                   size="sm" 
-                  className="mt-4"
+                  className="mt-3"
                   onClick={handleRefresh}
                 >
                   Refresh
@@ -170,7 +170,7 @@ const NewsSection: React.FC = () => {
               </div>
             ) : (
               // Articles
-              newsArticles.map((article) => (
+              newsArticles.slice(0, 6).map((article) => (
                 <NewsItem key={article.id} article={article} />
               ))
             )}

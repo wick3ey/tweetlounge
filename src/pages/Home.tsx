@@ -4,7 +4,6 @@ import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
 import MarketStats from '@/components/crypto/MarketStats'
-import TrendingTopics from '@/components/crypto/TrendingTopics'
 import TweetInput from '@/components/crypto/TweetInput'
 import NewsSection from '@/components/crypto/NewsSection'
 import { ZapIcon } from 'lucide-react'
@@ -31,8 +30,6 @@ const Home: React.FC = () => {
             
             <TweetInput />
             
-            <NewsSection />
-            
             <div className="mt-4 flex items-center justify-between">
               <h2 className="font-medium">No tweets to display</h2>
               <CryptoButton variant="outline" size="sm" className="h-8">
@@ -44,7 +41,7 @@ const Home: React.FC = () => {
         
         <div className="w-80 overflow-y-auto border-l border-crypto-gray p-4 hidden lg:block">
           <MarketStats />
-          <TrendingTopics />
+          <NewsSection />
         </div>
       </div>
     </div>
