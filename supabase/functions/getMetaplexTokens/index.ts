@@ -19,7 +19,111 @@ interface TokenResponse {
   }>;
 }
 
-// Fetch Solana tokens (simplified version without Metaplex)
+// Token metadata mapping for common tokens
+const knownTokens: Record<string, { name: string, symbol: string, logo?: string }> = {
+  "So11111111111111111111111111111111111111112": {
+    name: "Solana",
+    symbol: "SOL",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+  },
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+    name: "USD Coin",
+    symbol: "USDC",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
+  },
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": {
+    name: "USDT",
+    symbol: "USDT",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png"
+  },
+  "6o5jzMo3QDQt8ST8wtRf5bDKZZXSg61hK6mMxgU54JXh": {
+    name: "Sparkle Token",
+    symbol: "SPKL",
+    logo: "https://solana-coin-logos.s3.amazonaws.com/sparkle.png"
+  },
+  "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj": {
+    name: "Raydium",
+    symbol: "RAY",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj/logo.png"
+  },
+  "HQS6Sq6dVwssSK5FEFDGeTK76Rd7u3EpxpExpB1oAJP5": {
+    name: "Metaplex NFT",
+    symbol: "NFT",
+    logo: "https://arweave.net/1ToMGgNcWI_tKBDgPGYTWrTdmqyNLo24KrLb9cYvlrw"
+  }
+};
+
+// Fetch token metadata from on-chain data
+async function fetchTokenMetadata(connection: Connection, mintAddress: string): Promise<{ name: string, symbol: string, logo?: string } | null> {
+  try {
+    // Try to get token account info including metadata
+    const metadataPDA = await getMetadataPDA(mintAddress);
+    const accountInfo = await connection.getAccountInfo(metadataPDA);
+    
+    if (!accountInfo) {
+      console.log(`No metadata account found for ${mintAddress}`);
+      return null;
+    }
+    
+    // Parse metadata (simplified version)
+    const metadata = decodeMetadata(accountInfo.data);
+    if (metadata) {
+      return {
+        name: metadata.name,
+        symbol: metadata.symbol,
+        logo: metadata.uri
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching metadata for ${mintAddress}:`, error);
+    return null;
+  }
+}
+
+// Get Metadata Program Derived Address
+function getMetadataPDA(mint: string): PublicKey {
+  const METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
+  
+  return PublicKey.findProgramAddressSync(
+    [
+      Buffer.from('metadata'),
+      new PublicKey(METADATA_PROGRAM_ID).toBuffer(),
+      new PublicKey(mint).toBuffer()
+    ],
+    new PublicKey(METADATA_PROGRAM_ID)
+  )[0];
+}
+
+// Simplified metadata decoder
+function decodeMetadata(data: Uint8Array): { name: string, symbol: string, uri: string } | null {
+  try {
+    // Skip first byte (it's a key indicating the account type)
+    // Very simplified parser - in production, use proper deserializer
+    
+    // Try to extract UTF-8 strings from data
+    const decoder = new TextDecoder();
+    const dataString = decoder.decode(data);
+    
+    // Look for patterns that might be name/symbol/URI
+    // This is a very crude approach, should use proper deserialization in production
+    const nameMatch = dataString.match(/"name":"([^"]+)"/);
+    const symbolMatch = dataString.match(/"symbol":"([^"]+)"/);
+    const uriMatch = dataString.match(/"uri":"([^"]+)"/);
+    
+    return {
+      name: nameMatch?.[1] || "Unknown Token", 
+      symbol: symbolMatch?.[1] || "???",
+      uri: uriMatch?.[1] || ""
+    };
+  } catch (error) {
+    console.error("Error decoding metadata:", error);
+    return null;
+  }
+}
+
+// Fetch Solana tokens using a simplified approach
 async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
@@ -60,14 +164,28 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
         
         console.log(`Processing token #${i + 1}: ${mintAddress}, balance: ${balance}`);
         
-        // Use defaults since we're not using Metaplex for metadata
-        const name = `Token (${mintAddress.slice(0, 6)}...)`;
-        const symbol = "SPL";
+        // First check our known tokens mapping
+        let tokenInfo = knownTokens[mintAddress];
+        
+        // If not found in our mapping, try to get from on-chain
+        if (!tokenInfo) {
+          try {
+            tokenInfo = await fetchTokenMetadata(connection, mintAddress);
+          } catch (err) {
+            console.log(`Error fetching on-chain metadata: ${err.message}`);
+          }
+        }
+        
+        // Use defaults if we don't have metadata
+        const name = tokenInfo?.name || `Token (${mintAddress.slice(0, 6)}...)`;
+        const symbol = tokenInfo?.symbol || "SPL";
+        const logo = tokenInfo?.logo;
         
         // Add the token to our list
         tokens.push({
           name: name,
           symbol: symbol,
+          logo: logo,
           amount: balance.toString(),
           decimals: decimals,
           address: mintAddress
@@ -133,7 +251,7 @@ serve(async (req) => {
       );
     }
 
-    // Get tokens without using Metaplex
+    // Get tokens with our improved approach
     const response = await getSolanaTokens(address);
     
     console.log(`Returning ${response.tokens.length} tokens for address ${address}`);

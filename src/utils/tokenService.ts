@@ -26,7 +26,7 @@ export const fetchWalletTokens = async (
   try {
     console.log(`Fetching ${chain} tokens for address: ${address}`);
     
-    // For Solana we now use our Supabase edge function
+    // For Solana we use our Supabase edge function that fetches token metadata
     if (chain === 'solana') {
       try {
         const { data, error } = await supabase.functions.invoke('getMetaplexTokens', {
