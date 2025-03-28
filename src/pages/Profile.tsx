@@ -6,9 +6,10 @@ import { useProfile } from '@/contexts/ProfileContext';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileEditForm from '@/components/profile/ProfileEditForm';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader, Settings } from 'lucide-react';
+import { Loader, Settings, Image, Reply, Heart } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
   const { username } = useParams<{ username: string }>();
+  const [activeTab, setActiveTab] = useState('posts');
   
   // This checks if we're viewing the current user's profile
   const isCurrentUser = !username || (profile?.username === username);
@@ -97,7 +99,7 @@ const Profile = () => {
   };
   
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full">
       <ProfileHeader
         userId={user?.id || ''}
         username={profile.username || 'username'}
@@ -114,9 +116,76 @@ const Profile = () => {
         onEditProfile={handleEditProfile}
       />
       
-      {/* Profile content would go here */}
-      <div className="p-4">
-        {/* Tweets or other content would be rendered here */}
+      {/* Profile Tabs */}
+      <div className="border-b border-gray-200">
+        <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
+          <TabsList className="w-full flex justify-between bg-transparent border-b px-0">
+            <TabsTrigger 
+              value="posts" 
+              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-twitter-blue data-[state=active]:text-twitter-blue"
+            >
+              Posts
+            </TabsTrigger>
+            <TabsTrigger 
+              value="replies" 
+              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-twitter-blue data-[state=active]:text-twitter-blue"
+            >
+              Replies
+            </TabsTrigger>
+            <TabsTrigger 
+              value="media" 
+              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-twitter-blue data-[state=active]:text-twitter-blue"
+            >
+              Media
+            </TabsTrigger>
+            <TabsTrigger 
+              value="likes" 
+              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-twitter-blue data-[state=active]:text-twitter-blue"
+            >
+              Likes
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="posts" className="mt-0 pt-4">
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              {activeTab === 'posts' && (
+                <>
+                  <div className="text-xl font-bold mb-2">No posts yet</div>
+                  <p className="text-gray-500 text-center mb-6">When you post, your tweets will show up here</p>
+                  {isCurrentUser && (
+                    <Button className="bg-twitter-blue hover:bg-twitter-blue/90 text-white rounded-full">
+                      Create your first post
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="replies" className="mt-0 pt-4">
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Reply className="h-12 w-12 text-gray-300 mb-4" />
+              <div className="text-xl font-bold mb-2">No replies yet</div>
+              <p className="text-gray-500 text-center">When you reply to someone, it will show up here</p>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="media" className="mt-0 pt-4">
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Image className="h-12 w-12 text-gray-300 mb-4" />
+              <div className="text-xl font-bold mb-2">No media yet</div>
+              <p className="text-gray-500 text-center">When you post photos or videos, they will show up here</p>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="likes" className="mt-0 pt-4">
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Heart className="h-12 w-12 text-gray-300 mb-4" />
+              <div className="text-xl font-bold mb-2">No likes yet</div>
+              <p className="text-gray-500 text-center">Tweets you like will show up here</p>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
       
       {/* Edit Profile Dialog */}

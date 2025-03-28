@@ -6,6 +6,9 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useToast } from "@/components/ui/use-toast";
 import Profile from "./Profile";
 import { Loader } from "lucide-react";
+import LeftSidebar from "@/components/layout/LeftSidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
+import Navbar from "@/components/layout/Navbar";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
@@ -68,7 +71,18 @@ const ProfilePage = () => {
     );
   }
 
-  return <Profile />;
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <div className="container mx-auto flex">
+        <LeftSidebar />
+        <main className="flex-1 min-h-screen border-x border-gray-200">
+          <Profile />
+        </main>
+        <RightSidebar />
+      </div>
+    </div>
+  );
 };
 
 export default ProfilePage;
