@@ -1,4 +1,3 @@
-
 // NFT types and service functions
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,7 +20,7 @@ export const fetchEthereumNFTs = async (address: string): Promise<NFT[]> => {
   try {
     console.log(`Fetching Ethereum NFTs for address: ${address}`);
     
-    // Add your Alchemy API key here
+    // You should get an Alchemy API key for production
     const apiKey = 'demo'; // Replace with actual API key in production
     const baseURL = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}/getNFTs/`;
     const url = `${baseURL}?owner=${address}`;
@@ -54,7 +53,7 @@ export const fetchEthereumNFTs = async (address: string): Promise<NFT[]> => {
 };
 
 /**
- * Fetch Solana NFTs using QuickNode API
+ * Fetch Solana NFTs using Supabase edge function
  * @param address Solana wallet address
  * @returns Promise with array of NFTs
  */
@@ -62,51 +61,22 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
   try {
     console.log(`Fetching Solana NFTs for address: ${address}`);
     
-    const QUICKNODE_API = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
-    
-    const response = await fetch(QUICKNODE_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getAssetsByOwner',
-        params: {
-          ownerAddress: address,
-          limit: 50,
-          options: {
-            showFungible: false,
-            showCollectionMetadata: true
-          }
-        }
-      })
+    // Call our edge function to securely access the QuickNode API
+    const { data, error } = await supabase.functions.invoke('getNFTs', {
+      body: { address, chain: 'solana' }
     });
     
-    if (!response.ok) {
-      throw new Error(`Error fetching Solana NFTs: ${response.statusText}`);
+    if (error) {
+      console.error('Error calling Supabase edge function:', error);
+      throw error;
     }
     
-    const data = await response.json();
-    
-    if (!data.result || !data.result.items || !Array.isArray(data.result.items)) {
-      console.error('Invalid response from QuickNode API:', data);
+    if (!data?.success || !data?.nfts) {
+      console.warn('Invalid response from edge function:', data);
       return [];
     }
     
-    // Map QuickNode API response to our NFT interface
-    return data.result.items.map((item: any) => {
-      const asset = item.asset;
-      return {
-        id: asset.id,
-        name: asset.content?.metadata?.name || 'Unnamed NFT',
-        description: asset.content?.metadata?.description,
-        imageUrl: asset.content?.links?.image || 'https://placehold.co/200x200?text=No+Image',
-        tokenAddress: asset.id,
-        chain: 'solana'
-      };
-    });
+    return data.nfts;
   } catch (error) {
     console.error('Error fetching Solana NFTs:', error);
     return [];
