@@ -33,10 +33,18 @@ const Navbar = () => {
     }
   };
 
+  const goToProfile = () => {
+    if (profile?.username) {
+      navigate(`/profile/${profile.username}`);
+    } else {
+      navigate('/profile');
+    }
+  };
+
   return (
     <nav className="border-b border-gray-200 bg-white">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold text-twitter-blue flex items-center">
+        <Link to="/home" className="text-xl font-bold text-twitter-blue flex items-center">
           <svg 
             viewBox="0 0 24 24" 
             className="h-8 w-8 mr-2 fill-current"
@@ -77,7 +85,7 @@ const Navbar = () => {
                     <span className="text-xs text-gray-500">@{profile?.username || user.email?.split('@')[0]}</span>
                   </div>
                 </div>
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <DropdownMenuItem onClick={goToProfile}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>

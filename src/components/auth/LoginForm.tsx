@@ -21,7 +21,7 @@ const LoginForm = () => {
     const { error } = await signInWithEmail(email, password);
     
     if (!error) {
-      navigate('/profile');
+      navigate('/home');
     }
     
     setIsLoading(false);

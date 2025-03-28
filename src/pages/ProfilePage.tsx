@@ -1,7 +1,8 @@
 
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/contexts/ProfileContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import Profile from "./Profile";
@@ -9,7 +10,9 @@ import { Loader } from "lucide-react";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
@@ -17,11 +20,17 @@ const ProfilePage = () => {
   useEffect(() => {
     const checkProfileExists = async () => {
       if (!username) {
+        if (profile?.username) {
+          // Redirect to the user's own profile if no username provided
+          navigate(`/profile/${profile.username}`, { replace: true });
+          return;
+        }
         setProfileExists(false);
         setIsLoading(false);
         return;
       }
 
+      // If viewing your own profile with username, continue normally
       try {
         // In a real implementation, this would check if the username exists in the database
         // For now, we're assuming all usernames exist
@@ -40,7 +49,7 @@ const ProfilePage = () => {
     };
 
     checkProfileExists();
-  }, [username, toast]);
+  }, [username, profile, navigate, toast]);
 
   if (isLoading) {
     return (

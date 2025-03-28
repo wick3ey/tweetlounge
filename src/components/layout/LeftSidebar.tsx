@@ -1,5 +1,5 @@
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, User, Bell, MessageSquare, BookmarkIcon, ListIcon, MoreHorizontal } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,12 @@ import { useProfile } from '@/contexts/ProfileContext';
 
 const LeftSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useProfile();
 
   const menuItems = [
-    { path: '/', label: 'Home', icon: Home },
+    { path: '/home', label: 'Home', icon: Home },
     { path: '/explore', label: 'Explore', icon: ListIcon },
     { path: '/notifications', label: 'Notifications', icon: Bell },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
@@ -30,10 +31,18 @@ const LeftSidebar = () => {
     }
   };
 
+  const handleMenuItemClick = (path: string) => {
+    if (path === '/profile' && profile?.username) {
+      navigate(`/profile/${profile.username}`);
+    } else {
+      navigate(path);
+    }
+  };
+
   return (
     <div className="hidden md:flex flex-col h-screen p-4 sticky top-0 w-64">
       <div className="flex items-center mb-6 p-2">
-        <Link to="/" className="text-2xl font-bold text-twitter-blue flex items-center">
+        <Link to="/home" className="text-2xl font-bold text-twitter-blue flex items-center">
           <svg 
             viewBox="0 0 24 24" 
             className="h-8 w-8 fill-current"
@@ -46,16 +55,16 @@ const LeftSidebar = () => {
       
       <nav className="space-y-4 mb-8">
         {menuItems.map((item) => (
-          <Link 
+          <button 
             key={item.path} 
-            to={item.path}
-            className={`flex items-center p-3 rounded-full hover:bg-gray-200 transition-colors ${
+            onClick={() => handleMenuItemClick(item.path)}
+            className={`flex items-center p-3 rounded-full hover:bg-gray-200 transition-colors w-full text-left ${
               location.pathname === item.path ? 'font-bold' : ''
             }`}
           >
             <item.icon className="mr-4 h-6 w-6" />
             <span className="text-xl">{item.label}</span>
-          </Link>
+          </button>
         ))}
       </nav>
       
@@ -65,9 +74,9 @@ const LeftSidebar = () => {
       
       <div className="mt-auto mb-4">
         {user && (
-          <Link 
-            to="/profile" 
-            className="flex items-center p-3 rounded-full hover:bg-gray-200 transition-colors"
+          <button 
+            onClick={() => profile?.username ? navigate(`/profile/${profile.username}`) : navigate('/profile')}
+            className="flex items-center p-3 rounded-full hover:bg-gray-200 transition-colors w-full text-left"
           >
             <Avatar className="mr-3 h-10 w-10">
               {profile?.avatar_url ? (
@@ -82,7 +91,7 @@ const LeftSidebar = () => {
               <p className="text-gray-500 text-sm truncate">@{profile?.username || user.email?.split('@')[0]}</p>
             </div>
             <MoreHorizontal className="h-5 w-5 text-gray-500" />
-          </Link>
+          </button>
         )}
       </div>
     </div>

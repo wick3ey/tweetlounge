@@ -93,6 +93,6 @@
   }
 
   .btn-twitter {
-    @apply bg-twitter-blue text-white hover:bg-twitter-blue-hover;
+    @apply bg-twitter-blue text-white hover:bg-twitter-blue/90;
   }
 }
