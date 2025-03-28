@@ -66,11 +66,12 @@ export const fetchWalletTokens = async (
       };
 
       const tokenAddress = token.address || address;
+      const formattedName = formatTokenName(tokenAddress);
       
       return {
         ...token,
-        name: formatTokenName(tokenAddress),
-        symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress),
+        name: formattedName,
+        symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
         chain: 'solana',
         explorerUrl: getExplorerUrl(tokenAddress),
         dexScreenerUrl: getDexScreenerUrl(tokenAddress)

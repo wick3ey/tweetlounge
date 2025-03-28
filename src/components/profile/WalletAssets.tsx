@@ -25,7 +25,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [solPrice, setSolPrice] = useState<number | undefined>(undefined);
-  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   const loadTokens = async () => {
     setIsLoading(true);
@@ -48,7 +47,8 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
             }
           } else {
             console.log('No Solana tokens found or returned');
-            // We don't set an error here, just leave tokens empty
+            // Still clear the tokens array to show empty state
+            setTokens([]);
           }
         } catch (err) {
           console.error('Error fetching Solana tokens:', err);
@@ -70,7 +70,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       });
     } finally {
       setIsLoading(false);
-      setHasAttemptedLoad(true);
     }
   };
 
@@ -79,7 +78,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       loadTokens();
     } else {
       setIsLoading(false);
-      setHasAttemptedLoad(true);
     }
   }, [solanaAddress]);
 
@@ -130,22 +128,10 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     );
   }
 
-  if (tokens.length === 0 && hasAttemptedLoad && !solanaAddress) {
+  if (!solanaAddress) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
         <div className="text-gray-500 mb-4">No wallet connected. Please connect your Solana wallet in profile settings.</div>
-      </div>
-    );
-  }
-
-  // Display empty state only if we don't have tokens AND we're not actually loading
-  if (tokens.length === 0 && hasAttemptedLoad && solanaAddress) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <Button onClick={handleRetry} variant="outline" size="sm" className="mb-4">
-          Refresh
-        </Button>
-        <div className="text-gray-500">No tokens found. Refreshing may help if this is unexpected.</div>
       </div>
     );
   }
@@ -178,119 +164,130 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
-        {tokens.map((token) => (
-          <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
-            <CardContent className="p-0">
-              <div className="flex items-center p-4">
-                {token.logo ? (
-                  <img 
-                    src={token.logo} 
-                    alt={token.name} 
-                    className="h-12 w-12 rounded-full mr-4 object-cover bg-gray-100"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
-                    }}
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-full mr-4 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-600 font-bold">{token.symbol?.substring(0, 2) || '??'}</span>
-                  </div>
-                )}
-                <div>
-                  <h3 className="font-medium">{token.name}</h3>
-                  <p className="text-gray-500 text-sm">{token.symbol}</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className="font-semibold">{parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                  {token.usdValue && (
-                    <p className="text-gray-500 text-sm">${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-                  )}
-                </div>
-              </div>
-              {(token.explorerUrl || token.dexScreenerUrl) && (
-                <div className="border-t px-4 py-2 bg-gray-50">
-                  <a 
-                    href={getTokenUrl(token)} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-twitter-blue hover:underline text-sm flex items-center"
-                  >
-                    {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
-                    <ExternalLink className="h-3 w-3 ml-1" />
-                  </a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      
-      <div className="hidden md:block">
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Token</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead className="text-right">Value</TableHead>
-                <TableHead className="w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tokens.map((token) => (
-                <TableRow key={token.symbol + token.address}>
-                  <TableCell>
-                    <div className="flex items-center">
-                      {token.logo ? (
-                        <img 
-                          src={token.logo} 
-                          alt={token.name} 
-                          className="h-8 w-8 rounded-full mr-3 object-cover bg-gray-100"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
-                          }}
-                        />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full mr-3 bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-600 font-bold text-sm">{token.symbol?.substring(0, 2) || '??'}</span>
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-medium">{token.name}</div>
-                        <div className="text-gray-500 text-xs">{token.symbol}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {token.usdValue ? (
-                      `$${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+      {tokens.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-8">
+          <Button onClick={handleRetry} variant="outline" size="sm" className="mb-4">
+            Refresh
+          </Button>
+          <div className="text-gray-500">Checking for tokens in your wallet...</div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
+            {tokens.map((token) => (
+              <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center p-4">
+                    {token.logo ? (
+                      <img 
+                        src={token.logo} 
+                        alt={token.name} 
+                        className="h-12 w-12 rounded-full mr-4 object-cover bg-gray-100"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
+                        }}
+                      />
                     ) : (
-                      '—'
+                      <div className="h-12 w-12 rounded-full mr-4 bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-600 font-bold">{token.symbol?.substring(0, 2) || '??'}</span>
+                      </div>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    {(token.explorerUrl || token.dexScreenerUrl) && (
+                    <div>
+                      <h3 className="font-medium">{token.name}</h3>
+                      <p className="text-gray-500 text-sm">{token.symbol}</p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="font-semibold">{parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                      {token.usdValue && (
+                        <p className="text-gray-500 text-sm">${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                      )}
+                    </div>
+                  </div>
+                  {(token.explorerUrl || token.dexScreenerUrl) && (
+                    <div className="border-t px-4 py-2 bg-gray-50">
                       <a 
                         href={getTokenUrl(token)} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-twitter-blue hover:underline text-sm flex items-center justify-end"
+                        className="text-twitter-blue hover:underline text-sm flex items-center"
                       >
-                        View
+                        {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
                         <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          <div className="hidden md:block">
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Token</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
+                    <TableHead className="w-24"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tokens.map((token) => (
+                    <TableRow key={token.symbol + token.address}>
+                      <TableCell>
+                        <div className="flex items-center">
+                          {token.logo ? (
+                            <img 
+                              src={token.logo} 
+                              alt={token.name} 
+                              className="h-8 w-8 rounded-full mr-3 object-cover bg-gray-100"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
+                              }}
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full mr-3 bg-gray-200 flex items-center justify-center">
+                              <span className="text-gray-600 font-bold text-sm">{token.symbol?.substring(0, 2) || '??'}</span>
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-medium">{token.name}</div>
+                            <div className="text-gray-500 text-xs">{token.symbol}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {token.usdValue ? (
+                          `$${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(token.explorerUrl || token.dexScreenerUrl) && (
+                          <a 
+                            href={getTokenUrl(token)} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-twitter-blue hover:underline text-sm flex items-center justify-end"
+                          >
+                            {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
+                            <ExternalLink className="h-3 w-3 ml-1" />
+                          </a>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
+        </>
+      )}
       
       <div className="flex justify-end mt-4">
         <Button 
