@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Token {
@@ -50,11 +49,24 @@ export const fetchWalletTokens = async (
     }
     
     // Process the tokens
-    const processedTokens = data.tokens.map((token: any) => ({
-      ...token,
-      chain,
-      explorerUrl: getExplorerUrl(chain, token.address || address)
-    }));
+    const processedTokens = data.tokens.map((token: any) => {
+      // Function to truncate address for unknown tokens
+      const formatTokenName = (tokenAddress: string) => {
+        if (token.name && token.name !== 'UNKNOWN') return token.name;
+        
+        // Truncate address: first 4 and last 5 characters
+        return tokenAddress ? 
+          `${tokenAddress.slice(0, 4)}...${tokenAddress.slice(-5)}` : 
+          'Unknown Token';
+      };
+
+      return {
+        ...token,
+        name: formatTokenName(token.address || address),
+        chain,
+        explorerUrl: getExplorerUrl(chain, token.address || address)
+      };
+    });
     
     console.log(`Successfully processed ${processedTokens.length} ${chain} tokens`);
     return processedTokens;
