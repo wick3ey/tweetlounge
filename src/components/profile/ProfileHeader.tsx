@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -137,14 +136,14 @@ const ProfileHeader = ({
   
   const hasWallet = !!ethereumAddress || !!solanaAddress;
 
-  // Get the appropriate NFT verification icon based on the chain
+  // Get the appropriate NFT verification badge based on the chain
   const getNFTVerificationBadge = () => {
     if (!isNFTVerified) return null;
     
     // Different badge colors and hover text based on chain
-    let badgeColor = "bg-red-500 hover:bg-red-600";
+    let badgeColor = "";
     let iconColor = "text-white";
-    let chainName = "blockchain";
+    let chainName = "";
     
     if (nftChain === 'ethereum') {
       badgeColor = "bg-blue-500 hover:bg-blue-600"; 
@@ -152,6 +151,8 @@ const ProfileHeader = ({
     } else if (nftChain === 'solana') {
       badgeColor = "bg-purple-500 hover:bg-purple-600";
       chainName = "Solana";
+    } else {
+      return null; // No badge if no chain or not an NFT
     }
     
     return (
