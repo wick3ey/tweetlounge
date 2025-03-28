@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/use-toast";
 import { Loader, Image as ImageIcon, Camera } from "lucide-react";
+import CoverImageCropper from "./CoverImageCropper";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProfileEditFormProps {
   onClose: () => void;
@@ -22,8 +24,10 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   const [username, setUsername] = useState(profile?.username || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+  const [coverUrl, setCoverUrl] = useState(profile?.cover_url || "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverCropperOpen, setCoverCropperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,20 +39,86 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
     }
   };
   
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setCoverFile(e.target.files[0]);
+      setCoverCropperOpen(true);
+    }
+  };
+  
+  const handleCroppedCover = (croppedBlob: Blob) => {
+    const previewUrl = URL.createObjectURL(croppedBlob);
+    setCoverUrl(previewUrl);
+    
+    // Convert Blob to File for later upload
+    const newFile = new File([croppedBlob], coverFile?.name || "cover.jpg", {
+      type: "image/jpeg",
+    });
+    setCoverFile(newFile);
+  };
+  
+  const uploadFile = async (file: File, bucket: string, path: string): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
+    
+    const { error, data } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, { upsert: true });
+      
+    if (error) {
+      throw new Error(`Error uploading file: ${error.message}`);
+    }
+    
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(filePath);
+      
+    return urlData.publicUrl;
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     
     try {
-      // In a real implementation, you would upload the avatar and cover files to storage
-      // and update the profile with the resulting URLs
+      let newAvatarUrl = avatarUrl;
+      let newCoverUrl = coverUrl;
+      
+      // Upload avatar if changed
+      if (avatarFile) {
+        try {
+          newAvatarUrl = await uploadFile(avatarFile, 'profiles', 'avatars');
+        } catch (error) {
+          console.error('Error uploading avatar:', error);
+          toast({
+            title: "Avatar upload failed",
+            description: "There was an error uploading your avatar.",
+            variant: "destructive",
+          });
+        }
+      }
+      
+      // Upload cover if changed
+      if (coverFile) {
+        try {
+          newCoverUrl = await uploadFile(coverFile, 'profiles', 'covers');
+        } catch (error) {
+          console.error('Error uploading cover:', error);
+          toast({
+            title: "Cover upload failed",
+            description: "There was an error uploading your cover photo.",
+            variant: "destructive",
+          });
+        }
+      }
       
       await updateProfile({
         display_name: displayName,
         username: username,
         bio: bio,
-        avatar_url: avatarUrl,
-        // You would add the cover_url here from the uploaded cover file
+        avatar_url: newAvatarUrl,
+        cover_url: newCoverUrl,
       });
       
       toast({
@@ -81,24 +151,38 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Cover Photo Upload */}
       <div className="relative">
-        <div className="h-32 bg-twitter-light rounded-lg flex items-center justify-center">
-          <label htmlFor="cover-upload" className="cursor-pointer flex items-center gap-2 bg-black/50 text-white p-2 rounded-full">
+        <div 
+          className="h-32 bg-twitter-light rounded-lg flex items-center justify-center overflow-hidden"
+          style={{
+            backgroundImage: coverUrl ? `url(${coverUrl})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <label 
+            htmlFor="cover-upload" 
+            className={`cursor-pointer flex items-center gap-2 ${coverUrl ? 'bg-black/50 hover:bg-black/60' : 'bg-black/30 hover:bg-black/40'} text-white p-2 rounded-full transition-colors`}
+          >
             <ImageIcon className="h-5 w-5" />
-            <span>Add cover photo</span>
+            <span>{coverUrl ? 'Change cover photo' : 'Add cover photo'}</span>
           </label>
           <input
             id="cover-upload"
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                setCoverFile(e.target.files[0]);
-              }
-            }}
+            onChange={handleCoverChange}
           />
         </div>
       </div>
+      
+      {/* Cover Image Cropper */}
+      <CoverImageCropper
+        imageFile={coverFile}
+        isOpen={coverCropperOpen}
+        onClose={() => setCoverCropperOpen(false)}
+        onSave={handleCroppedCover}
+      />
       
       {/* Avatar Upload */}
       <div className="flex justify-center -mt-12">

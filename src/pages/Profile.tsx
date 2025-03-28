@@ -109,9 +109,14 @@ const Profile = () => {
             </div>
 
             {/* Cover Photo */}
-            <div className="relative h-48 bg-twitter-light">
-              {/* Cover photo would go here */}
-              
+            <div 
+              className="relative h-48 bg-twitter-light"
+              style={{
+                backgroundImage: profile?.cover_url ? `url(${profile.cover_url})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
               {/* Profile Image */}
               <div className="absolute -bottom-16 left-4">
                 <Avatar className="h-32 w-32 border-4 border-white">
