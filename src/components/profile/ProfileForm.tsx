@@ -1,7 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,18 +11,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader } from 'lucide-react';
 
-// Define clear types for our profile data
-type Profile = {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  bio: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  updated_at: string | null;
-};
-
-type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
 
 const ProfileForm = () => {
   const { user } = useAuth();
@@ -33,10 +23,11 @@ const ProfileForm = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [profile, setProfile] = useState<ProfileUpdatePayload>({
-    username: '',
-    display_name: '',
-    bio: '',
-    avatar_url: '',
+    username: null,
+    display_name: null,
+    bio: null,
+    avatar_url: null,
+    updated_at: new Date().toISOString()
   });
 
   useEffect(() => {
@@ -54,8 +45,6 @@ const ProfileForm = () => {
         throw new Error('User not authenticated');
       }
       
-      // Check if profile exists
-      console.log('Fetching profile for user:', user.id);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -70,16 +59,15 @@ const ProfileForm = () => {
       }
       
       if (data) {
-        console.log('Profile data retrieved:', data);
         setProfile({
-          username: data.username || '',
-          display_name: data.display_name || '',
-          bio: data.bio || '',
-          avatar_url: data.avatar_url || '',
+          username: data.username,
+          display_name: data.display_name,
+          bio: data.bio,
+          avatar_url: data.avatar_url,
+          updated_at: new Date().toISOString()
         });
       } else {
         console.log('No profile found, creating default profile');
-        // Create a default profile if one doesn't exist
         await createDefaultProfile();
       }
     } catch (error) {
@@ -100,14 +88,17 @@ const ProfileForm = () => {
     
     console.log('Creating default profile for user:', user.id);
     const newProfile = {
-      id: user.id,
-      username: user?.email?.split('@')[0] || '',
-      display_name: user?.email?.split('@')[0] || '',
-      bio: '',
-      avatar_url: '',
+      username: user?.email?.split('@')[0] || null,
+      display_name: user?.email?.split('@')[0] || null,
+      bio: null,
+      avatar_url: null,
+      updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('profiles').insert([newProfile]);
+    const { error } = await supabase.from('profiles').insert([{
+      id: user.id,
+      ...newProfile
+    }]);
 
     if (error) {
       console.error('Error creating default profile:', error);
@@ -120,12 +111,7 @@ const ProfileForm = () => {
       return;
     }
 
-    setProfile({
-      username: newProfile.username,
-      display_name: newProfile.display_name,
-      bio: newProfile.bio,
-      avatar_url: newProfile.avatar_url,
-    });
+    setProfile(newProfile);
     
     console.log('Default profile created successfully');
   };
@@ -141,9 +127,8 @@ const ProfileForm = () => {
       
       console.log('Updating profile for user:', user.id);
       const updates = {
-        id: user.id,
         ...profile,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
       const { error } = await supabase
@@ -189,32 +174,27 @@ const ProfileForm = () => {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/avatar.${fileExt}`;
       
-      // Make sure storage bucket exists
       console.log('Uploading avatar to storage:', filePath);
       
-      // Upload the image
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
       
       if (uploadError) throw uploadError;
       
-      // Get the public URL
       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       
-      // Update the profile state
-      setProfile(prev => ({
-        ...prev,
-        avatar_url: data.publicUrl,
-      }));
-      
-      // Update the profile in the database
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: data.publicUrl })
         .eq('id', user.id);
       
       if (updateError) throw updateError;
+      
+      setProfile(prev => ({
+        ...prev,
+        avatar_url: data.publicUrl
+      }));
       
       toast({
         title: 'Avatar updated',
