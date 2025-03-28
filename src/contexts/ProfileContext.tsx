@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,9 +49,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           bio: data.bio,
           avatar_url: data.avatar_url,
           cover_url: data.cover_url,
-          updated_at: data.updated_at,
           location: data.location,
-          website: data.website
+          website: data.website,
+          updated_at: data.updated_at
         };
         setProfile(profileData);
       }

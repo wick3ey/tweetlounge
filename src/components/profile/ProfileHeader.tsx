@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { CalendarDays, LinkIcon, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth } from '@/contexts/AuthContext';
 import { formatDistance } from 'date-fns';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
@@ -14,6 +13,8 @@ interface ProfileHeaderProps {
   avatarUrl?: string;
   coverUrl?: string;
   bio?: string;
+  location?: string;
+  website?: string;
   isCurrentUser: boolean;
   followersCount: number;
   followingCount: number;
@@ -29,6 +30,8 @@ const ProfileHeader = ({
   avatarUrl,
   coverUrl,
   bio,
+  location,
+  website,
   isCurrentUser,
   followersCount,
   followingCount,
@@ -57,8 +60,18 @@ const ProfileHeader = ({
     ? `Joined ${formatDistance(new Date(joinedDate), new Date(), { addSuffix: true })}`
     : 'Recently joined';
 
+  // Function to get domain from URL
+  const getDomainFromUrl = (url: string): string => {
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname.replace('www.', '');
+    } catch (e) {
+      return url;
+    }
+  };
+
   return (
-    <div className="border-b border-gray-200 pb-4">
+    <div className="border-b border-gray-200 pb-0">
       {/* Cover photo with Twitter-style aspect ratio (3:1) */}
       <AspectRatio ratio={3/1} className="bg-twitter-extraExtraLight">
         {coverUrl && (
@@ -76,8 +89,8 @@ const ProfileHeader = ({
       </AspectRatio>
       
       {/* Profile picture */}
-      <div className="relative">
-        <div className="absolute -top-16 left-4">
+      <div className="relative px-4">
+        <div className="absolute -top-16">
           <Avatar className="h-32 w-32 border-4 border-white">
             {avatarUrl ? (
               <AvatarImage src={avatarUrl} alt={displayName} />
@@ -94,7 +107,7 @@ const ProfileHeader = ({
         {isCurrentUser ? (
           <Button 
             variant="outline" 
-            className="rounded-full font-semibold" 
+            className="rounded-full font-semibold border-gray-300 hover:bg-gray-100" 
             onClick={onEditProfile}
           >
             Edit profile
@@ -102,7 +115,7 @@ const ProfileHeader = ({
         ) : (
           <Button 
             variant={following ? "outline" : "default"}
-            className={`rounded-full font-semibold ${following ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-200' : ''}`}
+            className={`rounded-full font-semibold ${following ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-gray-300' : 'bg-black hover:bg-black/90'}`}
             onClick={handleFollowClick}
           >
             {following ? 'Following' : 'Follow'}
@@ -117,14 +130,35 @@ const ProfileHeader = ({
         
         {bio && <p className="mt-3 text-gray-900">{bio}</p>}
         
-        <div className="flex items-center text-gray-500 mt-3 text-sm gap-4">
+        <div className="flex flex-wrap items-center text-gray-500 mt-3 text-sm gap-4">
+          {location && (
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span>{location}</span>
+            </div>
+          )}
+          
+          {website && (
+            <div className="flex items-center">
+              <LinkIcon className="h-4 w-4 mr-1" />
+              <a 
+                href={website.startsWith('http') ? website : `https://${website}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-twitter-blue hover:underline"
+              >
+                {getDomainFromUrl(website.startsWith('http') ? website : `https://${website}`)}
+              </a>
+            </div>
+          )}
+          
           <div className="flex items-center">
             <CalendarDays className="h-4 w-4 mr-1" />
             <span>{joinedString}</span>
           </div>
         </div>
         
-        <div className="flex gap-5 mt-3">
+        <div className="flex gap-5 mt-3 mb-4">
           <a href="#" className="text-gray-900 hover:underline">
             <span className="font-bold">{followingCount}</span>{' '}
             <span className="text-gray-500">Following</span>

@@ -3,16 +3,18 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/contexts/ProfileContext";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import Profile from "./Profile";
 import { Loader } from "lucide-react";
+import LeftSidebar from "@/components/layout/LeftSidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
+import Navbar from "@/components/layout/Navbar";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile } = useProfile();
+  const { profile, isLoading: profileLoading } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
@@ -25,15 +27,16 @@ const ProfilePage = () => {
           navigate(`/profile/${profile.username}`, { replace: true });
           return;
         }
-        setProfileExists(false);
+        // If we don't have a username in the URL or in the profile, show the user's profile anyway
+        setProfileExists(true);
         setIsLoading(false);
         return;
       }
 
-      // If viewing your own profile with username, continue normally
+      // If viewing own profile (with username), just continue
       try {
-        // In a real implementation, this would check if the username exists in the database
-        // For now, we're assuming all usernames exist
+        // In a real implementation, we would check if username exists in database
+        // For now, we assume all usernames exist
         setProfileExists(true);
       } catch (error) {
         console.error("Error checking profile:", error);
@@ -51,7 +54,7 @@ const ProfilePage = () => {
     checkProfileExists();
   }, [username, profile, navigate, toast]);
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
@@ -68,7 +71,18 @@ const ProfilePage = () => {
     );
   }
 
-  return <Profile />;
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <div className="container mx-auto flex">
+        <LeftSidebar />
+        <main className="flex-1 min-h-screen border-x border-gray-200">
+          <Profile />
+        </main>
+        <RightSidebar />
+      </div>
+    </div>
+  );
 };
 
 export default ProfilePage;
