@@ -10,6 +10,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { likeTweet, retweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -25,6 +29,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
 
   useEffect(() => {
     // Check if user has liked this tweet
@@ -210,7 +215,8 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
               <img 
                 src={tweet.image_url} 
                 alt="Tweet media"
-                className="rounded-xl w-full max-h-96 object-cover border border-gray-800" 
+                className="rounded-xl w-full max-h-96 object-contain border border-gray-800 cursor-pointer" 
+                onClick={() => setShowImageDialog(true)}
               />
             </div>
           )}
@@ -249,6 +255,26 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
           </div>
         </div>
       </div>
+
+      {/* Image dialog for enlarged view */}
+      <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+        <DialogContent className="bg-crypto-darkgray border-crypto-gray p-0 max-w-4xl max-h-[90vh] flex items-center justify-center overflow-hidden">
+          <Button 
+            className="absolute top-3 right-3 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/80"
+            variant="ghost"
+            onClick={() => setShowImageDialog(false)}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center p-2">
+            <img 
+              src={tweet.image_url}
+              alt="Tweet media"
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
