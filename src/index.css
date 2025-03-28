@@ -1,69 +1,41 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 222 47% 11%;
+    --background: 220 14% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 10%;
+    --card: 222 12% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 8%;
+    --popover: 222 14% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 262 83% 58%;
+    --primary: 214 100% 52%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 220 12% 20%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 10% 20%;
+    --muted-foreground: 217 10% 65%;
 
-    --accent: 291 70% 58%;
+    --accent: 214 100% 52%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 217 10% 18%;
+    --input: 217 10% 18%;
+    --ring: 224 76% 48%;
 
-    --radius: 0.75rem;
-  }
-
-  .light {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 262 83% 58%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 291 70% 58%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
   }
 }
 
@@ -78,100 +50,71 @@
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Poppins', sans-serif;
   }
   
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-crypto-black text-crypto-text antialiased;
   }
 }
 
 @layer components {
   .page-container {
-    @apply container mx-auto px-4 py-8;
+    @apply container mx-auto p-0;
   }
 
-  .card-twitter {
-    @apply bg-card/50 rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-shadow backdrop-blur-sm;
-  }
-
-  .btn-twitter {
-    @apply bg-primary text-white hover:bg-primary/90;
+  .crypto-card {
+    @apply bg-crypto-darkgray rounded-xl border border-crypto-gray shadow-sm;
   }
   
-  /* Web3 specific components */
-  .card-web3 {
-    @apply bg-card/50 rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-shadow backdrop-blur-sm;
+  .crypto-btn {
+    @apply bg-crypto-blue text-white hover:bg-crypto-darkblue transition-colors;
   }
   
-  .glass-card {
-    @apply bg-card/30 backdrop-blur-lg border border-border/50 rounded-xl shadow-lg;
+  .crypto-stats-card {
+    @apply bg-crypto-darkgray border border-crypto-gray/50 rounded-xl p-4;
   }
   
-  .gradient-text {
-    @apply bg-web3-gradient bg-clip-text text-transparent;
+  .crypto-ticker-item {
+    @apply flex items-center space-x-2 whitespace-nowrap;
   }
   
-  .web3-button {
-    @apply bg-web3-primary hover:bg-web3-primary/90 text-white font-medium rounded-lg transition-all;
+  .crypto-price-up {
+    @apply text-crypto-green;
   }
   
-  .web3-button-ghost {
-    @apply bg-transparent border border-web3-primary/30 text-web3-primary hover:bg-web3-primary/10 font-medium rounded-lg transition-all;
+  .crypto-price-down {
+    @apply text-crypto-red;
   }
   
-  /* Interactive elements */
-  .hover-scale {
-    @apply transition-transform duration-200 hover:scale-105;
+  .crypto-sidebar-item {
+    @apply flex items-center justify-center p-3 hover:bg-crypto-gray/20 rounded-lg transition-colors;
   }
   
-  .hover-glow {
-    @apply transition-all duration-300 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)];
+  .crypto-tab {
+    @apply px-3 py-1.5 rounded-full text-sm font-medium transition-colors;
   }
   
-  .hover-underline {
-    @apply relative inline-block after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left;
+  .crypto-tab-active {
+    @apply bg-crypto-gray text-white;
   }
   
-  .animate-pulse-slow {
-    @apply animate-[pulse_3s_ease-in-out_infinite];
-  }
-  
-  .animate-glow {
-    @apply animate-[glow_3s_ease-in-out_infinite];
-  }
-  
-  /* Interactive components */
-  .interactive-card {
-    @apply relative overflow-hidden bg-card/60 backdrop-blur-md border border-border/80 rounded-xl transition-all duration-300 hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:-translate-y-1;
-  }
-  
-  .token-card {
-    @apply interactive-card flex flex-col p-4;
-  }
-  
-  .interactive-button {
-    @apply relative overflow-hidden bg-primary hover:bg-primary/90 text-white rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_rgba(99,102,241,0.5)];
+  .crypto-tab-inactive {
+    @apply text-crypto-lightgray hover:bg-crypto-gray/30;
   }
 }
 
-@keyframes glow {
-  0%, 100% {
-    opacity: 1;
-    filter: brightness(1);
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
   }
-  50% {
-    opacity: 0.8;
-    filter: brightness(1.2);
+  100% {
+    transform: translateX(-50%);
   }
 }
 
-/* Dynamic patterns and decorations */
-.dot-pattern {
-  background-image: radial-gradient(circle, var(--tw-shadow-color) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-.gradient-bg {
-  background: linear-gradient(to bottom right, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05), rgba(217, 70, 239, 0.05));
+.animate-marquee {
+  display: flex;
+  animation: marquee 30s linear infinite;
+  width: max-content;
 }

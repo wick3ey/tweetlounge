@@ -1,4 +1,3 @@
-
 import { type Config } from "tailwindcss";
 import { fontFamily } from "tailwindcss/defaultTheme";
 
@@ -21,7 +20,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", ...fontFamily.sans],
-        display: ["Space Grotesk", ...fontFamily.sans],
+        display: ["Poppins", ...fontFamily.sans],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -29,27 +28,16 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        twitter: {
-          blue: "#1DA1F2",
-          dark: "#0C7ABF",
-          light: "#AAD8F1",
-          extraLight: "#E8F5FD",
-        },
-        // Web3 colors
-        web3: {
-          primary: "#6366f1",
-          secondary: "#8b5cf6",
-          accent: "#d946ef",
-          dark: "#0f172a",
-          darker: "#020617",
-          navy: "#1e293b",
-          nightblue: "#111827",
-          highlight: "#38bdf8",
-          success: "#10b981",
-          warning: "#f59e0b",
-          error: "#ef4444",
-          muted: "#334155",
-          "muted-foreground": "#94a3b8",
+        crypto: {
+          blue: "#0d8aff",
+          darkblue: "#0a66c2",
+          green: "#00c853",
+          red: "#ff3b30",
+          black: "#111317",
+          darkgray: "#1a1d24",
+          gray: "#2a2d35",
+          lightgray: "#9ba1a6",
+          text: "#e5e7eb",
         },
         primary: {
           DEFAULT: "hsl(var(--primary))",
