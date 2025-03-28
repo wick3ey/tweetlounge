@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -30,6 +29,7 @@ interface ProfileHeaderProps {
   onEditProfile?: () => void;
   onOpenNFTBrowser?: () => void;
   onFollow?: () => void;
+  onAvatarClick?: () => void;
   isFollowing?: boolean;
   isNFTVerified?: boolean;
 }
@@ -52,6 +52,7 @@ const ProfileHeader = ({
   onEditProfile,
   onOpenNFTBrowser,
   onFollow,
+  onAvatarClick,
   isFollowing = false,
   isNFTVerified = false
 }: ProfileHeaderProps) => {
@@ -77,7 +78,6 @@ const ProfileHeader = ({
     ? `Joined ${formatDistance(new Date(joinedDate), new Date(), { addSuffix: true })}`
     : 'Recently joined';
 
-  // Function to get domain from URL
   const getDomainFromUrl = (url: string): string => {
     try {
       const hostname = new URL(url).hostname;
@@ -87,7 +87,6 @@ const ProfileHeader = ({
     }
   };
 
-  // Function to connect wallet
   const handleConnectWallet = async (type: 'ethereum' | 'solana') => {
     if (!isCurrentUser) return;
     
@@ -106,7 +105,6 @@ const ProfileHeader = ({
             description: `Your ${type} wallet has been successfully connected.`,
           });
           
-          // Fetch NFTs after wallet connection
           const nfts = type === 'ethereum' 
             ? await fetchEthereumNFTs(result.address)
             : await fetchSolanaNFTs(result.address);
@@ -118,7 +116,6 @@ const ProfileHeader = ({
             });
           }
           
-          // Reload the page to update the profile
           window.location.reload();
         } else {
           toast({
@@ -145,15 +142,13 @@ const ProfileHeader = ({
       setIsConnectingWallet(false);
     }
   };
-  
+
   const hasWallet = !!ethereumAddress || !!solanaAddress;
 
-  // Create Solscan link for Solana address
   const solscanLink = solanaAddress ? `https://solscan.io/address/${solanaAddress}` : null;
 
   return (
     <div className="border-b border-crypto-gray pb-0">
-      {/* Cover photo with Twitter-style aspect ratio (3:1) */}
       <AspectRatio ratio={3/1} className="bg-crypto-darkgray">
         {coverUrl && (
           <div className="h-full w-full overflow-hidden">
@@ -169,11 +164,13 @@ const ProfileHeader = ({
         )}
       </AspectRatio>
       
-      {/* Profile picture */}
       <div className="relative px-4">
         <div className="absolute -top-16">
           <div className="relative">
-            <Avatar className="h-32 w-32 border-4 border-crypto-black">
+            <Avatar 
+              className="h-32 w-32 border-4 border-crypto-black cursor-pointer"
+              onClick={onAvatarClick}
+            >
               {avatarUrl ? (
                 <AvatarImage src={avatarUrl} alt={displayName} />
               ) : null}
@@ -182,7 +179,6 @@ const ProfileHeader = ({
               </AvatarFallback>
             </Avatar>
             
-            {/* NFT button for current user */}
             {isCurrentUser && hasWallet && (
               <CryptoButton 
                 onClick={onOpenNFTBrowser}
@@ -198,7 +194,6 @@ const ProfileHeader = ({
         </div>
       </div>
       
-      {/* Profile actions */}
       <div className="pt-2 px-4 flex justify-end">
         {isCurrentUser ? (
           <div className="flex space-x-3">
@@ -221,12 +216,10 @@ const ProfileHeader = ({
         )}
       </div>
       
-      {/* Profile info */}
       <div className="px-4 mt-10">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-crypto-text">{displayName}</h1>
 
-          {/* Verified Badge */}
           {isNFTVerified && (
             <HoverCard openDelay={200} closeDelay={100}>
               <HoverCardTrigger asChild>
@@ -248,7 +241,6 @@ const ProfileHeader = ({
         </div>
         <h2 className="text-crypto-lightgray">@{username}</h2>
         
-        {/* Bio with Solscan link if available */}
         <div className="mt-3 text-crypto-text">
           {bio && <p className="mb-2">{bio}</p>}
           
@@ -295,7 +287,6 @@ const ProfileHeader = ({
           </div>
         </div>
         
-        {/* Wallet connect buttons */}
         {isCurrentUser && (
           <div className="flex space-x-2 items-center mt-4">
             {!ethereumAddress && (
