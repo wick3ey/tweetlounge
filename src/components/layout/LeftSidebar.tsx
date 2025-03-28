@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import MarketStats from '@/components/crypto/MarketStats';
+import NewsSection from '@/components/crypto/NewsSection';
 
 const LeftSidebar = () => {
   const location = useLocation();
@@ -48,54 +50,52 @@ const LeftSidebar = () => {
   };
 
   return (
-    <div className="hidden md:flex flex-col h-screen py-2 px-1 sticky top-0 w-16 xl:w-56 border-r border-border/50">
-      <div className="flex items-center justify-center xl:justify-start mb-4 p-2">
+    <div className="hidden md:flex flex-col h-screen py-2 px-4 sticky top-0 w-72 border-r border-border/50 overflow-y-auto">
+      <div className="flex items-center justify-start mb-6 p-2">
         <Link to="/home" className="text-2xl font-display font-bold text-primary flex items-center">
-          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-3">
             <Zap className="h-5 w-5 text-primary" />
           </div>
+          <span className="text-lg font-semibold">KryptoSphere</span>
         </Link>
       </div>
       
-      <nav className="space-y-1 mb-6">
-        <TooltipProvider>
-          {menuItems.map((item) => (
-            <Tooltip key={item.path} delayDuration={300}>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => handleMenuItemClick(item.path)}
-                  className={`flex items-center justify-center xl:justify-start p-2 rounded-full xl:rounded-lg hover:bg-primary/10 transition-colors w-full text-left ${
-                    isActive(item.path) 
-                      ? 'font-medium text-primary bg-primary/5'
-                      : 'text-foreground/80'
-                  }`}
-                >
-                  <item.icon className={`h-5 w-5 ${isActive(item.path) ? 'text-primary' : ''}`} />
-                  <span className="hidden xl:block ml-3 text-base">{item.label}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="xl:hidden">
-                {item.label}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </TooltipProvider>
+      <nav className="space-y-2">
+        {menuItems.map((item) => (
+          <button 
+            key={item.path}
+            onClick={() => handleMenuItemClick(item.path)}
+            className={`flex items-center w-full p-3 rounded-lg text-left transition-colors ${
+              isActive(item.path) 
+                ? 'bg-primary/10 text-primary font-semibold'
+                : 'text-foreground/80 hover:bg-primary/5'
+            }`}
+          >
+            <item.icon className={`h-5 w-5 mr-3 ${isActive(item.path) ? 'text-primary' : ''}`} />
+            <span className="text-base">{item.label}</span>
+          </button>
+        ))}
       </nav>
       
       <Button 
-        className="web3-button py-2 rounded-full flex items-center justify-center xl:justify-start w-full mt-2 shadow-glow-sm hover:shadow-glow-md"
+        className="web3-button py-3 rounded-lg flex items-center justify-center w-full mt-4 shadow-glow-sm hover:shadow-glow-md text-base"
       >
-        <Zap className="h-5 w-5 xl:mr-2" />
-        <span className="hidden xl:inline">Tweet</span>
+        <Zap className="h-5 w-5 mr-3" />
+        <span>Compose Tweet</span>
       </Button>
       
-      <div className="mt-auto mb-2">
+      <div className="mt-4 space-y-4">
+        <MarketStats />
+        <NewsSection />
+      </div>
+      
+      <div className="mt-auto mb-4">
         {user && (
-          <button 
+          <div 
             onClick={() => profile?.username ? navigate(`/profile/${profile.username}`) : navigate('/profile')}
-            className="flex items-center justify-center xl:justify-start p-2 rounded-full hover:bg-primary/10 transition-colors w-full text-left"
+            className="flex items-center p-3 rounded-lg hover:bg-primary/5 cursor-pointer transition-colors"
           >
-            <Avatar className="h-8 w-8 border border-border hover-glow">
+            <Avatar className="h-10 w-10 border border-border mr-3">
               {profile?.avatar_url ? (
                 <AvatarImage src={profile.avatar_url} alt="Profile" />
               ) : null}
@@ -103,12 +103,12 @@ const LeftSidebar = () => {
                 {getInitials()}
               </AvatarFallback>
             </Avatar>
-            <div className="hidden xl:block ml-2 flex-1 truncate">
-              <p className="font-semibold text-foreground text-sm">{profile?.display_name || user.email?.split('@')[0]}</p>
-              <p className="text-muted-foreground text-xs truncate">@{profile?.username || user.email?.split('@')[0]}</p>
+            <div className="flex-1">
+              <p className="font-semibold text-foreground text-base">{profile?.display_name || user.email?.split('@')[0]}</p>
+              <p className="text-muted-foreground text-sm">@{profile?.username || user.email?.split('@')[0]}</p>
             </div>
-            <MoreHorizontal className="hidden xl:block h-4 w-4 text-muted-foreground" />
-          </button>
+            <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+          </div>
         )}
       </div>
     </div>
