@@ -191,24 +191,36 @@ const ProfileForm = () => {
       
       console.log('Uploading avatar to storage:', filePath);
       
-      const { error: uploadError } = await supabase.storage
+      // Upload the file to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
       
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        throw uploadError;
+      }
       
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
       
+      // Update the profile with the new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: data.publicUrl })
+        .update({ 
+          avatar_url: urlData.publicUrl,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
       
       if (updateError) throw updateError;
       
+      // Update local state
       setProfile(prev => ({
         ...prev,
-        avatar_url: data.publicUrl
+        avatar_url: urlData.publicUrl
       }));
       
       setSuccess('Avatar updated successfully');
@@ -275,7 +287,7 @@ const ProfileForm = () => {
             <div className="flex flex-col items-center gap-2">
               <Avatar className="h-20 w-20">
                 {profile.avatar_url ? (
-                  <AvatarImage src={profile.avatar_url} />
+                  <AvatarImage src={profile.avatar_url} alt="Profile avatar" />
                 ) : null}
                 <AvatarFallback className="text-lg bg-twitter-blue text-white">
                   {getInitials()}
