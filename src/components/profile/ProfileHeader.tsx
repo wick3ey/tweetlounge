@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -250,7 +249,7 @@ const ProfileHeader = ({
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{displayName}</h1>
 
-          {/* Verified NFT badge - made more visible with red background */}
+          {/* Verified NFT badge - only show if isNFTVerified AND there is an avatar_nft_id */}
           {isNFTVerified && (
             <HoverCard openDelay={200} closeDelay={100}>
               <HoverCardTrigger asChild>

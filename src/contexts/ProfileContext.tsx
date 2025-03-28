@@ -73,9 +73,19 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       if (!user) return;
       
+      // Handle clearing NFT data when changing profile picture
+      const updatedData = { ...updates };
+      
+      // If avatar_url is being changed and it's not from an NFT selection,
+      // clear the NFT-related fields to remove verification badge
+      if (updates.avatar_url && !updates.avatar_nft_id) {
+        updatedData.avatar_nft_id = null;
+        updatedData.avatar_nft_chain = null;
+      }
+      
       const updatedProfile = {
         ...profile,
-        ...updates,
+        ...updatedData,
         updated_at: new Date().toISOString()
       };
       

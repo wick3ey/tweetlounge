@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -31,18 +30,12 @@ const NFTBrowser = ({
   });
   const [error, setError] = useState<{ethereum?: string, solana?: string}>({});
   
-  // Fetch NFTs when wallet addresses change
   useEffect(() => {
     const fetchNFTs = async () => {
-      // For demo purposes, if wallet addresses exist, provide at least one dummy NFT
-      // to make it easier to test the verification feature
-      
-      // Fetch Ethereum NFTs if address exists
       if (ethereumAddress) {
         setLoading(prev => ({ ...prev, ethereum: true }));
         try {
           const nfts = await fetchEthereumNFTs(ethereumAddress);
-          // If no NFTs found, add a dummy NFT for testing
           if (nfts.length === 0) {
             nfts.push({
               id: `eth-dummy-${ethereumAddress.substring(0, 8)}`,
@@ -63,12 +56,10 @@ const NFTBrowser = ({
         }
       }
       
-      // Fetch Solana NFTs if address exists
       if (solanaAddress) {
         setLoading(prev => ({ ...prev, solana: true }));
         try {
           const nfts = await fetchSolanaNFTs(solanaAddress);
-          // If no NFTs found, add a dummy NFT for testing
           if (nfts.length === 0) {
             nfts.push({
               id: `sol-dummy-${solanaAddress.substring(0, 8)}`,
@@ -97,7 +88,12 @@ const NFTBrowser = ({
     if (!user) return;
     
     try {
-      const result = await setNFTAsProfilePicture(user.id, nft.imageUrl, nft.id);
+      const result = await setNFTAsProfilePicture(
+        user.id, 
+        nft.imageUrl, 
+        nft.id,
+        nft.chain
+      );
       
       if (result.success) {
         toast({
@@ -105,7 +101,6 @@ const NFTBrowser = ({
           description: `Your profile picture has been set to ${nft.name}`,
         });
         
-        // Refresh profile data to show new avatar
         await refreshProfile();
         
         if (onNFTSelected) {
