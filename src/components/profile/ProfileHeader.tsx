@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistance } from 'date-fns';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -58,17 +59,21 @@ const ProfileHeader = ({
 
   return (
     <div className="border-b border-gray-200 pb-4">
-      {/* Cover photo */}
-      <div 
-        className="h-48 bg-twitter-extraExtraLight relative"
-        style={coverUrl ? {
-          backgroundImage: `url(${coverUrl})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        } : {}}
-      >
-        {/* Profile picture */}
-        <div className="absolute -bottom-16 left-4">
+      {/* Cover photo with correct aspect ratio */}
+      <AspectRatio ratio={3/1} className="bg-twitter-extraExtraLight">
+        <div 
+          className="h-full w-full relative"
+          style={coverUrl ? {
+            backgroundImage: `url(${coverUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : {}}
+        />
+      </AspectRatio>
+      
+      {/* Profile picture */}
+      <div className="relative">
+        <div className="absolute -top-16 left-4">
           <Avatar className="h-32 w-32 border-4 border-white">
             {avatarUrl ? (
               <AvatarImage src={avatarUrl} alt={displayName} />

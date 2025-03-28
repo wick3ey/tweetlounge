@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Loader, ZoomIn, ZoomOut, Check, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface CoverImageCropperProps {
   imageFile: File | null;
@@ -31,8 +32,8 @@ const CoverImageCropper = ({
   const imageRef = useRef<HTMLImageElement>(null);
   const cropBoxRef = useRef<HTMLDivElement>(null);
   
-  // Target aspect ratio for the crop (3:1 for cover image)
-  const targetAspectRatio = 3;
+  // Exakt förhållande för cover image: 3:1 (baserat på ProfileHeader-komponenten)
+  const aspectRatio = 3; // width:height ratio
   
   // Load the image when file changes
   useEffect(() => {
@@ -118,10 +119,11 @@ const CoverImageCropper = ({
     setIsProcessing(true);
     
     try {
-      // Create a canvas with the desired output size
+      // Create a canvas with the desired output size - exakt dimensioner för header image
+      // Leverera en bild med 1500x500px (3:1 ratio) för bästa kvalitet
       const canvas = document.createElement('canvas');
-      canvas.width = 1500;
-      canvas.height = 500;
+      canvas.width = 1500;  // Header width
+      canvas.height = 500;  // Header height
       const ctx = canvas.getContext('2d');
       
       if (!ctx) {
@@ -132,10 +134,6 @@ const CoverImageCropper = ({
       const cropBoxRect = cropBoxRef.current.getBoundingClientRect();
       const containerRect = containerRef.current.getBoundingClientRect();
       const imageRect = imageRef.current.getBoundingClientRect();
-      
-      // Calculate the scaling factor
-      const scaleFactorX = 1500 / cropBoxRect.width;
-      const scaleFactorY = 500 / cropBoxRect.height;
       
       // Calculate the source coordinates for cropping
       // Convert the crop box coordinates to be relative to the image
@@ -177,7 +175,7 @@ const CoverImageCropper = ({
           onClose();
         },
         'image/jpeg',
-        0.8
+        0.9  // Högre kvalitet
       );
     } catch (error) {
       console.error('Error processing image:', error);
@@ -203,7 +201,7 @@ const CoverImageCropper = ({
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <DialogTitle>Edit media</DialogTitle>
+            <DialogTitle>Redigera coverbild</DialogTitle>
           </div>
         </DialogHeader>
         
@@ -213,61 +211,67 @@ const CoverImageCropper = ({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-0 bg-black min-h-[400px] flex flex-col items-center justify-center">
-              <div 
-                ref={containerRef}
-                className="relative overflow-hidden w-full bg-black cursor-move flex items-center justify-center"
-                onMouseDown={handleMouseDown}
-                style={{ touchAction: 'none', height: '400px' }}
-              >
-                {imageSrc && (
-                  <img
-                    ref={imageRef}
-                    src={imageSrc}
-                    alt="Cover image preview"
-                    className="absolute transform-gpu"
-                    style={{
-                      transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                      transformOrigin: '0 0',
-                      maxWidth: 'none',
-                    }}
-                    draggable={false}
-                  />
-                )}
-                
-                {/* Crop box with guidelines */}
+            {/* Visuell förhandsvisning som exakt matchar profilheaderns dimensioner */}
+            <div className="relative overflow-hidden">
+              {/* AspectRatio garaneterar att vi visar exakt samma förhållande som headern */}
+              <AspectRatio ratio={3/1} className="bg-black w-full">
                 <div 
-                  ref={cropBoxRef}
-                  className="absolute pointer-events-none border-2 border-blue-500"
-                  style={{
-                    width: '100%',
-                    height: '33.33%',  // 3:1 aspect ratio
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6)',
-                  }}
+                  ref={containerRef}
+                  className="relative overflow-hidden w-full h-full bg-black cursor-move flex items-center justify-center"
+                  onMouseDown={handleMouseDown}
+                  style={{ touchAction: 'none' }}
                 >
-                  {/* Grid lines for visual guidance */}
-                  <div className="absolute inset-0 grid grid-cols-3 pointer-events-none">
-                    <div className="border-r border-blue-500 opacity-70 h-full"></div>
-                    <div className="border-r border-blue-500 opacity-70 h-full"></div>
+                  {imageSrc && (
+                    <img
+                      ref={imageRef}
+                      src={imageSrc}
+                      alt="Cover image preview"
+                      className="absolute transform-gpu"
+                      style={{
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                        transformOrigin: '0 0',
+                        maxWidth: 'none',
+                      }}
+                      draggable={false}
+                    />
+                  )}
+                  
+                  {/* Crop box med guidelines - tar hela tillgängliga ytan för att matcha headerproportionerna */}
+                  <div 
+                    ref={cropBoxRef}
+                    className="absolute inset-0 pointer-events-none border-2 border-blue-500"
+                    style={{
+                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6)',
+                    }}
+                  >
+                    {/* Grid lines för visuell guidning - 3x3 grid */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
+                      <div className="border-r border-blue-500 opacity-70 h-full"></div>
+                      <div className="border-r border-blue-500 opacity-70 h-full"></div>
+                      <div className="border-b border-blue-500 opacity-70 w-full"></div>
+                      <div className="border-b border-blue-500 opacity-70 w-full"></div>
+                    </div>
+                    
+                    {/* Information text */}
+                    <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
+                      Rekommenderad storlek: 1500 × 500px
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="flex items-center space-x-2 p-4 w-full bg-black">
-                <ZoomOut className="h-4 w-4 text-white" />
-                <Slider
-                  value={[scale]}
-                  min={1}
-                  max={3}
-                  step={0.01}
-                  onValueChange={(values) => setScale(values[0])}
-                  className="flex-1"
-                />
-                <ZoomIn className="h-4 w-4 text-white" />
-              </div>
+              </AspectRatio>
+            </div>
+            
+            <div className="flex items-center space-x-2 p-4 w-full bg-gray-100">
+              <ZoomOut className="h-4 w-4 text-gray-700" />
+              <Slider
+                value={[scale]}
+                min={1}
+                max={3}
+                step={0.01}
+                onValueChange={(values) => setScale(values[0])}
+                className="flex-1"
+              />
+              <ZoomIn className="h-4 w-4 text-gray-700" />
             </div>
             
             <div className="p-4 flex justify-end">
@@ -279,10 +283,10 @@ const CoverImageCropper = ({
               >
                 {isProcessing ? (
                   <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" /> Processing
+                    <Loader className="mr-2 h-4 w-4 animate-spin" /> Bearbetar
                   </>
                 ) : (
-                  "Apply"
+                  "Använd"
                 )}
               </Button>
             </div>

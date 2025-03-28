@@ -14,6 +14,7 @@ import { Calendar, MapPin, Link2, Pencil, ArrowLeft, Loader } from "lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import ProfileEditForm from "@/components/profile/ProfileEditForm";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 const Profile = () => {
   const { username } = useParams();
@@ -108,45 +109,47 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* Cover Photo */}
-            <div 
-              className="relative h-48 bg-twitter-light"
-              style={{
-                backgroundImage: profile?.cover_url ? `url(${profile.cover_url})` : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            >
-              {/* Profile Image */}
-              <div className="absolute -bottom-16 left-4">
-                <Avatar className="h-32 w-32 border-4 border-white">
-                  <AvatarImage src={profile?.avatar_url || "https://i.pravatar.cc/150?img=1"} />
-                  <AvatarFallback>{profile?.display_name?.substring(0, 2).toUpperCase() || "US"}</AvatarFallback>
-                </Avatar>
-              </div>
-              
-              {/* Edit Profile Button (only if it's the user's profile) */}
-              {isProfileOwner && (
-                <div className="absolute top-4 right-4">
-                  <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        className="rounded-full bg-white bg-opacity-80 hover:bg-opacity-100"
-                      >
-                        <Pencil className="h-4 w-4 mr-2" /> Edit Profile
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle>Edit profile</DialogTitle>
-                      </DialogHeader>
-                      <ProfileEditForm onClose={() => setIsEditOpen(false)} />
-                    </DialogContent>
-                  </Dialog>
+            {/* Cover Photo with AspectRatio */}
+            <AspectRatio ratio={3/1} className="bg-twitter-light">
+              <div 
+                className="h-full w-full relative"
+                style={{
+                  backgroundImage: profile?.cover_url ? `url(${profile.cover_url})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                {/* Profile Image */}
+                <div className="absolute -bottom-16 left-4">
+                  <Avatar className="h-32 w-32 border-4 border-white">
+                    <AvatarImage src={profile?.avatar_url || "https://i.pravatar.cc/150?img=1"} />
+                    <AvatarFallback>{profile?.display_name?.substring(0, 2).toUpperCase() || "US"}</AvatarFallback>
+                  </Avatar>
                 </div>
-              )}
-            </div>
+                
+                {/* Edit Profile Button (only if it's the user's profile) */}
+                {isProfileOwner && (
+                  <div className="absolute top-4 right-4">
+                    <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          className="rounded-full bg-white bg-opacity-80 hover:bg-opacity-100"
+                        >
+                          <Pencil className="h-4 w-4 mr-2" /> Edit Profile
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Edit profile</DialogTitle>
+                        </DialogHeader>
+                        <ProfileEditForm onClose={() => setIsEditOpen(false)} />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                )}
+              </div>
+            </AspectRatio>
 
             {/* Profile Info */}
             <div className="mt-16 px-4 py-3">
