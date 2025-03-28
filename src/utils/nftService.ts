@@ -94,7 +94,7 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
 export const setNFTAsProfilePicture = async (
   userId: string,
   imageUrl: string,
-  nftId: string
+  nftId: string = ""
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
@@ -112,7 +112,7 @@ export const setNFTAsProfilePicture = async (
     console.error('Error setting NFT as profile picture:', error);
     return {
       success: false,
-      error: error.message || 'Failed to set NFT as profile picture'
+      error: error.message || 'Failed to set profile picture'
     };
   }
 };

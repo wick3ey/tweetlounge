@@ -72,7 +72,7 @@ const NFTBrowser = ({
     if (!user) return;
     
     try {
-      const result = await setNFTAsProfilePicture(user.id, nft.imageUrl);
+      const result = await setNFTAsProfilePicture(user.id, nft.imageUrl, nft.id);
       
       if (result.success) {
         toast({

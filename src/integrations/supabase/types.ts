@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          avatar_nft_id: string | null
           avatar_url: string | null
           bio: string | null
           cover_url: string | null
@@ -25,6 +26,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          avatar_nft_id?: string | null
           avatar_url?: string | null
           bio?: string | null
           cover_url?: string | null
@@ -39,6 +41,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          avatar_nft_id?: string | null
           avatar_url?: string | null
           bio?: string | null
           cover_url?: string | null
