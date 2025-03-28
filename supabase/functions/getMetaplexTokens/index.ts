@@ -27,40 +27,6 @@ interface Token {
   explorerUrl?: string;
 }
 
-// Known token metadata mapping
-const knownTokens: Record<string, { name: string, symbol: string, logo?: string, decimals: number }> = {
-  "So11111111111111111111111111111111111111112": {
-    name: "Solana",
-    symbol: "SOL",
-    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
-    decimals: 9
-  },
-  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
-    name: "USD Coin",
-    symbol: "USDC",
-    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
-    decimals: 6
-  },
-  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": {
-    name: "USDT",
-    symbol: "USDT",
-    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png",
-    decimals: 6
-  },
-  "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj": {
-    name: "Raydium",
-    symbol: "RAY",
-    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj/logo.png",
-    decimals: 6
-  },
-  "6o5jzMo3QDQt8ST8wtRf5bDKZZXSg61hK6mMxgU54JXh": {
-    name: "Donald Token",
-    symbol: "DNLD",
-    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/6o5jzMo3QDQt8ST8wtRf5bDKZZXSg61hK6mMxgU54JXh/logo.png",
-    decimals: 6
-  }
-};
-
 /**
  * Fetch token metadata using on-chain data and token registries
  * @param mintAddress The token mint address
@@ -71,11 +37,6 @@ async function getTokenMetadata(
   mintAddress: string
 ): Promise<{ name: string; symbol: string; logo?: string; decimals: number }> {
   try {
-    // Check if we have known metadata for this token
-    if (knownTokens[mintAddress]) {
-      return knownTokens[mintAddress];
-    }
-
     console.log(`Fetching metadata for token: ${mintAddress}`);
     
     // First try Jupiter API for token information
