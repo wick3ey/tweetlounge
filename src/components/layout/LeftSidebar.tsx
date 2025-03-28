@@ -1,13 +1,10 @@
 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, User, Bell, MessageSquare, BookmarkIcon, ListIcon, MoreHorizontal, Activity, Zap } from 'lucide-react';
+import { Home, User, Bell, MessageSquare, BookmarkIcon, MoreHorizontal, Activity, Zap } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import MarketStats from '@/components/crypto/MarketStats';
-import NewsSection from '@/components/crypto/NewsSection';
 
 const LeftSidebar = () => {
   const location = useLocation();
@@ -50,7 +47,7 @@ const LeftSidebar = () => {
   };
 
   return (
-    <div className="hidden md:flex flex-col h-screen py-2 px-4 sticky top-0 w-72 border-r border-border/50 overflow-y-auto">
+    <div className="hidden md:flex flex-col h-screen py-2 px-4 sticky top-0 w-72 border-r border-border/50 overflow-y-auto bg-[#222222]">
       <div className="flex items-center justify-start mb-6 p-2">
         <Link to="/home" className="text-2xl font-display font-bold text-primary flex items-center">
           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-3">
@@ -83,11 +80,6 @@ const LeftSidebar = () => {
         <Zap className="h-5 w-5 mr-3" />
         <span>Compose Tweet</span>
       </Button>
-      
-      <div className="mt-4 space-y-4">
-        <MarketStats />
-        <NewsSection />
-      </div>
       
       <div className="mt-auto mb-4">
         {user && (
