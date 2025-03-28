@@ -1,6 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { Connection, PublicKey } from 'https://esm.sh/@solana/web3.js@1.89.1';
+import { Connection, PublicKey, GetProgramAccountsFilter } from 'https://esm.sh/@solana/web3.js@1.89.1';
+import { TOKEN_PROGRAM_ID } from 'https://esm.sh/@solana/spl-token@0.3.11';
 
 // Define the request body type
 interface RequestBody {
@@ -49,18 +50,19 @@ const tokenMetadata: Record<string, { name: string, symbol: string, logo?: strin
   }
 };
 
-// Fetch Solana tokens using @solana/web3.js
+// Fetch Solana tokens using QuickNode and @solana/web3.js
 async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
-    console.log(`Fetching Solana tokens for address: ${address} using web3.js`);
+    console.log(`Fetching Solana tokens for address: ${address} using QuickNode`);
     
-    // Create connection to Solana mainnet
-    const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
+    // Create connection to Solana mainnet via QuickNode
+    const rpcEndpoint = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
+    const connection = new Connection(rpcEndpoint, 'confirmed');
     
     // Convert address string to PublicKey
     const walletAddress = new PublicKey(address);
     
-    // Get SOL balance
+    // Get SOL balance first
     const solBalance = await connection.getBalance(walletAddress);
     const solAmount = (solBalance / 1e9).toString(); // Convert lamports to SOL
     
@@ -70,42 +72,45 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       symbol: "SOL",
       logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       amount: solAmount,
-      usdValue: undefined, // We don't have price data in this basic implementation
+      usdValue: undefined, // We don't have price data in this implementation
       decimals: 9,
       address: "So11111111111111111111111111111111111111112"
     }];
     
     try {
-      // Get all SPL token accounts owned by this wallet
-      const tokenAccounts = await connection.getTokenAccountsByOwner(
-        walletAddress,
+      // Define filters for token accounts
+      const filters: GetProgramAccountsFilter[] = [
         {
-          programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // SPL Token program ID
+          dataSize: 165, // Size of token account (bytes)
+        },
+        {
+          memcmp: {
+            offset: 32, // Location of owner address in the account data
+            bytes: address, // The wallet address we're looking for
+          },
         }
+      ];
+      
+      // Get all token accounts for this wallet
+      console.log(`Fetching token accounts for wallet ${address}`);
+      const accounts = await connection.getParsedProgramAccounts(
+        TOKEN_PROGRAM_ID, // SPL Token program ID
+        { filters: filters }
       );
       
-      console.log(`Found ${tokenAccounts.value.length} token accounts`);
+      console.log(`Found ${accounts.length} token accounts`);
       
       // Process each token account
-      for (const account of tokenAccounts.value) {
+      for (const account of accounts) {
         try {
-          // Get token balance and info
-          const accountInfo = account.account.data;
-          const accountData = await connection.getTokenAccountBalance(account.pubkey);
+          // Parse the account data
+          const parsedAccountInfo: any = account.account.data;
+          const mintAddress: string = parsedAccountInfo["parsed"]["info"]["mint"];
+          const tokenBalance: number = parsedAccountInfo["parsed"]["info"]["tokenAmount"]["uiAmount"];
+          const tokenDecimals: number = parsedAccountInfo["parsed"]["info"]["tokenAmount"]["decimals"];
           
-          if (!accountData.value || !accountData.value.amount) {
-            continue;
-          }
-          
-          // Extract mint address
-          // This requires parsing the account data which is complex
-          // For simplicity, we'll extract it from the UI value
-          const mintAddress = accountData.value.mint || "";
-          const amount = accountData.value.uiAmount?.toString() || "0";
-          const decimals = accountData.value.decimals || 0;
-          
-          // Skip if amount is 0
-          if (parseFloat(amount) === 0) {
+          // Skip if balance is 0
+          if (tokenBalance === 0) {
             continue;
           }
           
@@ -113,17 +118,19 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
           const metadata = tokenMetadata[mintAddress] || {
             name: `Token (${mintAddress.slice(0, 6)}...)`,
             symbol: "UNKNOWN",
-            decimals: decimals
+            decimals: tokenDecimals
           };
           
           tokens.push({
             name: metadata.name,
             symbol: metadata.symbol,
             logo: metadata.logo,
-            amount: amount,
-            decimals: decimals,
+            amount: tokenBalance.toString(),
+            decimals: tokenDecimals,
             address: mintAddress
           });
+          
+          console.log(`Found token: ${metadata.symbol}, balance: ${tokenBalance}`);
         } catch (error) {
           console.error(`Error processing token account:`, error);
           // Continue to next token account
