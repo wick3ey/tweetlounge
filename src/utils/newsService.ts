@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
@@ -41,11 +42,11 @@ const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
-// Alternative CORS proxies - we'll try multiple in case one fails
+// CORS proxies - we'll try multiple in case one fails
 const CORS_PROXIES = [
-  'https://corsproxy.io/?',
-  'https://proxy.cors.sh/',
-  'https://cors-anywhere.herokuapp.com/'
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest=',
+  'https://corsproxy.org/?'
 ];
 
 /**
@@ -65,29 +66,14 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
       // Adding cache-busting parameter to ensure we get fresh content
       const requestUrl = `${proxy}${encodeURIComponent(targetUrl)}&_=${new Date().getTime()}`;
       
-      const response = await fetch(requestUrl, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
+      const response = await fetch(requestUrl);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch news: ${response.status}`);
       }
       
-      // Parse the response based on which proxy we're using
-      let parsedContents: CryptoPanicResponse;
-      
-      if (proxy.includes('allorigins')) {
-        // AllOrigins wraps the response in a "contents" field as a string
-        const data = await response.json();
-        parsedContents = JSON.parse(data.contents);
-      } else {
-        // Other proxies likely return the data directly
-        parsedContents = await response.json();
-      }
+      // Parse the response
+      const parsedContents: CryptoPanicResponse = await response.json();
       
       // Filter news to only show the last 3 hours
       const threeHoursAgo = new Date();

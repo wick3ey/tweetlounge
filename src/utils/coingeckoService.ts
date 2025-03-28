@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 
 // Interface for the cryptocurrency data
@@ -48,19 +47,45 @@ let marketStatsCache: MarketStatsCache = {
 // Cache duration in milliseconds (10 minutes)
 const CACHE_DURATION = 10 * 60 * 1000;
 
+// CORS proxies list - we'll try these in sequence
+const CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://api.codetabs.com/v1/proxy?quest=',
+  'https://corsproxy.org/?'
+];
+
+// Helper function to try fetching with multiple proxies
+const fetchWithProxies = async (url: string): Promise<any> => {
+  let lastError: Error | null = null;
+  
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error with proxy ${proxy}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      // Continue to the next proxy
+    }
+  }
+  
+  // If all proxies failed, throw the last error
+  throw lastError || new Error('All proxies failed');
+};
+
 // Function to fetch crypto data from CoinGecko
 const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
   try {
     // CoinGecko free API endpoint for top cryptocurrencies
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h'
-    );
+    const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h';
     
-    if (!response.ok) {
-      throw new Error('Failed to fetch data from CoinGecko');
-    }
-    
-    const data = await response.json();
+    const data = await fetchWithProxies(url);
     
     // Map the response to our CryptoCurrency interface
     return data.map((coin: any) => ({
@@ -79,13 +104,9 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
 // Function to fetch fear and greed index
 const fetchFearGreedIndex = async (): Promise<{value: number, value_classification: string}> => {
   try {
-    const response = await fetch('https://api.alternative.me/fng/');
+    const url = 'https://api.alternative.me/fng/';
     
-    if (!response.ok) {
-      throw new Error('Failed to fetch Fear & Greed index');
-    }
-    
-    const data = await response.json();
+    const data = await fetchWithProxies(url);
     
     if (data && data.data && data.data[0]) {
       return {
@@ -105,13 +126,9 @@ const fetchFearGreedIndex = async (): Promise<{value: number, value_classificati
 const fetchMarketStats = async (): Promise<MarketStats> => {
   try {
     // Fetch global market data
-    const response = await fetch('https://api.coingecko.com/api/v3/global');
+    const url = 'https://api.coingecko.com/api/v3/global';
     
-    if (!response.ok) {
-      throw new Error('Failed to fetch global market data from CoinGecko');
-    }
-    
-    const { data } = await response.json();
+    const { data } = await fetchWithProxies(url);
     
     // Get Fear & Greed index
     let fearGreedData;
