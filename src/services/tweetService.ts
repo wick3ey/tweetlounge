@@ -136,36 +136,50 @@ export async function getUserTweets(
 
 export async function likeTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!(await user).data.user) {
+    if (!userData.user) {
       throw new Error('User must be logged in to like a tweet');
+    }
+    
+    const { data: existingLike, error: checkError } = await supabase
+      .from('likes')
+      .select()
+      .match({ 
+        user_id: userData.user.id,
+        tweet_id: tweetId 
+      });
+      
+    if (checkError) {
+      console.error('Error checking like status:', checkError);
+      return false;
+    }
+    
+    if (existingLike && existingLike.length > 0) {
+      const { error: unlikeError } = await supabase
+        .from('likes')
+        .delete()
+        .match({ 
+          user_id: userData.user.id,
+          tweet_id: tweetId 
+        });
+        
+      if (unlikeError) {
+        console.error('Error unliking tweet:', unlikeError);
+        return false;
+      }
+      
+      return true;
     }
     
     const { error } = await supabase
       .from('likes')
       .insert({
-        user_id: (await user).data.user?.id,
+        user_id: userData.user.id,
         tweet_id: tweetId
       });
       
     if (error) {
-      if (error.code === '23505') {
-        const { error: unlikeError } = await supabase
-          .from('likes')
-          .delete()
-          .match({ 
-            user_id: (await user).data.user?.id,
-            tweet_id: tweetId 
-          });
-          
-        if (unlikeError) {
-          console.error('Error unliking tweet:', unlikeError);
-          return false;
-        }
-        return true;
-      }
-      
       console.error('Error liking tweet:', error);
       return false;
     }
@@ -179,9 +193,9 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
 
 export async function retweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!(await user).data.user) {
+    if (!userData.user) {
       throw new Error('User must be logged in to retweet');
     }
     
@@ -189,7 +203,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .from('retweets')
       .select()
       .match({ 
-        user_id: (await user).data.user?.id,
+        user_id: userData.user.id,
         tweet_id: tweetId 
       });
       
@@ -199,31 +213,57 @@ export async function retweet(tweetId: string): Promise<boolean> {
     }
     
     if (existingRetweet && existingRetweet.length > 0) {
-      const { error: deleteError } = await supabase
+      const { error: deleteRetweetError } = await supabase
         .from('retweets')
         .delete()
         .match({ 
-          user_id: (await user).data.user?.id,
+          user_id: userData.user.id,
           tweet_id: tweetId 
         });
         
-      if (deleteError) {
-        console.error('Error removing retweet:', deleteError);
+      if (deleteRetweetError) {
+        console.error('Error removing retweet record:', deleteRetweetError);
         return false;
+      }
+      
+      const { data: retweetTweet, error: findError } = await supabase
+        .from('tweets')
+        .select()
+        .match({
+          author_id: userData.user.id,
+          original_tweet_id: tweetId,
+          is_retweet: true
+        });
+        
+      if (findError) {
+        console.error('Error finding retweet tweet:', findError);
+        return false;
+      }
+      
+      if (retweetTweet && retweetTweet.length > 0) {
+        const { error: deleteTweetError } = await supabase
+          .from('tweets')
+          .delete()
+          .eq('id', retweetTweet[0].id);
+          
+        if (deleteTweetError) {
+          console.error('Error deleting retweet tweet:', deleteTweetError);
+          return false;
+        }
       }
       
       return true;
     }
     
-    const { error } = await supabase
+    const { error: retweetError } = await supabase
       .from('retweets')
       .insert({
-        user_id: (await user).data.user?.id,
+        user_id: userData.user.id,
         tweet_id: tweetId
       });
       
-    if (error) {
-      console.error('Error retweeting:', error);
+    if (retweetError) {
+      console.error('Error creating retweet record:', retweetError);
       return false;
     }
     
@@ -231,18 +271,19 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .from('tweets')
       .insert({
         content: '',
-        author_id: (await user).data.user?.id,
+        author_id: userData.user.id,
         is_retweet: true,
         original_tweet_id: tweetId
       });
       
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
+      
       await supabase
         .from('retweets')
         .delete()
         .match({ 
-          user_id: (await user).data.user?.id,
+          user_id: userData.user.id,
           tweet_id: tweetId 
         });
         
@@ -286,9 +327,9 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
 
 export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!(await user).data.user) {
+    if (!userData.user) {
       return false;
     }
     
@@ -296,7 +337,7 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       .from('likes')
       .select()
       .match({ 
-        user_id: (await user).data.user?.id,
+        user_id: userData.user.id,
         tweet_id: tweetId 
       });
       
@@ -308,6 +349,34 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
     return data && data.length > 0;
   } catch (error) {
     console.error('Check like status failed:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    
+    if (!userData.user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('retweets')
+      .select()
+      .match({ 
+        user_id: userData.user.id,
+        tweet_id: tweetId 
+      });
+      
+    if (error) {
+      console.error('Error checking retweet status:', error);
+      return false;
+    }
+    
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Check retweet status failed:', error);
     return false;
   }
 }

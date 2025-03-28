@@ -8,7 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { likeTweet, retweet, checkIfUserLikedTweet, getOriginalTweet } from '@/services/tweetService';
+import { 
+  likeTweet, 
+  retweet, 
+  checkIfUserLikedTweet, 
+  checkIfUserRetweetedTweet,
+  getOriginalTweet 
+} from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -26,6 +32,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [liked, setLiked] = useState(false);
+  const [retweeted, setRetweeted] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +48,16 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       setLiked(hasLiked);
     };
     
+    // Check if user has retweeted this tweet
+    const checkRetweetStatus = async () => {
+      if (!user) return;
+      
+      const hasRetweeted = await checkIfUserRetweetedTweet(tweet.id);
+      setRetweeted(hasRetweeted);
+    };
+    
     checkLikeStatus();
+    checkRetweetStatus();
   }, [tweet.id, user]);
 
   useEffect(() => {
@@ -81,6 +97,11 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         setLiked(newLikedState);
         setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
         
+        toast({
+          title: newLikedState ? "Liked" : "Unliked",
+          description: newLikedState ? "You liked this tweet" : "You unliked this tweet",
+        });
+        
         if (onLike) onLike();
       }
     } catch (error) {
@@ -110,12 +131,15 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       const success = await retweet(tweet.id);
       
       if (success) {
-        // Update local state - this is simplified, ideally we'd check current state
-        setRetweetsCount(prevCount => prevCount + 1);
+        const newRetweetedState = !retweeted;
+        setRetweeted(newRetweetedState);
+        setRetweetsCount(prevCount => newRetweetedState ? prevCount + 1 : prevCount - 1);
         
         toast({
-          title: "Success",
-          description: "Tweet has been retweeted!",
+          title: newRetweetedState ? "Retweeted" : "Undid Retweet",
+          description: newRetweetedState 
+            ? "You retweeted this tweet" 
+            : "You removed your retweet",
         });
         
         if (onRetweet) onRetweet();
@@ -258,10 +282,10 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
             
             <button 
               onClick={handleRetweet} 
-              className="flex items-center hover:text-green-500 transition-colors"
+              className={`flex items-center transition-colors ${retweeted ? 'text-green-500' : 'hover:text-green-500'}`}
               disabled={isSubmitting}
             >
-              <Repeat className="h-4 w-4 mr-1" />
+              <Repeat className="h-4 w-4 mr-1" fill={retweeted ? "currentColor" : "none"} />
               <span>{formatNumber(retweetsCount)}</span>
             </button>
             
