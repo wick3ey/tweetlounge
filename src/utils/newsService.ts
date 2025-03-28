@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
@@ -40,7 +39,7 @@ interface CryptoPanicResponse {
 // API constants
 const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
-const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes to get more frequent updates
+const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 // CORS proxy URL - Using allorigins
 const CORS_PROXY = 'https://api.allorigins.win/get?url=';
@@ -54,7 +53,7 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   
   try {
     // Using AllOrigins CORS proxy - Query for BTC, ETH, SOL and important news
-    // Added filter=important to get major news stories
+    // Added filter=hot to get major news stories
     const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en&filter=hot`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
@@ -70,7 +69,10 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
     // Parse the contents string as JSON to get the actual API response
     const parsedContents: CryptoPanicResponse = JSON.parse(data.contents);
     
-    return parsedContents.results;
+    // Sort by published date to ensure latest news first
+    return parsedContents.results.sort((a, b) => {
+      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+    });
   } catch (error) {
     console.error('Error fetching news:', error);
     throw error;
@@ -79,13 +81,13 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
 
 /**
  * Hook for fetching and managing crypto news
+ * Auto-refreshes every 30 minutes
  */
 export const useNewsData = () => {
   const { 
     data: newsArticles = [], 
     isLoading: loading, 
     error,
-    refetch,
     isRefetching
   } = useQuery({
     queryKey: ['cryptoNews'],
@@ -96,27 +98,10 @@ export const useNewsData = () => {
     retry: 2, // Only retry twice before showing error
   });
   
-  const refreshData = async () => {
-    try {
-      await refetch();
-      toast({
-        title: "News Updated",
-        description: "Latest crypto news has been loaded",
-      });
-    } catch (error) {
-      toast({
-        title: "Error Refreshing News",
-        description: error instanceof Error ? error.message : "Failed to refresh news",
-        variant: "destructive"
-      });
-    }
-  };
-  
   return {
     newsArticles,
     loading,
     error: error ? (error instanceof Error ? error.message : "Unknown error") : null,
-    refreshData,
     isRefreshing: isRefetching
   };
 };
