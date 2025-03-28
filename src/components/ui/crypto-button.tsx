@@ -12,12 +12,15 @@ const buttonVariants = cva(
         outline: "border border-crypto-gray text-crypto-text hover:bg-crypto-gray/20",
         ghost: "hover:bg-crypto-gray/20 text-crypto-text",
         link: "text-crypto-blue underline-offset-4 hover:underline",
+        destructive: "bg-crypto-red text-white hover:bg-crypto-red/90",
+        success: "bg-crypto-green text-white hover:bg-crypto-green/90",
       },
       size: {
         default: "h-10 py-2 px-4",
         sm: "h-9 px-3 rounded-md",
         lg: "h-11 px-8 rounded-md",
         icon: "h-10 w-10",
+        pill: "h-9 px-4 rounded-full",
       },
     },
     defaultVariants: {
