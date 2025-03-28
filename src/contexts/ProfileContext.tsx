@@ -56,6 +56,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           solana_address: data.solana_address,
           avatar_nft_id: data.avatar_nft_id,
           avatar_nft_chain: data.avatar_nft_chain,
+          followers_count: data.followers_count,
+          following_count: data.following_count
         };
         setProfile(profileData);
       }

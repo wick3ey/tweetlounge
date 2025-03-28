@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 
@@ -69,7 +70,29 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
       throw error;
     }
     
-    return data as TweetWithAuthor[];
+    // Transform the data to match the TweetWithAuthor type
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
+      id: item.id,
+      content: item.content,
+      author_id: item.author_id,
+      created_at: item.created_at,
+      likes_count: item.likes_count,
+      retweets_count: item.retweets_count,
+      replies_count: item.replies_count,
+      is_retweet: item.is_retweet,
+      original_tweet_id: item.original_tweet_id,
+      image_url: item.image_url,
+      author: {
+        id: item.author_id,
+        username: item.username,
+        display_name: item.display_name,
+        avatar_url: item.avatar_url,
+        avatar_nft_id: item.avatar_nft_id,
+        avatar_nft_chain: item.avatar_nft_chain
+      }
+    }));
+    
+    return transformedData;
   } catch (error) {
     console.error('Failed to fetch tweets:', error);
     return [];
@@ -90,7 +113,29 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
       throw error;
     }
     
-    return data as TweetWithAuthor[];
+    // Transform the data to match the TweetWithAuthor type
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
+      id: item.id,
+      content: item.content,
+      author_id: item.author_id,
+      created_at: item.created_at,
+      likes_count: item.likes_count,
+      retweets_count: item.retweets_count,
+      replies_count: item.replies_count,
+      is_retweet: item.is_retweet,
+      original_tweet_id: item.original_tweet_id,
+      image_url: item.image_url,
+      author: {
+        id: item.author_id,
+        username: item.username,
+        display_name: item.display_name,
+        avatar_url: item.avatar_url,
+        avatar_nft_id: item.avatar_nft_id,
+        avatar_nft_chain: item.avatar_nft_chain
+      }
+    }));
+    
+    return transformedData;
   } catch (error) {
     console.error('Failed to fetch user tweets:', error);
     return [];
