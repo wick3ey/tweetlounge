@@ -31,7 +31,7 @@ const Reply = ({ reply }: ReplyProps) => {
   };
 
   return (
-    <div className="p-4 border-t border-gray-800">
+    <div className="p-4 border-t border-gray-800 bg-crypto-darkgray">
       <div className="flex gap-3">
         <Link to={`/profile/${reply.profiles.username}`}>
           <Avatar className="h-8 w-8">

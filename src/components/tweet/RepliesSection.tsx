@@ -35,7 +35,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   if (!isOpen) return null;
   
   return (
-    <div className="border-t border-gray-800 bg-gray-900/30">
+    <div className="border-t border-gray-800 bg-crypto-darkgray">
       <ReplyComposer tweetId={tweetId} onReplySuccess={fetchReplies} />
       
       {loading ? (

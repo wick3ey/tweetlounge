@@ -62,7 +62,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-8">
+      <div className="flex justify-center items-center p-8 bg-crypto-darkgray rounded-lg">
         <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
         <span className="ml-2 text-gray-400">Loading tweets...</span>
       </div>
@@ -71,7 +71,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   if (error) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-6 text-center bg-crypto-darkgray rounded-lg">
         <p className="text-red-500 mb-4">{error}</p>
         <button 
           onClick={() => window.location.reload()}
@@ -85,7 +85,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   if (tweets.length === 0) {
     return (
-      <div className="p-6 text-center border-b border-gray-800 rounded-lg bg-gray-900/20">
+      <div className="p-6 text-center border-b border-gray-800 rounded-lg bg-crypto-darkgray">
         <p className="text-gray-400">
           {feedType === 'user' ? 'No tweets yet. Post something to get started!' : 
            feedType === 'user-retweets' ? 'No retweets yet.' : 
@@ -96,7 +96,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
   }
 
   return (
-    <div className="tweet-feed rounded-lg overflow-hidden bg-gray-900/20 border border-gray-800">
+    <div className="tweet-feed rounded-lg overflow-hidden bg-crypto-darkgray border border-gray-800">
       {tweets.map((tweet) => (
         <TweetCard
           key={tweet.id}

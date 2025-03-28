@@ -280,7 +280,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   }
 
   return (
-    <div className="border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
+    <div className="border-b border-gray-800 bg-crypto-darkgray">
       <div className="p-4">
         {isRetweet && (
           <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
