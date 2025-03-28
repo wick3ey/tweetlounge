@@ -6,22 +6,30 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const SignupForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(null);
     
     const { error } = await signUp(email, password);
     
-    if (!error) {
-      // Redirecting happens after email verification
+    if (error) {
+      console.error('Signup error:', error);
+      setErrorMessage(error.message || 'An error occurred during signup');
+    } else {
+      // Show success message since email verification might be required
+      setErrorMessage('Signup successful! Please check your email for verification instructions.');
     }
     
     setIsLoading(false);
@@ -29,7 +37,15 @@ const SignupForm = () => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    await signInWithGoogle();
+    setErrorMessage(null);
+    
+    const { error } = await signInWithGoogle();
+    
+    if (error) {
+      console.error('Google login error:', error);
+      setErrorMessage(error.message || 'An error occurred with Google login');
+    }
+    
     setIsLoading(false);
   };
 
@@ -40,6 +56,13 @@ const SignupForm = () => {
         <CardDescription>Enter your details to create your account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {errorMessage && (
+          <Alert variant={errorMessage.includes('successful') ? 'default' : 'destructive'}>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{errorMessage}</AlertDescription>
+          </Alert>
+        )}
+        
         <Button
           type="button"
           variant="outline"

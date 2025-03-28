@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { error: null };
     } catch (error) {
+      console.error("Sign in error:", error);
       toast({
         title: "Sign in failed",
         description: error.message,
@@ -68,12 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://dgfun.xyz/profile',
+          redirectTo: `${window.location.origin}/profile`,
         },
       });
       if (error) throw error;
       return { error: null };
     } catch (error) {
+      console.error("Google sign in error:", error);
       toast({
         title: "Google sign in failed",
         description: error.message,
@@ -89,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          emailRedirectTo: 'https://dgfun.xyz/profile',
+          emailRedirectTo: `${window.location.origin}/profile`,
         },
       });
       
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { error: null, data };
     } catch (error) {
+      console.error("Sign up error:", error);
       toast({
         title: "Sign up failed",
         description: error.message,
@@ -118,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Signed out successfully",
       });
     } catch (error) {
+      console.error("Sign out error:", error);
       toast({
         title: "Sign out failed",
         description: error.message,

@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader } from 'lucide-react';
+import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Database } from '@/integrations/supabase/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
@@ -21,6 +23,7 @@ const ProfileForm = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
   const [profile, setProfile] = useState<ProfileUpdatePayload>({
     username: null,
@@ -45,20 +48,25 @@ const ProfileForm = () => {
         throw new Error('User not authenticated');
       }
       
-      const { data, error } = await supabase
+      console.log("Fetching profile for user:", user.id);
+      const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
       
-      if (error) {
-        console.error('Error fetching profile:', error);
-        if (error.code !== 'PGRST116') { // Not found error
-          throw error;
+      if (fetchError) {
+        console.error('Error fetching profile:', fetchError);
+        if (fetchError.code !== 'PGRST116') { // Not found error
+          throw fetchError;
         }
+        // If profile not found, create one
+        await createDefaultProfile();
+        return;
       }
       
       if (data) {
+        console.log("Profile found:", data);
         setProfile({
           username: data.username,
           display_name: data.display_name,
@@ -86,21 +94,30 @@ const ProfileForm = () => {
   const createDefaultProfile = async () => {
     if (!user?.id) return;
     
-    console.log('Creating default profile for user:', user.id);
-    const newProfile = {
-      username: user?.email?.split('@')[0] || null,
-      display_name: user?.email?.split('@')[0] || null,
-      bio: null,
-      avatar_url: null,
-      updated_at: new Date().toISOString()
-    };
+    try {
+      console.log('Creating default profile for user:', user.id);
+      const newProfile = {
+        username: user?.email?.split('@')[0] || null,
+        display_name: user?.email?.split('@')[0] || null,
+        bio: null,
+        avatar_url: null,
+        updated_at: new Date().toISOString()
+      };
 
-    const { error } = await supabase.from('profiles').insert([{
-      id: user.id,
-      ...newProfile
-    }]);
+      const { error: insertError } = await supabase.from('profiles').insert([{
+        id: user.id,
+        ...newProfile
+      }]);
 
-    if (error) {
+      if (insertError) {
+        console.error('Error creating default profile:', insertError);
+        throw insertError;
+      }
+
+      setProfile(newProfile);
+      console.log('Default profile created successfully');
+      setSuccess('Default profile created successfully');
+    } catch (error) {
       console.error('Error creating default profile:', error);
       setError('Error creating profile: ' + error.message);
       toast({
@@ -108,12 +125,7 @@ const ProfileForm = () => {
         description: error.message,
         variant: 'destructive',
       });
-      return;
     }
-
-    setProfile(newProfile);
-    
-    console.log('Default profile created successfully');
   };
 
   const updateProfile = async (e: React.FormEvent) => {
@@ -124,6 +136,7 @@ const ProfileForm = () => {
     try {
       setSaving(true);
       setError(null);
+      setSuccess(null);
       
       console.log('Updating profile for user:', user.id);
       const updates = {
@@ -131,13 +144,14 @@ const ProfileForm = () => {
         updated_at: new Date().toISOString()
       };
       
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', user.id);
       
-      if (error) throw error;
+      if (updateError) throw updateError;
       
+      setSuccess('Profile updated successfully');
       toast({
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
@@ -161,6 +175,7 @@ const ProfileForm = () => {
     try {
       setUploading(true);
       setError(null);
+      setSuccess(null);
       
       if (!event.target.files || event.target.files.length === 0) {
         throw new Error('You must select an image to upload.');
@@ -196,6 +211,7 @@ const ProfileForm = () => {
         avatar_url: data.publicUrl
       }));
       
+      setSuccess('Avatar updated successfully');
       toast({
         title: 'Avatar updated',
         description: 'Your avatar has been successfully updated.',
@@ -233,27 +249,6 @@ const ProfileForm = () => {
     );
   }
 
-  if (error && !profile.username) {
-    return (
-      <Card className="w-full">
-        <CardContent className="pt-6">
-          <div className="bg-red-50 p-4 rounded-md mb-4 border border-red-200">
-            <h3 className="text-lg font-medium text-red-800">Profile Error</h3>
-            <div className="mt-2 text-sm text-red-700">{error}</div>
-            <div className="mt-4">
-              <Button 
-                onClick={() => getProfile()}
-                className="bg-red-100 text-red-800 hover:bg-red-200"
-              >
-                Retry Loading Profile
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full">
       <CardHeader className="space-y-1">
@@ -261,6 +256,20 @@ const ProfileForm = () => {
         <CardDescription>Manage your account and profile information</CardDescription>
       </CardHeader>
       <CardContent>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert variant="default" className="mb-4 bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-700">{success}</AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={updateProfile} className="space-y-6">
           <div className="flex items-center gap-6">
             <div className="flex flex-col items-center gap-2">
