@@ -82,72 +82,74 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   newsCache.isLoading = true;
   newsCache.lastError = null;
   
-  console.info('Fetching fresh crypto news');
-  
-  // Setting up API call to get the latest news, sorted by date (newer first)
-  const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
-  
-  // Try each proxy in sequence until one works
-  let error = null;
-  for (const proxy of CORS_PROXIES) {
-    try {
-      // Adding cache-busting parameter to ensure we get fresh content
-      const requestUrl = `${proxy}${encodeURIComponent(targetUrl)}&_=${new Date().getTime()}`;
-      
-      const response = await fetch(requestUrl);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch news: ${response.status}`);
+  try {
+    console.info('Fetching fresh crypto news');
+    
+    // Setting up API call to get the latest news, sorted by date (newer first)
+    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
+    
+    // Try each proxy in sequence until one works
+    let error = null;
+    for (const proxy of CORS_PROXIES) {
+      try {
+        // Adding cache-busting parameter to ensure we get fresh content
+        const requestUrl = `${proxy}${encodeURIComponent(targetUrl)}&_=${new Date().getTime()}`;
+        
+        const response = await fetch(requestUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch news: ${response.status}`);
+        }
+        
+        // Parse the response
+        const parsedContents: CryptoPanicResponse = await response.json();
+        
+        // Filter news to only show the last 3 hours
+        const threeHoursAgo = new Date();
+        threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
+        
+        const recentNews = parsedContents.results.filter(article => {
+          const publishDate = new Date(article.published_at);
+          return publishDate >= threeHoursAgo;
+        });
+        
+        // Update cache
+        let resultArticles;
+        
+        // If no recent news in the last 3 hours, return the most recent 10 articles
+        if (recentNews.length === 0) {
+          console.info('No news in the last 3 hours, showing the most recent 10 articles');
+          resultArticles = parsedContents.results.slice(0, 10);
+        } else {
+          console.info(`Found ${recentNews.length} news articles from the last 3 hours`);
+          resultArticles = recentNews;
+        }
+        
+        // Update the global cache
+        newsCache.data = resultArticles;
+        newsCache.timestamp = Date.now();
+        newsCache.lastError = null;
+        
+        return resultArticles;
+      } catch (proxyError) {
+        console.error(`Error with proxy ${proxy}:`, proxyError);
+        error = proxyError;
+        // Continue to the next proxy
       }
-      
-      // Parse the response
-      const parsedContents: CryptoPanicResponse = await response.json();
-      
-      // Filter news to only show the last 3 hours
-      const threeHoursAgo = new Date();
-      threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
-      
-      const recentNews = parsedContents.results.filter(article => {
-        const publishDate = new Date(article.published_at);
-        return publishDate >= threeHoursAgo;
-      });
-      
-      // Update cache
-      let resultArticles;
-      
-      // If no recent news in the last 3 hours, return the most recent 10 articles
-      if (recentNews.length === 0) {
-        console.info('No news in the last 3 hours, showing the most recent 10 articles');
-        resultArticles = parsedContents.results.slice(0, 10);
-      } else {
-        console.info(`Found ${recentNews.length} news articles from the last 3 hours`);
-        resultArticles = recentNews;
-      }
-      
-      // Update the global cache
-      newsCache.data = resultArticles;
-      newsCache.timestamp = Date.now();
-      newsCache.lastError = null;
-      
-      return resultArticles;
-    } catch (proxyError) {
-      console.error(`Error with proxy ${proxy}:`, proxyError);
-      error = proxyError;
-      // Continue to the next proxy
     }
+    
+    // If all proxies failed, update cache with error
+    console.error('All CORS proxies failed');
+    newsCache.lastError = error ? 
+      (error instanceof Error ? error.message : String(error)) : 
+      'Failed to fetch news from all available proxies';
+    
+    throw error || new Error('Failed to fetch news from all available proxies');
+  } finally {
+    // Always reset loading flag
+    newsCache.isLoading = false;
   }
-  
-  // If all proxies failed, update cache with error
-  console.error('All CORS proxies failed');
-  newsCache.lastError = error ? 
-    (error instanceof Error ? error.message : String(error)) : 
-    'Failed to fetch news from all available proxies';
-  
-  throw error || new Error('Failed to fetch news from all available proxies');
-} finally {
-  // Always reset loading flag
-  newsCache.isLoading = false;
-}
+};
 
 /**
  * Hook for fetching and managing crypto news
