@@ -1,4 +1,3 @@
-
 import React from 'react'
 import Header from '@/components/layout/Header'
 import LeftSidebar from '@/components/layout/LeftSidebar'
@@ -12,8 +11,6 @@ import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
-import MarketStats from '@/components/crypto/MarketStats'
-import NewsSection from '@/components/crypto/NewsSection'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -83,14 +80,6 @@ const Home: React.FC = () => {
             <div className="mb-4">
               <TweetFeedTabs />
               <TweetFeed limit={10} />
-            </div>
-            
-            <div className="mb-4">
-              <MarketStats />
-            </div>
-            
-            <div className="mb-4">
-              <NewsSection />
             </div>
           </main>
         </div>

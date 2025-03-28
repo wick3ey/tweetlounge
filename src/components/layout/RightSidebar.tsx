@@ -3,6 +3,8 @@ import { Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import MarketStats from '@/components/crypto/MarketStats';
+import NewsSection from '@/components/crypto/NewsSection';
 
 const RightSidebar = () => {
   // Mock data
@@ -30,6 +32,14 @@ const RightSidebar = () => {
           className="pl-10 bg-card/50 border-border/50 rounded-full text-sm h-9"
           placeholder="Search KryptoSphere"
         />
+      </div>
+      
+      <div className="mb-3">
+        <MarketStats />
+      </div>
+      
+      <div className="mb-3">
+        <NewsSection />
       </div>
       
       <div className="glass-card p-3 mb-4">
