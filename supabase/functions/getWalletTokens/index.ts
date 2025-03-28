@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { Connection, PublicKey } from 'https://esm.sh/@solana/web3.js@1.89.1';
 import { TOKEN_PROGRAM_ID } from 'https://esm.sh/@solana/spl-token@0.3.11';
@@ -5,7 +6,7 @@ import { TOKEN_PROGRAM_ID } from 'https://esm.sh/@solana/spl-token@0.3.11';
 // Define the request body type
 interface RequestBody {
   address: string;
-  chain: 'ethereum' | 'solana';
+  chain: 'solana';
 }
 
 // Define the response type
@@ -115,7 +116,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
           
           // Get token metadata from our map or use defaults
           const metadata = tokenMetadata[mintAddress] || {
-            name: `Token (${mintAddress.slice(0, 6)}...)`,
+            name: `Token (${mintAddress.slice(0, 4)}...)`,
             symbol: "UNKNOWN",
             decimals: tokenDecimals
           };
@@ -153,43 +154,6 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
   }
 }
 
-// Fetch Ethereum tokens using Etherscan or similar API
-// For now, we'll keep the mock data for Ethereum
-function getEthereumTokens(address: string): TokenResponse {
-  const tokens = [
-    {
-      name: 'Ethereum',
-      symbol: 'ETH',
-      logo: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
-      amount: '2.34',
-      usdValue: '7842.60',
-      decimals: 18,
-      address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-    },
-    {
-      name: 'Chainlink',
-      symbol: 'LINK',
-      logo: 'https://tokens.1inch.io/0x514910771af9ca656af840dff83e8264ecf986ca.png',
-      amount: '75.32',
-      usdValue: '972.63',
-      decimals: 18,
-      address: '0x514910771af9ca656af840dff83e8264ecf986ca',
-    },
-    {
-      name: 'USD Coin',
-      symbol: 'USDC',
-      logo: 'https://tokens.1inch.io/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
-      amount: '250.00',
-      usdValue: '250.00',
-      decimals: 6,
-      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-    }
-  ];
-  
-  console.log(`Returning 3 Ethereum tokens`);
-  return { tokens };
-}
-
 // The main Deno server function
 serve(async (req) => {
   // Set CORS headers
@@ -215,17 +179,15 @@ serve(async (req) => {
       );
     }
 
-    if (chain !== 'ethereum' && chain !== 'solana') {
+    if (chain !== 'solana') {
       return new Response(
-        JSON.stringify({ error: 'Invalid chain. Must be "ethereum" or "solana"' }),
+        JSON.stringify({ error: 'Invalid chain. Must be "solana"' }),
         { headers, status: 400 }
       );
     }
 
-    // Get tokens based on chain
-    const response = chain === 'solana' 
-      ? await getSolanaTokens(address) 
-      : getEthereumTokens(address);
+    // Get Solana tokens
+    const response = await getSolanaTokens(address);
     
     console.log(`Returning ${response.tokens.length} tokens for ${chain} address ${address}`);
 
