@@ -4,8 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight, BarChart, Clock, Coins, TrendingUp, Activity, Loader2, AlertTriangle, RotateCw } from 'lucide-react'
 import { useMarketStats } from '@/utils/coingeckoService'
 import { toast } from '@/hooks/use-toast'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { CryptoButton } from "@/components/ui/crypto-button"
+
+// Default fallback market data
+const fallbackMarketData = {
+  total_market_cap: 2821150162185,
+  total_volume: 110950262631,
+  btc_dominance: 58.86,
+  eth_dominance: 8.00,
+  active_cryptocurrencies: 17159,
+  market_cap_change_percentage_24h: -5.83,
+  fear_greed_value: 44,
+  fear_greed_label: "Fear"
+};
 
 // Helper function to format large numbers
 const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' | 'number' = 'number'): string => {
@@ -56,25 +68,49 @@ const getFearGreedStatus = (value: number | undefined, label: string | undefined
 
 const MarketStats: React.FC = () => {
   const { marketStats, loading, error, refreshData } = useMarketStats();
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
   
-  // Display toast on error
+  // Use fallback data when API fails
+  const displayStats = marketStats || fallbackMarketData;
+  
+  // Display toast on error only when manually refreshed
   useEffect(() => {
-    if (error) {
+    if (error && isManualRefresh) {
       toast({
         title: "Market Data Error",
-        description: error,
+        description: "Could not update market data. Using cached or fallback data.",
         variant: "destructive"
       });
+      setIsManualRefresh(false);
     }
-  }, [error]);
+  }, [error, isManualRefresh]);
+  
+  // Auto-retry once if initial load fails
+  useEffect(() => {
+    if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000)) {
+      console.log("Auto-retrying market stats fetch after error");
+      const timer = setTimeout(() => {
+        setRetryCount(count => count + 1);
+        setLastRefreshAttempt(Date.now());
+        refreshData();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [error, retryCount, lastRefreshAttempt, refreshData]);
   
   // Get Fear & Greed status - use the value from API if available, otherwise use market cap change
   const fearGreed = getFearGreedStatus(
-    marketStats?.fear_greed_value,
-    marketStats?.fear_greed_label
+    displayStats.fear_greed_value,
+    displayStats.fear_greed_label
   );
   
   const handleRefresh = async () => {
+    setIsManualRefresh(true);
+    setLastRefreshAttempt(Date.now());
+    
     toast({
       title: "Refreshing Data",
       description: "Fetching latest market data...",
@@ -82,10 +118,12 @@ const MarketStats: React.FC = () => {
     
     await refreshData();
     
-    toast({
-      title: "Data Refreshed",
-      description: "Market data has been updated.",
-    });
+    if (!error) {
+      toast({
+        title: "Data Refreshed",
+        description: "Market data has been updated.",
+      });
+    }
   };
 
   return (
@@ -97,8 +135,15 @@ const MarketStats: React.FC = () => {
             <CardTitle className="text-base font-display">Market Stats</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <CryptoButton variant="ghost" size="icon" onClick={handleRefresh} className="h-7 w-7" aria-label="Refresh data">
-              <RotateCw className="h-3.5 w-3.5" />
+            <CryptoButton 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleRefresh} 
+              className="h-7 w-7" 
+              aria-label="Refresh data"
+              disabled={loading}
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             </CryptoButton>
             <div className="flex items-center text-xs bg-crypto-blue/20 text-crypto-blue rounded-full px-2 py-0.5">
               {loading ? (
@@ -107,9 +152,9 @@ const MarketStats: React.FC = () => {
                   Loading
                 </span>
               ) : error ? (
-                <span className="flex items-center text-crypto-red">
+                <span className="flex items-center text-amber-500">
                   <AlertTriangle className="w-3 h-3 mr-1" />
-                  Error
+                  Fallback
                 </span>
               ) : (
                 <>
@@ -130,8 +175,8 @@ const MarketStats: React.FC = () => {
             </div>
             <div className="font-display font-semibold">
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                formatNumber(marketStats?.total_market_cap, 'currency')}
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-20"></div> : 
+                formatNumber(displayStats.total_market_cap, 'currency')}
             </div>
           </div>
           <div className="space-y-1">
@@ -141,8 +186,8 @@ const MarketStats: React.FC = () => {
             </div>
             <div className="font-display font-semibold">
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                formatNumber(marketStats?.btc_dominance, 'percentage')}
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-16"></div> : 
+                formatNumber(displayStats.btc_dominance, 'percentage')}
             </div>
           </div>
           <div className="space-y-1">
@@ -152,8 +197,8 @@ const MarketStats: React.FC = () => {
             </div>
             <div className="font-display font-semibold">
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                formatNumber(marketStats?.total_volume, 'currency')}
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-20"></div> : 
+                formatNumber(displayStats.total_volume, 'currency')}
             </div>
           </div>
           <div className="space-y-1">
@@ -163,8 +208,8 @@ const MarketStats: React.FC = () => {
             </div>
             <div className="font-display font-semibold">
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                formatNumber(marketStats?.eth_dominance, 'percentage')}
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-16"></div> : 
+                formatNumber(displayStats.eth_dominance, 'percentage')}
             </div>
           </div>
           <div className="space-y-1">
@@ -174,8 +219,8 @@ const MarketStats: React.FC = () => {
             </div>
             <div className="font-display font-semibold">
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                formatNumber(marketStats?.active_cryptocurrencies)}
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-16"></div> : 
+                formatNumber(displayStats.active_cryptocurrencies)}
             </div>
           </div>
           <div className="space-y-1">
@@ -185,7 +230,7 @@ const MarketStats: React.FC = () => {
             </div>
             <div className={`font-display font-semibold ${fearGreed.color}`}>
               {loading ? 
-                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                <div className="animate-pulse h-5 bg-crypto-gray/20 rounded w-24"></div> : 
                 fearGreed.text}
             </div>
           </div>

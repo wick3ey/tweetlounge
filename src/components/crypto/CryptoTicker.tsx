@@ -42,9 +42,28 @@ const fallbackCryptoData: CryptoCurrency[] = [
 const CryptoTicker: React.FC = () => {
   const { cryptoData, loading, error, refreshData } = useCryptoData()
   const [refreshing, setRefreshing] = React.useState(false);
+  const [retryCount, setRetryCount] = React.useState(0);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = React.useState(0);
+  const [isManualRefresh, setIsManualRefresh] = React.useState(false);
+  
+  // Auto-retry once if initial load fails
+  React.useEffect(() => {
+    if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000)) {
+      console.log("Auto-retrying crypto ticker fetch after error");
+      const timer = setTimeout(() => {
+        setRetryCount(count => count + 1);
+        setLastRefreshAttempt(Date.now());
+        refreshData();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [error, retryCount, lastRefreshAttempt, refreshData]);
   
   const handleRefresh = async () => {
     setRefreshing(true);
+    setIsManualRefresh(true);
+    setLastRefreshAttempt(Date.now());
     
     toast({
       title: "Refreshing Data",
@@ -54,10 +73,12 @@ const CryptoTicker: React.FC = () => {
     try {
       await refreshData();
       
-      toast({
-        title: "Prices Updated",
-        description: "Crypto prices have been refreshed",
-      });
+      if (!error) {
+        toast({
+          title: "Prices Updated",
+          description: "Crypto prices have been refreshed",
+        });
+      }
     } catch (err) {
       toast({
         title: "Error Refreshing",
@@ -66,19 +87,21 @@ const CryptoTicker: React.FC = () => {
       });
     } finally {
       setRefreshing(false);
+      setIsManualRefresh(false);
     }
   };
   
-  // Display error toast if needed
+  // Display error toast only on manual refresh
   React.useEffect(() => {
-    if (error) {
+    if (error && isManualRefresh) {
       toast({
         title: "Error Loading Prices",
         description: "Using fallback data. Will retry automatically.",
         variant: "destructive"
       });
+      setIsManualRefresh(false);
     }
-  }, [error]);
+  }, [error, isManualRefresh]);
 
   // Determine which data to display
   const displayData = cryptoData.length > 0 ? cryptoData : fallbackCryptoData;
@@ -90,13 +113,13 @@ const CryptoTicker: React.FC = () => {
           {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : error ? (
-            <AlertTriangle className="h-4 w-4 text-crypto-red" />
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
           ) : (
             <CryptoButton 
               variant="ghost" 
               size="sm"
               onClick={handleRefresh}
-              disabled={refreshing}
+              disabled={refreshing || loading}
               className="h-6 w-6 p-0 hover:bg-crypto-gray/20"
             >
               <RefreshCcw 
