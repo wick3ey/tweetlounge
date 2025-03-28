@@ -1,5 +1,7 @@
 
 // NFT types and service functions
+import { supabase } from '@/integrations/supabase/client';
+
 export interface NFT {
   id: string;
   name: string;
