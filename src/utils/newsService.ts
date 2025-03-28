@@ -42,8 +42,8 @@ const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
-// CORS proxy URL - Use a reliable CORS proxy
-const CORS_PROXY = 'https://corsproxy.io/?';
+// New CORS proxy URL - Using allorigins
+const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 
 /**
  * Fetches news from CryptoPanic API through a CORS proxy
@@ -52,8 +52,7 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
   try {
-    // Using CORS proxy to bypass CORS restrictions
-    // Note: Fixed the 'kind' parameter - API expects just 'news' (not in quotes)
+    // Using AllOrigins CORS proxy
     const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
@@ -63,8 +62,13 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
       throw new Error(`Failed to fetch news: ${response.status}`);
     }
     
-    const data: CryptoPanicResponse = await response.json();
-    return data.results;
+    // AllOrigins wraps the response in a "contents" field as a string
+    const data = await response.json();
+    
+    // Parse the contents string as JSON to get the actual API response
+    const parsedContents: CryptoPanicResponse = JSON.parse(data.contents);
+    
+    return parsedContents.results;
   } catch (error) {
     console.error('Error fetching news:', error);
     throw error;
