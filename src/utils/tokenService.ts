@@ -11,6 +11,7 @@ export interface Token {
   address: string;
   chain: 'solana';
   explorerUrl?: string;
+  dexScreenerUrl?: string;
 }
 
 /**
@@ -56,14 +57,18 @@ export const fetchWalletTokens = async (
         // Truncate address: first 4 and last 5 characters
         return tokenAddress ? 
           `${tokenAddress.slice(0, 4)}...${tokenAddress.slice(-5)}` : 
-          'Unknown Token';
+          'Unknown';
       };
 
+      const tokenAddress = token.address || address;
+      
       return {
         ...token,
-        name: formatTokenName(token.address || address),
+        name: formatTokenName(tokenAddress),
+        symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress),
         chain: 'solana',
-        explorerUrl: getExplorerUrl(token.address || address)
+        explorerUrl: getExplorerUrl(tokenAddress),
+        dexScreenerUrl: getDexScreenerUrl(tokenAddress)
       };
     });
     
@@ -83,4 +88,13 @@ export const fetchWalletTokens = async (
  */
 const getExplorerUrl = (address: string): string => {
   return `https://solscan.io/token/${address}`;
+};
+
+/**
+ * Get DexScreener URL for a token
+ * @param address The token address
+ * @returns The DexScreener URL
+ */
+const getDexScreenerUrl = (address: string): string => {
+  return `https://dexscreener.com/solana/${address}`;
 };

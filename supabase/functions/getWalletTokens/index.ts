@@ -116,7 +116,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
           
           // Get token metadata from our map or use defaults
           const metadata = tokenMetadata[mintAddress] || {
-            name: `Token (${mintAddress.slice(0, 4)}...)`,
+            name: "UNKNOWN",
             symbol: "UNKNOWN",
             decimals: tokenDecimals
           };

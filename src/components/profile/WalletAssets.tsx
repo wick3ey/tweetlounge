@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -78,6 +79,12 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
 
   const handleRetry = () => {
     loadTokens();
+  };
+
+  // Function to determine which URL to use for a token
+  const getTokenUrl = (token: Token) => {
+    // For unknown tokens (address-formatted names), use DexScreener
+    return token.name.includes('...') ? token.dexScreenerUrl : token.explorerUrl;
   };
 
   if (isLoading) {
@@ -167,7 +174,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                   </div>
                 )}
                 <div>
-                  <h3 className="font-medium">{token.name || token.symbol}</h3>
+                  <h3 className="font-medium">{token.name}</h3>
                   <p className="text-gray-500 text-sm">{token.symbol}</p>
                 </div>
                 <div className="ml-auto text-right">
@@ -177,15 +184,15 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                   )}
                 </div>
               </div>
-              {token.explorerUrl && (
+              {(token.explorerUrl || token.dexScreenerUrl) && (
                 <div className="border-t px-4 py-2 bg-gray-50">
                   <a 
-                    href={token.explorerUrl} 
+                    href={getTokenUrl(token)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-twitter-blue hover:underline text-sm flex items-center"
                   >
-                    View on Solscan
+                    {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
                     <ExternalLink className="h-3 w-3 ml-1" />
                   </a>
                 </div>
@@ -226,7 +233,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                         </div>
                       )}
                       <div>
-                        <div className="font-medium">{token.name || token.symbol}</div>
+                        <div className="font-medium">{token.name}</div>
                         <div className="text-gray-500 text-xs">{token.symbol}</div>
                       </div>
                     </div>
@@ -242,9 +249,9 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                     )}
                   </TableCell>
                   <TableCell>
-                    {token.explorerUrl && (
+                    {(token.explorerUrl || token.dexScreenerUrl) && (
                       <a 
-                        href={token.explorerUrl} 
+                        href={getTokenUrl(token)} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-twitter-blue hover:underline text-sm flex items-center justify-end"
