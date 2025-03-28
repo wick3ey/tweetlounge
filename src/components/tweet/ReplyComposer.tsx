@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { Image, X } from 'lucide-react';
 import { replyToTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
@@ -14,7 +15,8 @@ interface ReplyComposerProps {
 }
 
 const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
