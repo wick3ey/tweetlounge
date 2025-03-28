@@ -6,63 +6,75 @@ export interface Token {
   symbol: string;
   logo?: string;
   amount: string;
+  usdValue?: string;
   decimals: number;
   address: string;
-  chain: 'solana';
+  chain: 'ethereum' | 'solana';
   explorerUrl?: string;
 }
 
 /**
- * Fetch tokens from a Solana wallet address
+ * Fetch tokens from a wallet address
  * @param address The wallet address
+ * @param chain The blockchain (ethereum or solana)
  * @returns Promise with array of tokens
  */
 export const fetchWalletTokens = async (
-  address: string
+  address: string,
+  chain: 'ethereum' | 'solana'
 ): Promise<Token[]> => {
   try {
-    console.log(`Fetching Solana tokens for address: ${address}`);
+    console.log(`Fetching ${chain} tokens for address: ${address}`);
     
-    try {
-      // Call our Supabase edge function to get tokens with correct metadata
-      const { data, error } = await supabase.functions.invoke('getMetaplexTokens', {
-        body: { address }
-      });
-      
-      if (error) {
-        console.error(`Error fetching Solana tokens:`, error);
-        throw new Error(`Failed to fetch Solana tokens: ${error.message}`);
-      }
-      
-      // The response should have a tokens array
-      if (!data || !data.tokens || !Array.isArray(data.tokens)) {
-        console.error(`Invalid response for Solana tokens:`, data);
-        return [];
-      }
-      
-      console.log(`Successfully retrieved ${data.tokens.length} Solana tokens`);
-      
-      // Process tokens and add explorer URL if not present
-      return data.tokens.map((token: any) => ({
-        ...token,
-        chain: 'solana' as const,
-        explorerUrl: token.explorerUrl || getExplorerUrl(token.address)
-      }));
-    } catch (err) {
-      console.error('Error fetching Solana tokens:', err);
-      return []; // Return empty array on error
+    // Call our Supabase edge function to securely access token data
+    const { data, error } = await supabase.functions.invoke('getWalletTokens', {
+      body: { address, chain }
+    });
+    
+    if (error) {
+      console.error(`Error fetching ${chain} tokens:`, error);
+      throw new Error(`Failed to fetch ${chain} tokens: ${error.message}`);
     }
+    
+    // The response should have a tokens array
+    if (!data) {
+      console.error(`No data returned for ${chain} tokens`);
+      return [];
+    }
+    
+    console.log(`${chain} tokens raw response:`, data);
+    
+    if (!data.tokens || !Array.isArray(data.tokens)) {
+      console.error(`Invalid token data response structure for ${chain}:`, data);
+      return [];
+    }
+    
+    // Process the tokens
+    const processedTokens = data.tokens.map((token: any) => ({
+      ...token,
+      chain,
+      explorerUrl: getExplorerUrl(chain, token.address || address)
+    }));
+    
+    console.log(`Successfully processed ${processedTokens.length} ${chain} tokens`);
+    return processedTokens;
+    
   } catch (error) {
-    console.error(`Error in fetchWalletTokens:`, error);
+    console.error(`Error in fetchWalletTokens for ${chain}:`, error);
     return []; // Return empty array in case of error
   }
 };
 
 /**
  * Get explorer URL for a token or address
+ * @param chain The blockchain
  * @param address The token or wallet address
  * @returns The explorer URL
  */
-const getExplorerUrl = (address: string): string => {
-  return `https://solscan.io/token/${address}`;
+const getExplorerUrl = (chain: 'ethereum' | 'solana', address: string): string => {
+  if (chain === 'solana') {
+    return `https://solscan.io/token/${address}`;
+  } else {
+    return `https://etherscan.io/token/${address}`;
+  }
 };

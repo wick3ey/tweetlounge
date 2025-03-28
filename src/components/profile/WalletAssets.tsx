@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,10 +15,11 @@ import {
 } from "@/components/ui/table";
 
 interface WalletAssetsProps {
+  ethereumAddress?: string | null;
   solanaAddress?: string | null;
 }
 
-const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
+const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => {
   const { toast } = useToast();
   const [tokens, setTokens] = useState<Token[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,30 +31,57 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     setTokens([]);
     
     try {
-      // Only fetch tokens if we have a Solana address
+      let allTokens: Token[] = [];
+      
+      // Fetch tokens for Solana address if available
       if (solanaAddress) {
         console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
         try {
-          const solTokens = await fetchWalletTokens(solanaAddress);
+          const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
           console.log('Solana tokens response:', solTokens);
           if (solTokens && solTokens.length > 0) {
             console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
-            setTokens(solTokens);
+            allTokens = [...allTokens, ...solTokens];
           } else {
             console.log('No Solana tokens found or returned');
-            setError('No tokens found in your Solana wallet.');
           }
         } catch (err) {
           console.error('Error fetching Solana tokens:', err);
           toast({
             title: "Error loading Solana tokens",
-            description: "There was a problem fetching your Solana tokens.",
+            description: "There was a problem fetching your Solana tokens. Other tokens may still be available.",
             variant: "destructive"
           });
-          setError('Failed to load Solana tokens. Please try again later.');
         }
-      } else {
-        setError('No Solana wallet connected.');
+      }
+      
+      // Fetch tokens for Ethereum address if available
+      if (ethereumAddress) {
+        console.log(`Attempting to fetch Ethereum tokens for: ${ethereumAddress}`);
+        try {
+          const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
+          console.log('Ethereum tokens response:', ethTokens);
+          if (ethTokens && ethTokens.length > 0) {
+            console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
+            allTokens = [...allTokens, ...ethTokens];
+          } else {
+            console.log('No Ethereum tokens found or returned');
+          }
+        } catch (err) {
+          console.error('Error fetching Ethereum tokens:', err);
+          toast({
+            title: "Error loading Ethereum tokens",
+            description: "There was a problem fetching your Ethereum tokens. Other tokens may still be available.",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      console.log(`Total tokens loaded: ${allTokens.length}`, allTokens);
+      setTokens(allTokens);
+      
+      if (allTokens.length === 0 && (solanaAddress || ethereumAddress)) {
+        setError('No tokens found for your connected wallets. If you believe this is an error, please try again.');
       }
     } catch (err) {
       console.error('Error in loadTokens function:', err);
@@ -70,19 +97,17 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   };
 
   useEffect(() => {
-    if (solanaAddress) {
+    if (solanaAddress || ethereumAddress) {
       loadTokens();
     } else {
       setIsLoading(false);
-      setError('No Solana wallet connected.');
     }
-  }, [solanaAddress]);
+  }, [ethereumAddress, solanaAddress]);
 
   const handleRetry = () => {
     loadTokens();
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="p-4">
@@ -110,7 +135,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
@@ -121,26 +145,36 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     );
   }
 
-  // Empty state
   if (tokens.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
-        <div className="text-gray-500 mb-4">No tokens found in your Solana wallet.</div>
-        <Button onClick={handleRetry} variant="outline" size="sm">
-          Refresh
-        </Button>
+        <div className="text-gray-500 mb-4">No tokens found in connected wallets.</div>
+        {(solanaAddress || ethereumAddress) && (
+          <Button onClick={handleRetry} variant="outline" size="sm">
+            Refresh
+          </Button>
+        )}
       </div>
     );
   }
 
-  // Render tokens
+  const totalUsdValue = tokens.reduce((sum, token) => {
+    const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
+    return sum + tokenValue;
+  }, 0);
+
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold">Solana Wallet Assets</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Wallet Assets</h2>
+        {totalUsdValue > 0 && (
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Total Value</p>
+            <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+        )}
       </div>
       
-      {/* Mobile view (cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
         {tokens.map((token) => (
           <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -166,6 +200,9 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                 </div>
                 <div className="ml-auto text-right">
                   <p className="font-semibold">{parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
+                  {token.usdValue && (
+                    <p className="text-gray-500 text-sm">${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                  )}
                 </div>
               </div>
               {token.explorerUrl && (
@@ -176,7 +213,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                     rel="noopener noreferrer"
                     className="text-twitter-blue hover:underline text-sm flex items-center"
                   >
-                    View on Solscan
+                    View on {token.chain === 'solana' ? 'Solscan' : 'Etherscan'}
                     <ExternalLink className="h-3 w-3 ml-1" />
                   </a>
                 </div>
@@ -186,7 +223,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
         ))}
       </div>
       
-      {/* Desktop view (table) */}
       <div className="hidden md:block">
         <Card>
           <Table>
@@ -194,6 +230,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
               <TableRow>
                 <TableHead>Token</TableHead>
                 <TableHead>Balance</TableHead>
+                <TableHead className="text-right">Value</TableHead>
                 <TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
@@ -224,6 +261,13 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
                   </TableCell>
                   <TableCell>
                     {parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {token.usdValue ? (
+                      `$${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                    ) : (
+                      '—'
+                    )}
                   </TableCell>
                   <TableCell>
                     {token.explorerUrl && (
