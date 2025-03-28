@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
@@ -42,8 +41,12 @@ const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
-// CORS proxy URL - Using allorigins
-const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+// Alternative CORS proxies - we'll try multiple in case one fails
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://proxy.cors.sh/',
+  'https://cors-anywhere.herokuapp.com/'
+];
 
 /**
  * Fetches news from CryptoPanic API through a CORS proxy
@@ -52,53 +55,67 @@ const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
-  try {
-    // Setting up API call to get the latest news, sorted by date (newer first)
-    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
-    
-    // Adding cache-busting parameter to ensure we get fresh content
-    const requestUrl = `${proxyUrl}&_cacheBust=${new Date().getTime()}`;
-    
-    const response = await fetch(requestUrl, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+  // Setting up API call to get the latest news, sorted by date (newer first)
+  const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
+  
+  // Try each proxy in sequence until one works
+  let error = null;
+  for (const proxy of CORS_PROXIES) {
+    try {
+      // Adding cache-busting parameter to ensure we get fresh content
+      const requestUrl = `${proxy}${encodeURIComponent(targetUrl)}&_=${new Date().getTime()}`;
+      
+      const response = await fetch(requestUrl, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch news: ${response.status}`);
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch news: ${response.status}`);
+      
+      // Parse the response based on which proxy we're using
+      let parsedContents: CryptoPanicResponse;
+      
+      if (proxy.includes('allorigins')) {
+        // AllOrigins wraps the response in a "contents" field as a string
+        const data = await response.json();
+        parsedContents = JSON.parse(data.contents);
+      } else {
+        // Other proxies likely return the data directly
+        parsedContents = await response.json();
+      }
+      
+      // Filter news to only show the last 3 hours
+      const threeHoursAgo = new Date();
+      threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
+      
+      const recentNews = parsedContents.results.filter(article => {
+        const publishDate = new Date(article.published_at);
+        return publishDate >= threeHoursAgo;
+      });
+      
+      // If no recent news in the last 3 hours, return the most recent 10 articles
+      if (recentNews.length === 0) {
+        console.info('No news in the last 3 hours, showing the most recent 10 articles');
+        return parsedContents.results.slice(0, 10);
+      }
+      
+      console.info(`Found ${recentNews.length} news articles from the last 3 hours`);
+      return recentNews;
+    } catch (proxyError) {
+      console.error(`Error with proxy ${proxy}:`, proxyError);
+      error = proxyError;
+      // Continue to the next proxy
     }
-    
-    // AllOrigins wraps the response in a "contents" field as a string
-    const data = await response.json();
-    
-    // Parse the contents string as JSON to get the actual API response
-    const parsedContents: CryptoPanicResponse = JSON.parse(data.contents);
-    
-    // Filter news to only show the last 3 hours
-    const threeHoursAgo = new Date();
-    threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
-    
-    const recentNews = parsedContents.results.filter(article => {
-      const publishDate = new Date(article.published_at);
-      return publishDate >= threeHoursAgo;
-    });
-    
-    // If no recent news in the last 3 hours, return the most recent 10 articles
-    if (recentNews.length === 0) {
-      console.info('No news in the last 3 hours, showing the most recent 10 articles');
-      return parsedContents.results.slice(0, 10);
-    }
-    
-    console.info(`Found ${recentNews.length} news articles from the last 3 hours`);
-    return recentNews;
-  } catch (error) {
-    console.error('Error fetching news:', error);
-    throw error;
   }
+  
+  // If all proxies failed, throw the last error
+  console.error('All CORS proxies failed');
+  throw error || new Error('Failed to fetch news from all available proxies');
 };
 
 /**
@@ -117,7 +134,7 @@ export const useNewsData = () => {
     refetchInterval: REFRESH_INTERVAL,
     refetchOnMount: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 2, // Only retry twice before showing error
+    retry: 3, // Retry three times before showing error
     refetchOnWindowFocus: true, // Refresh when tab becomes active
   });
   
