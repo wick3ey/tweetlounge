@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsService';
-import { AlertTriangle, ExternalLink, Loader2, Newspaper, RefreshCw, Rss, TrendingUp, Tag, Clock, Calendar } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { AlertTriangle, ExternalLink, Loader2, Newspaper, TrendingUp, Tag, Clock } from 'lucide-react';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from '@/hooks/use-toast';
 
 // Component for a single news article with enhanced design
 const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
@@ -109,7 +109,7 @@ const NewsItemSkeleton: React.FC = () => (
 );
 
 const NewsSection: React.FC = () => {
-  const { newsArticles, loading, error, refreshData, isRefreshing } = useNewsData();
+  const { newsArticles, loading, error, isRefreshing } = useNewsData();
   
   // Display error toast if needed
   useEffect(() => {
@@ -122,14 +122,15 @@ const NewsSection: React.FC = () => {
     }
   }, [error]);
   
-  const handleRefresh = async () => {
-    toast({
-      title: "Refreshing News",
-      description: "Fetching latest crypto news...",
-    });
-    
-    await refreshData();
-  };
+  // Notify when new content is available
+  useEffect(() => {
+    if (isRefreshing) {
+      toast({
+        title: "Updating News",
+        description: "Fetching latest crypto headlines...",
+      });
+    }
+  }, [isRefreshing]);
 
   return (
     <Card className="crypto-news-card bg-crypto-black border-crypto-gray shadow-md overflow-hidden">
@@ -139,15 +140,7 @@ const NewsSection: React.FC = () => {
             <Newspaper className="w-5 h-5 text-crypto-blue mr-2" />
             <CardTitle className="text-base font-display">Latest News</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            <CryptoButton variant="ghost" size="icon" onClick={handleRefresh} className="h-7 w-7" aria-label="Refresh news">
-              {isRefreshing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
-            </CryptoButton>
-            
+          <div className="flex items-center">
             <div className="flex items-center text-xs bg-crypto-blue/20 text-crypto-blue rounded-full px-2 py-0.5">
               {loading ? (
                 <span className="flex items-center">
@@ -161,7 +154,7 @@ const NewsSection: React.FC = () => {
                 </span>
               ) : (
                 <>
-                  <span className="mr-1">Live</span>
+                  <span className="mr-1">Auto-updating</span>
                   <div className="w-2 h-2 rounded-full bg-crypto-blue animate-pulse"></div>
                 </>
               )}
@@ -176,16 +169,6 @@ const NewsSection: React.FC = () => {
             <AlertTitle>Error fetching news</AlertTitle>
             <AlertDescription className="text-sm">
               Unable to load news from CryptoPanic API.
-              <div className="mt-2">
-                <CryptoButton 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleRefresh}
-                  className="border-crypto-red text-crypto-red hover:bg-crypto-red/10"
-                >
-                  Try Again
-                </CryptoButton>
-              </div>
             </AlertDescription>
           </Alert>
         ) : (
@@ -198,17 +181,9 @@ const NewsSection: React.FC = () => {
             ) : newsArticles.length === 0 ? (
               // Empty state
               <div className="p-6 text-center">
-                <Rss className="h-8 w-8 text-crypto-lightgray mx-auto mb-2 opacity-50" />
-                <p className="text-crypto-lightgray text-sm mb-2">No news available</p>
-                <p className="text-xs text-crypto-lightgray/70 mb-3">Check back later for crypto updates</p>
-                <CryptoButton 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={handleRefresh}
-                >
-                  Refresh
-                </CryptoButton>
+                <AlertTriangle className="h-8 w-8 text-crypto-lightgray mx-auto mb-2 opacity-50" />
+                <p className="text-crypto-lightgray text-sm mb-2">No recent news available</p>
+                <p className="text-xs text-crypto-lightgray/70 mb-3">We'll display news as soon as they're published</p>
               </div>
             ) : (
               // Articles

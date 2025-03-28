@@ -40,25 +40,33 @@ interface CryptoPanicResponse {
 // API constants
 const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
-const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes to get more frequent updates
+const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
 // CORS proxy URL - Using allorigins
 const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 
 /**
  * Fetches news from CryptoPanic API through a CORS proxy
- * Including BTC, ETH, SOL, and general crypto news
+ * Only showing news from the past 3 hours for BTC, ETH, SOL and general crypto
  */
 const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
   try {
-    // Using AllOrigins CORS proxy - Query for BTC, ETH, SOL and important news
-    // Added filter=important to get major news stories
-    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en&filter=hot`;
+    // Setting up API call to get the latest news, sorted by date (newer first)
+    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
-    const response = await fetch(proxyUrl);
+    // Adding cache-busting parameter to ensure we get fresh content
+    const requestUrl = `${proxyUrl}&_cacheBust=${new Date().getTime()}`;
+    
+    const response = await fetch(requestUrl, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch news: ${response.status}`);
@@ -70,7 +78,23 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
     // Parse the contents string as JSON to get the actual API response
     const parsedContents: CryptoPanicResponse = JSON.parse(data.contents);
     
-    return parsedContents.results;
+    // Filter news to only show the last 3 hours
+    const threeHoursAgo = new Date();
+    threeHoursAgo.setHours(threeHoursAgo.getHours() - 3);
+    
+    const recentNews = parsedContents.results.filter(article => {
+      const publishDate = new Date(article.published_at);
+      return publishDate >= threeHoursAgo;
+    });
+    
+    // If no recent news in the last 3 hours, return the most recent 10 articles
+    if (recentNews.length === 0) {
+      console.info('No news in the last 3 hours, showing the most recent 10 articles');
+      return parsedContents.results.slice(0, 10);
+    }
+    
+    console.info(`Found ${recentNews.length} news articles from the last 3 hours`);
+    return recentNews;
   } catch (error) {
     console.error('Error fetching news:', error);
     throw error;
@@ -85,38 +109,22 @@ export const useNewsData = () => {
     data: newsArticles = [], 
     isLoading: loading, 
     error,
-    refetch,
-    isRefetching
+    isRefetching,
+    refetch
   } = useQuery({
     queryKey: ['cryptoNews'],
     queryFn: fetchNews,
     refetchInterval: REFRESH_INTERVAL,
-    // Stale time to avoid refreshing data too often
+    refetchOnMount: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2, // Only retry twice before showing error
+    refetchOnWindowFocus: true, // Refresh when tab becomes active
   });
-  
-  const refreshData = async () => {
-    try {
-      await refetch();
-      toast({
-        title: "News Updated",
-        description: "Latest crypto news has been loaded",
-      });
-    } catch (error) {
-      toast({
-        title: "Error Refreshing News",
-        description: error instanceof Error ? error.message : "Failed to refresh news",
-        variant: "destructive"
-      });
-    }
-  };
   
   return {
     newsArticles,
     loading,
     error: error ? (error instanceof Error ? error.message : "Unknown error") : null,
-    refreshData,
     isRefreshing: isRefetching
   };
 };
