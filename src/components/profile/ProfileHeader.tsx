@@ -148,6 +148,9 @@ const ProfileHeader = ({
   
   const hasWallet = !!ethereumAddress || !!solanaAddress;
 
+  // Create Solscan link for Solana address
+  const solscanLink = solanaAddress ? `https://solscan.io/address/${solanaAddress}` : null;
+
   return (
     <div className="border-b border-gray-200 pb-0">
       {/* Cover photo with Twitter-style aspect ratio (3:1) */}
@@ -179,7 +182,7 @@ const ProfileHeader = ({
               </AvatarFallback>
             </Avatar>
             
-            {/* NFT button for current user */}
+            {/* NFT button for current user - WITHOUT ETH ICON */}
             {isCurrentUser && hasWallet && (
               <Button 
                 onClick={onOpenNFTBrowser}
@@ -188,7 +191,7 @@ const ProfileHeader = ({
                 className="absolute bottom-0 right-0 rounded-full bg-white shadow-md"
                 title="Set NFT as profile picture"
               >
-                <img src="https://openseauserdata.com/files/265128aa51521c90f7905e5a43dcb456_new.svg" alt="NFT" className="w-5 h-5" />
+                NFT
               </Button>
             )}
           </div>
@@ -245,7 +248,24 @@ const ProfileHeader = ({
         </div>
         <h2 className="text-gray-500">@{username}</h2>
         
-        {bio && <p className="mt-3 text-gray-900">{bio}</p>}
+        {/* Bio with Solscan link if available */}
+        <div className="mt-3 text-gray-900">
+          {bio && <p className="mb-2">{bio}</p>}
+          
+          {solanaAddress && (
+            <div className="flex items-center text-sm text-twitter-blue">
+              <Wallet className="h-4 w-4 mr-1" />
+              <a 
+                href={solscanLink || "#"} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                View on Solscan
+              </a>
+            </div>
+          )}
+        </div>
         
         <div className="flex flex-wrap items-center text-gray-500 mt-3 text-sm gap-4">
           {location && (

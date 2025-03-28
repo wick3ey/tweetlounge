@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader, Settings, Image, Reply, Heart } from 'lucide-react';
+import { Loader, Settings, Image, Reply, Coins, Wallet } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
+import WalletAssets from '@/components/profile/WalletAssets';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -175,10 +176,10 @@ const Profile = () => {
               Media
             </TabsTrigger>
             <TabsTrigger 
-              value="likes" 
+              value="assets" 
               className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-twitter-blue data-[state=active]:text-twitter-blue"
             >
-              Likes
+              Assets
             </TabsTrigger>
           </TabsList>
           
@@ -214,12 +215,32 @@ const Profile = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="likes" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Heart className="h-12 w-12 text-gray-300 mb-4" />
-              <div className="text-xl font-bold mb-2">No likes yet</div>
-              <p className="text-gray-500 text-center">Tweets you like will show up here</p>
-            </div>
+          <TabsContent value="assets" className="mt-0 pt-4">
+            {(profile.ethereum_address || profile.solana_address) ? (
+              <WalletAssets 
+                ethereumAddress={profile.ethereum_address} 
+                solanaAddress={profile.solana_address}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <Coins className="h-12 w-12 text-gray-300 mb-4" />
+                <div className="text-xl font-bold mb-2">No wallet connected</div>
+                <p className="text-gray-500 text-center mb-4">Connect your wallet to view your assets</p>
+                {isCurrentUser && (
+                  <Button 
+                    variant="outline" 
+                    className="rounded-full"
+                    onClick={() => toast({
+                      title: "Connect Wallet",
+                      description: "Please connect your wallet in the profile section above.",
+                    })}
+                  >
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Connect Wallet
+                  </Button>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
