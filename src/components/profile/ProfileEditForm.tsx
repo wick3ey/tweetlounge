@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader, ImagePlus, Link2, MapPin } from 'lucide-react';
+import { Loader, ImagePlus } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import CoverImageCropper from './CoverImageCropper';
@@ -24,8 +24,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
-  const [location, setLocation] = useState('');
-  const [website, setWebsite] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   
@@ -42,8 +40,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
       setUsername(profile.username || '');
       setDisplayName(profile.display_name || '');
       setBio(profile.bio || '');
-      setLocation(profile.location || '');
-      setWebsite(profile.website || '');
       setAvatarUrl(profile.avatar_url);
       setCoverUrl(profile.cover_url);
     }
@@ -57,29 +53,10 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
     try {
       setSaving(true);
       
-      // Validate website format
-      let formattedWebsite = website.trim();
-      if (formattedWebsite && !formattedWebsite.match(/^https?:\/\//)) {
-        formattedWebsite = 'https://' + formattedWebsite;
-      }
-      
-      // Validate location length
-      if (location.length > 30) {
-        toast({
-          title: 'Location too long',
-          description: 'Location must be 30 characters or less.',
-          variant: 'destructive',
-        });
-        setSaving(false);
-        return;
-      }
-      
       await updateProfile({
         username,
         display_name: displayName,
         bio,
-        location,
-        website: formattedWebsite,
       });
       
       toast({
@@ -305,33 +282,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
             placeholder="Tell us about yourself"
             className="min-h-[100px]"
           />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="location" className="flex items-center">
-            <MapPin className="h-4 w-4 mr-1" /> Location
-          </Label>
-          <Input 
-            id="location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g., Malmö"
-            maxLength={30}
-          />
-          <p className="text-xs text-gray-500">{location.length}/30 characters</p>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="website" className="flex items-center">
-            <Link2 className="h-4 w-4 mr-1" /> Website
-          </Label>
-          <Input 
-            id="website"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            placeholder="e.g., https://www.google.com"
-          />
-          <p className="text-xs text-gray-500">Enter your website URL</p>
         </div>
         
         <div className="flex justify-end space-x-2 pt-4">

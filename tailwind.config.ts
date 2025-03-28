@@ -5,11 +5,11 @@ import { fontFamily } from "tailwindcss/defaultTheme";
 export default {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
-	],
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   theme: {
     container: {
       center: true,
@@ -25,12 +25,6 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        twitter: {
-          blue: "#1DA1F2",
-          dark: "#0C7ABF",
-          light: "#AAD8F1",
-          extraLight: "#E8F5FD",
-        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -58,6 +52,14 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // Twitter specific colors
+        twitter: {
+          blue: "hsl(var(--twitter-blue))",
+          "blue-hover": "hsl(var(--twitter-blue-hover))",
+          light: "hsl(var(--twitter-light))",
+          extraLight: "hsl(var(--twitter-extra-light))",
+          extraExtraLight: "hsl(var(--twitter-extraExtraLight))",
         },
       },
       borderRadius: {
