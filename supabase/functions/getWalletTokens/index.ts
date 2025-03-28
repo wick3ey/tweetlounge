@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 // Define the request body type
@@ -20,56 +19,74 @@ interface TokenResponse {
   }>;
 }
 
-// Mock function to simulate token fetching from Solana
-function getSolanaTokens(address: string): TokenResponse {
-  // In a real implementation, you would call the Solana RPC API
-  // or a service like Solscan API to get real token data
-  return {
-    tokens: [
-      {
-        name: 'Solana',
-        symbol: 'SOL',
-        logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-        amount: '12.45',
-        usdValue: '1245.00',
-        decimals: 9,
-        address: 'So11111111111111111111111111111111111111112',
-      },
-      {
-        name: 'USD Coin',
-        symbol: 'USDC',
-        logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png',
-        amount: '543.21',
-        usdValue: '543.21',
-        decimals: 6,
-        address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-      },
-      {
-        name: 'Raydium',
-        symbol: 'RAY',
-        logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R/logo.png',
-        amount: '125.75',
-        usdValue: '89.28',
-        decimals: 6,
-        address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-      },
-      {
-        name: 'Bonk',
-        symbol: 'BONK',
-        logo: 'https://assets.coingecko.com/coins/images/28412/standard/bonk.png',
-        amount: '14532023.89',
-        usdValue: '72.66',
-        decimals: 5,
-        address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+// Fetch Solana tokens using Solscan API
+async function getSolanaTokens(address: string): Promise<TokenResponse> {
+  try {
+    const SOLSCAN_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3MzU5MTE4NzUzNDgsImVtYWlsIjoiY29pbmJvaWlpQHByb3Rvbi5tZSIsImFjdGlvbiI6InRva2VuLWFwaSIsImFwaVZlcnNpb24iOiJ2MiIsImlhdCI6MTczNTkxMTg3NX0.vI-rJRuOALZz5mVoQnmx-AC5Qg5-jbJwFbohdmGmi5s';
+    
+    // Fetch token holdings using Solscan API
+    const response = await fetch(`https://api.solscan.io/v2/token/holdings?account=${address}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Token': SOLSCAN_API_KEY
       }
-    ]
-  };
+    });
+
+    if (!response.ok) {
+      throw new Error(`Solscan API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Solscan API response:', JSON.stringify(data).substring(0, 200) + '...');
+    
+    if (!data.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid response format from Solscan API');
+    }
+
+    // Process and format token data
+    const tokens = data.data.map((token: any) => {
+      // Calculate real amount based on decimals
+      const decimals = token.tokenInfo?.decimals || 0;
+      const rawAmount = token.amount || '0';
+      const amount = (parseInt(rawAmount) / Math.pow(10, decimals)).toString();
+      
+      // Calculate USD value if available
+      let usdValue: string | undefined;
+      if (token.price && token.price > 0) {
+        usdValue = ((parseInt(rawAmount) / Math.pow(10, decimals)) * token.price).toFixed(2);
+      }
+
+      return {
+        name: token.tokenInfo?.name || token.tokenInfo?.symbol || 'Unknown Token',
+        symbol: token.tokenInfo?.symbol || 'UNKNOWN',
+        logo: token.tokenInfo?.icon || undefined,
+        amount: amount,
+        usdValue: usdValue,
+        decimals: decimals,
+        address: token.tokenInfo?.mint || token.tokenAddress || '',
+      };
+    });
+
+    // Filter out tokens with zero balance and sort by USD value
+    const filteredTokens = tokens
+      .filter(token => parseFloat(token.amount) > 0)
+      .sort((a, b) => {
+        const aValue = a.usdValue ? parseFloat(a.usdValue) : 0;
+        const bValue = b.usdValue ? parseFloat(b.usdValue) : 0;
+        return bValue - aValue;
+      });
+
+    return { tokens: filteredTokens };
+  } catch (error) {
+    console.error('Error fetching Solana tokens from Solscan:', error);
+    return { tokens: [] }; // Return empty array in case of error
+  }
 }
 
-// Mock function to simulate token fetching from Ethereum
+// Fetch Ethereum tokens using Etherscan or similar API
+// For now, we'll keep the mock data for Ethereum
 function getEthereumTokens(address: string): TokenResponse {
-  // In a real implementation, you would call the Ethereum API
-  // or a service like Etherscan API to get real token data
   return {
     tokens: [
       {
@@ -136,7 +153,7 @@ serve(async (req) => {
 
     // Get tokens based on chain
     const response = chain === 'solana' 
-      ? getSolanaTokens(address) 
+      ? await getSolanaTokens(address) 
       : getEthereumTokens(address);
 
     // Return the response
