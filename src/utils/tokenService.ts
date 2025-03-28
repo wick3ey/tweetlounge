@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js";
 
@@ -25,7 +26,7 @@ export const fetchWalletTokens = async (
   try {
     console.log(`Fetching ${chain} tokens for address: ${address}`);
     
-    // For Solana we now use our Supabase edge function that leverages Metaplex
+    // For Solana we now use our Supabase edge function
     if (chain === 'solana') {
       try {
         const { data, error } = await supabase.functions.invoke('getMetaplexTokens', {

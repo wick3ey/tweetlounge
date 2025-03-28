@@ -1,7 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { Connection, PublicKey } from 'https://esm.sh/@solana/web3.js@1.89.1';
-import { Metaplex } from 'https://esm.sh/@metaplex-foundation/js@0.18.0';
 
 // Define the request body type
 interface RequestBody {
@@ -20,14 +19,13 @@ interface TokenResponse {
   }>;
 }
 
-// Fetch Solana tokens using Metaplex
-async function getSolanaTokensWithMetaplex(address: string): Promise<TokenResponse> {
+// Fetch Solana tokens (simplified version without Metaplex)
+async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
-    console.log(`Fetching Solana tokens with Metaplex for address: ${address}`);
+    console.log(`Fetching Solana tokens for address: ${address}`);
     
     // Create connection to Solana mainnet
     const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
-    const metaplex = new Metaplex(connection);
     
     // Convert address string to PublicKey
     const walletAddress = new PublicKey(address);
@@ -62,35 +60,14 @@ async function getSolanaTokensWithMetaplex(address: string): Promise<TokenRespon
         
         console.log(`Processing token #${i + 1}: ${mintAddress}, balance: ${balance}`);
         
-        let name = `Unknown (${mintAddress.slice(0, 6)}...)`;
-        let symbol = "???";
-        let logo = undefined;
-        
-        // 2) Try to load Metaplex metadata
-        try {
-          const nft = await metaplex.nfts().findByMint({ mintAddress: new PublicKey(mintAddress) });
-          
-          if (nft) {
-            name = nft.name || name;
-            symbol = nft.symbol || symbol;
-            
-            if (nft.json && nft.json.image) {
-              logo = nft.json.image;
-              console.log(`Found image URL: ${logo}`);
-            }
-            
-            console.log(`Metaplex metadata found: ${name} (${symbol})`);
-          }
-        } catch (err) {
-          console.log(`No Metaplex metadata for mint ${mintAddress}: ${err.message}`);
-          // Continue without metadata - we'll use default values
-        }
+        // Use defaults since we're not using Metaplex for metadata
+        const name = `Token (${mintAddress.slice(0, 6)}...)`;
+        const symbol = "SPL";
         
         // Add the token to our list
         tokens.push({
           name: name,
           symbol: symbol,
-          logo: logo,
           amount: balance.toString(),
           decimals: decimals,
           address: mintAddress
@@ -125,7 +102,7 @@ async function getSolanaTokensWithMetaplex(address: string): Promise<TokenRespon
     console.log(`Returning ${tokens.length} Solana tokens`);
     return { tokens };
   } catch (error) {
-    console.error('Error in getSolanaTokensWithMetaplex:', error);
+    console.error('Error in getSolanaTokens:', error);
     return { tokens: [] }; // Return empty array in case of error
   }
 }
@@ -156,8 +133,8 @@ serve(async (req) => {
       );
     }
 
-    // Get tokens using Metaplex
-    const response = await getSolanaTokensWithMetaplex(address);
+    // Get tokens without using Metaplex
+    const response = await getSolanaTokens(address);
     
     console.log(`Returning ${response.tokens.length} tokens for address ${address}`);
 
