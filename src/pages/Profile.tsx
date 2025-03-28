@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { verifyNFTOwnership } from '@/utils/nftService';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ const Profile = () => {
   const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
   const { username } = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState('posts');
+  const [isNFTVerified, setIsNFTVerified] = useState(false);
   
   // This checks if we're viewing the current user's profile
   const isCurrentUser = !username || (profile?.username === username);
@@ -56,6 +58,24 @@ const Profile = () => {
     
     fetchUserCreationDate();
   }, [user]);
+  
+  // Verify NFT ownership when profile loads
+  useEffect(() => {
+    const checkNFTVerification = async () => {
+      if (profile && user) {
+        const isVerified = await verifyNFTOwnership(
+          user.id,
+          profile.ethereum_address,
+          profile.solana_address
+        );
+        setIsNFTVerified(isVerified);
+      }
+    };
+    
+    if (!isLoading && profile) {
+      checkNFTVerification();
+    }
+  }, [profile, isLoading, user]);
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -116,6 +136,7 @@ const Profile = () => {
         followingCount={0} // placeholder
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
+        isNFTVerified={isNFTVerified}
       />
       
       {/* Profile Tabs */}

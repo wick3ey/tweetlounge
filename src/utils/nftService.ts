@@ -1,3 +1,4 @@
+
 // NFT types and service functions
 import { supabase } from '@/integrations/supabase/client';
 
@@ -87,16 +88,21 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
  * Set an NFT as profile picture
  * @param userId User ID
  * @param imageUrl NFT image URL
+ * @param nftId NFT ID for verification
  * @returns Promise with update result
  */
 export const setNFTAsProfilePicture = async (
   userId: string,
-  imageUrl: string
+  imageUrl: string,
+  nftId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
       .from('profiles')
-      .update({ avatar_url: imageUrl })
+      .update({ 
+        avatar_url: imageUrl,
+        avatar_nft_id: nftId // Store the NFT ID for verification
+      })
       .eq('id', userId);
     
     if (error) throw error;
@@ -108,5 +114,50 @@ export const setNFTAsProfilePicture = async (
       success: false,
       error: error.message || 'Failed to set NFT as profile picture'
     };
+  }
+};
+
+/**
+ * Verify if a user owns the NFT used as profile picture
+ * @param userId User ID
+ * @param ethereumAddress Ethereum address
+ * @param solanaAddress Solana address
+ * @returns Promise with verification result
+ */
+export const verifyNFTOwnership = async (
+  userId: string,
+  ethereumAddress?: string | null,
+  solanaAddress?: string | null
+): Promise<boolean> => {
+  try {
+    // Get the user's profile to check if they're using an NFT
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('avatar_url, avatar_nft_id')
+      .eq('id', userId)
+      .single();
+    
+    if (error || !profile || !profile.avatar_nft_id) {
+      return false;
+    }
+    
+    // Fetch NFTs from both chains if addresses are available
+    let userNFTs: NFT[] = [];
+    
+    if (ethereumAddress) {
+      const ethNFTs = await fetchEthereumNFTs(ethereumAddress);
+      userNFTs = [...userNFTs, ...ethNFTs];
+    }
+    
+    if (solanaAddress) {
+      const solNFTs = await fetchSolanaNFTs(solanaAddress);
+      userNFTs = [...userNFTs, ...solNFTs];
+    }
+    
+    // Check if the user owns the NFT used as profile picture
+    return userNFTs.some(nft => nft.id === profile.avatar_nft_id);
+  } catch (error) {
+    console.error('Error verifying NFT ownership:', error);
+    return false;
   }
 };
