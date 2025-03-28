@@ -19,53 +19,34 @@ export interface NFT {
  */
 export const fetchEthereumNFTs = async (address: string): Promise<NFT[]> => {
   try {
-    // For testing, return mock data
-    // In production, you'd use Alchemy API
     console.log(`Fetching Ethereum NFTs for address: ${address}`);
     
-    // Mock data for development
-    const mockNFTs: NFT[] = [
-      {
-        id: 'eth-1',
-        name: 'Crypto Punk #1234',
-        description: 'A unique Crypto Punk NFT',
-        imageUrl: 'https://placehold.co/200x200?text=ETH+NFT+1',
-        tokenAddress: '0x123...',
-        tokenId: '1234',
-        chain: 'ethereum'
-      },
-      {
-        id: 'eth-2',
-        name: 'Bored Ape #5678',
-        description: 'A bored ape yacht club NFT',
-        imageUrl: 'https://placehold.co/200x200?text=ETH+NFT+2',
-        tokenAddress: '0x456...',
-        tokenId: '5678',
-        chain: 'ethereum'
-      }
-    ];
-    
-    return mockNFTs;
-    
-    // In production, uncomment and use the code below:
-    /*
-    const apiKey = 'YOUR_ALCHEMY_API_KEY';
+    // Add your Alchemy API key here
+    const apiKey = 'demo'; // Replace with actual API key in production
     const baseURL = `https://eth-mainnet.g.alchemy.com/v2/${apiKey}/getNFTs/`;
     const url = `${baseURL}?owner=${address}`;
     
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching Ethereum NFTs: ${response.statusText}`);
+    }
+    
     const data = await response.json();
+    
+    if (!data.ownedNfts || !Array.isArray(data.ownedNfts)) {
+      console.warn('Invalid response from Alchemy API:', data);
+      return [];
+    }
     
     return data.ownedNfts.map(nft => ({
       id: `${nft.contract.address}-${nft.id.tokenId}`,
       name: nft.title || 'Unnamed NFT',
-      description: nft.description,
+      description: nft.description || '',
       imageUrl: nft.media[0]?.raw || 'https://placehold.co/200x200?text=No+Image',
       tokenAddress: nft.contract.address,
       tokenId: nft.id.tokenId,
       chain: 'ethereum'
     }));
-    */
   } catch (error) {
     console.error('Error fetching Ethereum NFTs:', error);
     return [];
@@ -83,33 +64,6 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
     
     const QUICKNODE_API = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
     
-    // Use mock data in development for faster testing
-    // In production environments, you'd use the QuickNode DAS API
-    if (process.env.NODE_ENV !== 'production') {
-      // Mock data for development
-      const mockNFTs: NFT[] = [
-        {
-          id: 'sol-1',
-          name: 'Solana Monkey #9876',
-          description: 'A Solana Monkey Business NFT',
-          imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+1',
-          tokenAddress: 'abc123...',
-          chain: 'solana'
-        },
-        {
-          id: 'sol-2',
-          name: 'Degenerate Ape #5432',
-          description: 'A Degenerate Ape Academy NFT',
-          imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+2',
-          tokenAddress: 'def456...',
-          chain: 'solana'
-        }
-      ];
-      
-      return mockNFTs;
-    }
-    
-    // In production, use QuickNode DAS API to fetch real NFTs
     const response = await fetch(QUICKNODE_API, {
       method: 'POST',
       headers: {
@@ -129,6 +83,10 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
         }
       })
     });
+    
+    if (!response.ok) {
+      throw new Error(`Error fetching Solana NFTs: ${response.statusText}`);
+    }
     
     const data = await response.json();
     
