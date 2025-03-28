@@ -28,7 +28,6 @@ const Profile = () => {
   const { username } = useParams<{ username: string }>();
   const [activeTab, setActiveTab] = useState('posts');
   const [isNFTVerified, setIsNFTVerified] = useState(false);
-  const [nftChain, setNftChain] = useState<'ethereum' | 'solana' | null>(null);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   
   // This checks if we're viewing the current user's profile
@@ -67,15 +66,13 @@ const Profile = () => {
     const checkNFTVerification = async () => {
       if (profile && user) {
         console.log("Checking NFT verification for profile:", profile);
-        const verification = await verifyNFTOwnership(
+        const isVerified = await verifyNFTOwnership(
           user.id,
           profile.ethereum_address,
           profile.solana_address
         );
-        
-        console.log("NFT verification result:", verification);
-        setIsNFTVerified(verification.isVerified);
-        setNftChain(verification.chain || null);
+        console.log("NFT verification result:", isVerified);
+        setIsNFTVerified(isVerified);
       }
     };
     
@@ -153,7 +150,6 @@ const Profile = () => {
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
         isNFTVerified={isNFTVerified}
-        nftChain={nftChain}
       />
       
       {/* Profile Tabs */}

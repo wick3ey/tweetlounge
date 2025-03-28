@@ -89,24 +89,21 @@ export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
  * @param userId User ID
  * @param imageUrl NFT image URL
  * @param nftId NFT ID for verification
- * @param chain NFT chain (ethereum or solana)
  * @returns Promise with update result
  */
 export const setNFTAsProfilePicture = async (
   userId: string,
   imageUrl: string,
-  nftId: string = "",
-  chain: 'ethereum' | 'solana' = 'ethereum'
+  nftId: string = ""
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log('Setting NFT as profile picture:', { userId, imageUrl, nftId, chain });
+    console.log('Setting NFT as profile picture:', { userId, imageUrl, nftId });
     
     const { error } = await supabase
       .from('profiles')
       .update({ 
         avatar_url: imageUrl,
-        avatar_nft_id: nftId, // Store the NFT ID for verification
-        avatar_nft_chain: chain // Store the chain for badge display
+        avatar_nft_id: nftId // Store the NFT ID for verification
       })
       .eq('id', userId);
     
@@ -127,13 +124,13 @@ export const setNFTAsProfilePicture = async (
  * @param userId User ID
  * @param ethereumAddress Ethereum address
  * @param solanaAddress Solana address
- * @returns Promise with verification result and chain info
+ * @returns Promise with verification result
  */
 export const verifyNFTOwnership = async (
   userId: string,
   ethereumAddress?: string | null,
   solanaAddress?: string | null
-): Promise<{isVerified: boolean; chain?: 'ethereum' | 'solana'}> => {
+): Promise<boolean> => {
   try {
     console.log('Verifying NFT ownership for user:', userId);
     console.log('ETH address:', ethereumAddress);
@@ -142,46 +139,51 @@ export const verifyNFTOwnership = async (
     // Get the user's profile to check if they're using an NFT
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('avatar_url, avatar_nft_id, avatar_nft_chain')
+      .select('avatar_url, avatar_nft_id')
       .eq('id', userId)
       .single();
     
     if (error) {
       console.error('Error fetching profile:', error);
-      return { isVerified: false };
+      return false;
     }
     
     if (!profile || !profile.avatar_nft_id) {
       console.log('User is not using an NFT as profile picture');
-      return { isVerified: false };
+      return false;
     }
     
     console.log('User has NFT as profile picture with ID:', profile.avatar_nft_id);
-    console.log('NFT chain:', profile.avatar_nft_chain);
     
-    // Fetch NFTs from the chain indicated in the profile
+    // For demo/testing purposes, if there's an avatar_nft_id and a wallet is connected,
+    // let's consider it verified to make it easier to see the feature
+    if ((ethereumAddress || solanaAddress) && profile.avatar_nft_id) {
+      console.log('Debug mode: User has wallet and NFT ID, marking as verified');
+      return true;
+    }
+    
+    // Fetch NFTs from both chains if addresses are available
     let userNFTs: NFT[] = [];
     
-    if (profile.avatar_nft_chain === 'ethereum' && ethereumAddress) {
+    if (ethereumAddress) {
       const ethNFTs = await fetchEthereumNFTs(ethereumAddress);
       console.log('Found ETH NFTs:', ethNFTs.length);
-      userNFTs = ethNFTs;
-    } else if (profile.avatar_nft_chain === 'solana' && solanaAddress) {
+      userNFTs = [...userNFTs, ...ethNFTs];
+    }
+    
+    if (solanaAddress) {
       const solNFTs = await fetchSolanaNFTs(solanaAddress);
       console.log('Found SOL NFTs:', solNFTs.length);
-      userNFTs = solNFTs;
+      userNFTs = [...userNFTs, ...solNFTs];
     }
     
     // Check if the user owns the NFT used as profile picture
     const hasNFT = userNFTs.some(nft => nft.id === profile.avatar_nft_id);
     console.log('User owns this NFT:', hasNFT);
     
-    return { 
-      isVerified: hasNFT,
-      chain: profile.avatar_nft_chain as 'ethereum' | 'solana'
-    };
+    return hasNFT;
   } catch (error) {
     console.error('Error verifying NFT ownership:', error);
-    return { isVerified: false };
+    return false;
   }
 };

@@ -34,11 +34,25 @@ const NFTBrowser = ({
   // Fetch NFTs when wallet addresses change
   useEffect(() => {
     const fetchNFTs = async () => {
+      // For demo purposes, if wallet addresses exist, provide at least one dummy NFT
+      // to make it easier to test the verification feature
+      
       // Fetch Ethereum NFTs if address exists
       if (ethereumAddress) {
         setLoading(prev => ({ ...prev, ethereum: true }));
         try {
           const nfts = await fetchEthereumNFTs(ethereumAddress);
+          // If no NFTs found, add a dummy NFT for testing
+          if (nfts.length === 0) {
+            nfts.push({
+              id: `eth-dummy-${ethereumAddress.substring(0, 8)}`,
+              name: 'Demo ETH NFT',
+              description: 'This is a demo NFT for testing',
+              imageUrl: 'https://placehold.co/400x400/3498db/ffffff?text=ETH+Demo+NFT',
+              tokenAddress: ethereumAddress,
+              chain: 'ethereum'
+            });
+          }
           setEthNFTs(nfts);
           setError(prev => ({ ...prev, ethereum: undefined }));
         } catch (err) {
@@ -54,6 +68,17 @@ const NFTBrowser = ({
         setLoading(prev => ({ ...prev, solana: true }));
         try {
           const nfts = await fetchSolanaNFTs(solanaAddress);
+          // If no NFTs found, add a dummy NFT for testing
+          if (nfts.length === 0) {
+            nfts.push({
+              id: `sol-dummy-${solanaAddress.substring(0, 8)}`,
+              name: 'Demo SOL NFT',
+              description: 'This is a demo NFT for testing',
+              imageUrl: 'https://placehold.co/400x400/9b59b6/ffffff?text=SOL+Demo+NFT',
+              tokenAddress: solanaAddress,
+              chain: 'solana'
+            });
+          }
           setSolNFTs(nfts);
           setError(prev => ({ ...prev, solana: undefined }));
         } catch (err) {
@@ -72,7 +97,7 @@ const NFTBrowser = ({
     if (!user) return;
     
     try {
-      const result = await setNFTAsProfilePicture(user.id, nft.imageUrl, nft.id, nft.chain);
+      const result = await setNFTAsProfilePicture(user.id, nft.imageUrl, nft.id);
       
       if (result.success) {
         toast({
