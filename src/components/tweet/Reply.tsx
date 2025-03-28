@@ -44,10 +44,10 @@ const Reply = ({ reply }: ReplyProps) => {
         <Link to={`/profile/${reply.profiles.username}`} className="flex-shrink-0">
           <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
             {reply.profiles.avatar_url ? (
-              <AvatarImage src={reply.profiles.avatar_url} alt={reply.profiles.display_name} />
+              <AvatarImage src={reply.profiles.avatar_url} alt={reply.profiles.display_name || reply.profiles.username || 'User'} />
             ) : null}
             <AvatarFallback className="bg-twitter-blue text-white text-xs sm:text-sm">
-              {getInitials(reply.profiles.display_name || reply.profiles.username)}
+              {getInitials(reply.profiles.display_name || reply.profiles.username || 'User')}
             </AvatarFallback>
           </Avatar>
         </Link>
@@ -58,7 +58,7 @@ const Reply = ({ reply }: ReplyProps) => {
                 to={`/profile/${reply.profiles.username}`} 
                 className="font-bold hover:underline text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none"
               >
-                {reply.profiles.display_name || reply.profiles.username}
+                {reply.profiles.display_name || reply.profiles.username || 'User'}
               </Link>
               
               {isNFTVerified && (
@@ -80,7 +80,7 @@ const Reply = ({ reply }: ReplyProps) => {
               )}
               
               <span className="text-gray-500 text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none ml-1">
-                @{reply.profiles.username}
+                @{reply.profiles.username || 'unknown'}
               </span>
             </div>
             <span className="text-gray-500 mx-1 text-xs hidden sm:inline">·</span>

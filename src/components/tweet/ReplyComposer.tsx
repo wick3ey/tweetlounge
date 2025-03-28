@@ -67,7 +67,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
       return;
     }
     
-    if (!tweetId) {
+    if (!tweetId || tweetId.trim() === '') {
       toast({
         title: "Error",
         description: "Invalid tweet reference",
@@ -119,6 +119,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   };
 
   const getInitials = (name: string) => {
+    if (!name || name.trim() === '') return 'U';
     return name.substring(0, 2).toUpperCase();
   };
 

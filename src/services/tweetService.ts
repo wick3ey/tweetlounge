@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { uploadFile } from './storageService';
@@ -319,6 +320,11 @@ export async function retweet(tweetId: string): Promise<boolean> {
 
 export async function replyToTweet(tweetId: string, content: string, imageFile?: File): Promise<boolean> {
   try {
+    if (!tweetId || !tweetId.trim()) {
+      console.error('Invalid tweet ID provided for reply');
+      return false;
+    }
+
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
@@ -326,25 +332,44 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
       throw new Error('User must be logged in to reply to a tweet');
     }
     
+    // Verify the tweet exists before attempting to reply
+    const { data: tweetExists, error: tweetCheckError } = await supabase
+      .from('tweets')
+      .select('id')
+      .eq('id', tweetId)
+      .single();
+      
+    if (tweetCheckError || !tweetExists) {
+      console.error('Tweet does not exist or cannot be accessed:', tweetCheckError);
+      return false;
+    }
+    
     let imageUrl = null;
     
     if (imageFile) {
-      imageUrl = await uploadFile(imageFile, 'tweet-replies');
-      
-      if (!imageUrl) {
-        console.error('Failed to upload image but continuing with text-only reply');
-        // We'll continue with a text-only reply instead of failing completely
+      try {
+        imageUrl = await uploadFile(imageFile, 'tweet-replies');
+        
+        if (!imageUrl) {
+          console.warn('Failed to upload image but continuing with text-only reply');
+          // We'll continue with a text-only reply instead of failing completely
+        }
+      } catch (uploadError) {
+        console.error('Image upload failed:', uploadError);
+        // Continue with text-only reply
       }
     }
     
+    const replyData = {
+      content: content.trim(),
+      user_id: userData.user.id,
+      tweet_id: tweetId,
+      image_url: imageUrl
+    };
+    
     const { error } = await supabase
       .from('replies')
-      .insert({
-        content,
-        user_id: userData.user.id,
-        tweet_id: tweetId,
-        image_url: imageUrl
-      });
+      .insert(replyData);
       
     if (error) {
       console.error('Error replying to tweet:', error);
@@ -360,9 +385,21 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
 
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
-    if (!tweetId) {
+    if (!tweetId || !tweetId.trim()) {
       console.error('Invalid tweet ID provided');
       return [];
+    }
+    
+    // Verify the tweet exists before fetching replies
+    const { data: tweetExists, error: tweetCheckError } = await supabase
+      .from('tweets')
+      .select('id')
+      .eq('id', tweetId)
+      .single();
+      
+    if (tweetCheckError) {
+      console.error('Error verifying tweet existence:', tweetCheckError);
+      // We'll still attempt to fetch replies in case it's a permissions issue
     }
     
     const { data, error } = await supabase
@@ -383,7 +420,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       
     if (error) {
       console.error('Error fetching tweet replies:', error);
-      return [];
+      throw error;
     }
     
     return data || [];
