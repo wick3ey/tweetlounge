@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { connectEthereumWallet, connectSolanaWallet, updateWalletAddress } from '@/utils/walletConnector';
 import { useToast } from '@/components/ui/use-toast';
-import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -32,6 +31,7 @@ interface ProfileHeaderProps {
   onFollow?: () => void;
   isFollowing?: boolean;
   isNFTVerified?: boolean;
+  nftChain?: 'ethereum' | 'solana' | null;
 }
 
 const ProfileHeader = ({
@@ -53,7 +53,8 @@ const ProfileHeader = ({
   onOpenNFTBrowser,
   onFollow,
   isFollowing = false,
-  isNFTVerified = false
+  isNFTVerified = false,
+  nftChain = null
 }: ProfileHeaderProps) => {
   const [following, setFollowing] = useState(isFollowing);
   const { toast } = useToast();
@@ -106,18 +107,6 @@ const ProfileHeader = ({
             description: `Your ${type} wallet has been successfully connected.`,
           });
           
-          // Fetch NFTs after wallet connection
-          const nfts = type === 'ethereum' 
-            ? await fetchEthereumNFTs(result.address)
-            : await fetchSolanaNFTs(result.address);
-          
-          if (nfts.length > 0) {
-            toast({
-              title: "NFTs found",
-              description: `Found ${nfts.length} NFTs in your wallet. You can set one as your profile picture.`,
-            });
-          }
-          
           // Reload the page to update the profile
           window.location.reload();
         } else {
@@ -147,6 +136,43 @@ const ProfileHeader = ({
   };
   
   const hasWallet = !!ethereumAddress || !!solanaAddress;
+
+  // Get the appropriate NFT verification icon based on the chain
+  const getNFTVerificationBadge = () => {
+    if (!isNFTVerified) return null;
+    
+    // Different badge colors and hover text based on chain
+    let badgeColor = "bg-red-500 hover:bg-red-600";
+    let iconColor = "text-white";
+    let chainName = "blockchain";
+    
+    if (nftChain === 'ethereum') {
+      badgeColor = "bg-blue-500 hover:bg-blue-600"; 
+      chainName = "Ethereum";
+    } else if (nftChain === 'solana') {
+      badgeColor = "bg-purple-500 hover:bg-purple-600";
+      chainName = "Solana";
+    }
+    
+    return (
+      <HoverCard openDelay={200} closeDelay={100}>
+        <HoverCardTrigger asChild>
+          <div className="inline-flex items-center">
+            <Badge className={`${badgeColor} ${iconColor} p-1 rounded-full`}>
+              <Check className="h-3 w-3" />
+            </Badge>
+          </div>
+        </HoverCardTrigger>
+        <HoverCardContent className="w-80 text-sm">
+          <p className="font-semibold">Verified NFT Owner</p>
+          <p className="text-gray-500 mt-1">
+            This profile is using an NFT on the {chainName} blockchain as their profile picture 
+            that they verifiably own. The checkmark confirms ownership of this digital asset.
+          </p>
+        </HoverCardContent>
+      </HoverCard>
+    );
+  };
 
   return (
     <div className="border-b border-gray-200 pb-0">
@@ -223,25 +249,8 @@ const ProfileHeader = ({
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{displayName}</h1>
 
-          {/* Verified NFT badge - made more visible with red background */}
-          {isNFTVerified && (
-            <HoverCard openDelay={200} closeDelay={100}>
-              <HoverCardTrigger asChild>
-                <div className="inline-flex items-center">
-                  <Badge className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full">
-                    <Check className="h-3 w-3" />
-                  </Badge>
-                </div>
-              </HoverCardTrigger>
-              <HoverCardContent className="w-80 text-sm">
-                <p className="font-semibold">Verified NFT Owner</p>
-                <p className="text-gray-500 mt-1">
-                  This profile is using an NFT as their profile picture that they verifiably own. 
-                  The red checkmark confirms ownership of this digital asset on the blockchain.
-                </p>
-              </HoverCardContent>
-            </HoverCard>
-          )}
+          {/* Dynamic NFT verification badge */}
+          {getNFTVerificationBadge()}
 
           {/* Wallet badge */}
           {hasWallet && (
