@@ -224,6 +224,8 @@ serve(async (req) => {
     const response = chain === 'solana' 
       ? await getSolanaTokens(address) 
       : getEthereumTokens(address);
+    
+    console.log(`Returning ${response.tokens.length} tokens for ${chain} address ${address}`);
 
     // Return the response
     return new Response(

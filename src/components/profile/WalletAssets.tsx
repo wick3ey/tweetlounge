@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,16 +35,29 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
         
         // Fetch tokens for Solana address if available
         if (solanaAddress) {
+          console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
           const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
-          allTokens = [...allTokens, ...solTokens];
+          if (solTokens.length > 0) {
+            console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
+            allTokens = [...allTokens, ...solTokens];
+          } else {
+            console.log('No Solana tokens found or returned');
+          }
         }
         
         // Fetch tokens for Ethereum address if available
         if (ethereumAddress) {
+          console.log(`Attempting to fetch Ethereum tokens for: ${ethereumAddress}`);
           const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
-          allTokens = [...allTokens, ...ethTokens];
+          if (ethTokens.length > 0) {
+            console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
+            allTokens = [...allTokens, ...ethTokens];
+          } else {
+            console.log('No Ethereum tokens found or returned');
+          }
         }
         
+        console.log(`Total tokens loaded: ${allTokens.length}`);
         setTokens(allTokens);
       } catch (err) {
         console.error('Error fetching wallet tokens:', err);
