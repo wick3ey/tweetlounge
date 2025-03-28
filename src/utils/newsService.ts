@@ -42,16 +42,21 @@ const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
+// CORS proxy URL - Use a reliable CORS proxy
+const CORS_PROXY = 'https://corsproxy.io/?';
+
 /**
- * Fetches news from CryptoPanic API
+ * Fetches news from CryptoPanic API through a CORS proxy
  */
 const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`
-    );
+    // Using CORS proxy to bypass CORS restrictions
+    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`;
+    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
+    
+    const response = await fetch(proxyUrl);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch news: ${response.status}`);
@@ -81,6 +86,7 @@ export const useNewsData = () => {
     refetchInterval: REFRESH_INTERVAL,
     // Stale time to avoid refreshing data too often
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2, // Only retry twice before showing error
   });
   
   const refreshData = async () => {

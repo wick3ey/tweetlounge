@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsService';
-import { AlertTriangle, ArrowUpRight, Loader2, Newspaper, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ExternalLink, Loader2, Newspaper, RefreshCw, Rss } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Component for a single news article
 const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
@@ -28,7 +29,7 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
             <span className="mr-2">{article.source.title}</span>
             <span>{formattedDate}</span>
           </div>
-          <div className="flex space-x-1 mt-2">
+          <div className="flex flex-wrap gap-1 mt-2">
             {article.currencies.map((currency) => (
               <span 
                 key={currency.code} 
@@ -39,7 +40,7 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
             ))}
           </div>
         </div>
-        <ArrowUpRight className="w-4 h-4 text-crypto-lightgray shrink-0" />
+        <ExternalLink className="w-4 h-4 text-crypto-lightgray shrink-0" />
       </div>
     </a>
   );
@@ -90,7 +91,7 @@ const NewsSection: React.FC = () => {
   };
 
   return (
-    <Card className="crypto-news-card mt-4 mb-4">
+    <Card className="crypto-news-card mt-4 mb-4 bg-crypto-black border-crypto-gray">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -128,46 +129,53 @@ const NewsSection: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="max-h-[400px] overflow-y-auto">
-          {loading ? (
-            // Loading skeletons
-            Array(5).fill(0).map((_, index) => (
-              <NewsItemSkeleton key={index} />
-            ))
-          ) : error ? (
-            // Error state
-            <div className="p-8 text-center">
-              <AlertTriangle className="h-8 w-8 text-crypto-red mx-auto mb-2" />
-              <p className="text-crypto-lightgray">Failed to load crypto news</p>
-              <CryptoButton 
-                variant="outline" 
-                size="sm" 
-                className="mt-4"
-                onClick={handleRefresh}
-              >
-                Try Again
-              </CryptoButton>
-            </div>
-          ) : newsArticles.length === 0 ? (
-            // Empty state
-            <div className="p-8 text-center">
-              <p className="text-crypto-lightgray">No news articles available</p>
-              <CryptoButton 
-                variant="outline" 
-                size="sm" 
-                className="mt-4"
-                onClick={handleRefresh}
-              >
-                Refresh
-              </CryptoButton>
-            </div>
-          ) : (
-            // Articles
-            newsArticles.map((article) => (
-              <NewsItem key={article.id} article={article} />
-            ))
-          )}
-        </div>
+        {error ? (
+          <Alert variant="destructive" className="mx-4 my-3 bg-crypto-black border-crypto-red text-crypto-red">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error fetching news</AlertTitle>
+            <AlertDescription className="text-sm">
+              Unable to load news from CryptoPanic API. This may be due to CORS restrictions.
+              <div className="mt-2">
+                <CryptoButton 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="border-crypto-red text-crypto-red hover:bg-crypto-red/10"
+                >
+                  Try Again
+                </CryptoButton>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <div className="max-h-[400px] overflow-y-auto">
+            {loading ? (
+              // Loading skeletons
+              Array(5).fill(0).map((_, index) => (
+                <NewsItemSkeleton key={index} />
+              ))
+            ) : newsArticles.length === 0 ? (
+              // Empty state
+              <div className="p-8 text-center">
+                <Rss className="h-8 w-8 text-crypto-lightgray mx-auto mb-2" />
+                <p className="text-crypto-lightgray">No news articles available</p>
+                <CryptoButton 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4"
+                  onClick={handleRefresh}
+                >
+                  Refresh
+                </CryptoButton>
+              </div>
+            ) : (
+              // Articles
+              newsArticles.map((article) => (
+                <NewsItem key={article.id} article={article} />
+              ))
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
