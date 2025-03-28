@@ -317,20 +317,31 @@ export async function retweet(tweetId: string): Promise<boolean> {
   }
 }
 
-export async function replyToTweet(tweetId: string, content: string): Promise<boolean> {
+export async function replyToTweet(tweetId: string, content: string, imageFile?: File): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!(await user).data.user) {
+    if (!userData.user) {
       throw new Error('User must be logged in to reply to a tweet');
+    }
+    
+    let imageUrl = null;
+    
+    if (imageFile) {
+      imageUrl = await uploadFile(imageFile, 'tweet-replies');
+      
+      if (!imageUrl) {
+        throw new Error('Failed to upload image');
+      }
     }
     
     const { error } = await supabase
       .from('replies')
       .insert({
         content,
-        user_id: (await user).data.user?.id,
-        tweet_id: tweetId
+        user_id: userData.user.id,
+        tweet_id: tweetId,
+        image_url: imageUrl
       });
       
     if (error) {
@@ -345,62 +356,6 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
   }
 }
 
-export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    
-    if (!userData.user) {
-      return false;
-    }
-    
-    const { data, error } = await supabase
-      .from('likes')
-      .select()
-      .match({ 
-        user_id: userData.user.id,
-        tweet_id: tweetId 
-      });
-      
-    if (error) {
-      console.error('Error checking like status:', error);
-      return false;
-    }
-    
-    return data && data.length > 0;
-  } catch (error) {
-    console.error('Check like status failed:', error);
-    return false;
-  }
-}
-
-export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    
-    if (!userData.user) {
-      return false;
-    }
-    
-    const { data, error } = await supabase
-      .from('retweets')
-      .select()
-      .match({ 
-        user_id: userData.user.id,
-        tweet_id: tweetId 
-      });
-      
-    if (error) {
-      console.error('Error checking retweet status:', error);
-      return false;
-    }
-    
-    return data && data.length > 0;
-  } catch (error) {
-    console.error('Check retweet status failed:', error);
-    return false;
-  }
-}
-
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
     const { data, error } = await supabase
@@ -408,9 +363,12 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       .select(`
         *,
         profiles:user_id (
+          id,
           username,
           display_name,
-          avatar_url
+          avatar_url,
+          avatar_nft_id,
+          avatar_nft_chain
         )
       `)
       .eq('tweet_id', tweetId)
@@ -508,6 +466,62 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Delete tweet failed:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    
+    if (!userData.user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('likes')
+      .select()
+      .match({ 
+        user_id: userData.user.id,
+        tweet_id: tweetId 
+      });
+      
+    if (error) {
+      console.error('Error checking like status:', error);
+      return false;
+    }
+    
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Check like status failed:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    
+    if (!userData.user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('retweets')
+      .select()
+      .match({ 
+        user_id: userData.user.id,
+        tweet_id: tweetId 
+      });
+      
+    if (error) {
+      console.error('Error checking retweet status:', error);
+      return false;
+    }
+    
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Check retweet status failed:', error);
     return false;
   }
 }

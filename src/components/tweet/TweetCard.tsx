@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import RepliesSection from './RepliesSection';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -42,10 +44,12 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   const [retweeted, setRetweeted] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
+  const [repliesCount, setRepliesCount] = useState(tweet.replies_count);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
   const [isLoadingOriginalTweet, setIsLoadingOriginalTweet] = useState(false);
+  const [showReplies, setShowReplies] = useState(false);
   
   const isAuthor = user && tweet.author_id === user.id;
 
@@ -180,10 +184,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
       return;
     }
     
-    toast({
-      title: "Coming Soon",
-      description: "Reply functionality will be available soon!",
-    });
+    setShowReplies(!showReplies);
     
     if (onReply) onReply();
   };
@@ -279,124 +280,129 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   }
 
   return (
-    <div className="p-4 border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
-      {isRetweet && (
-        <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
-          <Repeat className="h-3 w-3 mr-2" />
-          <span>{retweeter.display_name} retweeted</span>
-        </div>
-      )}
-      <div className="flex gap-3">
-        <Link to={`/profile/${originalAuthor.username}`}>
-          <Avatar className="h-10 w-10">
-            {originalAuthor.avatar_url ? (
-              <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name} />
-            ) : null}
-            <AvatarFallback className="bg-twitter-blue text-white">
-              {getInitials(originalAuthor.display_name || originalAuthor.username)}
-            </AvatarFallback>
-          </Avatar>
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Link to={`/profile/${originalAuthor.username}`} className="font-bold hover:underline text-sm">
-                {originalAuthor.display_name}
-              </Link>
-              
-              {isNFTVerified && (
-                <HoverCard openDelay={200} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <div className="inline-flex items-center ml-1">
-                      <div className="bg-crypto-blue rounded-full p-0.5 flex items-center justify-center">
-                        <Check className="h-3 w-3 text-white stroke-[3]" />
-                      </div>
-                    </div>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-64 text-sm">
-                    <p className="font-semibold">Verified NFT Owner</p>
-                    <p className="text-gray-500 mt-1">
-                      This user owns the NFT used as their profile picture.
-                    </p>
-                  </HoverCardContent>
-                </HoverCard>
-              )}
-              
-              <span className="text-gray-500 ml-1 text-sm">
-                @{originalAuthor.username}
-              </span>
-              <span className="text-gray-500 mx-1 text-xs">·</span>
-              <span className="text-gray-500 text-xs">{timeAgo}</span>
-            </div>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 bg-gray-900 border border-gray-800 text-white">
-                {isAuthor && (
-                  <DropdownMenuItem 
-                    className="flex items-center text-red-500 hover:text-red-400 cursor-pointer"
-                    onClick={handleDelete}
-                    disabled={isSubmitting}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <div className="border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
+      <div className="p-4">
+        {isRetweet && (
+          <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
+            <Repeat className="h-3 w-3 mr-2" />
+            <span>{retweeter.display_name} retweeted</span>
           </div>
-          
-          <div className="mt-1 text-sm text-gray-100">{displayContent}</div>
-          
-          {displayImage && (
-            <div className="mt-3">
-              <img 
-                src={displayImage} 
-                alt="Tweet media"
-                className="rounded-xl w-full max-h-96 object-contain border border-gray-800 cursor-pointer" 
-                onClick={() => setShowImageDialog(true)}
-              />
+        )}
+        <div className="flex gap-3">
+          <Link to={`/profile/${originalAuthor.username}`}>
+            <Avatar className="h-10 w-10">
+              {originalAuthor.avatar_url ? (
+                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name} />
+              ) : null}
+              <AvatarFallback className="bg-twitter-blue text-white">
+                {getInitials(originalAuthor.display_name || originalAuthor.username)}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Link to={`/profile/${originalAuthor.username}`} className="font-bold hover:underline text-sm">
+                  {originalAuthor.display_name}
+                </Link>
+                
+                {isNFTVerified && (
+                  <HoverCard openDelay={200} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <div className="inline-flex items-center ml-1">
+                        <div className="bg-crypto-blue rounded-full p-0.5 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white stroke-[3]" />
+                        </div>
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-64 text-sm">
+                      <p className="font-semibold">Verified NFT Owner</p>
+                      <p className="text-gray-500 mt-1">
+                        This user owns the NFT used as their profile picture.
+                      </p>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+                
+                <span className="text-gray-500 ml-1 text-sm">
+                  @{originalAuthor.username}
+                </span>
+                <span className="text-gray-500 mx-1 text-xs">·</span>
+                <span className="text-gray-500 text-xs">{timeAgo}</span>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40 bg-gray-900 border border-gray-800 text-white">
+                  {isAuthor && (
+                    <DropdownMenuItem 
+                      className="flex items-center text-red-500 hover:text-red-400 cursor-pointer"
+                      onClick={handleDelete}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          )}
-          
-          <div className="flex justify-between mt-3 text-xs text-gray-500">
-            <button 
-              onClick={handleReply} 
-              className="flex items-center hover:text-crypto-blue transition-colors"
-              disabled={isSubmitting}
-            >
-              <MessageCircle className="h-4 w-4 mr-1" />
-              <span>{formatNumber(tweet.replies_count)}</span>
-            </button>
             
-            <button 
-              onClick={handleRetweet} 
-              className={`flex items-center transition-colors ${retweeted ? 'text-green-500' : 'hover:text-green-500'}`}
-              disabled={isSubmitting}
-            >
-              <Repeat className="h-4 w-4 mr-1" fill={retweeted ? "currentColor" : "none"} />
-              <span>{formatNumber(retweetsCount)}</span>
-            </button>
+            <div className="mt-1 text-sm text-gray-100">{displayContent}</div>
             
-            <button 
-              onClick={handleLike} 
-              className={`flex items-center transition-colors ${liked ? 'text-red-500' : 'hover:text-red-500'}`}
-              disabled={isSubmitting}
-            >
-              <Heart className="h-4 w-4 mr-1" fill={liked ? "currentColor" : "none"} />
-              <span>{formatNumber(likesCount)}</span>
-            </button>
+            {displayImage && (
+              <div className="mt-3">
+                <img 
+                  src={displayImage} 
+                  alt="Tweet media"
+                  className="rounded-xl w-full max-h-96 object-contain border border-gray-800 cursor-pointer" 
+                  onClick={() => setShowImageDialog(true)}
+                />
+              </div>
+            )}
             
-            <button className="flex items-center hover:text-crypto-blue transition-colors">
-              <Share2 className="h-4 w-4" />
-            </button>
+            <div className="flex justify-between mt-3 text-xs text-gray-500">
+              <button 
+                onClick={handleReply} 
+                className={`flex items-center transition-colors ${showReplies ? 'text-crypto-blue' : 'hover:text-crypto-blue'}`}
+                disabled={isSubmitting}
+              >
+                <MessageCircle className="h-4 w-4 mr-1" />
+                <span>{formatNumber(tweet.replies_count)}</span>
+              </button>
+              
+              <button 
+                onClick={handleRetweet} 
+                className={`flex items-center transition-colors ${retweeted ? 'text-green-500' : 'hover:text-green-500'}`}
+                disabled={isSubmitting}
+              >
+                <Repeat className="h-4 w-4 mr-1" fill={retweeted ? "currentColor" : "none"} />
+                <span>{formatNumber(retweetsCount)}</span>
+              </button>
+              
+              <button 
+                onClick={handleLike} 
+                className={`flex items-center transition-colors ${liked ? 'text-red-500' : 'hover:text-red-500'}`}
+                disabled={isSubmitting}
+              >
+                <Heart className="h-4 w-4 mr-1" fill={liked ? "currentColor" : "none"} />
+                <span>{formatNumber(likesCount)}</span>
+              </button>
+              
+              <button className="flex items-center hover:text-crypto-blue transition-colors">
+                <Share2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Replies section */}
+      <RepliesSection tweetId={tweet.id} isOpen={showReplies} />
 
       <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
         <DialogContent className="bg-crypto-darkgray border-crypto-gray p-0 max-w-4xl max-h-[90vh] flex items-center justify-center overflow-hidden">
