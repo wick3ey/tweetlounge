@@ -1,8 +1,10 @@
 
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowUpRight, BarChart, Clock, Coins, TrendingUp, Activity, Loader2 } from 'lucide-react'
+import { ArrowUpRight, BarChart, Clock, Coins, TrendingUp, Activity, Loader2, AlertTriangle } from 'lucide-react'
 import { useMarketStats } from '@/utils/coingeckoService'
+import { toast } from '@/hooks/use-toast'
+import { useEffect } from 'react'
 
 // Helper function to format large numbers
 const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' | 'number' = 'number'): string => {
@@ -37,8 +39,32 @@ const getFearGreedStatus = (change: number | undefined): { text: string; color: 
 const MarketStats: React.FC = () => {
   const { marketStats, loading, error } = useMarketStats();
   
+  // Display toast on error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Market Data Error",
+        description: "Couldn't fetch market data. Using fallback values.",
+        variant: "destructive"
+      });
+    }
+  }, [error]);
+  
   // Calculate a simple Fear & Greed value based on 24h market cap change
   const fearGreed = getFearGreedStatus(marketStats?.market_cap_change_percentage_24h);
+
+  // Fallback data for when API fails
+  const fallbackStats = {
+    total_market_cap: 2800000000000,
+    total_volume: 105000000000,
+    btc_dominance: 58.5,
+    eth_dominance: 8.0,
+    active_cryptocurrencies: 17000,
+    market_cap_change_percentage_24h: -2.3
+  };
+
+  // Use fallback data if there's an error or no data
+  const stats = error || !marketStats ? fallbackStats : marketStats;
 
   return (
     <Card className="crypto-stats-card">
@@ -54,6 +80,11 @@ const MarketStats: React.FC = () => {
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 Loading
               </span>
+            ) : error ? (
+              <span className="flex items-center text-crypto-red">
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                Fallback
+              </span>
             ) : (
               <>
                 <span className="mr-1">Live</span>
@@ -64,80 +95,74 @@ const MarketStats: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {error ? (
-          <div className="text-crypto-red text-sm py-4">
-            Failed to load market data. Using fallback data.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <Coins className="w-3.5 h-3.5 mr-1" />
-                <span>Total Market Cap</span>
-              </div>
-              <div className="font-display font-semibold">
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  formatNumber(marketStats?.total_market_cap, 'currency')}
-              </div>
+        <div className="grid grid-cols-2 gap-4 mt-2">
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <Coins className="w-3.5 h-3.5 mr-1" />
+              <span>Total Market Cap</span>
             </div>
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <BarChart className="w-3.5 h-3.5 mr-1" />
-                <span>BTC Dominance</span>
-              </div>
-              <div className="font-display font-semibold">
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  formatNumber(marketStats?.btc_dominance, 'percentage')}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <Clock className="w-3.5 h-3.5 mr-1" />
-                <span>24h Volume</span>
-              </div>
-              <div className="font-display font-semibold">
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  formatNumber(marketStats?.total_volume, 'currency')}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <ArrowUpRight className="w-3.5 h-3.5 mr-1" />
-                <span>ETH Dominance</span>
-              </div>
-              <div className="font-display font-semibold">
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  formatNumber(marketStats?.eth_dominance, 'percentage')}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <Coins className="w-3.5 h-3.5 mr-1" />
-                <span>Active Cryptocurrencies</span>
-              </div>
-              <div className="font-display font-semibold">
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  formatNumber(marketStats?.active_cryptocurrencies)}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center text-xs text-crypto-lightgray">
-                <TrendingUp className="w-3.5 h-3.5 mr-1" />
-                <span>Fear & Greed Index</span>
-              </div>
-              <div className={`font-display font-semibold ${fearGreed.color}`}>
-                {loading ? 
-                  <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
-                  fearGreed.text}
-              </div>
+            <div className="font-display font-semibold">
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                formatNumber(stats.total_market_cap, 'currency')}
             </div>
           </div>
-        )}
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <BarChart className="w-3.5 h-3.5 mr-1" />
+              <span>BTC Dominance</span>
+            </div>
+            <div className="font-display font-semibold">
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                formatNumber(stats.btc_dominance, 'percentage')}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <Clock className="w-3.5 h-3.5 mr-1" />
+              <span>24h Volume</span>
+            </div>
+            <div className="font-display font-semibold">
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                formatNumber(stats.total_volume, 'currency')}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <ArrowUpRight className="w-3.5 h-3.5 mr-1" />
+              <span>ETH Dominance</span>
+            </div>
+            <div className="font-display font-semibold">
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                formatNumber(stats.eth_dominance, 'percentage')}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <Coins className="w-3.5 h-3.5 mr-1" />
+              <span>Active Cryptocurrencies</span>
+            </div>
+            <div className="font-display font-semibold">
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                formatNumber(stats.active_cryptocurrencies)}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center text-xs text-crypto-lightgray">
+              <TrendingUp className="w-3.5 h-3.5 mr-1" />
+              <span>Fear & Greed Index</span>
+            </div>
+            <div className={`font-display font-semibold ${fearGreed.color}`}>
+              {loading ? 
+                <Loader2 className="w-4 h-4 animate-spin text-crypto-lightgray" /> : 
+                fearGreed.text}
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

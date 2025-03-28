@@ -87,14 +87,20 @@ const fetchMarketStats = async (): Promise<MarketStats | null> => {
     
     const { data } = await response.json();
     
-    // Map the response to our MarketStats interface
+    // Check if the required properties exist in the response
+    if (!data || !data.total_market_cap || !data.total_24h_volume) {
+      console.error('Unexpected API response structure:', data);
+      return null;
+    }
+    
+    // Map the response to our MarketStats interface with more robust error handling
     return {
-      total_market_cap: data.total_market_cap.usd,
-      total_volume: data.total_24h_volume.usd,
-      btc_dominance: data.market_cap_percentage.btc,
-      eth_dominance: data.market_cap_percentage.eth,
-      active_cryptocurrencies: data.active_cryptocurrencies,
-      market_cap_change_percentage_24h: data.market_cap_change_percentage_24h_usd
+      total_market_cap: data.total_market_cap.usd || 0,
+      total_volume: data.total_24h_volume.usd || 0,
+      btc_dominance: (data.market_cap_percentage && data.market_cap_percentage.btc) || 0,
+      eth_dominance: (data.market_cap_percentage && data.market_cap_percentage.eth) || 0,
+      active_cryptocurrencies: data.active_cryptocurrencies || 0,
+      market_cap_change_percentage_24h: data.market_cap_change_percentage_24h_usd || 0
     };
   } catch (error) {
     console.error('Error fetching global market data:', error);
