@@ -53,30 +53,21 @@ const CoverImageCropper = ({
             height: img.naturalHeight
           });
           
-          // Auto-calculate initial scale and position to fit the image properly
+          // Set initial position to center of container
           setTimeout(() => {
             if (containerRef.current) {
               const containerRect = containerRef.current.getBoundingClientRect();
               
-              // Calculate the scale needed to fit the width or height, whichever is limiting
-              const widthRatio = containerRect.width / img.naturalWidth;
-              const heightRatio = containerRect.height / img.naturalHeight;
-              
-              // Choose the smaller ratio to ensure the image fits
-              let initialScale = Math.min(widthRatio, heightRatio);
-              
-              // Ensure we don't zoom in too much for small images
-              initialScale = Math.min(initialScale, 1);
-              
-              setScale(initialScale);
+              // Initial scale should be 1, no automatic scaling
+              setScale(1);
               
               // Center the image
-              const scaledWidth = img.naturalWidth * initialScale;
-              const scaledHeight = img.naturalHeight * initialScale;
+              const centerX = (containerRect.width - img.naturalWidth) / 2;
+              const centerY = (containerRect.height - img.naturalHeight) / 2;
               
               setPosition({
-                x: (containerRect.width - scaledWidth) / 2,
-                y: (containerRect.height - scaledHeight) / 2
+                x: centerX,
+                y: centerY
               });
             }
             
