@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Settings,
   ListFilter,
-  Grid3X3
+  Grid3X3,
+  List
 } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -30,9 +31,10 @@ import { Token } from "@/utils/tokenService";
 interface TokenCardUIProps {
   token: Token;
   solPrice?: number;
+  viewMode?: string;
 }
 
-export const TokenCardUI = ({ token, solPrice }: TokenCardUIProps) => {
+export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if the token has a price/value
@@ -98,8 +100,13 @@ export const TokenCardUI = ({ token, solPrice }: TokenCardUIProps) => {
     return `bg-gradient-to-r from-[hsl(${h},70%,40%)] to-[hsl(${h},70%,30%)]`;
   };
   
+  // Apply different styling based on view mode
+  const cardClass = viewMode === "list" 
+    ? "interactive-card border-border/50 shadow-none mb-2" 
+    : "overflow-hidden interactive-card border-border/50 shadow-none";
+  
   return (
-    <Card className="overflow-hidden interactive-card border-border/50 shadow-none">
+    <Card className={cardClass}>
       <div className="flex flex-col">
         <div 
           className="px-4 py-3 flex items-center space-x-4 cursor-pointer"
@@ -260,19 +267,12 @@ export const WalletAssetsUI = ({
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           
-          <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value)}>
+          <ToggleGroup type="single" value={viewMode} onValueChange={setViewMode}>
             <ToggleGroupItem value="grid" aria-label="Grid view" className="h-8 w-8 p-0">
               <Grid3X3 className="h-4 w-4" />
             </ToggleGroupItem>
             <ToggleGroupItem value="list" aria-label="List view" className="h-8 w-8 p-0">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
+              <List className="h-4 w-4" />
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -317,12 +317,13 @@ export const WalletAssetsUI = ({
               </div>
             </div>
           ) : (
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-4"}>
+            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-2"}>
               {filteredTokens.map((token, index) => (
                 <TokenCardUI 
                   key={`${token.address}-${index}`} 
                   token={token} 
                   solPrice={solPrice || undefined}
+                  viewMode={viewMode}
                 />
               ))}
             </div>

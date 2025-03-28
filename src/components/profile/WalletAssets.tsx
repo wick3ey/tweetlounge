@@ -13,6 +13,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<string>("grid"); // Default to grid view
   
   const fetchTokens = async () => {
     if (!solanaAddress) return;
@@ -93,6 +94,13 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     }
   };
   
+  // Handle view mode change
+  const handleViewModeChange = (mode: string) => {
+    if (mode) {
+      setViewMode(mode);
+    }
+  };
+  
   return (
     <WalletAssetsUI
       tokens={tokens}
@@ -102,8 +110,8 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       totalValue={calculateTotalValue()}
       onRefresh={handleRefresh}
       solPrice={solPrice}
-      viewMode="grid"
-      setViewMode={() => {}} // Empty function since we don't need view mode changes
+      viewMode={viewMode}
+      setViewMode={handleViewModeChange} // Pass the handler function
     />
   );
 };
