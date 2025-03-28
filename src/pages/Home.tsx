@@ -1,12 +1,10 @@
 import React from 'react'
 import Header from '@/components/layout/Header'
-import Sidebar from '@/components/layout/Sidebar'
+import LeftSidebar from '@/components/layout/LeftSidebar'
+import RightSidebar from '@/components/layout/RightSidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
-import MarketStats from '@/components/crypto/MarketStats'
-import NewsSection from '@/components/crypto/NewsSection'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import { Separator } from '@/components/ui/separator'
 import TweetComposer from '@/components/tweet/TweetComposer'
 import TweetFeed from '@/components/tweet/TweetFeed'
 import { createTweet } from '@/services/tweetService'
@@ -54,11 +52,11 @@ const Home: React.FC = () => {
       <CryptoTicker />
       
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <LeftSidebar />
         
         <div className="flex-1 overflow-y-auto">
-          <main className="max-w-xl mx-auto px-2 md:px-4">
-            <div className="flex gap-3 items-center mb-4">
+          <main className="max-w-2xl mx-auto px-1">
+            <div className="flex gap-3 items-center mb-4 mt-2">
               <div className="rounded-lg bg-crypto-gray/20 p-1.5">
                 <ZapIcon className="text-crypto-blue h-5 w-5" />
               </div>
@@ -79,18 +77,14 @@ const Home: React.FC = () => {
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
-            <div>
+            <div className="mb-4">
               <TweetFeedTabs />
               <TweetFeed limit={10} />
             </div>
           </main>
         </div>
         
-        <div className="w-80 overflow-y-auto border-l border-crypto-gray/40 p-4 hidden lg:block">
-          <MarketStats />
-          <Separator className="my-4 bg-crypto-gray/20" />
-          <NewsSection />
-        </div>
+        <RightSidebar />
       </div>
     </div>
   )
