@@ -20,8 +20,11 @@ export type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  location: string | null;
+  website: string | null;
+  cover_url: string | null;
   updated_at: string | null;
   created_at: string;
 };
 
-export type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
+export type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
