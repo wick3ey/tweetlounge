@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, X } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, X, Trash2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,22 +12,30 @@ import {
   retweet, 
   checkIfUserLikedTweet, 
   checkIfUserRetweetedTweet,
-  getOriginalTweet 
+  getOriginalTweet,
+  deleteTweet
 } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
   onLike?: () => void;
   onRetweet?: () => void;
   onReply?: () => void;
+  onDelete?: () => void;
 }
 
-const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
+const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [liked, setLiked] = useState(false);
@@ -39,9 +46,10 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
   const [isLoadingOriginalTweet, setIsLoadingOriginalTweet] = useState(false);
+  
+  const isAuthor = user && tweet.author_id === user.id;
 
   useEffect(() => {
-    // Check if user has liked this tweet
     const checkLikeStatus = async () => {
       if (!user) return;
       
@@ -49,7 +57,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       setLiked(hasLiked);
     };
     
-    // Check if user has retweeted this tweet
     const checkRetweetStatus = async () => {
       if (!user) return;
       
@@ -62,7 +69,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   }, [tweet.id, user]);
 
   useEffect(() => {
-    // If this is a retweet, fetch the original tweet data
     const fetchOriginalTweet = async () => {
       if (tweet.is_retweet && tweet.original_tweet_id) {
         try {
@@ -148,7 +154,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         
         if (onRetweet) onRetweet();
         
-        // Refresh the page to show the new retweet
         if (newRetweetedState) {
           window.location.reload();
         }
@@ -175,7 +180,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       return;
     }
     
-    // For now, just show a toast
     toast({
       title: "Coming Soon",
       description: "Reply functionality will be available soon!",
@@ -184,16 +188,61 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     if (onReply) onReply();
   };
 
+  const handleDelete = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to delete a tweet",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!isAuthor) {
+      toast({
+        title: "Permission Denied",
+        description: "You can only delete your own tweets",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await deleteTweet(tweet.id);
+      
+      if (success) {
+        toast({
+          title: "Tweet Deleted",
+          description: "Your tweet has been successfully deleted",
+        });
+        
+        if (onDelete) onDelete();
+        
+        window.location.reload();
+      } else {
+        throw new Error("Failed to delete tweet");
+      }
+    } catch (error) {
+      console.error("Error deleting tweet:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to delete the tweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name.substring(0, 2).toUpperCase();
   };
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Check if the author has a verified NFT profile picture
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
-  // Format numbers for engagement metrics
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
       return (num / 1000000).toFixed(1) + 'M';
@@ -203,11 +252,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     return num.toString();
   };
 
-  // Determine the content to display - original tweet or the retweet
   const displayContent = tweet.is_retweet && originalTweet ? originalTweet.content : tweet.content;
   const displayImage = tweet.is_retweet && originalTweet ? originalTweet.image_url : tweet.image_url;
-  
-  // For retweets, we want to show both the retweeter and the original author
+
   const isRetweet = tweet.is_retweet;
   const retweeter = tweet.author;
   const originalAuthor = isRetweet && originalTweet ? originalTweet.author : tweet.author;
@@ -257,7 +304,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
                 {originalAuthor.display_name}
               </Link>
               
-              {/* Verified Badge */}
               {isNFTVerified && (
                 <HoverCard openDelay={200} closeDelay={100}>
                   <HoverCardTrigger asChild>
@@ -283,9 +329,25 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
               <span className="text-gray-500 text-xs">{timeAgo}</span>
             </div>
             
-            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40 bg-gray-900 border border-gray-800 text-white">
+                {isAuthor && (
+                  <DropdownMenuItem 
+                    className="flex items-center text-red-500 hover:text-red-400 cursor-pointer"
+                    onClick={handleDelete}
+                    disabled={isSubmitting}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           
           <div className="mt-1 text-sm text-gray-100">{displayContent}</div>
@@ -336,7 +398,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         </div>
       </div>
 
-      {/* Image dialog for enlarged view */}
       <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
         <DialogContent className="bg-crypto-darkgray border-crypto-gray p-0 max-w-4xl max-h-[90vh] flex items-center justify-center overflow-hidden">
           <Button 

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { uploadFile } from './storageService';
@@ -268,7 +267,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // Get original tweet to properly store the reference
     const { data: originalTweet, error: fetchError } = await supabase
       .from('tweets')
       .select('*')
@@ -278,7 +276,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
     if (fetchError || !originalTweet) {
       console.error('Error fetching original tweet for retweet:', fetchError);
       
-      // Clean up the retweet record if we can't create the tweet
       await supabase
         .from('retweets')
         .delete()
@@ -293,7 +290,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
     const { error: tweetError } = await supabase
       .from('tweets')
       .insert({
-        content: '',  // Empty content for the retweet
+        content: '',
         author_id: userData.user.id,
         is_retweet: true,
         original_tweet_id: tweetId
@@ -302,7 +299,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
       
-      // Clean up the retweet record if we can't create the tweet
       await supabase
         .from('retweets')
         .delete()
@@ -473,5 +469,45 @@ export async function getOriginalTweet(tweetId: string): Promise<TweetWithAuthor
   } catch (error) {
     console.error('Failed to fetch original tweet:', error);
     return null;
+  }
+}
+
+export async function deleteTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    
+    if (!userData.user) {
+      throw new Error('User must be logged in to delete a tweet');
+    }
+    
+    const { data: tweetData, error: fetchError } = await supabase
+      .from('tweets')
+      .select('author_id')
+      .eq('id', tweetId)
+      .single();
+      
+    if (fetchError) {
+      console.error('Error fetching tweet for deletion:', fetchError);
+      return false;
+    }
+    
+    if (tweetData.author_id !== userData.user.id) {
+      throw new Error('You can only delete your own tweets');
+    }
+    
+    const { error: deleteError } = await supabase
+      .from('tweets')
+      .delete()
+      .eq('id', tweetId);
+      
+    if (deleteError) {
+      console.error('Error deleting tweet:', deleteError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Delete tweet failed:', error);
+    return false;
   }
 }
