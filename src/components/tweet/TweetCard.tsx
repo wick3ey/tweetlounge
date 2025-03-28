@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share, Check } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -29,6 +30,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   };
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
+
+  // Check if the author has a verified NFT profile picture
+  const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
   return (
     <div className="p-4 border-b border-gray-200 hover:bg-gray-50 transition">
@@ -54,6 +58,26 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
             <Link to={`/profile/${tweet.author.username}`} className="font-bold hover:underline">
               {tweet.author.display_name}
             </Link>
+            
+            {/* Modern Twitter-style Verified Badge */}
+            {isNFTVerified && (
+              <HoverCard openDelay={200} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <div className="inline-flex items-center ml-1">
+                    <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white stroke-[3]" />
+                    </div>
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64 text-sm">
+                  <p className="font-semibold">Verified NFT Owner</p>
+                  <p className="text-gray-500 mt-1">
+                    This user owns the NFT used as their profile picture.
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
+            )}
+            
             <span className="text-gray-500 ml-2">
               @{tweet.author.username} · {timeAgo}
             </span>

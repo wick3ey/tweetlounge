@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
-import { ImageIcon, X } from 'lucide-react';
+import { ImageIcon, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 interface TweetComposerProps {
   onTweetSubmit: (content: string, imageFile?: File) => Promise<void>;
@@ -85,6 +86,9 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
     }
   };
 
+  // Check if the user has a verified NFT profile picture
+  const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
+
   return (
     <div className="p-4 border-b border-gray-200">
       <div className="flex gap-3">
@@ -98,6 +102,29 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
         </Avatar>
         
         <div className="flex-1">
+          <div className="flex items-center mb-1">
+            <span className="font-bold text-sm">{profile?.display_name}</span>
+            
+            {/* Modern Twitter-style Verified Badge */}
+            {isNFTVerified && (
+              <HoverCard openDelay={200} closeDelay={100}>
+                <HoverCardTrigger asChild>
+                  <div className="inline-flex items-center ml-1">
+                    <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-white stroke-[3]" />
+                    </div>
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64 text-sm">
+                  <p className="font-semibold">Verified NFT Owner</p>
+                  <p className="text-gray-500 mt-1">
+                    You're using an NFT you own as your profile picture.
+                  </p>
+                </HoverCardContent>
+              </HoverCard>
+            )}
+          </div>
+          
           <Textarea
             placeholder={placeholder}
             value={content}

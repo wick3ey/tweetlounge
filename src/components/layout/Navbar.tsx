@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Check } from 'lucide-react';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -40,6 +40,9 @@ const Navbar = () => {
       navigate('/profile');
     }
   };
+
+  // Check if the user has a verified NFT profile picture
+  const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
 
   return (
     <nav className="border-b border-gray-200 bg-white">
@@ -81,7 +84,18 @@ const Navbar = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="font-medium text-sm">{profile?.display_name || user.email?.split('@')[0]}</span>
+                    <div className="flex items-center">
+                      <span className="font-medium text-sm">{profile?.display_name || user.email?.split('@')[0]}</span>
+                      
+                      {/* Modern Twitter-style Verified Badge */}
+                      {isNFTVerified && (
+                        <div className="inline-flex items-center ml-1">
+                          <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
+                            <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-500">@{profile?.username || user.email?.split('@')[0]}</span>
                   </div>
                 </div>
