@@ -18,6 +18,8 @@ export interface MarketStats {
   eth_dominance: number;
   active_cryptocurrencies: number;
   market_cap_change_percentage_24h: number;
+  fear_greed_value?: number;
+  fear_greed_label?: string;
 }
 
 // Cache with timestamp to track when it was last updated
@@ -70,16 +72,40 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
     }));
   } catch (error) {
     console.error('Error fetching crypto data:', error);
-    return [];
+    throw error; // Re-throw to let caller handle it
+  }
+};
+
+// Function to fetch fear and greed index
+const fetchFearGreedIndex = async (): Promise<{value: number, value_classification: string}> => {
+  try {
+    const response = await fetch('https://api.alternative.me/fng/');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch Fear & Greed index');
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.data && data.data[0]) {
+      return {
+        value: parseInt(data.data[0].value, 10),
+        value_classification: data.data[0].value_classification
+      };
+    }
+    
+    throw new Error('Unexpected Fear & Greed API response structure');
+  } catch (error) {
+    console.error('Error fetching Fear & Greed index:', error);
+    return { value: 0, value_classification: '' };
   }
 };
 
 // Function to fetch global market stats from CoinGecko
-const fetchMarketStats = async (): Promise<MarketStats | null> => {
+const fetchMarketStats = async (): Promise<MarketStats> => {
   try {
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/global'
-    );
+    // Fetch global market data
+    const response = await fetch('https://api.coingecko.com/api/v3/global');
     
     if (!response.ok) {
       throw new Error('Failed to fetch global market data from CoinGecko');
@@ -87,24 +113,31 @@ const fetchMarketStats = async (): Promise<MarketStats | null> => {
     
     const { data } = await response.json();
     
-    // Check if the required properties exist in the response
-    if (!data || !data.total_market_cap || !data.total_24h_volume) {
-      console.error('Unexpected API response structure:', data);
-      return null;
+    // Get Fear & Greed index
+    let fearGreedData;
+    try {
+      fearGreedData = await fetchFearGreedIndex();
+    } catch (err) {
+      console.warn('Could not fetch Fear & Greed index, continuing without it');
+      fearGreedData = { value: 0, value_classification: '' };
     }
     
-    // Map the response to our MarketStats interface with more robust error handling
-    return {
-      total_market_cap: data.total_market_cap.usd || 0,
-      total_volume: data.total_24h_volume.usd || 0,
-      btc_dominance: (data.market_cap_percentage && data.market_cap_percentage.btc) || 0,
-      eth_dominance: (data.market_cap_percentage && data.market_cap_percentage.eth) || 0,
+    // Safely extract values from the response structure
+    const marketStats: MarketStats = {
+      total_market_cap: data.total_market_cap?.usd || 0,
+      total_volume: data.total_volume?.usd || 0,
+      btc_dominance: data.market_cap_percentage?.btc || 0,
+      eth_dominance: data.market_cap_percentage?.eth || 0,
       active_cryptocurrencies: data.active_cryptocurrencies || 0,
-      market_cap_change_percentage_24h: data.market_cap_change_percentage_24h_usd || 0
+      market_cap_change_percentage_24h: data.market_cap_change_percentage_24h_usd || 0,
+      fear_greed_value: fearGreedData.value,
+      fear_greed_label: fearGreedData.value_classification
     };
+    
+    return marketStats;
   } catch (error) {
     console.error('Error fetching global market data:', error);
-    return null;
+    throw error; // Re-throw the error to let the caller handle it
   }
 };
 
@@ -113,45 +146,51 @@ export const useCryptoData = (): {
   cryptoData: CryptoCurrency[]; 
   loading: boolean; 
   error: string | null;
+  refreshData: () => Promise<void>;
 } => {
   const [cryptoData, setCryptoData] = useState<CryptoCurrency[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
-  useEffect(() => {
-    const getCryptoData = async () => {
-      setLoading(true);
-      
-      try {
-        const currentTime = Date.now();
-        
-        // Check if cache is valid (less than 10 minutes old)
-        if (globalCache.data.length > 0 && currentTime - globalCache.timestamp < CACHE_DURATION) {
-          console.log('Using cached crypto data');
-          setCryptoData(globalCache.data);
-        } else {
-          console.log('Fetching fresh crypto data');
-          const freshData = await fetchCryptoData();
-          
-          if (freshData.length > 0) {
-            // Update the global cache
-            globalCache = {
-              data: freshData,
-              timestamp: currentTime
-            };
-            setCryptoData(freshData);
-          } else {
-            setError('No data received from CoinGecko');
-          }
-        }
-      } catch (err) {
-        setError('Failed to fetch cryptocurrency data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const getCryptoData = async () => {
+    setLoading(true);
+    setError(null);
     
+    try {
+      const currentTime = Date.now();
+      
+      // Check if cache is valid (less than 10 minutes old)
+      if (globalCache.data.length > 0 && currentTime - globalCache.timestamp < CACHE_DURATION) {
+        console.log('Using cached crypto data');
+        setCryptoData(globalCache.data);
+      } else {
+        console.log('Fetching fresh crypto data');
+        const freshData = await fetchCryptoData();
+        
+        // Update the global cache
+        globalCache = {
+          data: freshData,
+          timestamp: currentTime
+        };
+        
+        setCryptoData(freshData);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch cryptocurrency data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to manually refresh data
+  const refreshData = async () => {
+    // Force refresh by invalidating cache
+    globalCache.timestamp = 0;
+    await getCryptoData();
+  };
+  
+  useEffect(() => {
     getCryptoData();
     
     // Set up a timer to refresh data every 10 minutes
@@ -163,7 +202,7 @@ export const useCryptoData = (): {
     return () => clearInterval(intervalId);
   }, []);
   
-  return { cryptoData, loading, error };
+  return { cryptoData, loading, error, refreshData };
 };
 
 // Custom hook to get market stats with caching
@@ -171,45 +210,51 @@ export const useMarketStats = (): {
   marketStats: MarketStats | null;
   loading: boolean;
   error: string | null;
+  refreshData: () => Promise<void>;
 } => {
   const [marketStats, setMarketStats] = useState<MarketStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const getMarketStats = async () => {
-      setLoading(true);
-      
-      try {
-        const currentTime = Date.now();
-        
-        // Check if cache is valid (less than 10 minutes old)
-        if (marketStatsCache.data && currentTime - marketStatsCache.timestamp < CACHE_DURATION) {
-          console.log('Using cached market stats data');
-          setMarketStats(marketStatsCache.data);
-        } else {
-          console.log('Fetching fresh market stats data');
-          const freshData = await fetchMarketStats();
-          
-          if (freshData) {
-            // Update the market stats cache
-            marketStatsCache = {
-              data: freshData,
-              timestamp: currentTime
-            };
-            setMarketStats(freshData);
-          } else {
-            setError('No market stats data received from CoinGecko');
-          }
-        }
-      } catch (err) {
-        setError('Failed to fetch market stats data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const getMarketStats = async () => {
+    setLoading(true);
+    setError(null);
     
+    try {
+      const currentTime = Date.now();
+      
+      // Check if cache is valid (less than 10 minutes old)
+      if (marketStatsCache.data && currentTime - marketStatsCache.timestamp < CACHE_DURATION) {
+        console.log('Using cached market stats data');
+        setMarketStats(marketStatsCache.data);
+      } else {
+        console.log('Fetching fresh market stats data');
+        const freshData = await fetchMarketStats();
+        
+        // Update the market stats cache
+        marketStatsCache = {
+          data: freshData,
+          timestamp: currentTime
+        };
+        
+        setMarketStats(freshData);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch market stats data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to manually refresh data
+  const refreshData = async () => {
+    // Force refresh by invalidating cache
+    marketStatsCache.timestamp = 0;
+    await getMarketStats();
+  };
+  
+  useEffect(() => {
     getMarketStats();
     
     // Set up a timer to refresh data every 10 minutes
@@ -221,5 +266,5 @@ export const useMarketStats = (): {
     return () => clearInterval(intervalId);
   }, []);
   
-  return { marketStats, loading, error };
+  return { marketStats, loading, error, refreshData };
 };
