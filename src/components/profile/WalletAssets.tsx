@@ -13,7 +13,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<string>("grid");
   
   const fetchTokens = async () => {
     if (!solanaAddress) return;
@@ -103,8 +102,8 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       totalValue={calculateTotalValue()}
       onRefresh={handleRefresh}
       solPrice={solPrice}
-      viewMode={viewMode}
-      setViewMode={setViewMode}
+      viewMode="grid"
+      setViewMode={() => {}} // Empty function since we don't need view mode changes
     />
   );
 };

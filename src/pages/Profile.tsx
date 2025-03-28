@@ -48,6 +48,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
+  const [showProfileImage, setShowProfileImage] = useState(false);
   
   const isCurrentUser = !username || (profile?.username === username);
   
@@ -111,6 +112,12 @@ const Profile = () => {
 
   const handleCloseNFTBrowser = () => {
     setShowNFTBrowser(false);
+  };
+
+  const handleOpenProfileImage = () => {
+    if (profile?.avatar_url) {
+      setShowProfileImage(true);
+    }
   };
   
   if (isLoading) {
@@ -180,6 +187,7 @@ const Profile = () => {
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
         isNFTVerified={isNFTVerified}
+        onAvatarClick={handleOpenProfileImage}
       />
       
       <div className="border-b border-crypto-gray">
@@ -309,6 +317,31 @@ const Profile = () => {
               onNFTSelected={handleCloseNFTBrowser}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for enlarged profile image */}
+      <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
+          <div className="relative w-full">
+            {profile?.avatar_url && (
+              <img 
+                src={profile.avatar_url} 
+                alt={profile.display_name || profile.username || 'Profile'} 
+                className="w-full h-auto"
+              />
+            )}
+            <Button 
+              variant="ghost" 
+              className="absolute top-2 right-2 rounded-full p-2 bg-crypto-black/50 hover:bg-crypto-black/70"
+              onClick={() => setShowProfileImage(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
