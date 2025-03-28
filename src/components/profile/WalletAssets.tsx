@@ -4,7 +4,8 @@ import { fetchWalletTokens, Token } from '@/utils/tokenService';
 import { Loader, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TokenCard } from '@/components/profile/TokenCard';
-import { Toggle, ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Toggle } from '@/components/ui/toggle';
 
 interface WalletAssetsProps {
   solanaAddress: string;
