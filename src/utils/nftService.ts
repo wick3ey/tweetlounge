@@ -73,60 +73,82 @@ export const fetchEthereumNFTs = async (address: string): Promise<NFT[]> => {
 };
 
 /**
- * Fetch Solana NFTs
+ * Fetch Solana NFTs using QuickNode API
  * @param address Solana wallet address
  * @returns Promise with array of NFTs
  */
 export const fetchSolanaNFTs = async (address: string): Promise<NFT[]> => {
   try {
-    // For testing, return mock data
-    // In production, you'd use a Solana API service
     console.log(`Fetching Solana NFTs for address: ${address}`);
     
-    // Mock data for development
-    const mockNFTs: NFT[] = [
-      {
-        id: 'sol-1',
-        name: 'Solana Monkey #9876',
-        description: 'A Solana Monkey Business NFT',
-        imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+1',
-        tokenAddress: 'abc123...',
-        chain: 'solana'
-      },
-      {
-        id: 'sol-2',
-        name: 'Degenerate Ape #5432',
-        description: 'A Degenerate Ape Academy NFT',
-        imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+2',
-        tokenAddress: 'def456...',
-        chain: 'solana'
-      }
-    ];
+    const QUICKNODE_API = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
     
-    return mockNFTs;
+    // Use mock data in development for faster testing
+    // In production environments, you'd use the QuickNode DAS API
+    if (process.env.NODE_ENV !== 'production') {
+      // Mock data for development
+      const mockNFTs: NFT[] = [
+        {
+          id: 'sol-1',
+          name: 'Solana Monkey #9876',
+          description: 'A Solana Monkey Business NFT',
+          imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+1',
+          tokenAddress: 'abc123...',
+          chain: 'solana'
+        },
+        {
+          id: 'sol-2',
+          name: 'Degenerate Ape #5432',
+          description: 'A Degenerate Ape Academy NFT',
+          imageUrl: 'https://placehold.co/200x200?text=SOL+NFT+2',
+          tokenAddress: 'def456...',
+          chain: 'solana'
+        }
+      ];
+      
+      return mockNFTs;
+    }
     
-    // In production, uncomment and use the code below:
-    /*
-    const apiKey = 'YOUR_QUICKNODE_API_KEY';
-    const url = `https://api.quicknode.com/qn-api/v1/nfts/${address}`;
-    
-    const response = await fetch(url, {
+    // In production, use QuickNode DAS API to fetch real NFTs
+    const response = await fetch(QUICKNODE_API, {
+      method: 'POST',
       headers: {
-        'x-api-key': apiKey
-      }
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getAssetsByOwner',
+        params: {
+          ownerAddress: address,
+          limit: 50,
+          options: {
+            showFungible: false,
+            showCollectionMetadata: true
+          }
+        }
+      })
     });
     
     const data = await response.json();
     
-    return data.nfts.map(nft => ({
-      id: nft.mint,
-      name: nft.name || 'Unnamed NFT',
-      description: nft.description,
-      imageUrl: nft.image || 'https://placehold.co/200x200?text=No+Image',
-      tokenAddress: nft.mint,
-      chain: 'solana'
-    }));
-    */
+    if (!data.result || !data.result.items || !Array.isArray(data.result.items)) {
+      console.error('Invalid response from QuickNode API:', data);
+      return [];
+    }
+    
+    // Map QuickNode API response to our NFT interface
+    return data.result.items.map((item: any) => {
+      const asset = item.asset;
+      return {
+        id: asset.id,
+        name: asset.content?.metadata?.name || 'Unnamed NFT',
+        description: asset.content?.metadata?.description,
+        imageUrl: asset.content?.links?.image || 'https://placehold.co/200x200?text=No+Image',
+        tokenAddress: asset.id,
+        chain: 'solana'
+      };
+    });
   } catch (error) {
     console.error('Error fetching Solana NFTs:', error);
     return [];
