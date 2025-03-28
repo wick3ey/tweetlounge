@@ -1,13 +1,15 @@
 
-import { useState } from 'react';
-import { ImageIcon, X, Check, Link2, Smile, Calendar, MapPin, BarChart } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ImageIcon, X, Link2, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TweetComposerProps } from './TweetComposerProps';
+import data from '@emoji-mart/data';
+import Picker from '@emoji-mart/react';
 
 const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: TweetComposerProps) => {
   const { profile } = useProfile();
@@ -16,6 +18,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getInitials = () => {
     if (profile?.display_name) {
@@ -49,9 +52,16 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
     }
   };
 
+  const handleEmojiSelect = (emoji: { native: string }) => {
+    setContent(prev => prev + emoji.native);
+  };
+
   const clearImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async () => {
@@ -109,7 +119,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
             value={content}
             onChange={handleContentChange}
             rows={2}
-            className="w-full resize-none border-crypto-gray/40 bg-crypto-gray/10 focus-visible:ring-crypto-blue focus-visible:border-crypto-blue p-2 text-base placeholder:text-crypto-lightgray"
+            className="w-full resize-none border-crypto-gray/40 bg-crypto-gray/15 focus-visible:ring-crypto-blue focus-visible:border-crypto-blue p-2 text-base placeholder:text-crypto-lightgray"
           />
           
           {imagePreview && (
@@ -140,15 +150,29 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
                     accept="image/*"
                     className="hidden"
                     onChange={handleImageSelect}
+                    ref={fileInputRef}
                   />
                 </label>
               </Button>
               <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
                 <Link2 className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
-                <Smile className="h-4 w-4" />
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
+                    <Smile className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 border-crypto-gray/40 bg-crypto-darkgray" align="start">
+                  <Picker 
+                    data={data} 
+                    onEmojiSelect={handleEmojiSelect}
+                    theme="dark"
+                    previewPosition="none"
+                    searchPosition="top"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             
             <div className="flex items-center gap-3">

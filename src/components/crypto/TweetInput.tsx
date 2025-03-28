@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CryptoButton } from '../ui/crypto-button'
-import { Image, Link, Smile, User, Video, X } from 'lucide-react'
+import { Image, Link, Smile, X } from 'lucide-react'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -168,7 +168,7 @@ const TweetInput: React.FC = () => {
           <div className="flex-1">
             <div className="mb-3">
               <textarea 
-                className="w-full bg-transparent border-none resize-none focus:outline-none text-crypto-text placeholder:text-crypto-lightgray"
+                className="w-full bg-crypto-gray/15 border border-crypto-gray/40 rounded-md p-3 resize-none focus:outline-none focus:border-crypto-blue focus:ring-1 focus:ring-crypto-blue text-crypto-text placeholder:text-crypto-lightgray"
                 placeholder="Vad händer i kryptovärlden?"
                 rows={2}
                 value={content}
@@ -241,6 +241,7 @@ const TweetInput: React.FC = () => {
                       onEmojiSelect={handleEmojiSelect}
                       theme="dark"
                       previewPosition="none"
+                      searchPosition="top"
                     />
                   </PopoverContent>
                 </Popover>
