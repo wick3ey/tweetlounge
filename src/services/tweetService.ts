@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -63,7 +62,28 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       throw error;
     }
     
-    return data || [];
+    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
+      id: tweet.id,
+      content: tweet.content,
+      author_id: tweet.author_id,
+      created_at: tweet.created_at,
+      likes_count: tweet.likes_count,
+      retweets_count: tweet.retweets_count,
+      replies_count: tweet.replies_count,
+      is_retweet: tweet.is_retweet,
+      original_tweet_id: tweet.original_tweet_id,
+      image_url: tweet.image_url,
+      author: {
+        id: tweet.author_id,
+        username: tweet.username,
+        display_name: tweet.display_name,
+        avatar_url: tweet.avatar_url,
+        avatar_nft_id: tweet.avatar_nft_id,
+        avatar_nft_chain: tweet.avatar_nft_chain
+      }
+    }));
+    
+    return formattedTweets;
   } catch (error) {
     console.error('Failed to fetch tweets:', error);
     return [];
@@ -110,7 +130,28 @@ export async function getUserTweets(
       throw error;
     }
     
-    return data || [];
+    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
+      id: tweet.id,
+      content: tweet.content,
+      author_id: tweet.author_id,
+      created_at: tweet.created_at,
+      likes_count: tweet.likes_count,
+      retweets_count: tweet.retweets_count,
+      replies_count: tweet.replies_count,
+      is_retweet: tweet.is_retweet,
+      original_tweet_id: tweet.original_tweet_id,
+      image_url: tweet.image_url,
+      author: {
+        id: tweet.author_id,
+        username: tweet.username,
+        display_name: tweet.display_name,
+        avatar_url: tweet.avatar_url,
+        avatar_nft_id: tweet.avatar_nft_id,
+        avatar_nft_chain: tweet.avatar_nft_chain
+      }
+    }));
+    
+    return formattedTweets;
   } catch (error) {
     console.error('Failed to fetch user tweets:', error);
     return [];
@@ -330,7 +371,31 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
       return null;
     }
     
-    return (data && data.length > 0) ? data[0] : null;
+    if (data && data.length > 0) {
+      const tweet = data[0];
+      return {
+        id: tweet.id,
+        content: tweet.content,
+        author_id: tweet.author_id,
+        created_at: tweet.created_at,
+        likes_count: tweet.likes_count,
+        retweets_count: tweet.retweets_count,
+        replies_count: tweet.replies_count,
+        is_retweet: tweet.is_retweet,
+        original_tweet_id: tweet.original_tweet_id,
+        image_url: tweet.image_url,
+        author: {
+          id: tweet.author_id,
+          username: tweet.username,
+          display_name: tweet.display_name,
+          avatar_url: tweet.avatar_url,
+          avatar_nft_id: tweet.avatar_nft_id,
+          avatar_nft_chain: tweet.avatar_nft_chain
+        }
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Failed to fetch original tweet:', error);
     return null;
