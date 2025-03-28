@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { ImageIcon, X, Check } from 'lucide-react';
+import { ImageIcon, X, Check, Link2, Smile, Calendar, MapPin, BarChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -95,9 +95,9 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
   const isAtLimit = remainingChars <= 0;
 
   return (
-    <div className="p-4 border-b border-gray-200">
+    <div className="p-4 rounded-xl bg-gray-900/50 border border-gray-800 mb-4">
       <div className="flex gap-3">
-        <Avatar className="h-12 w-12">
+        <Avatar className="h-10 w-10 mt-1">
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt="Profile" />
           ) : null}
@@ -107,43 +107,20 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
         </Avatar>
         
         <div className="flex-1">
-          <div className="flex items-center mb-1">
-            <span className="font-bold text-sm">{profile?.display_name}</span>
-            
-            {/* Modern Twitter-style Verified Badge */}
-            {isNFTVerified && (
-              <HoverCard openDelay={200} closeDelay={100}>
-                <HoverCardTrigger asChild>
-                  <div className="inline-flex items-center ml-1">
-                    <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white stroke-[3]" />
-                    </div>
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-64 text-sm">
-                  <p className="font-semibold">Verified NFT Owner</p>
-                  <p className="text-gray-500 mt-1">
-                    You're using an NFT you own as your profile picture.
-                  </p>
-                </HoverCardContent>
-              </HoverCard>
-            )}
-          </div>
-          
           <Textarea
             placeholder={placeholder}
             value={content}
             onChange={handleContentChange}
-            rows={3}
-            className="w-full resize-none border-0 focus-visible:ring-0 p-2 text-lg"
+            rows={2}
+            className="w-full resize-none border-0 bg-transparent focus-visible:ring-0 p-0 text-base placeholder:text-gray-500"
           />
           
           {imagePreview && (
-            <div className="relative mt-2">
+            <div className="relative mt-3 rounded-xl overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="absolute top-2 right-2 rounded-full bg-black/50 text-white p-1" 
+                className="absolute top-2 right-2 rounded-full bg-black/50 text-white p-1 h-8 w-8" 
                 onClick={clearImage}
               >
                 <X className="h-4 w-4" />
@@ -156,11 +133,11 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
             </div>
           )}
           
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="text-twitter-blue rounded-full" asChild>
+          <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8" asChild>
                 <label>
-                  <ImageIcon className="h-5 w-5" />
+                  <ImageIcon className="h-4 w-4" />
                   <input
                     type="file"
                     accept="image/*"
@@ -168,6 +145,15 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
                     onChange={handleImageSelect}
                   />
                 </label>
+              </Button>
+              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
+                <Link2 className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
+                <Smile className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" className="text-crypto-blue rounded-full p-2 h-8 w-8">
+                <MapPin className="h-4 w-4" />
               </Button>
             </div>
             
@@ -185,9 +171,9 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
               <Button 
                 onClick={handleSubmit}
                 disabled={isSubmitting || (!content.trim() && !selectedImage) || isAtLimit}
-                className="bg-twitter-blue hover:bg-twitter-blue/90 rounded-full"
+                className="bg-crypto-blue hover:bg-crypto-blue/90 rounded-full px-4 py-1 h-8"
               >
-                {isSubmitting ? 'Posting...' : 'Tweet'}
+                {isSubmitting ? 'Posting...' : 'Post'}
               </Button>
             </div>
           </div>

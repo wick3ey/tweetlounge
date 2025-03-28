@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share, Check } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -136,17 +136,27 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   // Check if the author has a verified NFT profile picture
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
+  // Format numbers for engagement metrics
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  };
+
   return (
-    <div className="p-4 border-b border-gray-200 hover:bg-gray-50 transition">
+    <div className="p-4 border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
       {tweet.is_retweet && (
-        <div className="flex items-center text-gray-500 text-sm mb-2">
-          <Repeat className="h-4 w-4 mr-2" />
+        <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
+          <Repeat className="h-3 w-3 mr-2" />
           <span>{tweet.author.display_name} retweeted</span>
         </div>
       )}
       <div className="flex gap-3">
         <Link to={`/profile/${tweet.author.username}`}>
-          <Avatar className="h-12 w-12">
+          <Avatar className="h-10 w-10">
             {tweet.author.avatar_url ? (
               <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name} />
             ) : null}
@@ -156,82 +166,86 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
           </Avatar>
         </Link>
         <div className="flex-1">
-          <div className="flex items-center">
-            <Link to={`/profile/${tweet.author.username}`} className="font-bold hover:underline">
-              {tweet.author.display_name}
-            </Link>
-            
-            {/* Modern Twitter-style Verified Badge */}
-            {isNFTVerified && (
-              <HoverCard openDelay={200} closeDelay={100}>
-                <HoverCardTrigger asChild>
-                  <div className="inline-flex items-center ml-1">
-                    <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white stroke-[3]" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Link to={`/profile/${tweet.author.username}`} className="font-bold hover:underline text-sm">
+                {tweet.author.display_name}
+              </Link>
+              
+              {/* Verified Badge */}
+              {isNFTVerified && (
+                <HoverCard openDelay={200} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <div className="inline-flex items-center ml-1">
+                      <div className="bg-crypto-blue rounded-full p-0.5 flex items-center justify-center">
+                        <Check className="h-3 w-3 text-white stroke-[3]" />
+                      </div>
                     </div>
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-64 text-sm">
-                  <p className="font-semibold">Verified NFT Owner</p>
-                  <p className="text-gray-500 mt-1">
-                    This user owns the NFT used as their profile picture.
-                  </p>
-                </HoverCardContent>
-              </HoverCard>
-            )}
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-64 text-sm">
+                    <p className="font-semibold">Verified NFT Owner</p>
+                    <p className="text-gray-500 mt-1">
+                      This user owns the NFT used as their profile picture.
+                    </p>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
+              
+              <span className="text-gray-500 ml-1 text-sm">
+                @{tweet.author.username}
+              </span>
+              <span className="text-gray-500 mx-1 text-xs">·</span>
+              <span className="text-gray-500 text-xs">{timeAgo}</span>
+            </div>
             
-            <span className="text-gray-500 ml-2">
-              @{tweet.author.username} · {timeAgo}
-            </span>
+            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="mt-2 text-gray-900">{tweet.content}</div>
+          
+          <div className="mt-1 text-sm text-gray-100">{tweet.content}</div>
+          
           {tweet.image_url && (
             <div className="mt-3">
               <img 
                 src={tweet.image_url} 
                 alt="Tweet media"
-                className="rounded-xl max-h-80 w-auto" 
+                className="rounded-xl w-full max-h-96 object-cover border border-gray-800" 
               />
             </div>
           )}
-          <div className="flex justify-between mt-3 max-w-md">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+          
+          <div className="flex justify-between mt-3 text-xs text-gray-500">
+            <button 
               onClick={handleReply} 
-              className="text-gray-500 hover:text-twitter-blue"
+              className="flex items-center hover:text-crypto-blue transition-colors"
               disabled={isSubmitting}
             >
-              <MessageCircle className="h-4 w-4 mr-2" />
-              <span>{tweet.replies_count}</span>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+              <MessageCircle className="h-4 w-4 mr-1" />
+              <span>{formatNumber(tweet.replies_count)}</span>
+            </button>
+            
+            <button 
               onClick={handleRetweet} 
-              className="text-gray-500 hover:text-green-500"
+              className="flex items-center hover:text-green-500 transition-colors"
               disabled={isSubmitting}
             >
-              <Repeat className="h-4 w-4 mr-2" />
-              <span>{retweetsCount}</span>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+              <Repeat className="h-4 w-4 mr-1" />
+              <span>{formatNumber(retweetsCount)}</span>
+            </button>
+            
+            <button 
               onClick={handleLike} 
-              className={`${liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+              className={`flex items-center transition-colors ${liked ? 'text-red-500' : 'hover:text-red-500'}`}
               disabled={isSubmitting}
             >
-              <Heart className="h-4 w-4 mr-2" fill={liked ? "currentColor" : "none"} />
-              <span>{likesCount}</span>
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-500 hover:text-twitter-blue"
-            >
-              <Share className="h-4 w-4" />
-            </Button>
+              <Heart className="h-4 w-4 mr-1" fill={liked ? "currentColor" : "none"} />
+              <span>{formatNumber(likesCount)}</span>
+            </button>
+            
+            <button className="flex items-center hover:text-crypto-blue transition-colors">
+              <Share2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
