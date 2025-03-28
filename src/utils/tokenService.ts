@@ -36,18 +36,15 @@ export const fetchWalletTokens = async (
       throw new Error(`Failed to fetch ${chain} tokens: ${error.message}`);
     }
     
-    // The response should have a tokens array, but let's handle different formats
-    let tokens: any[] = [];
-    
-    if (data?.tokens && Array.isArray(data.tokens)) {
-      tokens = data.tokens;
-      console.log(`Successfully retrieved ${tokens.length} ${chain} tokens`);
-    } else {
-      console.warn('Unexpected token data response format:', data);
-      return []; // Return empty array instead of placeholder data
+    // The response should have a tokens array
+    if (!data || !data.tokens || !Array.isArray(data.tokens)) {
+      console.error(`Invalid token data response for ${chain}:`, data);
+      return []; // Return empty array
     }
     
-    return tokens.map((token: any) => ({
+    console.log(`Successfully retrieved ${data.tokens.length} ${chain} tokens`);
+    
+    return data.tokens.map((token: any) => ({
       ...token,
       chain,
       explorerUrl: getExplorerUrl(chain, token.address || address)

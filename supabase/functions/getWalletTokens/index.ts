@@ -146,6 +146,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       .filter(token => parseFloat(token.amount) > 0)
       .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
     
+    console.log(`Returning ${filteredTokens.length} Solana tokens`);
     return { tokens: filteredTokens };
   } catch (error) {
     console.error('Error in getSolanaTokens:', error);
@@ -156,37 +157,38 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
 // Fetch Ethereum tokens using Etherscan or similar API
 // For now, we'll keep the mock data for Ethereum
 function getEthereumTokens(address: string): TokenResponse {
-  return {
-    tokens: [
-      {
-        name: 'Ethereum',
-        symbol: 'ETH',
-        logo: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
-        amount: '2.34',
-        usdValue: '7842.60',
-        decimals: 18,
-        address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-      },
-      {
-        name: 'Chainlink',
-        symbol: 'LINK',
-        logo: 'https://tokens.1inch.io/0x514910771af9ca656af840dff83e8264ecf986ca.png',
-        amount: '75.32',
-        usdValue: '972.63',
-        decimals: 18,
-        address: '0x514910771af9ca656af840dff83e8264ecf986ca',
-      },
-      {
-        name: 'USD Coin',
-        symbol: 'USDC',
-        logo: 'https://tokens.1inch.io/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
-        amount: '250.00',
-        usdValue: '250.00',
-        decimals: 6,
-        address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-      }
-    ]
-  };
+  const tokens = [
+    {
+      name: 'Ethereum',
+      symbol: 'ETH',
+      logo: 'https://tokens.1inch.io/0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.png',
+      amount: '2.34',
+      usdValue: '7842.60',
+      decimals: 18,
+      address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    },
+    {
+      name: 'Chainlink',
+      symbol: 'LINK',
+      logo: 'https://tokens.1inch.io/0x514910771af9ca656af840dff83e8264ecf986ca.png',
+      amount: '75.32',
+      usdValue: '972.63',
+      decimals: 18,
+      address: '0x514910771af9ca656af840dff83e8264ecf986ca',
+    },
+    {
+      name: 'USD Coin',
+      symbol: 'USDC',
+      logo: 'https://tokens.1inch.io/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
+      amount: '250.00',
+      usdValue: '250.00',
+      decimals: 6,
+      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    }
+  ];
+  
+  console.log(`Returning ${tokens.length} Ethereum tokens`);
+  return { tokens };
 }
 
 // The main Deno server function

@@ -25,97 +25,63 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadTokens = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        let allTokens: Token[] = [];
-        
-        // Fetch tokens for Solana address if available
-        if (solanaAddress) {
-          console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
-          const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
-          if (solTokens.length > 0) {
-            console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
-            allTokens = [...allTokens, ...solTokens];
-          } else {
-            console.log('No Solana tokens found or returned');
-          }
-        }
-        
-        // Fetch tokens for Ethereum address if available
-        if (ethereumAddress) {
-          console.log(`Attempting to fetch Ethereum tokens for: ${ethereumAddress}`);
-          const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
-          if (ethTokens.length > 0) {
-            console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
-            allTokens = [...allTokens, ...ethTokens];
-          } else {
-            console.log('No Ethereum tokens found or returned');
-          }
-        }
-        
-        console.log(`Total tokens loaded: ${allTokens.length}`);
-        setTokens(allTokens);
-      } catch (err) {
-        console.error('Error fetching wallet tokens:', err);
-        setError('Failed to load tokens. Please try again later.');
-        toast({
-          title: "Error loading tokens",
-          description: "There was a problem fetching your wallet assets. Please try again later.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadTokens = async () => {
+    setIsLoading(true);
+    setError(null);
+    setTokens([]);
     
+    try {
+      let allTokens: Token[] = [];
+      
+      // Fetch tokens for Solana address if available
+      if (solanaAddress) {
+        console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
+        const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
+        if (solTokens && solTokens.length > 0) {
+          console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
+          allTokens = [...allTokens, ...solTokens];
+        } else {
+          console.log('No Solana tokens found or returned');
+        }
+      }
+      
+      // Fetch tokens for Ethereum address if available
+      if (ethereumAddress) {
+        console.log(`Attempting to fetch Ethereum tokens for: ${ethereumAddress}`);
+        const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
+        if (ethTokens && ethTokens.length > 0) {
+          console.log(`Successfully retrieved ${ethTokens.length} Ethereum tokens`);
+          allTokens = [...allTokens, ...ethTokens];
+        } else {
+          console.log('No Ethereum tokens found or returned');
+        }
+      }
+      
+      console.log(`Total tokens loaded: ${allTokens.length}`);
+      setTokens(allTokens);
+    } catch (err) {
+      console.error('Error fetching wallet tokens:', err);
+      setError('Failed to load tokens. Please try again later.');
+      toast({
+        title: "Error loading tokens",
+        description: "There was a problem fetching your wallet assets. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (solanaAddress || ethereumAddress) {
       loadTokens();
     } else {
       setIsLoading(false);
     }
-  }, [ethereumAddress, solanaAddress, toast]);
+  }, [ethereumAddress, solanaAddress]);
 
   const handleRetry = () => {
-    setTokens([]);
-    setIsLoading(true);
-    setError(null);
-    // This will trigger the useEffect to run again
-    setTimeout(() => {
-      if (solanaAddress || ethereumAddress) {
-        const loadTokens = async () => {
-          try {
-            let allTokens: Token[] = [];
-            
-            if (solanaAddress) {
-              const solTokens = await fetchWalletTokens(solanaAddress, 'solana');
-              allTokens = [...allTokens, ...solTokens];
-            }
-            
-            if (ethereumAddress) {
-              const ethTokens = await fetchWalletTokens(ethereumAddress, 'ethereum');
-              allTokens = [...allTokens, ...ethTokens];
-            }
-            
-            setTokens(allTokens);
-            setIsLoading(false);
-          } catch (err) {
-            console.error('Error retrying token fetch:', err);
-            setError('Failed to load tokens. Please try again later.');
-            setIsLoading(false);
-            toast({
-              title: "Error loading tokens",
-              description: "There was a problem fetching your wallet assets. Please try again later.",
-              variant: "destructive"
-            });
-          }
-        };
-        loadTokens();
-      }
-    }, 500);
+    loadTokens();
   };
 
   if (isLoading) {
