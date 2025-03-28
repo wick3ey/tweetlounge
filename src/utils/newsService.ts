@@ -53,6 +53,7 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   
   try {
     // Using CORS proxy to bypass CORS restrictions
+    // Note: Fixed the 'kind' parameter - API expects just 'news' (not in quotes)
     const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
