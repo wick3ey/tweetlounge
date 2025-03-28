@@ -1,4 +1,3 @@
-
 import React from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -35,7 +34,6 @@ const Home: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Refresh the page to show the new tweet
       window.location.reload();
       
       return Promise.resolve();
@@ -59,8 +57,8 @@ const Home: React.FC = () => {
         <Sidebar />
         
         <div className="flex-1 overflow-y-auto">
-          <main className="max-w-xl mx-auto p-4 md:p-6">
-            <div className="flex gap-3 items-center mb-5">
+          <main className="max-w-xl mx-auto px-2 md:px-4">
+            <div className="flex gap-3 items-center mb-4">
               <div className="rounded-lg bg-crypto-gray/20 p-1.5">
                 <ZapIcon className="text-crypto-blue h-5 w-5" />
               </div>
@@ -77,22 +75,20 @@ const Home: React.FC = () => {
               </CryptoButton>
             </div>
             
-            {/* Tweet Composer */}
-            <div className="mb-5">
+            <div className="mb-4">
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
-            {/* Tweet Feed with Tabs */}
-            <div className="mb-6">
+            <div>
               <TweetFeedTabs />
               <TweetFeed limit={10} />
             </div>
           </main>
         </div>
         
-        <div className="w-80 overflow-y-auto border-l border-crypto-gray/40 p-5 hidden lg:block">
+        <div className="w-80 overflow-y-auto border-l border-crypto-gray/40 p-4 hidden lg:block">
           <MarketStats />
-          <Separator className="my-6 bg-crypto-gray/20" />
+          <Separator className="my-4 bg-crypto-gray/20" />
           <NewsSection />
         </div>
       </div>
