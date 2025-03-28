@@ -19,7 +19,7 @@ interface TokenResponse {
   }>;
 }
 
-// Token metadata mapping for common tokens
+// Token metadata mapping for commonly used tokens with accurate information
 const knownTokens: Record<string, { name: string, symbol: string, logo?: string }> = {
   "So11111111111111111111111111111111111111112": {
     name: "Solana",
@@ -37,9 +37,9 @@ const knownTokens: Record<string, { name: string, symbol: string, logo?: string 
     logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png"
   },
   "6o5jzMo3QDQt8ST8wtRf5bDKZZXSg61hK6mMxgU54JXh": {
-    name: "Sparkle Token",
-    symbol: "SPKL",
-    logo: "https://solana-coin-logos.s3.amazonaws.com/sparkle.png"
+    name: "Donald Token", // Corrected name
+    symbol: "DONALD", // Corrected symbol
+    logo: "https://solana-coin-logos.s3.amazonaws.com/donald.png" // Updated logo URL
   },
   "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj": {
     name: "Raydium",
@@ -53,77 +53,34 @@ const knownTokens: Record<string, { name: string, symbol: string, logo?: string 
   }
 };
 
-// Fetch token metadata from on-chain data
-async function fetchTokenMetadata(connection: Connection, mintAddress: string): Promise<{ name: string, symbol: string, logo?: string } | null> {
+// Try to get metadata from token account data
+function extractMetadataFromAccountInfo(buffer: Uint8Array): { name?: string, symbol?: string, uri?: string } | null {
   try {
-    // Try to get token account info including metadata
-    const metadataPDA = await getMetadataPDA(mintAddress);
-    const accountInfo = await connection.getAccountInfo(metadataPDA);
+    // Very simplified parser to try to extract metadata
+    const decoder = new TextDecoder();
+    const dataString = decoder.decode(buffer);
     
-    if (!accountInfo) {
-      console.log(`No metadata account found for ${mintAddress}`);
-      return null;
-    }
+    // Try to extract name, symbol, and URI using regex patterns
+    const nameMatch = dataString.match(/"name":"([^"]+)"/);
+    const symbolMatch = dataString.match(/"symbol":"([^"]+)"/);
+    const uriMatch = dataString.match(/"uri":"([^"]+)"/);
     
-    // Parse metadata (simplified version)
-    const metadata = decodeMetadata(accountInfo.data);
-    if (metadata) {
+    if (nameMatch || symbolMatch || uriMatch) {
       return {
-        name: metadata.name,
-        symbol: metadata.symbol,
-        logo: metadata.uri
+        name: nameMatch?.[1],
+        symbol: symbolMatch?.[1],
+        uri: uriMatch?.[1]
       };
     }
     
     return null;
   } catch (error) {
-    console.error(`Error fetching metadata for ${mintAddress}:`, error);
+    console.error("Error extracting metadata:", error);
     return null;
   }
 }
 
-// Get Metadata Program Derived Address
-function getMetadataPDA(mint: string): PublicKey {
-  const METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
-  
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from('metadata'),
-      new PublicKey(METADATA_PROGRAM_ID).toBuffer(),
-      new PublicKey(mint).toBuffer()
-    ],
-    new PublicKey(METADATA_PROGRAM_ID)
-  )[0];
-}
-
-// Simplified metadata decoder
-function decodeMetadata(data: Uint8Array): { name: string, symbol: string, uri: string } | null {
-  try {
-    // Skip first byte (it's a key indicating the account type)
-    // Very simplified parser - in production, use proper deserializer
-    
-    // Try to extract UTF-8 strings from data
-    const decoder = new TextDecoder();
-    const dataString = decoder.decode(data);
-    
-    // Look for patterns that might be name/symbol/URI
-    // This is a very crude approach, should use proper deserialization in production
-    const nameMatch = dataString.match(/"name":"([^"]+)"/);
-    const symbolMatch = dataString.match(/"symbol":"([^"]+)"/);
-    const uriMatch = dataString.match(/"uri":"([^"]+)"/);
-    
-    return {
-      name: nameMatch?.[1] || "Unknown Token", 
-      symbol: symbolMatch?.[1] || "???",
-      uri: uriMatch?.[1] || ""
-    };
-  } catch (error) {
-    console.error("Error decoding metadata:", error);
-    return null;
-  }
-}
-
-// Fetch Solana tokens using a simplified approach
+// Fetch Solana tokens
 async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
@@ -167,12 +124,36 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
         // First check our known tokens mapping
         let tokenInfo = knownTokens[mintAddress];
         
-        // If not found in our mapping, try to get from on-chain
+        // Try to get metadata from token metadata account
         if (!tokenInfo) {
           try {
-            tokenInfo = await fetchTokenMetadata(connection, mintAddress);
+            // Get metadata PDA for this mint
+            const METADATA_PROGRAM_ID = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
+            const metadataPDA = PublicKey.findProgramAddressSync(
+              [
+                Buffer.from('metadata'),
+                new PublicKey(METADATA_PROGRAM_ID).toBuffer(),
+                new PublicKey(mintAddress).toBuffer()
+              ],
+              new PublicKey(METADATA_PROGRAM_ID)
+            )[0];
+            
+            // Try to get token metadata
+            const metadataAccount = await connection.getAccountInfo(metadataPDA);
+            
+            if (metadataAccount) {
+              const metadata = extractMetadataFromAccountInfo(metadataAccount.data);
+              
+              if (metadata) {
+                tokenInfo = {
+                  name: metadata.name || `Token (${mintAddress.slice(0, 6)}...)`,
+                  symbol: metadata.symbol || "SPL",
+                  logo: metadata.uri
+                };
+              }
+            }
           } catch (err) {
-            console.log(`Error fetching on-chain metadata: ${err.message}`);
+            console.log(`Error fetching on-chain metadata: ${err}`);
           }
         }
         
@@ -227,7 +208,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
 
 // The main Deno server function
 serve(async (req) => {
-  // Set CORS headers - IMPORTANT: This fixes the CORS issue
+  // Set CORS headers to fix the CORS issues
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
