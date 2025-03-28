@@ -28,6 +28,7 @@ interface ProfileHeaderProps {
   followingCount: number;
   joinedDate: string;
   onEditProfile?: () => void;
+  onOpenNFTBrowser?: () => void;
   onFollow?: () => void;
   isFollowing?: boolean;
   isNFTVerified?: boolean;
@@ -49,6 +50,7 @@ const ProfileHeader = ({
   followingCount,
   joinedDate,
   onEditProfile,
+  onOpenNFTBrowser,
   onFollow,
   isFollowing = false,
   isNFTVerified = false
@@ -167,14 +169,29 @@ const ProfileHeader = ({
       {/* Profile picture */}
       <div className="relative px-4">
         <div className="absolute -top-16">
-          <Avatar className="h-32 w-32 border-4 border-white">
-            {avatarUrl ? (
-              <AvatarImage src={avatarUrl} alt={displayName} />
-            ) : null}
-            <AvatarFallback className="bg-twitter-blue text-white text-2xl">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="h-32 w-32 border-4 border-white">
+              {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={displayName} />
+              ) : null}
+              <AvatarFallback className="bg-twitter-blue text-white text-2xl">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            
+            {/* NFT button for current user */}
+            {isCurrentUser && hasWallet && (
+              <Button 
+                onClick={onOpenNFTBrowser}
+                variant="outline" 
+                size="sm"
+                className="absolute bottom-0 right-0 rounded-full bg-white shadow-md"
+                title="Set NFT as profile picture"
+              >
+                <img src="https://openseauserdata.com/files/265128aa51521c90f7905e5a43dcb456_new.svg" alt="NFT" className="w-5 h-5" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       
@@ -206,12 +223,12 @@ const ProfileHeader = ({
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold">{displayName}</h1>
 
-          {/* Verified NFT badge */}
+          {/* Verified NFT badge - made more visible with red background */}
           {isNFTVerified && (
             <HoverCard openDelay={200} closeDelay={100}>
               <HoverCardTrigger asChild>
                 <div className="inline-flex items-center">
-                  <Badge className="bg-red-500 text-white p-1 rounded-full">
+                  <Badge className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-full">
                     <Check className="h-3 w-3" />
                   </Badge>
                 </div>
@@ -272,10 +289,12 @@ const ProfileHeader = ({
             <CalendarDays className="h-4 w-4 mr-1" />
             <span>{joinedString}</span>
           </div>
-          
-          {/* Add wallet connect buttons here next to the "joined" date */}
-          {isCurrentUser && !hasWallet && (
-            <div className="flex space-x-2 items-center">
+        </div>
+        
+        {/* Wallet connect buttons moved to a separate section right above the following/followers count */}
+        {isCurrentUser && (
+          <div className="flex space-x-2 items-center mt-4">
+            {!ethereumAddress && (
               <Button
                 variant="outline"
                 size="sm"
@@ -286,6 +305,8 @@ const ProfileHeader = ({
                 <Wallet className="h-4 w-4 mr-1" />
                 Connect ETH
               </Button>
+            )}
+            {!solanaAddress && (
               <Button
                 variant="outline"
                 size="sm"
@@ -296,9 +317,21 @@ const ProfileHeader = ({
                 <Wallet className="h-4 w-4 mr-1" />
                 Connect SOL
               </Button>
-            </div>
-          )}
-        </div>
+            )}
+            {ethereumAddress && (
+              <div className="flex items-center text-xs bg-gray-100 rounded-full px-3 py-1">
+                <Wallet className="h-3 w-3 mr-1 text-blue-500" />
+                <span className="truncate max-w-[120px]">ETH: {ethereumAddress.substring(0, 6)}...{ethereumAddress.substring(ethereumAddress.length - 4)}</span>
+              </div>
+            )}
+            {solanaAddress && (
+              <div className="flex items-center text-xs bg-gray-100 rounded-full px-3 py-1">
+                <Wallet className="h-3 w-3 mr-1 text-purple-500" />
+                <span className="truncate max-w-[120px]">SOL: {solanaAddress.substring(0, 6)}...{solanaAddress.substring(solanaAddress.length - 4)}</span>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="flex gap-5 mt-3 mb-4">
           <a href="#" className="text-gray-900 hover:underline">

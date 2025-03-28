@@ -65,11 +65,13 @@ const Profile = () => {
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
+        console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
           user.id,
           profile.ethereum_address,
           profile.solana_address
         );
+        console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
@@ -146,6 +148,7 @@ const Profile = () => {
         followingCount={0} // placeholder
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
+        onOpenNFTBrowser={handleOpenNFTBrowser}
         isNFTVerified={isNFTVerified}
       />
       
