@@ -4,13 +4,51 @@ import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
 import MarketStats from '@/components/crypto/MarketStats'
-import TweetInput from '@/components/crypto/TweetInput'
 import NewsSection from '@/components/crypto/NewsSection'
 import { ZapIcon, TrendingUpIcon, FilterIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
 import { Separator } from '@/components/ui/separator'
+import TweetComposer from '@/components/tweet/TweetComposer'
+import TweetFeed from '@/components/tweet/TweetFeed'
+import { createTweet } from '@/services/tweetService'
+import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/components/ui/use-toast'
 
 const Home: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const handleTweetSubmit = async (content: string, imageFile?: File) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to post a tweet",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const result = await createTweet(content, imageFile);
+      if (!result) {
+        throw new Error("Failed to create tweet");
+      }
+      
+      // Refresh the page to show the new tweet
+      window.location.reload();
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error posting tweet:", error);
+      toast({
+        title: "Tweet Error",
+        description: "Failed to post your tweet. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-crypto-black crypto-pattern">
       <Header />
@@ -38,7 +76,7 @@ const Home: React.FC = () => {
             </div>
             
             <div className="mb-8">
-              <TweetInput />
+              <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
             <div className="mb-6">
@@ -48,7 +86,6 @@ const Home: React.FC = () => {
               </div>
               
               <div className="grid gap-4 mb-6">
-                {/* Placeholder för trend innehåll */}
                 <div className="crypto-card p-4 hover:scale-[1.01] transition-transform">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-crypto-lightgray">BITCOIN</span>
@@ -69,17 +106,20 @@ const Home: React.FC = () => {
             
             <Separator className="my-6 bg-crypto-gray/20" />
             
-            <div className="mt-4 flex items-center justify-between">
-              <h2 className="font-medium text-crypto-lightgray">No tweets to display</h2>
+            <div className="mt-4 mb-4 flex items-center justify-between">
+              <h2 className="font-medium text-lg text-white">Latest Tweets</h2>
               <CryptoButton 
                 variant="outline" 
                 size="sm" 
                 className="h-8 border-crypto-gray/40 hover:bg-crypto-gray/30"
+                onClick={() => window.location.reload()}
               >
                 <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
                 Refresh
               </CryptoButton>
             </div>
+
+            <TweetFeed limit={10} />
           </main>
         </div>
         

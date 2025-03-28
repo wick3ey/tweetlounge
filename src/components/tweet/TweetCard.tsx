@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, Repeat, Share, Check } from 'lucide-react';
@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { likeTweet, retweet, checkIfUserLikedTweet } from '@/services/tweetService';
+import { useToast } from '@/components/ui/use-toast';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -18,11 +20,111 @@ interface TweetCardProps {
 
 const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(tweet.likes_count);
+  const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLike = () => {
-    setLiked(!liked);
-    if (onLike) onLike();
+  useEffect(() => {
+    // Check if user has liked this tweet
+    const checkLikeStatus = async () => {
+      if (!user) return;
+      
+      const hasLiked = await checkIfUserLikedTweet(tweet.id);
+      setLiked(hasLiked);
+    };
+    
+    checkLikeStatus();
+  }, [tweet.id, user]);
+
+  const handleLike = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to like a tweet",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await likeTweet(tweet.id);
+      
+      if (success) {
+        const newLikedState = !liked;
+        setLiked(newLikedState);
+        setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
+        
+        if (onLike) onLike();
+      }
+    } catch (error) {
+      console.error("Error liking tweet:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to like the tweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRetweet = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to retweet",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await retweet(tweet.id);
+      
+      if (success) {
+        // Update local state - this is simplified, ideally we'd check current state
+        setRetweetsCount(prevCount => prevCount + 1);
+        
+        toast({
+          title: "Success",
+          description: "Tweet has been retweeted!",
+        });
+        
+        if (onRetweet) onRetweet();
+      }
+    } catch (error) {
+      console.error("Error retweeting:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to retweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReply = () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to reply",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // For now, just show a toast
+    toast({
+      title: "Coming Soon",
+      description: "Reply functionality will be available soon!",
+    });
+    
+    if (onReply) onReply();
   };
 
   const getInitials = (name: string) => {
@@ -96,8 +198,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={onReply} 
+              onClick={handleReply} 
               className="text-gray-500 hover:text-twitter-blue"
+              disabled={isSubmitting}
             >
               <MessageCircle className="h-4 w-4 mr-2" />
               <span>{tweet.replies_count}</span>
@@ -105,20 +208,22 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={onRetweet} 
+              onClick={handleRetweet} 
               className="text-gray-500 hover:text-green-500"
+              disabled={isSubmitting}
             >
               <Repeat className="h-4 w-4 mr-2" />
-              <span>{tweet.retweets_count}</span>
+              <span>{retweetsCount}</span>
             </Button>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleLike} 
               className={`${liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+              disabled={isSubmitting}
             >
               <Heart className="h-4 w-4 mr-2" fill={liked ? "currentColor" : "none"} />
-              <span>{liked ? tweet.likes_count + 1 : tweet.likes_count}</span>
+              <span>{likesCount}</span>
             </Button>
             <Button 
               variant="ghost" 

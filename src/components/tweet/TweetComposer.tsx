@@ -7,11 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-
-interface TweetComposerProps {
-  onTweetSubmit: (content: string, imageFile?: File) => Promise<void>;
-  placeholder?: string;
-}
+import { TweetComposerProps } from './TweetComposerProps';
 
 const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: TweetComposerProps) => {
   const { profile } = useProfile();
@@ -32,7 +28,11 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    const text = e.target.value;
+    // Enforce the 280 character limit
+    if (text.length <= 280) {
+      setContent(text);
+    }
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,7 +79,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
       toast({
         variant: "destructive",
         title: "Failed to post tweet",
-        description: error.message || "Something went wrong. Please try again."
+        description: "Something went wrong. Please try again."
       });
     } finally {
       setIsSubmitting(false);
@@ -88,6 +88,11 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
 
   // Check if the user has a verified NFT profile picture
   const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
+
+  // Calculate remaining characters
+  const remainingChars = 280 - content.length;
+  const isNearLimit = remainingChars <= 20;
+  const isAtLimit = remainingChars <= 0;
 
   return (
     <div className="p-4 border-b border-gray-200">
@@ -166,13 +171,25 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
               </Button>
             </div>
             
-            <Button 
-              onClick={handleSubmit}
-              disabled={isSubmitting || (!content.trim() && !selectedImage)}
-              className="bg-twitter-blue hover:bg-twitter-blue/90 rounded-full"
-            >
-              {isSubmitting ? 'Posting...' : 'Tweet'}
-            </Button>
+            <div className="flex items-center gap-3">
+              {content.length > 0 && (
+                <div className={`text-xs font-medium ${
+                  isAtLimit ? 'text-red-500' : 
+                  isNearLimit ? 'text-yellow-500' : 
+                  'text-gray-400'
+                }`}>
+                  {remainingChars}
+                </div>
+              )}
+              
+              <Button 
+                onClick={handleSubmit}
+                disabled={isSubmitting || (!content.trim() && !selectedImage) || isAtLimit}
+                className="bg-twitter-blue hover:bg-twitter-blue/90 rounded-full"
+              >
+                {isSubmitting ? 'Posting...' : 'Tweet'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

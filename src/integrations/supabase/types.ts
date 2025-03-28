@@ -9,6 +9,56 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      followers: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      likes: {
+        Row: {
+          created_at: string
+          id: string
+          tweet_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tweet_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tweet_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_nft_chain: string | null
@@ -19,6 +69,8 @@ export type Database = {
           created_at: string
           display_name: string | null
           ethereum_address: string | null
+          followers_count: number
+          following_count: number
           id: string
           location: string | null
           solana_address: string | null
@@ -35,6 +87,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           ethereum_address?: string | null
+          followers_count?: number
+          following_count?: number
           id: string
           location?: string | null
           solana_address?: string | null
@@ -51,6 +105,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           ethereum_address?: string | null
+          followers_count?: number
+          following_count?: number
           id?: string
           location?: string | null
           solana_address?: string | null
@@ -60,12 +116,188 @@ export type Database = {
         }
         Relationships: []
       }
+      replies: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          tweet_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          tweet_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          tweet_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "replies_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retweets: {
+        Row: {
+          created_at: string
+          id: string
+          tweet_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tweet_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tweet_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retweets_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tweets: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_retweet: boolean
+          likes_count: number
+          original_tweet_id: string | null
+          replies_count: number
+          retweets_count: number
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_retweet?: boolean
+          likes_count?: number
+          original_tweet_id?: string | null
+          replies_count?: number
+          retweets_count?: number
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_retweet?: boolean
+          likes_count?: number
+          original_tweet_id?: string | null
+          replies_count?: number
+          retweets_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tweets_original_tweet_id_fkey"
+            columns: ["original_tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_tweet_with_author: {
+        Args: {
+          tweet_id: string
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
+      get_tweets_with_authors: {
+        Args: {
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
+      get_user_tweets: {
+        Args: {
+          user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
