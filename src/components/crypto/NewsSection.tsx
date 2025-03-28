@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsService';
-import { AlertTriangle, ExternalLink, Loader2, Newspaper, TrendingUp, Tag, Clock } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Newspaper, TrendingUp, Tag, Clock, RotateCw } from 'lucide-react';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -78,7 +78,7 @@ const NewsItem: React.FC<{ article: NewsArticle }> = ({ article }) => {
   );
 };
 
-// Loading skeleton for news items - enhanced with more details
+// Loading skeleton for news items
 const NewsItemSkeleton: React.FC = () => (
   <div className="p-4 border-b border-crypto-gray">
     <div className="flex justify-between items-start">
@@ -109,7 +109,7 @@ const NewsItemSkeleton: React.FC = () => (
 );
 
 const NewsSection: React.FC = () => {
-  const { newsArticles, loading, error, isRefreshing } = useNewsData();
+  const { newsArticles, loading, error, isRefreshing, refreshData } = useNewsData();
   
   // Display error toast if needed
   useEffect(() => {
@@ -131,6 +131,20 @@ const NewsSection: React.FC = () => {
       });
     }
   }, [isRefreshing]);
+  
+  const handleRefresh = async () => {
+    toast({
+      title: "Refreshing News",
+      description: "Fetching latest crypto headlines...",
+    });
+    
+    await refreshData();
+    
+    toast({
+      title: "News Updated",
+      description: "News data has been refreshed.",
+    });
+  };
 
   return (
     <Card className="crypto-news-card bg-crypto-black border-crypto-gray shadow-md overflow-hidden">
@@ -140,7 +154,10 @@ const NewsSection: React.FC = () => {
             <Newspaper className="w-5 h-5 text-crypto-blue mr-2" />
             <CardTitle className="text-base font-display">Latest News</CardTitle>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
+            <CryptoButton variant="ghost" size="icon" onClick={handleRefresh} className="h-7 w-7" aria-label="Refresh news">
+              <RotateCw className="h-3.5 w-3.5" />
+            </CryptoButton>
             <div className="flex items-center text-xs bg-crypto-blue/20 text-crypto-blue rounded-full px-2 py-0.5">
               {loading ? (
                 <span className="flex items-center">
