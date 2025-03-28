@@ -107,3 +107,4 @@ const getExplorerUrl = (address: string): string => {
 const getDexScreenerUrl = (address: string): string => {
   return `https://dexscreener.com/solana/${address}`;
 };
+

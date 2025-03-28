@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -14,16 +14,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 262 83% 58%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 220 14% 96%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 291 70% 58%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
@@ -33,7 +33,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     /* Twitter-specific colors */
     --twitter-blue: 203 89% 53%;
@@ -44,17 +44,17 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 10%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -62,7 +62,7 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 291 70% 58%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -79,7 +79,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground dark:bg-web3-darker;
   }
 }
 
@@ -89,10 +89,31 @@
   }
 
   .card-twitter {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow;
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow dark:bg-web3-navy dark:border-web3-muted;
   }
 
   .btn-twitter {
     @apply bg-twitter-blue text-white hover:bg-twitter-blue/90;
+  }
+  
+  /* Web3 specific components */
+  .card-web3 {
+    @apply bg-white dark:bg-web3-navy rounded-xl border border-gray-200 dark:border-web3-muted shadow-sm hover:shadow-md transition-shadow backdrop-blur-sm;
+  }
+  
+  .glass-card {
+    @apply bg-white/10 dark:bg-web3-navy/30 backdrop-blur-lg border border-white/20 dark:border-white/5 rounded-xl shadow-lg;
+  }
+  
+  .gradient-text {
+    @apply bg-web3-gradient bg-clip-text text-transparent;
+  }
+  
+  .web3-button {
+    @apply bg-web3-primary hover:bg-web3-primary/90 text-white font-medium rounded-lg transition-all;
+  }
+  
+  .web3-button-ghost {
+    @apply bg-transparent border border-web3-primary/30 text-web3-primary dark:text-white hover:bg-web3-primary/10 font-medium rounded-lg transition-all;
   }
 }

@@ -1,305 +1,210 @@
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Loader, ExternalLink, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { fetchWalletTokens, Token } from '@/utils/tokenService';
+import { Loader, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { fetchWalletTokens, Token, TokensResponse } from '@/utils/tokenService';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TokenCard } from '@/components/profile/TokenCard';
+import { Toggle, ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface WalletAssetsProps {
-  solanaAddress?: string | null;
+  solanaAddress: string;
 }
 
 const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
-  const { toast } = useToast();
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [solPrice, setSolPrice] = useState<number | undefined>(undefined);
-
-  const loadTokens = async () => {
-    setIsLoading(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [solPrice, setSolPrice] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<string>("grid");
+  const [isCompactView, setIsCompactView] = useState(false);
+  
+  const fetchTokens = async () => {
+    if (!solanaAddress) return;
+    
+    setLoading(true);
     setError(null);
     
     try {
-      if (solanaAddress) {
-        console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
-        try {
-          const response: TokensResponse = await fetchWalletTokens(solanaAddress);
-          console.log('Solana tokens response:', response);
+      const response = await fetchWalletTokens(solanaAddress);
+      if (response.tokens.length > 0) {
+        // Sort tokens: SOL first, then by value (if available), then by name
+        const sortedTokens = response.tokens.sort((a, b) => {
+          // SOL token always comes first
+          if (a.symbol === 'SOL') return -1;
+          if (b.symbol === 'SOL') return 1;
           
-          if (response.tokens && response.tokens.length > 0) {
-            console.log(`Successfully retrieved ${response.tokens.length} Solana tokens`);
-            setTokens(response.tokens);
-            
-            if (response.solPrice) {
-              console.log(`SOL price: $${response.solPrice}`);
-              setSolPrice(response.solPrice);
-            }
-          } else {
-            console.log('No Solana tokens found or returned');
-            // Still clear the tokens array to show empty state
-            setTokens([]);
-          }
-        } catch (err) {
-          console.error('Error fetching Solana tokens:', err);
-          toast({
-            title: "Error loading Solana tokens",
-            description: "There was a problem fetching your Solana tokens.",
-            variant: "destructive"
-          });
-          setError('Failed to load Solana tokens. Please try again later.');
+          // Then sort by USD value if available
+          const aValue = a.usdValue ? parseFloat(a.usdValue) : 0;
+          const bValue = b.usdValue ? parseFloat(b.usdValue) : 0;
+          
+          if (aValue !== bValue) return bValue - aValue;
+          
+          // Finally sort by name
+          return a.name.localeCompare(b.name);
+        });
+        
+        setTokens(sortedTokens);
+        if (response.solPrice) {
+          setSolPrice(response.solPrice);
         }
+      } else {
+        setTokens([]);
       }
+      
+      setLastUpdated(new Date());
     } catch (err) {
-      console.error('Error in loadTokens function:', err);
+      console.error('Error fetching tokens:', err);
       setError('Failed to load tokens. Please try again later.');
-      toast({
-        title: "Error loading tokens",
-        description: "There was a problem fetching your wallet assets. Please try again later.",
-        variant: "destructive"
-      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
+  
   useEffect(() => {
-    if (solanaAddress) {
-      loadTokens();
-    } else {
-      setIsLoading(false);
-    }
+    fetchTokens();
   }, [solanaAddress]);
-
-  const handleRetry = () => {
-    loadTokens();
+  
+  const handleRefresh = () => {
+    fetchTokens();
   };
-
-  // Function to determine which URL to use for a token
-  const getTokenUrl = (token: Token) => {
-    // For unknown tokens (address-formatted names), use DexScreener
-    return token.name.includes('...') ? token.dexScreenerUrl : token.explorerUrl;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <h2 className="text-xl font-semibold mb-4">Loading Assets...</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, index) => (
-            <Card key={index} className="overflow-hidden">
-              <CardContent className="p-0">
-                <div className="flex items-center p-4">
-                  <Skeleton className="h-12 w-12 rounded-full mr-4" />
-                  <div>
-                    <Skeleton className="h-4 w-24 mb-2" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                  <div className="ml-auto">
-                    <Skeleton className="h-4 w-20 mb-2" />
-                    <Skeleton className="h-3 w-12" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <div className="text-red-500 mb-4">{error}</div>
-        <Button onClick={handleRetry} variant="outline">Retry</Button>
-      </div>
-    );
-  }
-
-  if (!solanaAddress) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8">
-        <div className="text-gray-500 mb-4">No wallet connected. Please connect your Solana wallet in profile settings.</div>
-      </div>
-    );
-  }
-
-  // Calculate total SOL value
-  const totalSolValue = tokens.reduce((sum, token) => {
-    if (token.symbol === 'SOL') {
-      return sum + parseFloat(token.amount);
+  
+  // Calculate total wallet value in USD
+  const calculateTotalValue = (): string => {
+    if (!tokens.length) return '$0.00';
+    
+    const total = tokens.reduce((sum, token) => {
+      // Add USD value if available
+      if (token.usdValue) {
+        return sum + parseFloat(token.usdValue);
+      }
+      
+      // For SOL token, calculate value from SOL price
+      if (token.symbol === 'SOL' && solPrice) {
+        const solAmount = parseFloat(token.amount);
+        return sum + (solAmount * solPrice);
+      }
+      
+      return sum;
+    }, 0);
+    
+    // Format total with appropriate suffix
+    if (total >= 1000000) {
+      return `$${(total / 1000000).toFixed(2)}M`;
+    } else if (total >= 1000) {
+      return `$${(total / 1000).toFixed(2)}K`;
+    } else {
+      return `$${total.toFixed(2)}`;
     }
-    return sum;
-  }, 0);
-
-  // Calculate total USD value
-  const totalUsdValue = tokens.reduce((sum, token) => {
-    const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
-    return sum + tokenValue;
-  }, 0);
-
+  };
+  
+  if (loading && tokens.length === 0) {
+    return (
+      <div className="glass-card p-6 text-center my-4">
+        <Loader className="h-8 w-8 animate-spin text-web3-primary mx-auto mb-4" />
+        <p className="text-gray-500 dark:text-gray-400">Loading wallet assets...</p>
+      </div>
+    );
+  }
+  
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Solana Assets</h2>
-        <div className="text-right">
-          {totalSolValue > 0 && (
-            <p className="text-sm text-gray-500">Total SOL: <span className="font-semibold">{totalSolValue.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL</span></p>
-          )}
-          {totalUsdValue > 0 && solPrice && (
-            <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-          )}
+    <div className="glass-card p-4 my-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="font-semibold text-lg flex items-center gap-2">
+            Portfolio Overview
+            {lastUpdated && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Updated {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </h2>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold gradient-text">{calculateTotalValue()}</span>
+            <span className="text-xs text-muted-foreground">Total Value</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="h-8 w-8 p-0"
+            aria-label="Refresh tokens"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          
+          <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value)}>
+            <ToggleGroupItem value="grid" aria-label="Grid view" className="h-8 w-8 p-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="List view" className="h-8 w-8 p-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          
+          <Toggle
+            pressed={isCompactView}
+            onPressedChange={setIsCompactView}
+            aria-label="Toggle compact view"
+            className="h-8 w-8 p-0"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 19H2a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h13.3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2z" />
+              <path d="M22 5H9" />
+              <path d="M18 19l4-8" />
+              <path d="M22 19l-4-8" />
+            </svg>
+          </Toggle>
         </div>
       </div>
       
-      {tokens.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-8">
-          <Button onClick={handleRetry} variant="outline" size="sm" className="mb-4">
-            Refresh
-          </Button>
-          <div className="text-gray-500">Checking for tokens in your wallet...</div>
+      {error && (
+        <div className="p-4 mb-4 text-sm bg-red-500/10 text-red-500 rounded-md">
+          {error}
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">
-            {tokens.map((token) => (
-              <Card key={token.symbol + token.address} className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-0">
-                  <div className="flex items-center p-4">
-                    {token.logo ? (
-                      <img 
-                        src={token.logo} 
-                        alt={token.name} 
-                        className="h-12 w-12 rounded-full mr-4 object-cover bg-gray-100"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
-                        }}
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-full mr-4 bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-600 font-bold">{token.symbol?.substring(0, 2) || '??'}</span>
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-medium">{token.name}</h3>
-                      <p className="text-gray-500 text-sm">{token.symbol}</p>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <p className="font-semibold">{parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}</p>
-                      {token.usdValue && (
-                        <p className="text-gray-500 text-sm">${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-                      )}
-                    </div>
-                  </div>
-                  {(token.explorerUrl || token.dexScreenerUrl) && (
-                    <div className="border-t px-4 py-2 bg-gray-50">
-                      <a 
-                        href={getTokenUrl(token)} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-twitter-blue hover:underline text-sm flex items-center"
-                      >
-                        {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </a>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
-          <div className="hidden md:block">
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Token</TableHead>
-                    <TableHead>Balance</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead className="w-24"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tokens.map((token) => (
-                    <TableRow key={token.symbol + token.address}>
-                      <TableCell>
-                        <div className="flex items-center">
-                          {token.logo ? (
-                            <img 
-                              src={token.logo} 
-                              alt={token.name} 
-                              className="h-8 w-8 rounded-full mr-3 object-cover bg-gray-100"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = `https://placehold.co/100x100/gray/white?text=${token.symbol?.substring(0, 2) || '??'}`;
-                              }}
-                            />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full mr-3 bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-600 font-bold text-sm">{token.symbol?.substring(0, 2) || '??'}</span>
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-medium">{token.name}</div>
-                            <div className="text-gray-500 text-xs">{token.symbol}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {parseFloat(token.amount).toLocaleString(undefined, { maximumFractionDigits: 4 })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {token.usdValue ? (
-                          `$${parseFloat(token.usdValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {(token.explorerUrl || token.dexScreenerUrl) && (
-                          <a 
-                            href={getTokenUrl(token)} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-twitter-blue hover:underline text-sm flex items-center justify-end"
-                          >
-                            {token.name.includes('...') ? 'View on DexScreener' : 'View on Solscan'}
-                            <ExternalLink className="h-3 w-3 ml-1" />
-                          </a>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </div>
-        </>
       )}
       
-      <div className="flex justify-end mt-4">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRetry}
-          className="flex items-center gap-2"
-        >
-          <Loader className="h-3 w-3" />
-          Refresh Data
-        </Button>
-      </div>
+      {tokens.length === 0 && !loading ? (
+        <div className="text-center py-6">
+          <p className="text-gray-500 dark:text-gray-400 mb-2">No tokens found in this wallet</p>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            className="mt-2"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      ) : (
+        <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-4"}>
+          {tokens.map((token, index) => (
+            <TokenCard 
+              key={`${token.address}-${index}`} 
+              token={token} 
+              solPrice={solPrice || undefined}
+              isCompact={isCompactView}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

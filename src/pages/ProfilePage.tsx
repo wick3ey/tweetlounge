@@ -9,6 +9,7 @@ import { Loader } from "lucide-react";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import Navbar from "@/components/layout/Navbar";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
@@ -56,32 +57,39 @@ const ProfilePage = () => {
 
   if (isLoading || profileLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
+      <div className="flex items-center justify-center min-h-screen bg-background dark:bg-web3-darker">
+        <div className="glass-card p-8 flex flex-col items-center">
+          <Loader className="h-10 w-10 animate-spin text-web3-primary" />
+          <p className="mt-4 text-web3-primary dark:text-white/80 animate-pulse">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   if (!profileExists) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">User not found</h1>
-        <p className="text-gray-500">The user you're looking for doesn't exist or has been removed.</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background dark:bg-web3-darker">
+        <div className="glass-card p-8 max-w-md text-center">
+          <h1 className="text-2xl font-bold mb-4 gradient-text">User not found</h1>
+          <p className="text-gray-500 dark:text-gray-400">The user you're looking for doesn't exist or has been removed.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar />
-      <div className="container mx-auto flex">
-        <LeftSidebar />
-        <main className="flex-1 min-h-screen border-x border-gray-200">
-          <Profile />
-        </main>
-        <RightSidebar />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <div className="min-h-screen bg-background dark:bg-gradient-to-b dark:from-web3-dark dark:to-web3-darker transition-colors duration-300">
+        <Navbar />
+        <div className="container mx-auto flex flex-col lg:flex-row">
+          <LeftSidebar />
+          <main className="flex-1 min-h-screen border-x border-border">
+            <Profile />
+          </main>
+          <RightSidebar />
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 };
 
