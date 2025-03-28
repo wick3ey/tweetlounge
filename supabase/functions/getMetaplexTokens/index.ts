@@ -132,16 +132,17 @@ async function getSolanaTokensWithMetaplex(address: string): Promise<TokenRespon
 
 // The main Deno server function
 serve(async (req) => {
-  // Set CORS headers
-  const headers = {
+  // Set CORS headers - IMPORTANT: This fixes the CORS issue
+  const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Content-Type': 'application/json'
   };
 
-  // Handle OPTIONS request for CORS
+  // Handle OPTIONS request for CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers });
+    return new Response('ok', { headers: corsHeaders, status: 200 });
   }
 
   try {
@@ -151,7 +152,7 @@ serve(async (req) => {
     if (!address) {
       return new Response(
         JSON.stringify({ error: 'Wallet address is required' }),
-        { headers, status: 400 }
+        { headers: corsHeaders, status: 400 }
       );
     }
 
@@ -163,14 +164,14 @@ serve(async (req) => {
     // Return the response
     return new Response(
       JSON.stringify(response),
-      { headers, status: 200 }
+      { headers: corsHeaders, status: 200 }
     );
   } catch (error) {
     console.error('Error in getMetaplexTokens function:', error);
     
     return new Response(
       JSON.stringify({ error: 'Failed to get wallet tokens', message: error.message }),
-      { headers, status: 500 }
+      { headers: corsHeaders, status: 500 }
     );
   }
 });

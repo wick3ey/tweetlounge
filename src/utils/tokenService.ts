@@ -27,29 +27,34 @@ export const fetchWalletTokens = async (
     
     // For Solana we now use our Supabase edge function that leverages Metaplex
     if (chain === 'solana') {
-      const { data, error } = await supabase.functions.invoke('getMetaplexTokens', {
-        body: { address }
-      });
-      
-      if (error) {
-        console.error(`Error fetching Solana tokens:`, error);
-        throw new Error(`Failed to fetch Solana tokens: ${error.message}`);
+      try {
+        const { data, error } = await supabase.functions.invoke('getMetaplexTokens', {
+          body: { address }
+        });
+        
+        if (error) {
+          console.error(`Error fetching Solana tokens:`, error);
+          throw new Error(`Failed to fetch Solana tokens: ${error.message}`);
+        }
+        
+        // The response should have a tokens array
+        if (!data || !data.tokens || !Array.isArray(data.tokens)) {
+          console.error(`Invalid response for Solana tokens:`, data);
+          return [];
+        }
+        
+        console.log(`Successfully retrieved ${data.tokens.length} Solana tokens`);
+        
+        // Process tokens and add explorer URL
+        return data.tokens.map((token: any) => ({
+          ...token,
+          chain: 'solana',
+          explorerUrl: getExplorerUrl('solana', token.address)
+        }));
+      } catch (err) {
+        console.error('Error fetching Solana tokens:', err);
+        return []; // Return empty array on error
       }
-      
-      // The response should have a tokens array
-      if (!data || !data.tokens || !Array.isArray(data.tokens)) {
-        console.error(`Invalid response for Solana tokens:`, data);
-        return [];
-      }
-      
-      console.log(`Successfully processed ${data.tokens.length} Solana tokens`);
-      
-      // Process tokens and add explorer URL
-      return data.tokens.map((token: any) => ({
-        ...token,
-        chain: 'solana',
-        explorerUrl: getExplorerUrl('solana', token.address)
-      }));
     } 
     
     // For Ethereum, we'll keep the mock implementation for now
@@ -88,6 +93,8 @@ export const fetchWalletTokens = async (
         }
       ];
       
+      console.log('Ethereum tokens response:', mockEthTokens);
+      console.log(`Successfully retrieved ${mockEthTokens.length} Ethereum tokens`);
       return mockEthTokens;
     }
     
