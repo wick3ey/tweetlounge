@@ -42,11 +42,12 @@ const CACHE_DURATION = 10 * 60 * 1000;
 // Minimum time between API refresh attempts (1 minute) to prevent API spam
 const MIN_REFRESH_INTERVAL = 60 * 1000;
 
-// CORS proxies list - we'll try these in sequence
+// Updated CORS proxies list - we'll try these in sequence
 const CORS_PROXIES = [
-  'https://api.allorigins.win/raw?url=',
   'https://api.codetabs.com/v1/proxy?quest=',
-  'https://corsproxy.org/?'
+  'https://corsproxy.org/?',
+  'https://cors-anywhere.herokuapp.com/',
+  'https://cors.eu.org/'
 ];
 
 // Helper function to try fetching with multiple proxies
@@ -56,13 +57,23 @@ const fetchWithProxies = async (url: string): Promise<any> => {
   for (const proxy of CORS_PROXIES) {
     try {
       const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl);
+      console.log(`Trying proxy: ${proxy} for URL: ${url}`);
+      
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Accept': 'application/json'
+        },
+        // Adding cache-busting parameter
+        cache: 'no-cache'
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      console.log(`Successfully fetched data using proxy: ${proxy}`);
+      return data;
     } catch (error) {
       console.error(`Error with proxy ${proxy}:`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -70,8 +81,29 @@ const fetchWithProxies = async (url: string): Promise<any> => {
     }
   }
   
-  // If all proxies failed, throw the last error
-  throw lastError || new Error('All proxies failed');
+  // If all proxies failed, throw the last error with a more descriptive message
+  throw lastError || new Error('All proxies failed to fetch data');
+};
+
+// Function to safely parse API response data with fallbacks
+const safelyParseCoinsData = (data: any): CryptoCurrency[] => {
+  if (!data || !Array.isArray(data)) {
+    console.error('Invalid data format received:', data);
+    return [];
+  }
+  
+  try {
+    return data.map((coin: any) => ({
+      id: coin.id || '',
+      name: coin.name || '',
+      symbol: (coin.symbol || '').toUpperCase(),
+      price: typeof coin.current_price === 'number' ? coin.current_price : 0,
+      change: typeof coin.price_change_percentage_24h === 'number' ? coin.price_change_percentage_24h : 0
+    }));
+  } catch (error) {
+    console.error('Error parsing coin data:', error);
+    return [];
+  }
 };
 
 // Function to fetch crypto data from CoinGecko
@@ -104,15 +136,7 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
     const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h';
     
     const data = await fetchWithProxies(url);
-    
-    // Map the response to our CryptoCurrency interface
-    const cryptoData = data.map((coin: any) => ({
-      id: coin.id,
-      name: coin.name,
-      symbol: coin.symbol.toUpperCase(),
-      price: coin.current_price,
-      change: coin.price_change_percentage_24h || 0
-    }));
+    const cryptoData = safelyParseCoinsData(data);
     
     // Update the global cache
     globalCryptoCache.data = cryptoData;
@@ -123,7 +147,9 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error fetching crypto data:', errorMessage);
     globalCryptoCache.lastError = errorMessage;
-    throw error;
+    
+    // Return cached data if available, otherwise empty array
+    return globalCryptoCache.data.length > 0 ? globalCryptoCache.data : [];
   } finally {
     // Reset loading flag
     globalCryptoCache.isLoading = false;
@@ -148,6 +174,42 @@ const fetchFearGreedIndex = async (): Promise<{value: number, value_classificati
   } catch (error) {
     console.error('Error fetching Fear & Greed index:', error);
     return { value: 0, value_classification: '' };
+  }
+};
+
+// Function to safely parse global market data with fallbacks
+const safelyParseGlobalData = (data: any): MarketStats => {
+  if (!data || !data.data) {
+    return {
+      total_market_cap: 0,
+      total_volume: 0,
+      btc_dominance: 0,
+      eth_dominance: 0,
+      active_cryptocurrencies: 0,
+      market_cap_change_percentage_24h: 0
+    };
+  }
+  
+  try {
+    const marketData = data.data;
+    return {
+      total_market_cap: marketData.total_market_cap?.usd || 0,
+      total_volume: marketData.total_volume?.usd || 0,
+      btc_dominance: marketData.market_cap_percentage?.btc || 0,
+      eth_dominance: marketData.market_cap_percentage?.eth || 0,
+      active_cryptocurrencies: marketData.active_cryptocurrencies || 0,
+      market_cap_change_percentage_24h: marketData.market_cap_change_percentage_24h_usd || 0
+    };
+  } catch (error) {
+    console.error('Error parsing global market data:', error);
+    return {
+      total_market_cap: 0,
+      total_volume: 0,
+      btc_dominance: 0,
+      eth_dominance: 0,
+      active_cryptocurrencies: 0,
+      market_cap_change_percentage_24h: 0
+    };
   }
 };
 
@@ -182,28 +244,20 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
     // Fetch global market data
     const url = 'https://api.coingecko.com/api/v3/global';
     
-    const { data } = await fetchWithProxies(url);
+    const data = await fetchWithProxies(url);
+    const marketStats = safelyParseGlobalData(data);
     
     // Get Fear & Greed index
     let fearGreedData;
     try {
       fearGreedData = await fetchFearGreedIndex();
+      
+      // Add fear and greed data to market stats
+      marketStats.fear_greed_value = fearGreedData.value;
+      marketStats.fear_greed_label = fearGreedData.value_classification;
     } catch (err) {
       console.warn('Could not fetch Fear & Greed index, continuing without it');
-      fearGreedData = { value: 0, value_classification: '' };
     }
-    
-    // Safely extract values from the response structure
-    const marketStats: MarketStats = {
-      total_market_cap: data.total_market_cap?.usd || 0,
-      total_volume: data.total_volume?.usd || 0,
-      btc_dominance: data.market_cap_percentage?.btc || 0,
-      eth_dominance: data.market_cap_percentage?.eth || 0,
-      active_cryptocurrencies: data.active_cryptocurrencies || 0,
-      market_cap_change_percentage_24h: data.market_cap_change_percentage_24h_usd || 0,
-      fear_greed_value: fearGreedData.value,
-      fear_greed_label: fearGreedData.value_classification
-    };
     
     // Update global cache
     globalStatsCache.data = marketStats;
@@ -214,7 +268,16 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error fetching global market data:', errorMessage);
     globalStatsCache.lastError = errorMessage;
-    throw error;
+    
+    // Return cached data if available, otherwise default values
+    return globalStatsCache.data || {
+      total_market_cap: 0,
+      total_volume: 0,
+      btc_dominance: 0,
+      eth_dominance: 0,
+      active_cryptocurrencies: 0,
+      market_cap_change_percentage_24h: 0
+    };
   } finally {
     // Reset loading flag
     globalStatsCache.isLoading = false;

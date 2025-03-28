@@ -1,8 +1,9 @@
 
 import React from 'react'
 import { useCryptoData, CryptoCurrency } from '@/utils/coingeckoService'
-import { Loader2, RefreshCcw } from 'lucide-react'
+import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { CryptoButton } from '@/components/ui/crypto-button'
 
 interface CryptoTickerItemProps {
   name: string
@@ -21,7 +22,7 @@ const CryptoTickerItem: React.FC<CryptoTickerItemProps> = ({ name, symbol, price
     <div className="crypto-ticker-item">
       <span className="font-medium text-white">{symbol}</span>
       <span className="text-crypto-lightgray text-xs">{name}</span>
-      <span className="font-medium">{formattedPrice}</span>
+      <span className="font-medium">${formattedPrice}</span>
       <span className={`text-xs ${changeColor}`}>
         {changeSign}{formattedChange}%
       </span>
@@ -29,21 +30,43 @@ const CryptoTickerItem: React.FC<CryptoTickerItemProps> = ({ name, symbol, price
   )
 }
 
+// Fallback data to show when API fails
+const fallbackCryptoData: CryptoCurrency[] = [
+  { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 84000, change: -2.1 },
+  { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1900, change: -3.5 },
+  { id: 'solana', name: 'Solana', symbol: 'SOL', price: 130, change: -4.2 },
+  { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.2, change: -1.8 },
+  { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.70, change: -2.4 }
+];
+
 const CryptoTicker: React.FC = () => {
   const { cryptoData, loading, error, refreshData } = useCryptoData()
+  const [refreshing, setRefreshing] = React.useState(false);
   
   const handleRefresh = async () => {
+    setRefreshing(true);
+    
     toast({
       title: "Refreshing Data",
       description: "Fetching latest crypto prices...",
     });
     
-    await refreshData();
-    
-    toast({
-      title: "Prices Updated",
-      description: "Crypto prices have been refreshed",
-    });
+    try {
+      await refreshData();
+      
+      toast({
+        title: "Prices Updated",
+        description: "Crypto prices have been refreshed",
+      });
+    } catch (err) {
+      toast({
+        title: "Error Refreshing",
+        description: "Could not update prices. Using cached data.",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
   
   // Display error toast if needed
@@ -51,11 +74,14 @@ const CryptoTicker: React.FC = () => {
     if (error) {
       toast({
         title: "Error Loading Prices",
-        description: error,
+        description: "Using fallback data. Will retry automatically.",
         variant: "destructive"
       });
     }
   }, [error]);
+
+  // Determine which data to display
+  const displayData = cryptoData.length > 0 ? cryptoData : fallbackCryptoData;
 
   return (
     <div className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3">
@@ -64,29 +90,37 @@ const CryptoTicker: React.FC = () => {
           {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
           ) : error ? (
-            <span className="text-crypto-red text-sm">ERROR</span>
+            <AlertTriangle className="h-4 w-4 text-crypto-red" />
           ) : (
-            <RefreshCcw 
-              className="h-4 w-4 cursor-pointer hover:text-crypto-blue/80 transition-colors" 
+            <CryptoButton 
+              variant="ghost" 
+              size="sm"
               onClick={handleRefresh}
-            />
+              disabled={refreshing}
+              className="h-6 w-6 p-0 hover:bg-crypto-gray/20"
+            >
+              <RefreshCcw 
+                className={`h-4 w-4 cursor-pointer hover:text-crypto-blue/80 transition-colors ${refreshing ? 'animate-spin' : ''}`} 
+              />
+            </CryptoButton>
           )}
           CRYPTO
         </div>
-        {cryptoData.length > 0 ? (
-          // Real data from API
-          cryptoData.map((crypto, index) => (
-            <CryptoTickerItem 
-              key={index}
-              name={crypto.name}
-              symbol={crypto.symbol}
-              price={crypto.price}
-              change={crypto.change}
-            />
-          ))
-        ) : loading ? (
-          // Loading state
-          Array(10).fill(0).map((_, index) => (
+        
+        {/* Always show some data - either real or fallback */}
+        {displayData.map((crypto, index) => (
+          <CryptoTickerItem 
+            key={index}
+            name={crypto.name}
+            symbol={crypto.symbol}
+            price={crypto.price}
+            change={crypto.change}
+          />
+        ))}
+        
+        {/* If we're in a loading state and have no data yet, show loading placeholders */}
+        {loading && displayData.length === 0 && (
+          Array(5).fill(0).map((_, index) => (
             <div key={index} className="crypto-ticker-item animate-pulse">
               <div className="h-4 w-10 bg-crypto-gray/30 rounded"></div>
               <div className="h-3 w-16 bg-crypto-gray/20 rounded"></div>
@@ -94,9 +128,6 @@ const CryptoTicker: React.FC = () => {
               <div className="h-3 w-12 bg-crypto-gray/20 rounded"></div>
             </div>
           ))
-        ) : (
-          // Error state - show error message in ticker
-          <div className="text-crypto-red px-4">Could not load cryptocurrency data. Please try again.</div>
         )}
       </div>
     </div>

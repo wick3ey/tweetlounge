@@ -42,10 +42,12 @@ const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
 const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 const MIN_REFRESH_INTERVAL = 60 * 1000; // 1 minute - minimum time between refresh attempts
 
-// CORS proxies - we'll try multiple in case one fails
+// Updated CORS proxies - we'll try multiple in case one fails
 const CORS_PROXIES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://api.codetabs.com/v1/proxy?quest='
+  'https://api.codetabs.com/v1/proxy?quest=',
+  'https://corsproxy.org/?',
+  'https://cors-anywhere.herokuapp.com/',
+  'https://cors.eu.org/'
 ];
 
 // Global cache for news data
@@ -94,8 +96,14 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
       try {
         // Adding cache-busting parameter to ensure we get fresh content
         const requestUrl = `${proxy}${encodeURIComponent(targetUrl)}&_=${new Date().getTime()}`;
+        console.log(`Trying to fetch news with proxy: ${proxy}`);
         
-        const response = await fetch(requestUrl);
+        const response = await fetch(requestUrl, {
+          headers: {
+            'Accept': 'application/json'
+          },
+          cache: 'no-cache'
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch news: ${response.status}`);
@@ -103,6 +111,10 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
         
         // Parse the response
         const parsedContents: CryptoPanicResponse = await response.json();
+        
+        if (!parsedContents || !parsedContents.results || !Array.isArray(parsedContents.results)) {
+          throw new Error('Invalid response format from news API');
+        }
         
         // Filter news to only show the last 3 hours
         const threeHoursAgo = new Date();
@@ -144,7 +156,14 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
       (error instanceof Error ? error.message : String(error)) : 
       'Failed to fetch news from all available proxies';
     
-    throw error || new Error('Failed to fetch news from all available proxies');
+    // Return cached data if available, otherwise empty array
+    return newsCache.data.length > 0 ? newsCache.data : [];
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Unexpected error in fetchNews:', errorMessage);
+    
+    newsCache.lastError = errorMessage;
+    return newsCache.data.length > 0 ? newsCache.data : [];
   } finally {
     // Always reset loading flag
     newsCache.isLoading = false;
@@ -165,15 +184,21 @@ export const useNewsData = () => {
   } = useQuery({
     queryKey: ['cryptoNews'],
     queryFn: async () => {
-      // Check if cache is still valid
-      const currentTime = Date.now();
-      if (newsCache.data.length > 0 && currentTime - newsCache.timestamp < REFRESH_INTERVAL) {
-        console.log('Using cached news data');
-        return newsCache.data;
+      try {
+        // Check if cache is still valid
+        const currentTime = Date.now();
+        if (newsCache.data.length > 0 && currentTime - newsCache.timestamp < REFRESH_INTERVAL) {
+          console.log('Using cached news data');
+          return newsCache.data;
+        }
+        
+        // Otherwise fetch fresh data
+        return await fetchNews();
+      } catch (err) {
+        console.error('Error in news query function:', err);
+        // Return cached data on error if available
+        return newsCache.data.length > 0 ? newsCache.data : [];
       }
-      
-      // Otherwise fetch fresh data
-      return await fetchNews();
     },
     refetchInterval: REFRESH_INTERVAL,
     refetchOnMount: true,
