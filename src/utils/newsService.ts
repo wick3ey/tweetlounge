@@ -40,20 +40,22 @@ interface CryptoPanicResponse {
 // API constants
 const API_BASE_URL = 'https://cryptopanic.com/api/v1';
 const AUTH_TOKEN = 'f722edf22e486537391c7a517320e54f7ed4b38b';
-const REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes to get more frequent updates
 
-// New CORS proxy URL - Using allorigins
+// CORS proxy URL - Using allorigins
 const CORS_PROXY = 'https://api.allorigins.win/get?url=';
 
 /**
  * Fetches news from CryptoPanic API through a CORS proxy
+ * Including BTC, ETH, SOL, and general crypto news
  */
 const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
   try {
-    // Using AllOrigins CORS proxy
-    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news`;
+    // Using AllOrigins CORS proxy - Query for BTC, ETH, SOL and important news
+    // Added filter=important to get major news stories
+    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en&filter=hot`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
     const response = await fetch(proxyUrl);

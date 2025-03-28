@@ -189,10 +189,10 @@ const NewsSection: React.FC = () => {
             </AlertDescription>
           </Alert>
         ) : (
-          <ScrollArea className="max-h-[400px]">
+          <ScrollArea className="h-[500px]">
             {loading ? (
               // Loading skeletons
-              Array(4).fill(0).map((_, index) => (
+              Array(5).fill(0).map((_, index) => (
                 <NewsItemSkeleton key={index} />
               ))
             ) : newsArticles.length === 0 ? (
@@ -218,14 +218,21 @@ const NewsSection: React.FC = () => {
                 ))}
                 
                 <div className="p-3 flex justify-center">
-                  <CryptoButton 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-crypto-blue hover:text-crypto-blue hover:bg-crypto-blue/10 w-full"
+                  <a 
+                    href="https://cryptopanic.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full"
                   >
-                    <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-                    Show More News
-                  </CryptoButton>
+                    <CryptoButton 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-crypto-blue hover:text-crypto-blue hover:bg-crypto-blue/10 w-full"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                      View All Crypto News
+                    </CryptoButton>
+                  </a>
                 </div>
               </div>
             )}
