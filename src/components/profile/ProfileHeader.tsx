@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { CalendarDays, LinkIcon, MapPin } from 'lucide-react';
+import { CalendarDays, LinkIcon, MapPin, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistance } from 'date-fns';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -15,6 +16,8 @@ interface ProfileHeaderProps {
   bio?: string;
   location?: string;
   website?: string;
+  ethereumAddress?: string | null;
+  solanaAddress?: string | null;
   isCurrentUser: boolean;
   followersCount: number;
   followingCount: number;
@@ -32,6 +35,8 @@ const ProfileHeader = ({
   bio,
   location,
   website,
+  ethereumAddress,
+  solanaAddress,
   isCurrentUser,
   followersCount,
   followingCount,
@@ -69,6 +74,8 @@ const ProfileHeader = ({
       return url;
     }
   };
+  
+  const hasWallet = !!ethereumAddress || !!solanaAddress;
 
   return (
     <div className="border-b border-gray-200 pb-0">
@@ -125,7 +132,23 @@ const ProfileHeader = ({
       
       {/* Profile info */}
       <div className="px-4 mt-10">
-        <h1 className="text-xl font-bold">{displayName}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold">{displayName}</h1>
+          {hasWallet && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-block">
+                    <Wallet className="h-4 w-4 text-blue-500" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Crypto wallet connected</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
         <h2 className="text-gray-500">@{username}</h2>
         
         {bio && <p className="mt-3 text-gray-900">{bio}</p>}

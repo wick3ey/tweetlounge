@@ -109,6 +109,8 @@ const Profile = () => {
         bio={profile.bio || undefined}
         location={profile.location || undefined}
         website={profile.website ? formatWebsiteUrl(profile.website) : undefined}
+        ethereumAddress={profile.ethereum_address}
+        solanaAddress={profile.solana_address}
         isCurrentUser={isCurrentUser}
         followersCount={0} // placeholder
         followingCount={0} // placeholder

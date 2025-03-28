@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,10 +7,25 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader, ImagePlus, Link2, MapPin } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { Loader, ImagePlus, Link2, MapPin, Wallet } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import CoverImageCropper from './CoverImageCropper';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
+import NFTBrowser from './NFTBrowser';
+import { 
+  connectEthereumWallet, 
+  connectSolanaWallet, 
+  updateWalletAddress, 
+  WalletType 
+} from '@/utils/walletConnector';
 
 interface ProfileEditFormProps {
   onClose?: () => void;
@@ -20,6 +34,7 @@ interface ProfileEditFormProps {
 const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   const { user } = useAuth();
   const { profile, isLoading, error, updateProfile, refreshProfile } = useProfile();
+  const { toast } = useToast();
   
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -28,13 +43,19 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
   const [website, setWebsite] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [ethereumAddress, setEthereumAddress] = useState<string | null>(null);
+  const [solanaAddress, setSolanaAddress] = useState<string | null>(null);
   
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [connectingWallet, setConnectingWallet] = useState(false);
   
   // For cover image cropper
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
+  
+  // For NFT browser
+  const [isNFTBrowserOpen, setIsNFTBrowserOpen] = useState(false);
   
   // Load profile data when component mounts
   useEffect(() => {
@@ -46,6 +67,8 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
       setWebsite(profile.website || '');
       setAvatarUrl(profile.avatar_url);
       setCoverUrl(profile.cover_url);
+      setEthereumAddress(profile.ethereum_address);
+      setSolanaAddress(profile.solana_address);
     }
   }, [profile]);
   
@@ -98,6 +121,77 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
     } finally {
       setSaving(false);
     }
+  };
+  
+  const connectWallet = async (walletType: WalletType) => {
+    if (!user) return;
+    
+    setConnectingWallet(true);
+    
+    try {
+      const result = walletType === 'ethereum' 
+        ? await connectEthereumWallet() 
+        : await connectSolanaWallet();
+      
+      if (!result.success) {
+        toast({
+          title: 'Connection Error',
+          description: result.error || `Failed to connect ${walletType} wallet`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Update wallet address in database
+      const updateResult = await updateWalletAddress(user.id, walletType, result.address!);
+      
+      if (!updateResult.success) {
+        toast({
+          title: 'Update Error',
+          description: updateResult.error || `Failed to save ${walletType} wallet address`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Update local state
+      if (walletType === 'ethereum') {
+        setEthereumAddress(result.address!);
+      } else {
+        setSolanaAddress(result.address!);
+      }
+      
+      // Refresh profile data
+      await refreshProfile();
+      
+      toast({
+        title: 'Wallet Connected',
+        description: `Your ${walletType === 'ethereum' ? 'Ethereum (MetaMask)' : 'Solana (Phantom)'} wallet has been connected successfully.`,
+      });
+      
+    } catch (error) {
+      console.error(`Error connecting ${walletType} wallet:`, error);
+      toast({
+        title: 'Error',
+        description: `Failed to connect ${walletType} wallet: ${error.message}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setConnectingWallet(false);
+    }
+  };
+  
+  const handleOpenNFTBrowser = () => {
+    if (!ethereumAddress && !solanaAddress) {
+      toast({
+        title: 'No Wallet Connected',
+        description: 'Please connect at least one wallet to browse your NFTs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsNFTBrowserOpen(true);
   };
   
   const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +314,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
               </div>
             )}
             
-            {/* Cover Image Upload Button */}
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 opacity-0 hover:opacity-100 transition-opacity">
               <label className="cursor-pointer">
                 <div className="bg-black bg-opacity-60 text-white px-4 py-2 rounded-full flex items-center">
@@ -239,7 +332,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
           </div>
         </AspectRatio>
         
-        {/* Avatar Section (positioned on top of cover) */}
         <div className="absolute -bottom-12 left-6">
           <div className="relative group">
             <Avatar className="h-24 w-24 border-4 border-white">
@@ -251,7 +343,6 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
               </AvatarFallback>
             </Avatar>
             
-            {/* Avatar Upload Overlay */}
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
               <label className="cursor-pointer">
                 <ImagePlus className="h-8 w-8 text-white" />
@@ -334,6 +425,78 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
           <p className="text-xs text-gray-500">Enter your website URL</p>
         </div>
         
+        <Separator className="my-6" />
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium flex items-center">
+            <Wallet className="h-5 w-5 mr-2" /> 
+            Connect Crypto Wallets
+          </h3>
+          <p className="text-sm text-gray-500">
+            Connect your crypto wallets to use your NFTs as profile pictures
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border rounded-md p-4">
+              <h4 className="font-medium">Ethereum (MetaMask)</h4>
+              {ethereumAddress ? (
+                <div className="mt-2">
+                  <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                    {ethereumAddress}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">✓ Connected</p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Not connected</p>
+              )}
+              <Button 
+                type="button"
+                size="sm" 
+                className="mt-3 w-full"
+                disabled={connectingWallet}
+                onClick={() => connectWallet('ethereum')}
+              >
+                {connectingWallet ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {ethereumAddress ? 'Reconnect Wallet' : 'Connect MetaMask'}
+              </Button>
+            </div>
+            
+            <div className="border rounded-md p-4">
+              <h4 className="font-medium">Solana (Phantom)</h4>
+              {solanaAddress ? (
+                <div className="mt-2">
+                  <p className="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                    {solanaAddress}
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">✓ Connected</p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Not connected</p>
+              )}
+              <Button 
+                type="button"
+                size="sm" 
+                className="mt-3 w-full"
+                disabled={connectingWallet}
+                onClick={() => connectWallet('solana')}
+              >
+                {connectingWallet ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {solanaAddress ? 'Reconnect Wallet' : 'Connect Phantom'}
+              </Button>
+            </div>
+          </div>
+          
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full mt-2" 
+            disabled={!ethereumAddress && !solanaAddress}
+            onClick={handleOpenNFTBrowser}
+          >
+            <ImagePlus className="h-4 w-4 mr-2" />
+            Browse NFTs for Profile Picture
+          </Button>
+        </div>
+        
         <div className="flex justify-end space-x-2 pt-4">
           <Button 
             type="button" 
@@ -357,13 +520,25 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
         </div>
       </form>
       
-      {/* Cover Image Cropper Modal */}
       <CoverImageCropper 
         imageFile={coverImageFile}
         isOpen={isCropperOpen}
         onClose={() => setIsCropperOpen(false)}
         onSave={handleCroppedCoverImage}
       />
+      
+      <Dialog open={isNFTBrowserOpen} onOpenChange={setIsNFTBrowserOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Choose NFT as Profile Picture</DialogTitle>
+          </DialogHeader>
+          <NFTBrowser 
+            ethereumAddress={ethereumAddress} 
+            solanaAddress={solanaAddress} 
+            onNFTSelected={() => setIsNFTBrowserOpen(false)} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

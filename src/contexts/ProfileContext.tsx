@@ -51,7 +51,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           cover_url: data.cover_url,
           location: data.location,
           website: data.website,
-          updated_at: data.updated_at
+          updated_at: data.updated_at,
+          ethereum_address: data.ethereum_address,
+          solana_address: data.solana_address,
         };
         setProfile(profileData);
       }

@@ -16,8 +16,10 @@ export type Database = {
           cover_url: string | null
           created_at: string
           display_name: string | null
+          ethereum_address: string | null
           id: string
           location: string | null
+          solana_address: string | null
           updated_at: string
           username: string | null
           website: string | null
@@ -28,8 +30,10 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name?: string | null
+          ethereum_address?: string | null
           id: string
           location?: string | null
+          solana_address?: string | null
           updated_at?: string
           username?: string | null
           website?: string | null
@@ -40,8 +44,10 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name?: string | null
+          ethereum_address?: string | null
           id?: string
           location?: string | null
+          solana_address?: string | null
           updated_at?: string
           username?: string | null
           website?: string | null
