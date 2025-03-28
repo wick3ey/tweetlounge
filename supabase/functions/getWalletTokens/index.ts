@@ -1,4 +1,6 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { Connection, PublicKey } from 'https://esm.sh/@solana/web3.js@1.89.1';
 
 // Define the request body type
 interface RequestBody {
@@ -19,67 +21,127 @@ interface TokenResponse {
   }>;
 }
 
-// Fetch Solana tokens using Solscan API
+// Token name and symbol mapping for common tokens
+const tokenMetadata: Record<string, { name: string, symbol: string, logo?: string, decimals: number }> = {
+  "So11111111111111111111111111111111111111112": {
+    name: "Solana",
+    symbol: "SOL",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    decimals: 9
+  },
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+    name: "USD Coin",
+    symbol: "USDC",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+    decimals: 6
+  },
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": {
+    name: "USDT",
+    symbol: "USDT",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.png",
+    decimals: 6
+  },
+  "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj": {
+    name: "Raydium",
+    symbol: "RAY",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj/logo.png",
+    decimals: 6
+  }
+};
+
+// Fetch Solana tokens using @solana/web3.js
 async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
-    const SOLSCAN_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3MzU5MTE4NzUzNDgsImVtYWlsIjoiY29pbmJvaWlpQHByb3Rvbi5tZSIsImFjdGlvbiI6InRva2VuLWFwaSIsImFwaVZlcnNpb24iOiJ2MiIsImlhdCI6MTczNTkxMTg3NX0.vI-rJRuOALZz5mVoQnmx-AC5Qg5-jbJwFbohdmGmi5s';
+    console.log(`Fetching Solana tokens for address: ${address} using web3.js`);
     
-    // Fetch token holdings using Solscan API
-    const response = await fetch(`https://api.solscan.io/v2/token/holdings?account=${address}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Token': SOLSCAN_API_KEY
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Solscan API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Solscan API response:', JSON.stringify(data).substring(0, 200) + '...');
+    // Create connection to Solana mainnet
+    const connection = new Connection('https://api.mainnet-beta.solana.com', 'confirmed');
     
-    if (!data.data || !Array.isArray(data.data)) {
-      throw new Error('Invalid response format from Solscan API');
-    }
-
-    // Process and format token data
-    const tokens = data.data.map((token: any) => {
-      // Calculate real amount based on decimals
-      const decimals = token.tokenInfo?.decimals || 0;
-      const rawAmount = token.amount || '0';
-      const amount = (parseInt(rawAmount) / Math.pow(10, decimals)).toString();
+    // Convert address string to PublicKey
+    const walletAddress = new PublicKey(address);
+    
+    // Get SOL balance
+    const solBalance = await connection.getBalance(walletAddress);
+    const solAmount = (solBalance / 1e9).toString(); // Convert lamports to SOL
+    
+    // Initialize tokens array with SOL
+    const tokens = [{
+      name: "Solana",
+      symbol: "SOL",
+      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+      amount: solAmount,
+      usdValue: undefined, // We don't have price data in this basic implementation
+      decimals: 9,
+      address: "So11111111111111111111111111111111111111112"
+    }];
+    
+    try {
+      // Get all SPL token accounts owned by this wallet
+      const tokenAccounts = await connection.getTokenAccountsByOwner(
+        walletAddress,
+        {
+          programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), // SPL Token program ID
+        }
+      );
       
-      // Calculate USD value if available
-      let usdValue: string | undefined;
-      if (token.price && token.price > 0) {
-        usdValue = ((parseInt(rawAmount) / Math.pow(10, decimals)) * token.price).toFixed(2);
+      console.log(`Found ${tokenAccounts.value.length} token accounts`);
+      
+      // Process each token account
+      for (const account of tokenAccounts.value) {
+        try {
+          // Get token balance and info
+          const accountInfo = account.account.data;
+          const accountData = await connection.getTokenAccountBalance(account.pubkey);
+          
+          if (!accountData.value || !accountData.value.amount) {
+            continue;
+          }
+          
+          // Extract mint address
+          // This requires parsing the account data which is complex
+          // For simplicity, we'll extract it from the UI value
+          const mintAddress = accountData.value.mint || "";
+          const amount = accountData.value.uiAmount?.toString() || "0";
+          const decimals = accountData.value.decimals || 0;
+          
+          // Skip if amount is 0
+          if (parseFloat(amount) === 0) {
+            continue;
+          }
+          
+          // Get token metadata from our map or use defaults
+          const metadata = tokenMetadata[mintAddress] || {
+            name: `Token (${mintAddress.slice(0, 6)}...)`,
+            symbol: "UNKNOWN",
+            decimals: decimals
+          };
+          
+          tokens.push({
+            name: metadata.name,
+            symbol: metadata.symbol,
+            logo: metadata.logo,
+            amount: amount,
+            decimals: decimals,
+            address: mintAddress
+          });
+        } catch (error) {
+          console.error(`Error processing token account:`, error);
+          // Continue to next token account
+        }
       }
-
-      return {
-        name: token.tokenInfo?.name || token.tokenInfo?.symbol || 'Unknown Token',
-        symbol: token.tokenInfo?.symbol || 'UNKNOWN',
-        logo: token.tokenInfo?.icon || undefined,
-        amount: amount,
-        usdValue: usdValue,
-        decimals: decimals,
-        address: token.tokenInfo?.mint || token.tokenAddress || '',
-      };
-    });
-
-    // Filter out tokens with zero balance and sort by USD value
+    } catch (error) {
+      console.error("Error fetching token accounts:", error);
+      // Still return SOL balance
+    }
+    
+    // Filter out tokens with zero balance and sort by amount
     const filteredTokens = tokens
       .filter(token => parseFloat(token.amount) > 0)
-      .sort((a, b) => {
-        const aValue = a.usdValue ? parseFloat(a.usdValue) : 0;
-        const bValue = b.usdValue ? parseFloat(b.usdValue) : 0;
-        return bValue - aValue;
-      });
-
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+    
     return { tokens: filteredTokens };
   } catch (error) {
-    console.error('Error fetching Solana tokens from Solscan:', error);
+    console.error('Error in getSolanaTokens:', error);
     return { tokens: [] }; // Return empty array in case of error
   }
 }

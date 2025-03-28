@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -156,7 +155,7 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     );
   }
 
-  // Calculate total USD value
+  // Calculate total USD value (if available)
   const totalUsdValue = tokens.reduce((sum, token) => {
     const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
     return sum + tokenValue;
@@ -166,10 +165,12 @@ const WalletAssets = ({ ethereumAddress, solanaAddress }: WalletAssetsProps) => 
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Wallet Assets</h2>
-        <div className="text-right">
-          <p className="text-sm text-gray-500">Total Value</p>
-          <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-        </div>
+        {totalUsdValue > 0 && (
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Total Value</p>
+            <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+        )}
       </div>
       
       {/* Mobile view: Cards */}
