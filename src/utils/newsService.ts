@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 
@@ -52,12 +53,21 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   console.info('Fetching fresh crypto news');
   
   try {
-    // Using AllOrigins CORS proxy - Query for BTC, ETH, SOL and important news
-    // Added filter=hot to get major news stories
-    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en&filter=hot`;
+    // Using AllOrigins CORS proxy
+    // Modified parameters: removed filter=hot to get newest news, added "sort=published_at"
+    // to ensure most recent news first
+    const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en&sort=published_at`;
     const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
     
-    const response = await fetch(proxyUrl);
+    const response = await fetch(proxyUrl, {
+      // Added cache control to avoid browser caching
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      },
+      // Skip cache option
+      cache: 'no-store'
+    });
     
     if (!response.ok) {
       throw new Error(`Failed to fetch news: ${response.status}`);
@@ -69,7 +79,8 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
     // Parse the contents string as JSON to get the actual API response
     const parsedContents: CryptoPanicResponse = JSON.parse(data.contents);
     
-    // Sort by published date to ensure latest news first
+    // Double-check sorting by published date to ensure latest news first 
+    // (in case API sort parameter doesn't work)
     return parsedContents.results.sort((a, b) => {
       return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
     });
@@ -88,21 +99,25 @@ export const useNewsData = () => {
     data: newsArticles = [], 
     isLoading: loading, 
     error,
-    isRefetching
+    isRefetching,
+    refetch
   } = useQuery({
     queryKey: ['cryptoNews'],
     queryFn: fetchNews,
     refetchInterval: REFRESH_INTERVAL,
-    // Stale time to avoid refreshing data too often
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Reduced stale time to refresh data more often
+    staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 2, // Only retry twice before showing error
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window gets focus
   });
   
   return {
     newsArticles,
     loading,
     error: error ? (error instanceof Error ? error.message : "Unknown error") : null,
-    isRefreshing: isRefetching
+    isRefreshing: isRefetching,
+    refetch
   };
 };
 

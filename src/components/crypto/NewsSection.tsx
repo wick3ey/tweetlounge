@@ -108,7 +108,7 @@ const NewsItemSkeleton: React.FC = () => (
 );
 
 const NewsSection: React.FC = () => {
-  const { newsArticles, loading, error, isRefreshing } = useNewsData();
+  const { newsArticles, loading, error, isRefreshing, refetch } = useNewsData();
   
   // Display error toast if needed
   useEffect(() => {
@@ -120,6 +120,11 @@ const NewsSection: React.FC = () => {
       });
     }
   }, [error]);
+
+  // Force refetch when component mounts to ensure fresh data
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   return (
     <Card className="crypto-news-card bg-crypto-black border-crypto-gray shadow-md overflow-hidden">
