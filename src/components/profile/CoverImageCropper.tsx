@@ -28,12 +28,14 @@ const CoverImageCropper = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Fixed aspect ratio for Twitter header: 3:1 (1500x500px)
+  const aspectRatio = 3;
+  const targetWidth = 1500;
+  const targetHeight = 500;
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const cropBoxRef = useRef<HTMLDivElement>(null);
-  
-  // Exakt förhållande för cover image: 3:1 (baserat på ProfileHeader-komponenten)
-  const aspectRatio = 3; // width:height ratio
   
   // Load the image when file changes
   useEffect(() => {
@@ -119,11 +121,10 @@ const CoverImageCropper = ({
     setIsProcessing(true);
     
     try {
-      // Create a canvas with the desired output size - exakt dimensioner för header image
-      // Leverera en bild med 1500x500px (3:1 ratio) för bästa kvalitet
+      // Create a canvas with the exact Twitter header dimensions: 1500x500px (3:1 ratio)
       const canvas = document.createElement('canvas');
-      canvas.width = 1500;  // Header width
-      canvas.height = 500;  // Header height
+      canvas.width = targetWidth;  // Twitter header width
+      canvas.height = targetHeight;  // Twitter header height
       const ctx = canvas.getContext('2d');
       
       if (!ctx) {
@@ -142,7 +143,7 @@ const CoverImageCropper = ({
       const sourceWidth = cropBoxRect.width / scale;
       const sourceHeight = cropBoxRect.height / scale;
       
-      // Draw the image to the canvas
+      // Draw the image to the canvas with the exact Twitter dimensions
       ctx.drawImage(
         imageRef.current,
         sourceX,
@@ -151,11 +152,11 @@ const CoverImageCropper = ({
         sourceHeight,
         0,
         0,
-        1500,
-        500
+        targetWidth,
+        targetHeight
       );
       
-      // Convert canvas to blob
+      // Convert canvas to blob with high quality
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -175,7 +176,7 @@ const CoverImageCropper = ({
           onClose();
         },
         'image/jpeg',
-        0.9  // Högre kvalitet
+        0.95  // High quality
       );
     } catch (error) {
       console.error('Error processing image:', error);
@@ -190,30 +191,44 @@ const CoverImageCropper = ({
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden">
-        <DialogHeader className="p-4 border-b">
-          <div className="flex items-center">
+      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-0">
+        <DialogHeader className="p-4 border-b border-gray-700 bg-black">
+          <div className="flex items-center justify-between w-full">
             <Button 
               variant="ghost" 
               size="icon" 
-              className="mr-2 h-8 w-8" 
+              className="mr-2 h-8 w-8 text-white hover:bg-gray-800" 
               onClick={onClose}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <DialogTitle>Redigera coverbild</DialogTitle>
+            <DialogTitle className="text-white text-center flex-grow">Redigera coverbild</DialogTitle>
+            <Button 
+              onClick={handleSave} 
+              variant="outline" 
+              size="sm"
+              disabled={isProcessing} 
+              className="rounded-full font-medium px-4 bg-white text-black hover:bg-gray-200 border-0"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" /> Bearbetar
+                </>
+              ) : (
+                "Använd"
+              )}
+            </Button>
           </div>
         </DialogHeader>
         
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader className="h-8 w-8 animate-spin text-twitter-blue" />
+          <div className="flex justify-center items-center h-64 bg-black">
+            <Loader className="h-8 w-8 animate-spin text-white" />
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Visuell förhandsvisning som exakt matchar profilheaderns dimensioner */}
+          <div className="space-y-4 bg-black">
+            {/* Twitter-style aspect ratio cropper with exact 3:1 ratio */}
             <div className="relative overflow-hidden">
-              {/* AspectRatio garaneterar att vi visar exakt samma förhållande som headern */}
               <AspectRatio ratio={3/1} className="bg-black w-full">
                 <div 
                   ref={containerRef}
@@ -236,21 +251,27 @@ const CoverImageCropper = ({
                     />
                   )}
                   
-                  {/* Crop box med guidelines - tar hela tillgängliga ytan för att matcha headerproportionerna */}
+                  {/* Twitter-style crop box with guides - takes entire available area to match header proportions */}
                   <div 
                     ref={cropBoxRef}
-                    className="absolute inset-0 pointer-events-none border-2 border-blue-500"
+                    className="absolute inset-0 pointer-events-none border-2 border-twitter-blue"
                     style={{
-                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6)',
+                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
                     }}
                   >
-                    {/* Grid lines för visuell guidning - 3x3 grid */}
+                    {/* Twitter-style 3x3 grid lines for visual guidance */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      <div className="border-r border-blue-500 opacity-70 h-full"></div>
-                      <div className="border-r border-blue-500 opacity-70 h-full"></div>
-                      <div className="border-b border-blue-500 opacity-70 w-full"></div>
-                      <div className="border-b border-blue-500 opacity-70 w-full"></div>
+                      <div className="border-r border-twitter-blue opacity-50 h-full"></div>
+                      <div className="border-r border-twitter-blue opacity-50 h-full"></div>
+                      <div className="border-b border-twitter-blue opacity-50 w-full"></div>
+                      <div className="border-b border-twitter-blue opacity-50 w-full"></div>
                     </div>
+                    
+                    {/* Small blue handles at corners */}
+                    <div className="absolute top-0 left-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
+                    <div className="absolute top-0 right-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
+                    <div className="absolute bottom-0 left-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
                     
                     {/* Information text */}
                     <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
@@ -261,8 +282,9 @@ const CoverImageCropper = ({
               </AspectRatio>
             </div>
             
-            <div className="flex items-center space-x-2 p-4 w-full bg-gray-100">
-              <ZoomOut className="h-4 w-4 text-gray-700" />
+            {/* Twitter-style zoom slider */}
+            <div className="flex items-center space-x-2 p-6 bg-black text-white">
+              <ZoomOut className="h-5 w-5 text-white" />
               <Slider
                 value={[scale]}
                 min={1}
@@ -271,24 +293,7 @@ const CoverImageCropper = ({
                 onValueChange={(values) => setScale(values[0])}
                 className="flex-1"
               />
-              <ZoomIn className="h-4 w-4 text-gray-700" />
-            </div>
-            
-            <div className="p-4 flex justify-end">
-              <Button 
-                onClick={handleSave} 
-                variant="default" 
-                disabled={isProcessing} 
-                className="rounded-full font-medium px-6"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" /> Bearbetar
-                  </>
-                ) : (
-                  "Använd"
-                )}
-              </Button>
+              <ZoomIn className="h-5 w-5 text-white" />
             </div>
           </div>
         )}

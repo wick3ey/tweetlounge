@@ -59,7 +59,7 @@ const ProfileHeader = ({
 
   return (
     <div className="border-b border-gray-200 pb-4">
-      {/* Cover photo with correct aspect ratio */}
+      {/* Cover photo with Twitter-style aspect ratio (3:1) */}
       <AspectRatio ratio={3/1} className="bg-twitter-extraExtraLight">
         <div 
           className="h-full w-full relative"

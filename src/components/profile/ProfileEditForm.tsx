@@ -177,7 +177,7 @@ const ProfileEditForm = ({ onClose }: ProfileEditFormProps) => {
         </div>
       </div>
       
-      {/* Cover Image Cropper */}
+      {/* Twitter-style Cover Image Cropper */}
       <CoverImageCropper
         imageFile={coverFile}
         isOpen={coverCropperOpen}
