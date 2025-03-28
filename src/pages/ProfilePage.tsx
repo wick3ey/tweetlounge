@@ -57,10 +57,10 @@ const ProfilePage = () => {
 
   if (isLoading || profileLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background dark:bg-web3-darker">
+      <div className="min-h-screen bg-background bg-mesh-gradient flex items-center justify-center">
         <div className="glass-card p-8 flex flex-col items-center">
-          <Loader className="h-10 w-10 animate-spin text-web3-primary" />
-          <p className="mt-4 text-web3-primary dark:text-white/80 animate-pulse">Loading profile...</p>
+          <Loader className="h-10 w-10 animate-spin text-primary mb-4" />
+          <p className="gradient-text animate-pulse font-medium">Loading profile...</p>
         </div>
       </div>
     );
@@ -68,28 +68,32 @@ const ProfilePage = () => {
 
   if (!profileExists) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background dark:bg-web3-darker">
+      <div className="min-h-screen bg-background bg-mesh-gradient flex flex-col items-center justify-center px-4">
         <div className="glass-card p-8 max-w-md text-center">
-          <h1 className="text-2xl font-bold mb-4 gradient-text">User not found</h1>
-          <p className="text-gray-500 dark:text-gray-400">The user you're looking for doesn't exist or has been removed.</p>
+          <h1 className="text-2xl font-bold mb-4 gradient-text font-display">User not found</h1>
+          <p className="text-muted-foreground mb-6">The user you're looking for doesn't exist or has been removed.</p>
+          <button 
+            onClick={() => navigate('/home')}
+            className="interactive-button px-4 py-2"
+          >
+            Return Home
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-background dark:bg-gradient-to-b dark:from-web3-dark dark:to-web3-darker transition-colors duration-300">
-        <Navbar />
-        <div className="container mx-auto flex flex-col lg:flex-row">
-          <LeftSidebar />
-          <main className="flex-1 min-h-screen border-x border-border">
-            <Profile />
-          </main>
-          <RightSidebar />
-        </div>
+    <div className="min-h-screen bg-background bg-mesh-gradient">
+      <Navbar />
+      <div className="container mx-auto flex flex-col lg:flex-row">
+        <LeftSidebar />
+        <main className="flex-1 min-h-screen border-x border-border/30">
+          <Profile />
+        </main>
+        <RightSidebar />
       </div>
-    </ThemeProvider>
+    </div>
   );
 };
 

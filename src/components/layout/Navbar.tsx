@@ -11,7 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Check } from 'lucide-react';
+import { LogOut, User, Check, Zap, Settings } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
@@ -45,66 +46,68 @@ const Navbar = () => {
   const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
 
   return (
-    <nav className="border-b border-gray-200 bg-white">
+    <nav className="border-b border-border/30 backdrop-blur-sm bg-background/40 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/home" className="text-xl font-bold text-twitter-blue flex items-center">
-          <svg 
-            viewBox="0 0 24 24" 
-            className="h-8 w-8 mr-2 fill-current"
-            aria-hidden="true"
-          >
-            <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733.962-.576 1.7-1.49 2.048-2.578-.9.534-1.897.922-2.958 1.13-.85-.904-2.06-1.47-3.4-1.47-2.572 0-4.658 2.086-4.658 4.66 0 .364.042.718.12 1.06-3.873-.195-7.304-2.05-9.602-4.868-.4.69-.63 1.49-.63 2.342 0 1.616.823 3.043 2.072 3.878-.764-.025-1.482-.234-2.11-.583v.06c0 2.257 1.605 4.14 3.737 4.568-.392.106-.803.162-1.227.162-.3 0-.593-.028-.877-.082.593 1.85 2.313 3.198 4.352 3.234-1.595 1.25-3.604 1.995-5.786 1.995-.376 0-.747-.022-1.112-.065 2.062 1.323 4.51 2.093 7.14 2.093 8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.402-.014-.602.91-.658 1.7-1.477 2.323-2.41z"></path>
-          </svg>
-          TweetLounge
+        <Link to="/home" className="text-xl font-display font-bold text-primary flex items-center">
+          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-2">
+            <Zap className="h-5 w-5 text-primary" />
+          </div>
+          <span className="bg-web3-gradient bg-clip-text text-transparent">TweetLounge</span>
         </Link>
         
         <div className="flex items-center gap-4">
+          <ThemeToggle />
+          
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full bg-primary/5 hover:bg-primary/10 hover-glow">
+                  <Avatar className="h-9 w-9 border border-border/50">
                     {profile?.avatar_url ? (
                       <AvatarImage src={profile.avatar_url} alt="User" />
                     ) : null}
-                    <AvatarFallback className="bg-twitter-blue text-white">
+                    <AvatarFallback className="bg-primary/20 text-primary font-medium">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <div className="flex items-center p-2 border-b">
-                  <Avatar className="h-8 w-8 mr-2">
+              <DropdownMenuContent className="glass-card border-border/50 backdrop-blur-md w-60" align="end">
+                <div className="flex items-center p-3 border-b border-border/30">
+                  <Avatar className="h-9 w-9 mr-3 border border-border/50">
                     {profile?.avatar_url ? (
                       <AvatarImage src={profile.avatar_url} alt="User" />
                     ) : null}
-                    <AvatarFallback className="bg-twitter-blue text-white text-xs">
+                    <AvatarFallback className="bg-primary/20 text-primary font-medium text-xs">
                       {getInitials()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
                     <div className="flex items-center">
-                      <span className="font-medium text-sm">{profile?.display_name || user.email?.split('@')[0]}</span>
+                      <span className="font-medium">{profile?.display_name || user.email?.split('@')[0]}</span>
                       
                       {/* Modern Twitter-style Verified Badge */}
                       {isNFTVerified && (
                         <div className="inline-flex items-center ml-1">
-                          <div className="bg-red-500 rounded-full p-0.5 flex items-center justify-center">
+                          <div className="bg-primary rounded-full p-0.5 flex items-center justify-center">
                             <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
                           </div>
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-gray-500">@{profile?.username || user.email?.split('@')[0]}</span>
+                    <span className="text-xs text-muted-foreground">@{profile?.username || user.email?.split('@')[0]}</span>
                   </div>
                 </div>
-                <DropdownMenuItem onClick={goToProfile}>
+                <DropdownMenuItem className="focus:bg-primary/10 cursor-pointer" onClick={goToProfile}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
+                <DropdownMenuItem className="focus:bg-primary/10 cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-border/30" />
+                <DropdownMenuItem className="focus:bg-primary/10 cursor-pointer" onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign out</span>
                 </DropdownMenuItem>
@@ -112,10 +115,17 @@ const Navbar = () => {
             </DropdownMenu>
           ) : (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate('/login')}>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/login')}
+                className="border-primary/30 text-foreground hover:bg-primary/10"
+              >
                 Sign In
               </Button>
-              <Button className="btn-twitter" onClick={() => navigate('/signup')}>
+              <Button 
+                className="web3-button shadow-glow-sm hover:shadow-glow-md" 
+                onClick={() => navigate('/signup')}
+              >
                 Sign Up
               </Button>
             </div>

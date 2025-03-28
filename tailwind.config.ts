@@ -19,6 +19,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Inter", ...fontFamily.sans],
+        display: ["Space Grotesk", ...fontFamily.sans],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -39,6 +43,7 @@ export default {
           dark: "#0f172a",
           darker: "#020617",
           navy: "#1e293b",
+          nightblue: "#111827",
           highlight: "#38bdf8",
           success: "#10b981",
           warning: "#f59e0b",
@@ -80,9 +85,6 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      fontFamily: {
-        sans: ["var(--font-sans)", ...fontFamily.sans],
-      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -100,17 +102,29 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.8" },
         },
+        shimmer: {
+          '0%': { backgroundPosition: '-500px 0' },
+          '100%': { backgroundPosition: '500px 0' },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         glow: "glow 3s ease-in-out infinite",
         "pulse-slow": "pulse-slow 4s ease-in-out infinite",
+        shimmer: 'shimmer 2s infinite linear',
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "web3-gradient": "linear-gradient(to right, #6366f1, #8b5cf6, #d946ef)",
         "dark-gradient": "linear-gradient(to bottom, #0f172a, #020617)",
+        "glow-gradient": "radial-gradient(circle at center, rgba(99, 102, 241, 0.15), transparent 80%)",
+        "mesh-gradient": "radial-gradient(at 40% 20%, rgba(99, 102, 241, 0.1) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%), radial-gradient(at 0% 50%, rgba(217, 70, 239, 0.1) 0px, transparent 50%)",
+      },
+      boxShadow: {
+        'glow-sm': '0 0 10px rgba(99, 102, 241, 0.3)',
+        'glow-md': '0 0 20px rgba(99, 102, 241, 0.4)',
+        'glow-lg': '0 0 30px rgba(99, 102, 241, 0.5)',
       },
     },
   },

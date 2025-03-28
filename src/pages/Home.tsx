@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +7,7 @@ import RightSidebar from "@/components/layout/RightSidebar";
 import TweetComposer from "@/components/tweet/TweetComposer";
 import TweetCard from "@/components/tweet/TweetCard";
 import { TweetWithAuthor } from "@/types/Tweet";
-import { Loader } from "lucide-react";
+import { Loader, Sparkles } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const Home = () => {
@@ -100,25 +101,35 @@ const Home = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-background bg-mesh-gradient">
         <div className="container mx-auto flex">
           <LeftSidebar />
 
-          <main className="flex-1 min-h-screen border-x border-gray-200">
-            <div className="p-4 border-b border-gray-200">
-              <h1 className="text-xl font-bold">Home</h1>
+          <main className="flex-1 min-h-screen border-x border-border/30">
+            <div className="p-4 backdrop-blur-sm border-b border-border/30 sticky top-0 z-10 bg-background/70">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-display font-bold">Home</h1>
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
             </div>
 
-            <TweetComposer onTweetSubmit={handleTweetSubmit} placeholder="What's happening?" />
+            <div className="border-b border-border/30 bg-card/20">
+              <TweetComposer onTweetSubmit={handleTweetSubmit} placeholder="What's happening?" />
+            </div>
 
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-border/30">
               {isLoading ? (
                 <div className="flex justify-center items-center p-10">
-                  <Loader className="w-8 h-8 animate-spin text-twitter-blue" />
+                  <div className="glass-card p-8 flex flex-col items-center">
+                    <Loader className="w-8 h-8 animate-spin text-primary" />
+                    <p className="mt-4 text-sm text-muted-foreground">Loading tweets...</p>
+                  </div>
                 </div>
               ) : (
                 tweets.map((tweet) => (
-                  <TweetCard key={tweet.id} tweet={tweet} />
+                  <div key={tweet.id} className="hover:bg-card/20 transition-colors">
+                    <TweetCard tweet={tweet} />
+                  </div>
                 ))
               )}
             </div>
