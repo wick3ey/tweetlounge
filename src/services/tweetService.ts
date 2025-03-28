@@ -1,42 +1,30 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
+import { uploadFile } from './storageService';
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
-    if (!(await user).data.user) {
+    if (!userData.user) {
       throw new Error('User must be logged in to create a tweet');
     }
     
     let imageUrl = null;
     
     if (imageFile) {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${(await user).data.user?.id}/${fileName}`;
+      imageUrl = await uploadFile(imageFile, 'tweets');
       
-      const { error: uploadError } = await supabase.storage
-        .from('tweet-images')
-        .upload(filePath, imageFile);
-        
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        throw uploadError;
+      if (!imageUrl) {
+        throw new Error('Failed to upload image');
       }
-      
-      const { data } = supabase.storage
-        .from('tweet-images')
-        .getPublicUrl(filePath);
-        
-      imageUrl = data.publicUrl;
     }
     
     const { data, error } = await supabase
       .from('tweets')
       .insert({
         content,
-        author_id: (await user).data.user?.id,
+        author_id: userData.user.id,
         image_url: imageUrl
       })
       .select()
@@ -50,7 +38,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
     return data;
   } catch (error) {
     console.error('Tweet creation failed:', error);
-    return null;
+    throw new Error('Failed to create tweet');
   }
 }
 

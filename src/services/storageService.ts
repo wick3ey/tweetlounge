@@ -24,3 +24,35 @@ export const createBucketIfNotExists = async () => {
 
 // Call this function when your app initializes
 createBucketIfNotExists();
+
+export const uploadFile = async (file: File, folder: string): Promise<string | null> => {
+  try {
+    const user = await supabase.auth.getUser();
+    
+    if (!user.data.user) {
+      throw new Error('User must be logged in to upload files');
+    }
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${user.data.user.id}/${fileName}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('tweet-images')
+      .upload(filePath, file);
+      
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      throw uploadError;
+    }
+    
+    const { data } = supabase.storage
+      .from('tweet-images')
+      .getPublicUrl(filePath);
+      
+    return data.publicUrl;
+  } catch (error) {
+    console.error('File upload failed:', error);
+    return null;
+  }
+};
