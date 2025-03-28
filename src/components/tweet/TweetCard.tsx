@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, X } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
