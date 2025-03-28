@@ -20,6 +20,9 @@ export type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
+  location: string | null;
+  website: string | null;
   updated_at: string | null;
   created_at: string;
 };

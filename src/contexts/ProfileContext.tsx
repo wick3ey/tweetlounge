@@ -49,6 +49,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           bio: data.bio,
           avatar_url: data.avatar_url,
           cover_url: data.cover_url,
+          location: data.location,
+          website: data.website,
           updated_at: data.updated_at
         };
         setProfile(profileData);

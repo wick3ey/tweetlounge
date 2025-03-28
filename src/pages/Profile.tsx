@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import ProfileEditForm from "@/components/profile/ProfileEditForm";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { format, parseISO } from "date-fns";
 
 const Profile = () => {
   const { username } = useParams();
@@ -75,6 +76,17 @@ const Profile = () => {
       setProfileTweets(mockTweets);
     }, 1000);
   }, [user, profile, username]);
+
+  // Function to format a URL to a display-friendly version
+  const formatWebsiteUrl = (url: string) => {
+    if (!url) return "";
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname.replace(/^www\./, '');
+    } catch (error) {
+      return url;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -163,14 +175,31 @@ const Profile = () => {
               )}
               
               <div className="flex flex-wrap gap-x-4 text-gray-500 text-sm mb-3">
+                {profile?.location && (
+                  <span className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-1" /> {profile.location}
+                  </span>
+                )}
+                
+                {profile?.website && (
+                  <span className="flex items-center">
+                    <Link2 className="h-4 w-4 mr-1" /> 
+                    <a 
+                      href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-twitter-blue hover:underline"
+                    >
+                      {formatWebsiteUrl(profile.website)}
+                    </a>
+                  </span>
+                )}
+                
                 <span className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-1" /> Stockholm, Sweden
-                </span>
-                <span className="flex items-center">
-                  <Link2 className="h-4 w-4 mr-1" /> <a href="#" className="text-twitter-blue">lovable.ai</a>
-                </span>
-                <span className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1" /> Joined March 2023
+                  <Calendar className="h-4 w-4 mr-1" /> 
+                  {user?.created_at 
+                    ? `Joined ${format(parseISO(user.created_at), 'MMMM yyyy')}`
+                    : "Joined recently"}
                 </span>
               </div>
               
