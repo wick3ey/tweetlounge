@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Loader, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { fetchWalletTokens, Token } from '@/utils/tokenService';
+import { fetchWalletTokens, Token, TokensResponse } from '@/utils/tokenService';
 import {
   Table,
   TableBody,
@@ -24,23 +24,31 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [solPrice, setSolPrice] = useState<number | undefined>(undefined);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   const loadTokens = async () => {
     setIsLoading(true);
     setError(null);
-    setTokens([]);
     
     try {
       if (solanaAddress) {
         console.log(`Attempting to fetch Solana tokens for: ${solanaAddress}`);
         try {
-          const solTokens = await fetchWalletTokens(solanaAddress);
-          console.log('Solana tokens response:', solTokens);
-          if (solTokens && solTokens.length > 0) {
-            console.log(`Successfully retrieved ${solTokens.length} Solana tokens`);
-            setTokens(solTokens);
+          const response: TokensResponse = await fetchWalletTokens(solanaAddress);
+          console.log('Solana tokens response:', response);
+          
+          if (response.tokens && response.tokens.length > 0) {
+            console.log(`Successfully retrieved ${response.tokens.length} Solana tokens`);
+            setTokens(response.tokens);
+            
+            if (response.solPrice) {
+              console.log(`SOL price: $${response.solPrice}`);
+              setSolPrice(response.solPrice);
+            }
           } else {
             console.log('No Solana tokens found or returned');
+            // We don't set an error here, just leave tokens empty
           }
         } catch (err) {
           console.error('Error fetching Solana tokens:', err);
@@ -52,10 +60,6 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
           setError('Failed to load Solana tokens. Please try again later.');
         }
       }
-      
-      if (tokens.length === 0 && solanaAddress) {
-        setError('No tokens found for your connected wallet. If you believe this is an error, please try again.');
-      }
     } catch (err) {
       console.error('Error in loadTokens function:', err);
       setError('Failed to load tokens. Please try again later.');
@@ -66,6 +70,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       });
     } finally {
       setIsLoading(false);
+      setHasAttemptedLoad(true);
     }
   };
 
@@ -74,6 +79,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       loadTokens();
     } else {
       setIsLoading(false);
+      setHasAttemptedLoad(true);
     }
   }, [solanaAddress]);
 
@@ -124,19 +130,35 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     );
   }
 
-  if (tokens.length === 0) {
+  if (tokens.length === 0 && hasAttemptedLoad && !solanaAddress) {
     return (
       <div className="flex flex-col items-center justify-center p-8">
-        <div className="text-gray-500 mb-4">No tokens found in connected wallet.</div>
-        {solanaAddress && (
-          <Button onClick={handleRetry} variant="outline" size="sm">
-            Refresh
-          </Button>
-        )}
+        <div className="text-gray-500 mb-4">No wallet connected. Please connect your Solana wallet in profile settings.</div>
       </div>
     );
   }
 
+  // Display empty state only if we don't have tokens AND we're not actually loading
+  if (tokens.length === 0 && hasAttemptedLoad && solanaAddress) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8">
+        <Button onClick={handleRetry} variant="outline" size="sm" className="mb-4">
+          Refresh
+        </Button>
+        <div className="text-gray-500">No tokens found. Refreshing may help if this is unexpected.</div>
+      </div>
+    );
+  }
+
+  // Calculate total SOL value
+  const totalSolValue = tokens.reduce((sum, token) => {
+    if (token.symbol === 'SOL') {
+      return sum + parseFloat(token.amount);
+    }
+    return sum;
+  }, 0);
+
+  // Calculate total USD value
   const totalUsdValue = tokens.reduce((sum, token) => {
     const tokenValue = token.usdValue ? parseFloat(token.usdValue) : 0;
     return sum + tokenValue;
@@ -146,12 +168,14 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Solana Assets</h2>
-        {totalUsdValue > 0 && (
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Total Value</p>
+        <div className="text-right">
+          {totalSolValue > 0 && (
+            <p className="text-sm text-gray-500">Total SOL: <span className="font-semibold">{totalSolValue.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL</span></p>
+          )}
+          {totalUsdValue > 0 && solPrice && (
             <p className="font-semibold text-lg">${totalUsdValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:hidden">

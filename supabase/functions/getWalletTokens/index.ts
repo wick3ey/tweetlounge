@@ -20,6 +20,7 @@ interface TokenResponse {
     decimals: number;
     address: string;
   }>;
+  solPrice?: number;
 }
 
 // Token name and symbol mapping for common tokens
@@ -50,10 +51,33 @@ const tokenMetadata: Record<string, { name: string, symbol: string, logo?: strin
   }
 };
 
+// Fetch SOL price from CoinGecko
+async function getSolPrice(): Promise<number | undefined> {
+  try {
+    console.log("Fetching SOL price from CoinGecko");
+    const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
+    const data = await response.json();
+    
+    if (data && data.solana && data.solana.usd) {
+      console.log(`Current SOL price: $${data.solana.usd}`);
+      return data.solana.usd;
+    }
+    
+    console.error("Failed to get SOL price from response:", data);
+    return undefined;
+  } catch (error) {
+    console.error("Error fetching SOL price:", error);
+    return undefined;
+  }
+}
+
 // Fetch Solana tokens using QuickNode and @solana/web3.js
 async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
     console.log(`Fetching Solana tokens for address: ${address} using QuickNode`);
+    
+    // Get SOL price
+    const solPrice = await getSolPrice();
     
     // Create connection to Solana mainnet via QuickNode
     const rpcEndpoint = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
@@ -72,7 +96,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       symbol: "SOL",
       logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       amount: solAmount,
-      usdValue: undefined, // We don't have price data in this implementation
+      usdValue: solPrice ? (parseFloat(solAmount) * solPrice).toString() : undefined,
       decimals: 9,
       address: "So11111111111111111111111111111111111111112"
     }];
@@ -114,10 +138,13 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
             continue;
           }
           
+          // Format token address for display (first 4 and last 5 characters)
+          const formattedAddress = `${mintAddress.slice(0, 4)}...${mintAddress.slice(-5)}`;
+          
           // Get token metadata from our map or use defaults
           const metadata = tokenMetadata[mintAddress] || {
-            name: "UNKNOWN",
-            symbol: "UNKNOWN",
+            name: formattedAddress,
+            symbol: formattedAddress,
             decimals: tokenDecimals
           };
           
@@ -147,7 +174,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
     
     console.log(`Returning ${filteredTokens.length} Solana tokens`);
-    return { tokens: filteredTokens };
+    return { tokens: filteredTokens, solPrice };
   } catch (error) {
     console.error('Error in getSolanaTokens:', error);
     return { tokens: [] }; // Return empty array in case of error

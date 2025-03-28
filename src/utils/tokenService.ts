@@ -14,14 +14,19 @@ export interface Token {
   dexScreenerUrl?: string;
 }
 
+export interface TokensResponse {
+  tokens: Token[];
+  solPrice?: number;
+}
+
 /**
  * Fetch tokens from a wallet address
  * @param address The wallet address
- * @returns Promise with array of tokens
+ * @returns Promise with array of tokens and SOL price
  */
 export const fetchWalletTokens = async (
   address: string
-): Promise<Token[]> => {
+): Promise<TokensResponse> => {
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
     
@@ -38,19 +43,19 @@ export const fetchWalletTokens = async (
     // The response should have a tokens array
     if (!data) {
       console.error(`No data returned for Solana tokens`);
-      return [];
+      return { tokens: [] };
     }
     
     console.log(`Solana tokens raw response:`, data);
     
     if (!data.tokens || !Array.isArray(data.tokens)) {
       console.error(`Invalid token data response structure for Solana:`, data);
-      return [];
+      return { tokens: [] };
     }
     
     // Process the tokens
     const processedTokens = data.tokens.map((token: any) => {
-      // Function to truncate address for unknown tokens
+      // Function to format token name for unknown tokens
       const formatTokenName = (tokenAddress: string) => {
         if (token.name && token.name !== 'UNKNOWN') return token.name;
         
@@ -73,11 +78,14 @@ export const fetchWalletTokens = async (
     });
     
     console.log(`Successfully processed ${processedTokens.length} Solana tokens`);
-    return processedTokens;
+    return { 
+      tokens: processedTokens,
+      solPrice: data.solPrice 
+    };
     
   } catch (error) {
     console.error(`Error in fetchWalletTokens for Solana:`, error);
-    return []; // Return empty array in case of error
+    return { tokens: [] }; // Return empty array in case of error
   }
 };
 
