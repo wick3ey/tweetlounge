@@ -42,11 +42,11 @@ export const fetchWalletTokens = async (
       
       console.log(`Successfully retrieved ${data.tokens.length} Solana tokens`);
       
-      // Process tokens and add explorer URL
+      // Process tokens and add explorer URL if not present
       return data.tokens.map((token: any) => ({
         ...token,
         chain: 'solana' as const,
-        explorerUrl: getExplorerUrl(token.address)
+        explorerUrl: token.explorerUrl || getExplorerUrl(token.address)
       }));
     } catch (err) {
       console.error('Error fetching Solana tokens:', err);
