@@ -1,4 +1,3 @@
-
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,7 @@ const CoverImageCropper = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [naturalImageSize, setNaturalImageSize] = useState({ width: 0, height: 0 });
   
   // Fixed aspect ratio for Twitter header: 3:1 (1500x500px)
   const aspectRatio = 3;
@@ -44,10 +44,46 @@ const CoverImageCropper = ({
       const reader = new FileReader();
       reader.onload = (e) => {
         setImageSrc(e.target?.result as string);
-        setIsLoading(false);
-        // Reset position and scale
-        setPosition({ x: 0, y: 0 });
-        setScale(1);
+        
+        // We'll set natural size once the image loads
+        const img = new Image();
+        img.onload = () => {
+          setNaturalImageSize({
+            width: img.naturalWidth,
+            height: img.naturalHeight
+          });
+          
+          // Auto-calculate initial scale and position to fit the image properly
+          setTimeout(() => {
+            if (containerRef.current) {
+              const containerRect = containerRef.current.getBoundingClientRect();
+              
+              // Calculate the scale needed to fit the width or height, whichever is limiting
+              const widthRatio = containerRect.width / img.naturalWidth;
+              const heightRatio = containerRect.height / img.naturalHeight;
+              
+              // Choose the smaller ratio to ensure the image fits
+              let initialScale = Math.min(widthRatio, heightRatio);
+              
+              // Ensure we don't zoom in too much for small images
+              initialScale = Math.min(initialScale, 1);
+              
+              setScale(initialScale);
+              
+              // Center the image
+              const scaledWidth = img.naturalWidth * initialScale;
+              const scaledHeight = img.naturalHeight * initialScale;
+              
+              setPosition({
+                x: (containerRect.width - scaledWidth) / 2,
+                y: (containerRect.height - scaledHeight) / 2
+              });
+            }
+            
+            setIsLoading(false);
+          }, 100);
+        };
+        img.src = e.target?.result as string;
       };
       reader.readAsDataURL(imageFile);
     }
@@ -76,20 +112,24 @@ const CoverImageCropper = ({
     const containerRect = containerRef.current.getBoundingClientRect();
     const imageRect = imageRef.current.getBoundingClientRect();
     
-    const scaledWidth = imageRect.width * scale;
-    const scaledHeight = imageRect.height * scale;
+    const scaledWidth = imageRect.width;
+    const scaledHeight = imageRect.height;
     
-    const minX = containerRect.width - scaledWidth;
-    const minY = containerRect.height - scaledHeight;
+    // Allow dragging within and slightly beyond container boundaries
+    // for larger images, but keep smaller images within view
+    const minX = Math.min(0, containerRect.width - scaledWidth);
+    const minY = Math.min(0, containerRect.height - scaledHeight);
+    const maxX = Math.max(0, containerRect.width - scaledWidth);
+    const maxY = Math.max(0, containerRect.height - scaledHeight);
     
     // Clamp position
-    const clampedX = Math.min(0, Math.max(minX, newX));
-    const clampedY = Math.min(0, Math.max(minY, newY));
+    const clampedX = Math.max(minX, Math.min(maxX, newX));
+    const clampedY = Math.max(minY, Math.min(maxY, newY));
     
     setPosition({ x: clampedX, y: clampedY });
     
     e.preventDefault();
-  }, [isDragging, dragStart, scale]);
+  }, [isDragging, dragStart]);
   
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -107,6 +147,37 @@ const CoverImageCropper = ({
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
+  
+  // Handle zoom changes with clamping
+  const handleZoomChange = (newScale: number[]) => {
+    const zoomValue = newScale[0];
+    setScale(zoomValue);
+    
+    // Recalculate position to zoom around center
+    if (containerRef.current && imageRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      
+      // Calculate new scaled dimensions
+      const newWidth = naturalImageSize.width * zoomValue;
+      const newHeight = naturalImageSize.height * zoomValue;
+      
+      // Calculate boundaries
+      const minX = Math.min(0, containerRect.width - newWidth);
+      const minY = Math.min(0, containerRect.height - newHeight);
+      const maxX = Math.max(0, containerRect.width - newWidth);
+      const maxY = Math.max(0, containerRect.height - newHeight);
+      
+      // Try to keep the image centered when zooming
+      const centerX = (containerRect.width - newWidth) / 2;
+      const centerY = (containerRect.height - newHeight) / 2;
+      
+      // Clamp to boundaries
+      const clampedX = Math.max(minX, Math.min(maxX, centerX));
+      const clampedY = Math.max(minY, Math.min(maxY, centerY));
+      
+      setPosition({ x: clampedX, y: clampedY });
+    }
+  };
   
   const handleSave = async () => {
     if (!containerRef.current || !imageRef.current || !imageSrc || !cropBoxRef.current) {
@@ -134,14 +205,25 @@ const CoverImageCropper = ({
       // Get dimensions
       const cropBoxRect = cropBoxRef.current.getBoundingClientRect();
       const containerRect = containerRef.current.getBoundingClientRect();
-      const imageRect = imageRef.current.getBoundingClientRect();
       
-      // Calculate the source coordinates for cropping
-      // Convert the crop box coordinates to be relative to the image
-      const sourceX = (cropBoxRect.left - containerRect.left - position.x) / scale;
-      const sourceY = (cropBoxRect.top - containerRect.top - position.y) / scale;
-      const sourceWidth = cropBoxRect.width / scale;
-      const sourceHeight = cropBoxRect.height / scale;
+      // Calculate scaling factors to convert from screen pixels to image natural pixels
+      const scaleFactorX = naturalImageSize.width / (imageRef.current.clientWidth / scale);
+      const scaleFactorY = naturalImageSize.height / (imageRef.current.clientHeight / scale);
+      
+      // Calculate the source coordinates in the original image
+      // Convert the crop box position (relative to container) to be relative to the image's origin
+      const cropPositionInImageX = (cropBoxRect.left - containerRect.left - position.x) * scaleFactorX / scale;
+      const cropPositionInImageY = (cropBoxRect.top - containerRect.top - position.y) * scaleFactorY / scale;
+      
+      // Calculate the crop dimensions in the original image
+      const cropWidthInImage = cropBoxRect.width * scaleFactorX / scale;
+      const cropHeightInImage = cropBoxRect.height * scaleFactorY / scale;
+      
+      // Ensure we're not trying to crop outside the image boundaries
+      const sourceX = Math.max(0, cropPositionInImageX);
+      const sourceY = Math.max(0, cropPositionInImageY);
+      const sourceWidth = Math.min(naturalImageSize.width - sourceX, cropWidthInImage);
+      const sourceHeight = Math.min(naturalImageSize.height - sourceY, cropHeightInImage);
       
       // Draw the image to the canvas with the exact Twitter dimensions
       ctx.drawImage(
@@ -287,10 +369,10 @@ const CoverImageCropper = ({
               <ZoomOut className="h-5 w-5 text-white" />
               <Slider
                 value={[scale]}
-                min={1}
-                max={3}
+                min={0.5}
+                max={2}
                 step={0.01}
-                onValueChange={(values) => setScale(values[0])}
+                onValueChange={handleZoomChange}
                 className="flex-1"
               />
               <ZoomIn className="h-5 w-5 text-white" />

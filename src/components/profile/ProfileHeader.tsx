@@ -61,14 +61,18 @@ const ProfileHeader = ({
     <div className="border-b border-gray-200 pb-4">
       {/* Cover photo with Twitter-style aspect ratio (3:1) */}
       <AspectRatio ratio={3/1} className="bg-twitter-extraExtraLight">
-        <div 
-          className="h-full w-full relative"
-          style={coverUrl ? {
-            backgroundImage: `url(${coverUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          } : {}}
-        />
+        {coverUrl && (
+          <div className="h-full w-full overflow-hidden">
+            <img 
+              src={coverUrl} 
+              alt="Cover"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+        {!coverUrl && (
+          <div className="h-full w-full bg-twitter-extraExtraLight" />
+        )}
       </AspectRatio>
       
       {/* Profile picture */}
