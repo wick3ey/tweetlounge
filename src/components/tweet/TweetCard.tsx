@@ -38,6 +38,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
+  const [isLoadingOriginalTweet, setIsLoadingOriginalTweet] = useState(false);
 
   useEffect(() => {
     // Check if user has liked this tweet
@@ -65,12 +66,15 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     const fetchOriginalTweet = async () => {
       if (tweet.is_retweet && tweet.original_tweet_id) {
         try {
+          setIsLoadingOriginalTweet(true);
           const originalTweetData = await getOriginalTweet(tweet.original_tweet_id);
           if (originalTweetData) {
             setOriginalTweet(originalTweetData);
           }
         } catch (error) {
           console.error("Error fetching original tweet:", error);
+        } finally {
+          setIsLoadingOriginalTweet(false);
         }
       }
     };
@@ -143,6 +147,11 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         });
         
         if (onRetweet) onRetweet();
+        
+        // Refresh the page to show the new retweet
+        if (newRetweetedState) {
+          window.location.reload();
+        }
       }
     } catch (error) {
       console.error("Error retweeting:", error);
@@ -194,36 +203,58 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     return num.toString();
   };
 
-  // Determine the tweet content to display (original or retweet)
-  const displayTweet = tweet.is_retweet && originalTweet ? originalTweet : tweet;
-  const displayAuthor = displayTweet.author;
-  const displayContent = displayTweet.content;
-  const displayImage = displayTweet.image_url;
+  // Determine the content to display - original tweet or the retweet
+  const displayContent = tweet.is_retweet && originalTweet ? originalTweet.content : tweet.content;
+  const displayImage = tweet.is_retweet && originalTweet ? originalTweet.image_url : tweet.image_url;
+  
+  // For retweets, we want to show both the retweeter and the original author
+  const isRetweet = tweet.is_retweet;
+  const retweeter = tweet.author;
+  const originalAuthor = isRetweet && originalTweet ? originalTweet.author : tweet.author;
+
+  if (isRetweet && isLoadingOriginalTweet) {
+    return (
+      <div className="p-4 border-b border-gray-800 animate-pulse">
+        <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
+          <Repeat className="h-3 w-3 mr-2" />
+          <span>{retweeter.display_name} retweeted</span>
+        </div>
+        <div className="flex gap-3">
+          <div className="h-10 w-10 rounded-full bg-gray-700"></div>
+          <div className="flex-1">
+            <div className="h-4 w-24 bg-gray-700 rounded mb-2"></div>
+            <div className="h-3 w-full bg-gray-700 rounded mb-3"></div>
+            <div className="h-3 w-full bg-gray-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
-      {tweet.is_retweet && (
+      {isRetweet && (
         <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
           <Repeat className="h-3 w-3 mr-2" />
-          <span>{tweet.author.display_name} retweeted</span>
+          <span>{retweeter.display_name} retweeted</span>
         </div>
       )}
       <div className="flex gap-3">
-        <Link to={`/profile/${displayAuthor.username}`}>
+        <Link to={`/profile/${originalAuthor.username}`}>
           <Avatar className="h-10 w-10">
-            {displayAuthor.avatar_url ? (
-              <AvatarImage src={displayAuthor.avatar_url} alt={displayAuthor.display_name} />
+            {originalAuthor.avatar_url ? (
+              <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name} />
             ) : null}
             <AvatarFallback className="bg-twitter-blue text-white">
-              {getInitials(displayAuthor.display_name || displayAuthor.username)}
+              {getInitials(originalAuthor.display_name || originalAuthor.username)}
             </AvatarFallback>
           </Avatar>
         </Link>
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Link to={`/profile/${displayAuthor.username}`} className="font-bold hover:underline text-sm">
-                {displayAuthor.display_name}
+              <Link to={`/profile/${originalAuthor.username}`} className="font-bold hover:underline text-sm">
+                {originalAuthor.display_name}
               </Link>
               
               {/* Verified Badge */}
@@ -246,7 +277,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
               )}
               
               <span className="text-gray-500 ml-1 text-sm">
-                @{displayAuthor.username}
+                @{originalAuthor.username}
               </span>
               <span className="text-gray-500 mx-1 text-xs">·</span>
               <span className="text-gray-500 text-xs">{timeAgo}</span>

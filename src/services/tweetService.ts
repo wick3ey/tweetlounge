@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { uploadFile } from './storageService';
@@ -267,10 +268,32 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
+    // Get original tweet to properly store the reference
+    const { data: originalTweet, error: fetchError } = await supabase
+      .from('tweets')
+      .select('*')
+      .eq('id', tweetId)
+      .single();
+      
+    if (fetchError || !originalTweet) {
+      console.error('Error fetching original tweet for retweet:', fetchError);
+      
+      // Clean up the retweet record if we can't create the tweet
+      await supabase
+        .from('retweets')
+        .delete()
+        .match({ 
+          user_id: userData.user.id,
+          tweet_id: tweetId 
+        });
+        
+      return false;
+    }
+    
     const { error: tweetError } = await supabase
       .from('tweets')
       .insert({
-        content: '',
+        content: '',  // Empty content for the retweet
         author_id: userData.user.id,
         is_retweet: true,
         original_tweet_id: tweetId
@@ -279,6 +302,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
       
+      // Clean up the retweet record if we can't create the tweet
       await supabase
         .from('retweets')
         .delete()
