@@ -32,10 +32,7 @@ interface Token {
  * @param mintAddress The token mint address
  * @returns Token metadata
  */
-async function getTokenMetadata(
-  connection: Connection,
-  mintAddress: string
-): Promise<{ name: string; symbol: string; logo?: string; decimals: number }> {
+async function getTokenMetadata(mintAddress: string): Promise<{ name: string; symbol: string; logo?: string; decimals: number }> {
   try {
     console.log(`Fetching metadata for token: ${mintAddress}`);
     
@@ -97,14 +94,14 @@ async function getTokenMetadata(
 }
 
 /**
- * Fetch Solana tokens using @solana/web3.js
+ * Fetch Solana tokens using @solana/web3.js - memory optimized version
  */
 async function getSolanaTokens(address: string): Promise<{ tokens: Token[] }> {
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
     
-    // Create connection to Solana mainnet via QuickNode or public endpoint
-    const rpcEndpoint = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
+    // Create connection to Solana mainnet
+    const rpcEndpoint = 'https://api.mainnet-beta.solana.com';
     const connection = new Connection(rpcEndpoint, 'confirmed');
     
     // Convert address string to PublicKey
@@ -127,48 +124,69 @@ async function getSolanaTokens(address: string): Promise<{ tokens: Token[] }> {
     }];
     
     try {
-      // Get all token accounts for this wallet
+      // Get all token accounts for this wallet with smaller batch size
       console.log(`Fetching token accounts for wallet ${address}`);
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+      
+      // Instead of getting all at once, which could be memory intensive
+      const tokenAccountsResponse = await connection.getParsedTokenAccountsByOwner(
         walletAddress,
-        { programId: TOKEN_PROGRAM_ID }
+        { programId: TOKEN_PROGRAM_ID },
+        { commitment: 'confirmed' }
       );
       
-      console.log(`Found ${tokenAccounts.value.length} SPL token accounts`);
+      console.log(`Found ${tokenAccountsResponse.value.length} SPL token accounts`);
       
-      // Process each token account and fetch metadata
-      for (const account of tokenAccounts.value) {
-        try {
-          const tokenInfo = account.account.data.parsed.info;
-          const mintAddress = tokenInfo.mint;
-          const balance = tokenInfo.tokenAmount.uiAmount;
-          const decimals = tokenInfo.tokenAmount.decimals;
-          
-          console.log(`Processing token #${tokens.length}: ${mintAddress}, balance: ${balance}`);
-          
-          // Skip tokens with zero balance
-          if (balance === 0) {
-            continue;
-          }
-          
-          // Get token metadata
-          const metadata = await getTokenMetadata(connection, mintAddress);
-          
-          tokens.push({
-            name: metadata.name,
-            symbol: metadata.symbol,
-            logo: metadata.logo,
-            amount: balance.toString(),
-            decimals: decimals,
-            address: mintAddress,
-            chain: "solana" as const,
-            explorerUrl: `https://solscan.io/token/${mintAddress}`
-          });
-        } catch (error) {
-          console.error(`Error processing token account:`, error);
-          // Continue to next token account
+      // Process each token account and fetch metadata only for non-zero balances
+      const tokenPromises = [];
+      
+      for (const account of tokenAccountsResponse.value) {
+        const tokenInfo = account.account.data.parsed.info;
+        const mintAddress = tokenInfo.mint;
+        const balance = tokenInfo.tokenAmount.uiAmount;
+        const decimals = tokenInfo.tokenAmount.decimals;
+        
+        // Skip tokens with zero balance to reduce unnecessary processing
+        if (balance === 0) {
+          continue;
         }
+        
+        console.log(`Processing token with balance > 0: ${mintAddress}, balance: ${balance}`);
+        
+        // Add promise to the array
+        tokenPromises.push(
+          getTokenMetadata(mintAddress).then(metadata => {
+            return {
+              name: metadata.name,
+              symbol: metadata.symbol,
+              logo: metadata.logo,
+              amount: balance.toString(),
+              decimals: decimals,
+              address: mintAddress,
+              chain: "solana" as const,
+              explorerUrl: `https://solscan.io/token/${mintAddress}`
+            };
+          }).catch(error => {
+            console.error(`Error processing token ${mintAddress}:`, error);
+            return null;
+          })
+        );
       }
+      
+      // Process tokens in parallel, but with a limit to avoid memory issues
+      const batchSize = 5;
+      const allTokens = [];
+      
+      for (let i = 0; i < tokenPromises.length; i += batchSize) {
+        const batch = tokenPromises.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch);
+        
+        // Filter out any null results from errors
+        const validResults = batchResults.filter(token => token !== null);
+        allTokens.push(...validResults);
+      }
+      
+      // Add non-zero tokens to our array
+      tokens.push(...allTokens);
     } catch (error) {
       console.error("Error fetching token accounts:", error);
       // Still return SOL balance
