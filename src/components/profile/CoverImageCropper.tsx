@@ -1,8 +1,9 @@
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Loader, ZoomIn, ZoomOut, Check, ArrowLeft } from "lucide-react";
+import { Loader, ZoomIn, ZoomOut, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
@@ -28,24 +29,24 @@ const CoverImageCropper = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [naturalImageSize, setNaturalImageSize] = useState({ width: 0, height: 0 });
   
-  // Fixed aspect ratio for Twitter header: 3:1 (1500x500px)
-  const aspectRatio = 3;
+  // Twitter header dimensions (3:1 ratio)
   const targetWidth = 1500;
   const targetHeight = 500;
   
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const cropBoxRef = useRef<HTMLDivElement>(null);
   
   // Load the image when file changes
   useEffect(() => {
     if (imageFile && isOpen) {
       setIsLoading(true);
       const reader = new FileReader();
+      
       reader.onload = (e) => {
-        setImageSrc(e.target?.result as string);
+        const result = e.target?.result as string;
+        setImageSrc(result);
         
-        // We'll set natural size once the image loads
+        // Get natural dimensions
         const img = new Image();
         img.onload = () => {
           setNaturalImageSize({
@@ -53,12 +54,12 @@ const CoverImageCropper = ({
             height: img.naturalHeight
           });
           
-          // Set initial position to center of container
+          // Center image in container
           setTimeout(() => {
             if (containerRef.current) {
               const containerRect = containerRef.current.getBoundingClientRect();
               
-              // Initial scale should be 1, no automatic scaling
+              // Always start with scale 1 (original size)
               setScale(1);
               
               // Center the image
@@ -70,17 +71,17 @@ const CoverImageCropper = ({
                 y: centerY
               });
             }
-            
             setIsLoading(false);
           }, 100);
         };
-        img.src = e.target?.result as string;
+        img.src = result;
       };
+      
       reader.readAsDataURL(imageFile);
     }
   }, [imageFile, isOpen]);
   
-  // Handle mouse/touch events for dragging
+  // Handle mouse events for dragging
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!imageRef.current) return;
     
@@ -99,26 +100,7 @@ const CoverImageCropper = ({
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // Calculate boundaries
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const imageRect = imageRef.current.getBoundingClientRect();
-    
-    const scaledWidth = imageRect.width;
-    const scaledHeight = imageRect.height;
-    
-    // Allow dragging within and slightly beyond container boundaries
-    // for larger images, but keep smaller images within view
-    const minX = Math.min(0, containerRect.width - scaledWidth);
-    const minY = Math.min(0, containerRect.height - scaledHeight);
-    const maxX = Math.max(0, containerRect.width - scaledWidth);
-    const maxY = Math.max(0, containerRect.height - scaledHeight);
-    
-    // Clamp position
-    const clampedX = Math.max(minX, Math.min(maxX, newX));
-    const clampedY = Math.max(minY, Math.min(maxY, newY));
-    
-    setPosition({ x: clampedX, y: clampedY });
-    
+    setPosition({ x: newX, y: newY });
     e.preventDefault();
   }, [isDragging, dragStart]);
   
@@ -127,7 +109,6 @@ const CoverImageCropper = ({
   }, []);
   
   useEffect(() => {
-    // Add global mouse event listeners
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -139,39 +120,15 @@ const CoverImageCropper = ({
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
   
-  // Handle zoom changes with clamping
+  // Handle zoom with slider
   const handleZoomChange = (newScale: number[]) => {
     const zoomValue = newScale[0];
     setScale(zoomValue);
-    
-    // Recalculate position to zoom around center
-    if (containerRef.current && imageRef.current) {
-      const containerRect = containerRef.current.getBoundingClientRect();
-      
-      // Calculate new scaled dimensions
-      const newWidth = naturalImageSize.width * zoomValue;
-      const newHeight = naturalImageSize.height * zoomValue;
-      
-      // Calculate boundaries
-      const minX = Math.min(0, containerRect.width - newWidth);
-      const minY = Math.min(0, containerRect.height - newHeight);
-      const maxX = Math.max(0, containerRect.width - newWidth);
-      const maxY = Math.max(0, containerRect.height - newHeight);
-      
-      // Try to keep the image centered when zooming
-      const centerX = (containerRect.width - newWidth) / 2;
-      const centerY = (containerRect.height - newHeight) / 2;
-      
-      // Clamp to boundaries
-      const clampedX = Math.max(minX, Math.min(maxX, centerX));
-      const clampedY = Math.max(minY, Math.min(maxY, centerY));
-      
-      setPosition({ x: clampedX, y: clampedY });
-    }
   };
   
+  // Crop and save the image
   const handleSave = async () => {
-    if (!containerRef.current || !imageRef.current || !imageSrc || !cropBoxRef.current) {
+    if (!containerRef.current || !imageRef.current || !imageSrc) {
       toast({
         title: "Error",
         description: "Could not process the image. Please try again.",
@@ -183,40 +140,34 @@ const CoverImageCropper = ({
     setIsProcessing(true);
     
     try {
-      // Create a canvas with the exact Twitter header dimensions: 1500x500px (3:1 ratio)
+      // Create a canvas with Twitter header dimensions
       const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;  // Twitter header width
-      canvas.height = targetHeight;  // Twitter header height
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
       const ctx = canvas.getContext('2d');
       
       if (!ctx) {
         throw new Error('Could not get canvas context');
       }
       
-      // Get dimensions
-      const cropBoxRect = cropBoxRef.current.getBoundingClientRect();
+      // Get dimensions and positions
       const containerRect = containerRef.current.getBoundingClientRect();
       
-      // Calculate scaling factors to convert from screen pixels to image natural pixels
-      const scaleFactorX = naturalImageSize.width / (imageRef.current.clientWidth / scale);
-      const scaleFactorY = naturalImageSize.height / (imageRef.current.clientHeight / scale);
+      // Calculate the visible area of the image (the crop area)
+      const cropRect = {
+        left: -position.x, // Convert container-relative to image-relative
+        top: -position.y,
+        width: containerRect.width,
+        height: containerRect.height
+      };
       
-      // Calculate the source coordinates in the original image
-      // Convert the crop box position (relative to container) to be relative to the image's origin
-      const cropPositionInImageX = (cropBoxRect.left - containerRect.left - position.x) * scaleFactorX / scale;
-      const cropPositionInImageY = (cropBoxRect.top - containerRect.top - position.y) * scaleFactorY / scale;
+      // Calculate source and destination coordinates
+      const sourceX = cropRect.left / scale;
+      const sourceY = cropRect.top / scale;
+      const sourceWidth = cropRect.width / scale;
+      const sourceHeight = cropRect.height / scale;
       
-      // Calculate the crop dimensions in the original image
-      const cropWidthInImage = cropBoxRect.width * scaleFactorX / scale;
-      const cropHeightInImage = cropBoxRect.height * scaleFactorY / scale;
-      
-      // Ensure we're not trying to crop outside the image boundaries
-      const sourceX = Math.max(0, cropPositionInImageX);
-      const sourceY = Math.max(0, cropPositionInImageY);
-      const sourceWidth = Math.min(naturalImageSize.width - sourceX, cropWidthInImage);
-      const sourceHeight = Math.min(naturalImageSize.height - sourceY, cropHeightInImage);
-      
-      // Draw the image to the canvas with the exact Twitter dimensions
+      // Draw the image to the canvas with the Twitter dimensions
       ctx.drawImage(
         imageRef.current,
         sourceX,
@@ -305,7 +256,7 @@ const CoverImageCropper = ({
               <AspectRatio ratio={3/1} className="bg-black w-full">
                 <div 
                   ref={containerRef}
-                  className="relative overflow-hidden w-full h-full bg-black cursor-move flex items-center justify-center"
+                  className="relative overflow-hidden w-full h-full bg-black cursor-move"
                   onMouseDown={handleMouseDown}
                   style={{ touchAction: 'none' }}
                 >
@@ -324,38 +275,35 @@ const CoverImageCropper = ({
                     />
                   )}
                   
-                  {/* Twitter-style crop box with guides - takes entire available area to match header proportions */}
-                  <div 
-                    ref={cropBoxRef}
-                    className="absolute inset-0 pointer-events-none border-2 border-twitter-blue"
-                    style={{
-                      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
-                    }}
-                  >
-                    {/* Twitter-style 3x3 grid lines for visual guidance */}
+                  {/* Twitter-style crop guide with 3:1 ratio */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Blue grid lines for guidance */}
                     <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      <div className="border-r border-twitter-blue opacity-50 h-full"></div>
-                      <div className="border-r border-twitter-blue opacity-50 h-full"></div>
-                      <div className="border-b border-twitter-blue opacity-50 w-full"></div>
-                      <div className="border-b border-twitter-blue opacity-50 w-full"></div>
+                      <div className="border-r border-blue-500 opacity-50 h-full"></div>
+                      <div className="border-r border-blue-500 opacity-50 h-full"></div>
+                      <div className="border-b border-blue-500 opacity-50 w-full"></div>
+                      <div className="border-b border-blue-500 opacity-50 w-full"></div>
                     </div>
                     
-                    {/* Small blue handles at corners */}
-                    <div className="absolute top-0 left-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
-                    <div className="absolute top-0 right-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
-                    <div className="absolute bottom-0 left-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 border-2 border-twitter-blue bg-black rounded-sm"></div>
+                    {/* Crop border */}
+                    <div className="absolute inset-0 border-2 border-blue-500"></div>
                     
-                    {/* Information text */}
+                    {/* Corner handles */}
+                    <div className="absolute top-0 left-0 w-3 h-3 border-2 border-blue-500 bg-black rounded-sm"></div>
+                    <div className="absolute top-0 right-0 w-3 h-3 border-2 border-blue-500 bg-black rounded-sm"></div>
+                    <div className="absolute bottom-0 left-0 w-3 h-3 border-2 border-blue-500 bg-black rounded-sm"></div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 border-2 border-blue-500 bg-black rounded-sm"></div>
+                    
+                    {/* Size information */}
                     <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
-                      Rekommenderad storlek: 1500 × 500px
+                      1500 × 500px
                     </div>
                   </div>
                 </div>
               </AspectRatio>
             </div>
             
-            {/* Twitter-style zoom slider */}
+            {/* Zoom slider */}
             <div className="flex items-center space-x-2 p-6 bg-black text-white">
               <ZoomOut className="h-5 w-5 text-white" />
               <Slider
