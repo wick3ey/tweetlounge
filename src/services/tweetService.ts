@@ -338,3 +338,47 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
     return [];
   }
 }
+
+export async function getOriginalTweet(tweetId: string): Promise<TweetWithAuthor | null> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_tweet_with_author', { tweet_id: tweetId });
+      
+    if (error) {
+      console.error('Error fetching original tweet:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      return null;
+    }
+    
+    const item = data[0];
+    
+    const transformedData: TweetWithAuthor = {
+      id: item.id,
+      content: item.content,
+      author_id: item.author_id,
+      created_at: item.created_at,
+      likes_count: item.likes_count,
+      retweets_count: item.retweets_count,
+      replies_count: item.replies_count,
+      is_retweet: item.is_retweet,
+      original_tweet_id: item.original_tweet_id,
+      image_url: item.image_url,
+      author: {
+        id: item.author_id,
+        username: item.username,
+        display_name: item.display_name,
+        avatar_url: item.avatar_url,
+        avatar_nft_id: item.avatar_nft_id,
+        avatar_nft_chain: item.avatar_nft_chain
+      }
+    };
+    
+    return transformedData;
+  } catch (error) {
+    console.error('Failed to fetch original tweet:', error);
+    return null;
+  }
+}

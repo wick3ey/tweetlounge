@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -7,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { likeTweet, retweet, checkIfUserLikedTweet } from '@/services/tweetService';
+import { likeTweet, retweet, checkIfUserLikedTweet, getOriginalTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -29,6 +30,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
 
   useEffect(() => {
     // Check if user has liked this tweet
@@ -41,6 +43,24 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     
     checkLikeStatus();
   }, [tweet.id, user]);
+
+  useEffect(() => {
+    // If this is a retweet, fetch the original tweet data
+    const fetchOriginalTweet = async () => {
+      if (tweet.is_retweet && tweet.original_tweet_id) {
+        try {
+          const originalTweetData = await getOriginalTweet(tweet.original_tweet_id);
+          if (originalTweetData) {
+            setOriginalTweet(originalTweetData);
+          }
+        } catch (error) {
+          console.error("Error fetching original tweet:", error);
+        }
+      }
+    };
+    
+    fetchOriginalTweet();
+  }, [tweet.is_retweet, tweet.original_tweet_id]);
 
   const handleLike = async () => {
     if (!user) {
@@ -150,6 +170,12 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
     return num.toString();
   };
 
+  // Determine the tweet content to display (original or retweet)
+  const displayTweet = tweet.is_retweet && originalTweet ? originalTweet : tweet;
+  const displayAuthor = displayTweet.author;
+  const displayContent = displayTweet.content;
+  const displayImage = displayTweet.image_url;
+
   return (
     <div className="p-4 border-b border-gray-800 hover:bg-gray-900/30 transition-colors">
       {tweet.is_retweet && (
@@ -159,21 +185,21 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         </div>
       )}
       <div className="flex gap-3">
-        <Link to={`/profile/${tweet.author.username}`}>
+        <Link to={`/profile/${displayAuthor.username}`}>
           <Avatar className="h-10 w-10">
-            {tweet.author.avatar_url ? (
-              <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name} />
+            {displayAuthor.avatar_url ? (
+              <AvatarImage src={displayAuthor.avatar_url} alt={displayAuthor.display_name} />
             ) : null}
             <AvatarFallback className="bg-twitter-blue text-white">
-              {getInitials(tweet.author.display_name || tweet.author.username)}
+              {getInitials(displayAuthor.display_name || displayAuthor.username)}
             </AvatarFallback>
           </Avatar>
         </Link>
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Link to={`/profile/${tweet.author.username}`} className="font-bold hover:underline text-sm">
-                {tweet.author.display_name}
+              <Link to={`/profile/${displayAuthor.username}`} className="font-bold hover:underline text-sm">
+                {displayAuthor.display_name}
               </Link>
               
               {/* Verified Badge */}
@@ -196,7 +222,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
               )}
               
               <span className="text-gray-500 ml-1 text-sm">
-                @{tweet.author.username}
+                @{displayAuthor.username}
               </span>
               <span className="text-gray-500 mx-1 text-xs">·</span>
               <span className="text-gray-500 text-xs">{timeAgo}</span>
@@ -207,12 +233,12 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
             </Button>
           </div>
           
-          <div className="mt-1 text-sm text-gray-100">{tweet.content}</div>
+          <div className="mt-1 text-sm text-gray-100">{displayContent}</div>
           
-          {tweet.image_url && (
+          {displayImage && (
             <div className="mt-3">
               <img 
-                src={tweet.image_url} 
+                src={displayImage} 
                 alt="Tweet media"
                 className="rounded-xl w-full max-h-96 object-contain border border-gray-800 cursor-pointer" 
                 onClick={() => setShowImageDialog(true)}
@@ -267,7 +293,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
           </Button>
           <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center p-2">
             <img 
-              src={tweet.image_url}
+              src={displayImage}
               alt="Tweet media"
               className="max-w-full max-h-full object-contain"
             />
