@@ -12,6 +12,8 @@ export interface Token {
   chain: 'solana';
   explorerUrl?: string;
   dexScreenerUrl?: string;
+  logoURI?: string; // Added for compatibility
+  priceChange24h?: number; // Added for price change percentage
 }
 
 export interface TokensResponse {
@@ -74,7 +76,9 @@ export const fetchWalletTokens = async (
         symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
         chain: 'solana',
         explorerUrl: getExplorerUrl(tokenAddress),
-        dexScreenerUrl: getDexScreenerUrl(tokenAddress)
+        dexScreenerUrl: getDexScreenerUrl(tokenAddress),
+        logoURI: token.logo, // Map logo to logoURI for compatibility
+        priceChange24h: token.priceChange24h || 0 // Default to 0 if not provided
       };
     });
     

@@ -107,8 +107,8 @@ export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) =>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Avatar className={`h-7 w-7 mr-2 ${getTokenColor()}`}>
-              {token.logoURI ? (
-                <AvatarImage src={token.logoURI} alt={token.name} />
+              {(token.logoURI || token.logo) ? (
+                <AvatarImage src={token.logoURI || token.logo} alt={token.name} />
               ) : (
                 <AvatarFallback className="text-xs text-white font-medium">
                   {token.symbol.substring(0, 2)}
@@ -149,8 +149,8 @@ export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) =>
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <Avatar className={`h-10 w-10 ${getTokenColor()}`}>
-            {token.logoURI ? (
-              <AvatarImage src={token.logoURI} alt={token.name} />
+            {(token.logoURI || token.logo) ? (
+              <AvatarImage src={token.logoURI || token.logo} alt={token.name} />
             ) : (
               <AvatarFallback className="text-white font-medium">
                 {token.symbol.substring(0, 2)}
@@ -177,7 +177,7 @@ export const TokenCardUI = ({ token, solPrice, isCompact }: TokenCardUIProps) =>
               <div>
                 <div className="font-semibold">{calculateUsdValue()}</div>
                 <div className="text-xs text-muted-foreground">
-                  {token.priceChange24h && (
+                  {token.priceChange24h !== undefined && (
                     <span className={token.priceChange24h > 0 ? 'text-green-500' : 'text-red-500'}>
                       {token.priceChange24h > 0 ? '+' : ''}{token.priceChange24h.toFixed(2)}%
                     </span>

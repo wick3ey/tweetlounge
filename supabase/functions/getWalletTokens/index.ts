@@ -15,10 +15,12 @@ interface TokenResponse {
     name: string;
     symbol: string;
     logo?: string;
+    logoURI?: string;
     amount: string;
     usdValue?: string;
     decimals: number;
     address: string;
+    priceChange24h?: number;
   }>;
   solPrice?: number;
 }
@@ -95,10 +97,12 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       name: "Solana",
       symbol: "SOL",
       logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+      logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       amount: solAmount,
       usdValue: solPrice ? (parseFloat(solAmount) * solPrice).toString() : undefined,
       decimals: 9,
-      address: "So11111111111111111111111111111111111111112"
+      address: "So11111111111111111111111111111111111111112",
+      priceChange24h: 0 // Default value as we don't have historical data
     }];
     
     try {
@@ -152,9 +156,11 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
             name: metadata.name,
             symbol: metadata.symbol,
             logo: metadata.logo,
+            logoURI: metadata.logo, // Set logoURI same as logo for UI consistency
             amount: tokenBalance.toString(),
             decimals: tokenDecimals,
-            address: mintAddress
+            address: mintAddress,
+            priceChange24h: 0 // Default value
           });
           
           console.log(`Found token: ${metadata.symbol}, balance: ${tokenBalance}`);
