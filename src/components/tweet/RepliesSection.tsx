@@ -6,6 +6,7 @@ import ReplyComposer from './ReplyComposer';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface RepliesSectionProps {
   tweetId: string;
@@ -18,6 +19,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const fetchReplies = async () => {
     if (!isOpen) return;
@@ -59,22 +61,22 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
       )}
       
       {loading ? (
-        <div className="p-4 sm:p-6 text-center">
-          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-crypto-blue mx-auto" />
-          <p className="text-gray-400 mt-2 text-sm sm:text-base">Loading replies...</p>
+        <div className="p-3 sm:p-6 flex flex-col items-center justify-center">
+          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-crypto-blue" />
+          <p className="text-gray-400 mt-2 text-xs sm:text-sm">Loading replies...</p>
         </div>
       ) : error ? (
-        <div className="p-4 sm:p-6 text-center text-red-500 text-sm sm:text-base">
+        <div className="p-3 sm:p-6 text-center text-red-500 text-xs sm:text-sm">
           {error}
         </div>
       ) : replies.length > 0 ? (
-        <div>
+        <div className="max-w-full overflow-hidden">
           {replies.map(reply => (
             <Reply key={reply.id} reply={reply} />
           ))}
         </div>
       ) : (
-        <div className="p-4 sm:p-6 text-center text-gray-400 text-sm sm:text-base">
+        <div className="p-3 sm:p-6 text-center text-gray-400 text-xs sm:text-sm">
           No replies yet. Be the first to reply!
         </div>
       )}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
@@ -19,6 +19,15 @@ const Home: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mainContentLoaded, setMainContentLoaded] = useState(false);
+
+  useEffect(() => {
+    // Mark content as loaded after a small delay to ensure proper rendering
+    const timer = setTimeout(() => {
+      setMainContentLoaded(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -60,42 +69,51 @@ const Home: React.FC = () => {
       <CryptoTicker />
       
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar for mobile */}
+        {/* Sidebar for mobile with improved overlay */}
         {isMobile && (
-          <LeftSidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+          <>
+            {sidebarOpen && (
+              <div 
+                className="fixed inset-0 bg-black/60 z-40"
+                onClick={toggleSidebar}
+              />
+            )}
+            <LeftSidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+          </>
         )}
         
-        {/* Desktop sidebar */}
+        {/* Desktop sidebar with better padding */}
         {!isMobile && <LeftSidebar />}
         
-        <div className="flex-1 overflow-y-auto">
+        <div className={`flex-1 overflow-y-auto transition-opacity duration-200 ${mainContentLoaded ? 'opacity-100' : 'opacity-0'}`}>
           <main className="max-w-2xl mx-auto px-2 sm:px-4">
-            <div className="flex gap-3 items-center mb-4 mt-2">
+            <div className="flex gap-2 sm:gap-3 items-center mb-3 sm:mb-4 mt-2">
               {isMobile && (
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 rounded-full hover:bg-crypto-gray/20 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-crypto-gray/20 transition-colors z-10"
+                  aria-label="Toggle sidebar"
                 >
                   <Menu className="h-5 w-5 text-foreground" />
                 </button>
               )}
               <div className="rounded-lg bg-crypto-gray/20 p-1.5">
-                <ZapIcon className="text-crypto-blue h-5 w-5" />
+                <ZapIcon className="text-crypto-blue h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
+              <h1 className="text-lg sm:text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
               
               <CryptoButton 
                 variant="outline" 
                 size="sm" 
-                className="ml-auto text-xs h-8 border-crypto-gray/40 hover:bg-crypto-gray/30"
+                className="ml-auto text-xs h-7 sm:h-8 border-crypto-gray/40 hover:bg-crypto-gray/30"
                 onClick={() => window.location.reload()}
               >
-                <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
-                Refresh
+                <RefreshCwIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
+                {!isMobile && "Refresh"}
               </CryptoButton>
             </div>
             
-            <div className="mb-4">
+            <div className="mb-3 sm:mb-4">
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
@@ -106,7 +124,10 @@ const Home: React.FC = () => {
           </main>
         </div>
         
-        <RightSidebar />
+        {/* Improved RightSidebar visibility */}
+        <div className={`hidden lg:block transition-opacity duration-300 ${mainContentLoaded ? 'opacity-100' : 'opacity-0'}`}>
+          <RightSidebar />
+        </div>
       </div>
     </div>
   )
