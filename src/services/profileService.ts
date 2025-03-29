@@ -249,6 +249,15 @@ export async function isFollowing(followingId: string): Promise<boolean> {
   }
 }
 
+// Type for profile data to handle safely
+interface FollowerProfile {
+  id?: string;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+  is_following?: boolean;
+}
+
 // Get a user's followers
 export async function getFollowers(userId: string): Promise<any[]> {
   try {
@@ -259,7 +268,7 @@ export async function getFollowers(userId: string): Promise<any[]> {
     // Fetch followers directly with joined profile information
     const { data: followersData, error: followersError } = await supabase
       .from('followers')
-      .select('follower_id, profiles(id, username, display_name, avatar_url)')
+      .select('follower_id, profiles:follower_id(id, username, display_name, avatar_url)')
       .eq('following_id', userId);
       
     if (followersError) {
@@ -267,18 +276,31 @@ export async function getFollowers(userId: string): Promise<any[]> {
       return [];
     }
     
-    // Transform data to match expected format
-    const followers = followersData.map(follower => ({
-      id: follower.profiles?.id,
-      username: follower.profiles?.username,
-      display_name: follower.profiles?.display_name,
-      avatar_url: follower.profiles?.avatar_url,
-      is_following: false // We'll update this below
-    })).filter(profile => profile.id); // Remove any null profiles
+    // Transform data to match expected format, with safe property access
+    const followers = followersData
+      .map(follower => {
+        // Check if profiles exists and has the expected structure
+        const profile = follower.profiles as FollowerProfile | null;
+        
+        if (!profile) {
+          return null;
+        }
+        
+        return {
+          id: profile.id || '',
+          username: profile.username || '',
+          display_name: profile.display_name || '',
+          avatar_url: profile.avatar_url || null,
+          is_following: false // We'll update this below
+        };
+      })
+      .filter(Boolean) as any[]; // Remove null entries
     
     // Check which of these followers the current user is following back
     if (currentUser) {
-      const followIds = followers.map(f => f.id).filter(Boolean);
+      const followIds = followers
+        .map(f => f.id)
+        .filter(id => id && id.length > 0); // Filter out empty IDs
       
       if (followIds.length > 0) {
         const { data: followingData } = await supabase
@@ -314,7 +336,7 @@ export async function getFollowing(userId: string): Promise<any[]> {
     // Fetch following directly with joined profile information
     const { data: followingData, error: followingError } = await supabase
       .from('followers')
-      .select('following_id, profiles(id, username, display_name, avatar_url)')
+      .select('following_id, profiles:following_id(id, username, display_name, avatar_url)')
       .eq('follower_id', userId);
       
     if (followingError) {
@@ -322,18 +344,31 @@ export async function getFollowing(userId: string): Promise<any[]> {
       return [];
     }
     
-    // Transform data to match expected format
-    const following = followingData.map(follow => ({
-      id: follow.profiles?.id,
-      username: follow.profiles?.username,
-      display_name: follow.profiles?.display_name,
-      avatar_url: follow.profiles?.avatar_url,
-      is_following: false // We'll update this below
-    })).filter(profile => profile.id); // Remove any null profiles
+    // Transform data to match expected format, with safe property access
+    const following = followingData
+      .map(follow => {
+        // Check if profiles exists and has the expected structure
+        const profile = follow.profiles as FollowerProfile | null;
+        
+        if (!profile) {
+          return null;
+        }
+        
+        return {
+          id: profile.id || '',
+          username: profile.username || '',
+          display_name: profile.display_name || '',
+          avatar_url: profile.avatar_url || null,
+          is_following: false // We'll update this below
+        };
+      })
+      .filter(Boolean) as any[]; // Remove null entries
     
     // Check which of these users the current user is following
     if (currentUser && currentUser.id !== userId) {
-      const followIds = following.map(f => f.id).filter(Boolean);
+      const followIds = following
+        .map(f => f.id)
+        .filter(id => id && id.length > 0); // Filter out empty IDs
       
       if (followIds.length > 0) {
         const { data: followingCheckData } = await supabase
@@ -350,6 +385,11 @@ export async function getFollowing(userId: string): Promise<any[]> {
           });
         }
       }
+    } else if (currentUser && currentUser.id === userId) {
+      // If it's the current user's following list, mark all as following
+      following.forEach(follow => {
+        follow.is_following = true;
+      });
     }
     
     return following;
