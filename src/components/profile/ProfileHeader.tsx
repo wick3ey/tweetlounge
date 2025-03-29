@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -73,7 +72,6 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fix: Get the follow status directly from the isFollowing function without treating it as a callable
         const followStatus = await isFollowing(userId);
         setFollowing(followStatus);
       } catch (error) {
