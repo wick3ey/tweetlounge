@@ -111,22 +111,35 @@ export async function followUser(followingId: string): Promise<boolean> {
       throw error;
     }
     
-    // Increment the followers_count in the target user's profile
-    const { error: updateError1 } = await supabase.rpc('increment_followers_count', {
-      p_user_id: followingId
-    });
-    
-    if (updateError1) {
-      throw updateError1;
+    // Manually update the followers/following counts since we can't use RPC
+    // Update followers count
+    const { data: profileToUpdate } = await supabase
+      .from('profiles')
+      .select('followers_count')
+      .eq('id', followingId)
+      .single();
+      
+    if (profileToUpdate) {
+      const newCount = (profileToUpdate.followers_count || 0) + 1;
+      await supabase
+        .from('profiles')
+        .update({ followers_count: newCount })
+        .eq('id', followingId);
     }
     
-    // Increment the following_count in the current user's profile
-    const { error: updateError2 } = await supabase.rpc('increment_following_count', {
-      p_user_id: followerId
-    });
-    
-    if (updateError2) {
-      throw updateError2;
+    // Update following count
+    const { data: currentUserProfile } = await supabase
+      .from('profiles')
+      .select('following_count')
+      .eq('id', followerId)
+      .single();
+      
+    if (currentUserProfile) {
+      const newCount = (currentUserProfile.following_count || 0) + 1;
+      await supabase
+        .from('profiles')
+        .update({ following_count: newCount })
+        .eq('id', followerId);
     }
     
     // Create a notification for the follow action
@@ -163,22 +176,35 @@ export async function unfollowUser(followingId: string): Promise<boolean> {
       throw error;
     }
     
-    // Decrement the followers_count in the target user's profile
-    const { error: updateError1 } = await supabase.rpc('decrement_followers_count', {
-      p_user_id: followingId
-    });
-    
-    if (updateError1) {
-      throw updateError1;
+    // Manually update the followers/following counts since we can't use RPC
+    // Update followers count
+    const { data: profileToUpdate } = await supabase
+      .from('profiles')
+      .select('followers_count')
+      .eq('id', followingId)
+      .single();
+      
+    if (profileToUpdate && profileToUpdate.followers_count > 0) {
+      const newCount = profileToUpdate.followers_count - 1;
+      await supabase
+        .from('profiles')
+        .update({ followers_count: newCount })
+        .eq('id', followingId);
     }
     
-    // Decrement the following_count in the current user's profile
-    const { error: updateError2 } = await supabase.rpc('decrement_following_count', {
-      p_user_id: followerId
-    });
-    
-    if (updateError2) {
-      throw updateError2;
+    // Update following count
+    const { data: currentUserProfile } = await supabase
+      .from('profiles')
+      .select('following_count')
+      .eq('id', followerId)
+      .single();
+      
+    if (currentUserProfile && currentUserProfile.following_count > 0) {
+      const newCount = currentUserProfile.following_count - 1;
+      await supabase
+        .from('profiles')
+        .update({ following_count: newCount })
+        .eq('id', followerId);
     }
     
     // Delete the notification for the unfollow action

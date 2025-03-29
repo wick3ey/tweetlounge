@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -176,7 +177,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
     
     const { data: tweet } = await supabase
       .from('tweets')
-      .select('author_id')
+      .select('author_id, likes_count')
       .eq('id', tweetId)
       .single();
     
@@ -191,12 +192,13 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw deleteError;
       }
       
-      const { error: updateError } = await supabase.rpc('decrement_likes_count', {
-        p_tweet_id: tweetId
-      });
-      
-      if (updateError) {
-        throw updateError;
+      // Manually update the likes count
+      if (tweet && tweet.likes_count > 0) {
+        const newCount = tweet.likes_count - 1;
+        await supabase
+          .from('tweets')
+          .update({ likes_count: newCount })
+          .eq('id', tweetId);
       }
       
       await deleteNotification(tweet.author_id, user.id, 'like', tweetId);
@@ -214,12 +216,13 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw insertError;
       }
       
-      const { error: updateError } = await supabase.rpc('increment_likes_count', {
-        p_tweet_id: tweetId
-      });
-      
-      if (updateError) {
-        throw updateError;
+      // Manually update the likes count
+      if (tweet) {
+        const newCount = (tweet.likes_count || 0) + 1;
+        await supabase
+          .from('tweets')
+          .update({ likes_count: newCount })
+          .eq('id', tweetId);
       }
       
       await createNotification(tweet.author_id, user.id, 'like', tweetId);
@@ -250,7 +253,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
     
     const { data: tweet } = await supabase
       .from('tweets')
-      .select('author_id, content, image_url')
+      .select('author_id, content, image_url, retweets_count')
       .eq('id', tweetId)
       .single();
     
@@ -276,12 +279,13 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw deleteTweetError;
       }
       
-      const { error: updateError } = await supabase.rpc('decrement_retweets_count', {
-        p_tweet_id: tweetId
-      });
-      
-      if (updateError) {
-        throw updateError;
+      // Manually update the retweets count
+      if (tweet && tweet.retweets_count > 0) {
+        const newCount = tweet.retweets_count - 1;
+        await supabase
+          .from('tweets')
+          .update({ retweets_count: newCount })
+          .eq('id', tweetId);
       }
       
       await deleteNotification(tweet.author_id, user.id, 'retweet', tweetId);
@@ -313,12 +317,13 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw createTweetError;
       }
       
-      const { error: updateError } = await supabase.rpc('increment_retweets_count', {
-        p_tweet_id: tweetId
-      });
-      
-      if (updateError) {
-        throw updateError;
+      // Manually update the retweets count
+      if (tweet) {
+        const newCount = (tweet.retweets_count || 0) + 1;
+        await supabase
+          .from('tweets')
+          .update({ retweets_count: newCount })
+          .eq('id', tweetId);
       }
       
       await createNotification(tweet.author_id, user.id, 'retweet', tweetId);
@@ -346,7 +351,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     
     const { data: tweet } = await supabase
       .from('tweets')
-      .select('author_id')
+      .select('author_id, replies_count')
       .eq('id', tweetId)
       .single();
     
@@ -362,12 +367,13 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
       throw commentError;
     }
     
-    const { error: updateError } = await supabase.rpc('increment_replies_count', {
-      p_tweet_id: tweetId
-    });
-    
-    if (updateError) {
-      throw updateError;
+    // Manually update the replies count
+    if (tweet) {
+      const newCount = (tweet.replies_count || 0) + 1;
+      await supabase
+        .from('tweets')
+        .update({ replies_count: newCount })
+        .eq('id', tweetId);
     }
     
     await createNotification(tweet.author_id, user.id, 'comment', tweetId);
