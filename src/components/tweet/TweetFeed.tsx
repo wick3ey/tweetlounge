@@ -24,42 +24,41 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchTweets = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const fetchedTweets = await getTweets(limit, 0);
-        
-        // Log a sample tweet for debugging
-        if (fetchedTweets.length > 0) {
-          console.log('Sample tweet data:', fetchedTweets[0]);
-        }
-        
-        setTweets(fetchedTweets);
-      } catch (err) {
-        console.error('Failed to fetch tweets:', err);
-        setError('Failed to load tweets. Please try again later.');
-        
-        toast({
-          title: 'Error',
-          description: 'Failed to load tweets. Please try again later.',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTweets();
   }, [limit, toast]);
+
+  const fetchTweets = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedTweets = await getTweets(limit, 0);
+      
+      // Log a sample tweet for debugging
+      if (fetchedTweets.length > 0) {
+        console.log('Sample tweet data:', fetchedTweets[0]);
+      }
+      
+      setTweets(fetchedTweets);
+    } catch (err) {
+      console.error('Failed to fetch tweets:', err);
+      setError('Failed to load tweets. Please try again later.');
+      
+      toast({
+        title: 'Error',
+        description: 'Failed to load tweets. Please try again later.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRefresh = async () => {
     try {
       setLoading(true);
       const freshTweets = await getTweets(limit, 0);
       setTweets(freshTweets);
-      setLoading(false);
     } catch (err) {
       console.error('Failed to refresh tweets:', err);
       toast({
@@ -67,6 +66,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
         description: 'Failed to refresh tweets.',
         variant: 'destructive'
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -81,6 +81,22 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
     setSelectedTweet(null); // Clear selected tweet to prevent stale references
     // Refresh the feed when closing the detail view to show updated likes/comments
     handleRefresh();
+  };
+
+  const handleTweetDeleted = (deletedTweetId: string) => {
+    // Remove the deleted tweet from the state without needing a full refresh
+    setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
+    
+    // Close the detail dialog if the deleted tweet was being viewed
+    if (selectedTweet && selectedTweet.id === deletedTweetId) {
+      setIsDetailOpen(false);
+      setSelectedTweet(null);
+    }
+    
+    toast({
+      title: "Tweet Deleted",
+      description: "Your tweet has been successfully deleted."
+    });
   };
 
   if (loading) {
@@ -123,6 +139,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
             tweet={tweet}
             onClick={() => handleTweetClick(tweet)}
             onAction={handleRefresh}
+            onDelete={handleTweetDeleted}
           />
         ))}
       </div>
@@ -134,6 +151,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
               tweet={selectedTweet} 
               onClose={handleCloseDetail}
               onAction={handleRefresh}
+              onDelete={handleTweetDeleted}
             />
           )}
         </DialogContent>

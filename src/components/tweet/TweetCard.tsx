@@ -42,9 +42,10 @@ interface TweetCardProps {
   tweet: TweetWithAuthor;
   onClick?: () => void;
   onAction?: () => void;
+  onDelete?: (tweetId: string) => void;
 }
 
-const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
+const TweetCard = ({ tweet, onClick, onAction, onDelete }: TweetCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -257,17 +258,10 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
       const success = await deleteTweet(tweet.id);
       
       if (success) {
-        toast({
-          title: "Tweet Deleted",
-          description: "Your tweet has been successfully deleted."
-        });
-        
         setDeleteDialogOpen(false);
         
-        if (onAction) {
-          setTimeout(() => {
-            onAction();
-          }, 300);
+        if (onDelete) {
+          onDelete(tweet.id);
         }
       } else {
         toast({

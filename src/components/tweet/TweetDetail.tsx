@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -9,25 +8,43 @@ import { useToast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Heart, MessageCircle, Repeat, Share2, ArrowLeft, X, Check } from 'lucide-react';
+import { Loader2, Heart, MessageCircle, Repeat, Share2, ArrowLeft, X, Check, Trash2 } from 'lucide-react';
 import { 
   likeTweet, 
   retweet, 
   replyToTweet,
   checkIfUserLikedTweet, 
   checkIfUserRetweetedTweet,
-  getTweetComments
+  getTweetComments,
+  deleteTweet
 } from '@/services/tweetService';
 import { Link, useNavigate } from 'react-router-dom';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
   onClose: () => void;
   onAction?: () => void;
+  onDelete?: (tweetId: string) => void;
 }
 
-const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
+const TweetDetail = ({ tweet, onClose, onAction, onDelete }: TweetDetailProps) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
@@ -41,7 +58,9 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const isOwner = user && user.id === tweet.author_id;
   
   useEffect(() => {
     const checkInteractionStatus = async () => {
@@ -198,6 +217,43 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await deleteTweet(tweet.id);
+      
+      if (success) {
+        setDeleteDialogOpen(false);
+        onClose();
+        
+        if (onDelete) {
+          onDelete(tweet.id);
+        }
+      } else {
+        toast({
+          title: "Action Failed",
+          description: "Failed to delete the tweet. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting tweet:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to delete the tweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name.substring(0, 2).toUpperCase();
   };
@@ -216,16 +272,41 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-10 flex items-center gap-4 p-4 border-b border-gray-800 bg-crypto-black/95 backdrop-blur-sm">
-        <Button 
-          onClick={onClose} 
-          variant="ghost" 
-          size="icon"
-          className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-full"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h2 className="text-lg font-semibold">Tweet</h2>
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 p-4 border-b border-gray-800 bg-crypto-black/95 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <Button 
+            onClick={onClose} 
+            variant="ghost" 
+            size="icon"
+            className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-full"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h2 className="text-lg font-semibold">Tweet</h2>
+        </div>
+        
+        {isOwner && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-40 bg-gray-900 border-gray-800">
+              <DropdownMenuItem 
+                className="text-red-500 focus:text-red-400 cursor-pointer"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="p-4 border-b border-gray-800">
@@ -449,6 +530,30 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-gray-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tweet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this tweet? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              className="bg-transparent border-gray-700 text-white hover:bg-gray-800">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-red-600 hover:bg-red-700 text-white" 
+              onClick={handleDelete}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -84,18 +84,47 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
       return false;
     }
     
-    const { data, error } = await supabase
-      .rpc('is_tweet_bookmarked', {
-        tweet_id: tweetId,
-        user_id: user.id
-      });
+    // First check if the tweet exists to avoid 400 errors
+    const { count: tweetExists } = await supabase
+      .from('tweets')
+      .select('*', { count: 'exact', head: true })
+      .eq('id', tweetId);
       
-    if (error) {
-      console.error('Error checking bookmark status:', error);
+    if (!tweetExists) {
+      console.log('Tweet does not exist, cannot check bookmark status');
       return false;
     }
     
-    return data;
+    try {
+      const { data, error } = await supabase
+        .rpc('is_tweet_bookmarked', {
+          tweet_id: tweetId,
+          user_id: user.id
+        });
+        
+      if (error) {
+        console.error('Error checking bookmark status:', error);
+        return false;
+      }
+      
+      return data;
+    } catch (error) {
+      // Fall back to direct query if RPC fails
+      console.warn('RPC failed, falling back to direct query');
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error checking bookmark status with direct query:', error);
+        return false;
+      }
+      
+      return !!data;
+    }
   } catch (error) {
     console.error('Check bookmark status failed:', error);
     return false;
