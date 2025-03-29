@@ -403,3 +403,76 @@ export async function getTweetComments(tweetId: string, limit = 20, offset = 0):
     return [];
   }
 }
+
+export async function getUserRetweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
+  try {
+    const { data, error } = await supabase
+      .from('retweets')
+      .select(`
+        tweet_id,
+        tweets:tweet_id (
+          id,
+          content,
+          author_id,
+          created_at,
+          likes_count,
+          retweets_count,
+          replies_count,
+          is_retweet,
+          original_tweet_id,
+          image_url,
+          profiles:author_id (
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+      
+    if (error) {
+      console.error('Error fetching user retweets:', error);
+      throw error;
+    }
+    
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+      const tweet = item.tweets;
+      return {
+        id: tweet.id,
+        content: tweet.content,
+        author_id: tweet.author_id,
+        created_at: tweet.created_at,
+        likes_count: tweet.likes_count,
+        retweets_count: tweet.retweets_count,
+        replies_count: tweet.replies_count,
+        is_retweet: tweet.is_retweet,
+        original_tweet_id: tweet.original_tweet_id,
+        image_url: tweet.image_url,
+        profile_username: tweet.profiles.username,
+        profile_display_name: tweet.profiles.display_name,
+        profile_avatar_url: tweet.profiles.avatar_url,
+        profile_avatar_nft_id: tweet.profiles.avatar_nft_id,
+        profile_avatar_nft_chain: tweet.profiles.avatar_nft_chain,
+        author: {
+          id: tweet.author_id,
+          username: tweet.profiles.username,
+          display_name: tweet.profiles.display_name,
+          avatar_url: tweet.profiles.avatar_url || '',
+          avatar_nft_id: tweet.profiles.avatar_nft_id,
+          avatar_nft_chain: tweet.profiles.avatar_nft_chain
+        }
+      };
+    });
+    
+    return transformedData;
+  } catch (error) {
+    console.error('Failed to fetch user retweets:', error);
+    return [];
+  }
+}
