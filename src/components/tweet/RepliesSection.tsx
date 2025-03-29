@@ -53,15 +53,28 @@ const RepliesSection = ({
       const data = await getTweetReplies(tweetId);
       
       if (Array.isArray(data)) {
-        // Validate the created_at date for each reply
+        // Validate the created_at date for each reply with stronger validation
         const validatedReplies = data.map(reply => {
+          // Check if created_at exists and is a string
+          if (!reply.created_at || typeof reply.created_at !== 'string') {
+            console.warn("Missing or invalid created_at in reply, using current time:", reply.id);
+            return {
+              ...reply,
+              created_at: new Date().toISOString()
+            };
+          }
+          
           try {
-            // Test if the date is valid by creating a Date object
-            new Date(reply.created_at);
+            // Create a date object to test if it's valid
+            const dateObj = new Date(reply.created_at);
+            // Check if the date is valid by testing if it returns NaN when converted to a number
+            if (isNaN(dateObj.getTime())) {
+              throw new Error("Invalid date");
+            }
             return reply;
           } catch (e) {
             // If the date is invalid, set it to the current time
-            console.warn("Invalid date detected in reply, using current time instead:", reply.id);
+            console.warn("Invalid date format in reply, using current time instead:", reply.id);
             return {
               ...reply,
               created_at: new Date().toISOString()

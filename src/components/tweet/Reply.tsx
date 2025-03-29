@@ -1,4 +1,3 @@
-
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
@@ -41,19 +40,22 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   
-  // Add defensive check for reply data
   if (!reply || !reply.profiles) {
     return null;
   }
   
-  // Safely format the time difference
   const getTimeAgo = (dateString: string) => {
+    if (!dateString || typeof dateString !== 'string') {
+      return "recently";
+    }
+    
     try {
       const date = new Date(dateString);
-      // Check if date is valid by comparing with epoch time
+      
       if (isNaN(date.getTime())) {
         return "recently";
       }
+      
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
       console.warn("Error formatting date:", error);
