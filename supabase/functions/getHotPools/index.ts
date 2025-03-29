@@ -1,13 +1,17 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
 const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
+const CACHE_KEY = "solana_hot_pools";
+const CACHE_TTL = 30 * 60; // 30 minutes in seconds
 
 // Define CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Cache-Control': 'public, max-age=1800', // 30 minutes cache
+  'Cache-Control': 'public, max-age=1800', // 30 minutes browser cache
 };
 
 // Fallback hot pools data (keep this as backup)
@@ -77,6 +81,176 @@ const fallbackHotPools = [
   }
 ];
 
+// Initialize Supabase client with environment variables
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL") ?? "",
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  {
+    auth: {
+      persistSession: false,
+    }
+  }
+);
+
+// Function to read from cache
+async function getFromCache() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('market_cache')
+      .select('data, created_at, expires_at')
+      .eq('cache_key', CACHE_KEY)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    
+    if (error) {
+      console.log("Cache read error or no valid cache entry:", error.message);
+      return null;
+    }
+    
+    console.log(`Found valid cache from ${data.created_at}, expires at ${data.expires_at}`);
+    return data.data;
+  } catch (error) {
+    console.error("Error accessing cache:", error);
+    return null;
+  }
+}
+
+// Function to write to cache
+async function writeToCache(data, source = "api") {
+  try {
+    // Calculate the expiration date (30 minutes from now)
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + CACHE_TTL);
+
+    const { error } = await supabaseAdmin
+      .from('market_cache')
+      .upsert({
+        cache_key: CACHE_KEY,
+        data: data,
+        expires_at: expiresAt.toISOString(),
+        source: source
+      });
+
+    if (error) {
+      console.error("Cache write error:", error);
+    } else {
+      console.log(`Successfully cached hot pools data, expires at ${expiresAt.toISOString()}`);
+    }
+  } catch (error) {
+    console.error("Error writing to cache:", error);
+  }
+}
+
+// Function to fetch hot pools from API
+async function fetchHotPoolsFromAPI() {
+  console.log("Fetching hot pools from DEXTools API");
+  
+  try {
+    // Fetch hot pools directly from DEXTools
+    const response = await fetch(`${API_BASE_URL}/ranking/solana/hotpools`, {
+      method: "GET",
+      headers: {
+        "X-API-KEY": DEXTOOLS_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Hot pools API error (${response.status}):`, errorText);
+      console.log("Using fallback hot pools data due to API error");
+      
+      // Cache the fallback data too, but with a shorter expiration
+      const fallbackResponse = {
+        hotPools: fallbackHotPools,
+        timestamp: Date.now(),
+        source: "fallback" 
+      };
+      
+      await writeToCache(fallbackResponse, "fallback");
+      return fallbackResponse;
+    }
+
+    try {
+      const responseData = await response.json();
+      console.log("Successfully fetched hot pools");
+      
+      // Check if the response has the correct structure
+      if (responseData && responseData.statusCode === 200 && Array.isArray(responseData.data)) {
+        console.log("Successfully parsed hot pools data from API, found", responseData.data.length, "pools");
+        
+        // Preserve the exact structure and order from the API
+        const hotPools = responseData.data.map(pool => {
+          return {
+            rank: pool.rank || 0,
+            address: pool.address || "",
+            creationTime: pool.creationTime || "",
+            creationBlock: pool.creationBlock || 0,
+            exchangeName: pool.exchange?.name || "Unknown",
+            exchangeFactory: pool.exchange?.factory || "",
+            mainToken: {
+              name: pool.mainToken?.name || "Unknown Token",
+              symbol: pool.mainToken?.symbol || "???",
+              address: pool.mainToken?.address || "",
+              logo: pool.mainToken?.logo || `https://placehold.co/200x200?text=${pool.mainToken?.symbol?.substring(0, 2) || "??"}`,
+            },
+            sideToken: {
+              name: pool.sideToken?.name || "Unknown Token", 
+              symbol: pool.sideToken?.symbol || "???",
+              address: pool.sideToken?.address || "",
+              logo: pool.sideToken?.logo || `https://placehold.co/200x200?text=${pool.sideToken?.symbol?.substring(0, 2) || "??"}`,
+            },
+            fee: 0.3, // Default fee
+          };
+        });
+
+        const result = {
+          hotPools: hotPools,
+          timestamp: Date.now(),
+          source: "api" 
+        };
+        
+        // Cache the successful API response
+        await writeToCache(result, "api");
+        return result;
+      } else {
+        console.log("Hot pools API response has unexpected format, using fallback");
+        const fallbackResponse = {
+          hotPools: fallbackHotPools,
+          timestamp: Date.now(),
+          source: "fallback"
+        };
+        
+        await writeToCache(fallbackResponse, "fallback_format");
+        return fallbackResponse;
+      }
+    } catch (error) {
+      console.error("Error parsing hot pools response:", error);
+      console.log("Using fallback hot pools data due to parse error");
+      
+      const fallbackResponse = {
+        hotPools: fallbackHotPools,
+        timestamp: Date.now(),
+        source: "fallback_parse"
+      };
+      
+      await writeToCache(fallbackResponse, "fallback_parse");
+      return fallbackResponse;
+    }
+  } catch (error) {
+    console.error("Error fetching from API:", error);
+    
+    const fallbackResponse = {
+      hotPools: fallbackHotPools,
+      timestamp: Date.now(),
+      source: "fallback_network"
+    };
+    
+    await writeToCache(fallbackResponse, "fallback_network");
+    return fallbackResponse;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -97,82 +271,30 @@ serve(async (req) => {
       );
     }
 
-    console.log("Fetching hot pools from DEXTools API");
-
-    // Fetch hot pools directly from DEXTools
-    const response = await fetch(`${API_BASE_URL}/ranking/solana/hotpools`, {
-      method: "GET",
-      headers: {
-        "X-API-KEY": DEXTOOLS_API_KEY,
-        "Content-Type": "application/json",
-      },
-    });
-
-    let hotPools = [];
-
-    if (response.ok) {
-      try {
-        const responseData = await response.json();
-        console.log("Successfully fetched hot pools");
-        
-        // Check if the response has the correct structure
-        if (responseData && responseData.statusCode === 200 && Array.isArray(responseData.data)) {
-          console.log("Successfully parsed hot pools data from API, found", responseData.data.length, "pools");
-          
-          // Preserve the exact structure and order from the API
-          hotPools = responseData.data.map(pool => {
-            return {
-              rank: pool.rank || 0,
-              address: pool.address || "",
-              creationTime: pool.creationTime || "",
-              creationBlock: pool.creationBlock || 0,
-              exchangeName: pool.exchange?.name || "Unknown",
-              exchangeFactory: pool.exchange?.factory || "",
-              mainToken: {
-                name: pool.mainToken?.name || "Unknown Token",
-                symbol: pool.mainToken?.symbol || "???",
-                address: pool.mainToken?.address || "",
-                logo: pool.mainToken?.logo || `https://placehold.co/200x200?text=${pool.mainToken?.symbol?.substring(0, 2) || "??"}`,
-              },
-              sideToken: {
-                name: pool.sideToken?.name || "Unknown Token", 
-                symbol: pool.sideToken?.symbol || "???",
-                address: pool.sideToken?.address || "",
-                logo: pool.sideToken?.logo || `https://placehold.co/200x200?text=${pool.sideToken?.symbol?.substring(0, 2) || "??"}`,
-              },
-              fee: 0.3, // Default fee
-            };
-          });
-        } else {
-          console.log("Hot pools API response has unexpected format, using fallback");
-          hotPools = fallbackHotPools;
-        }
-      } catch (error) {
-        console.error("Error parsing hot pools response:", error);
-        console.log("Using fallback hot pools data due to parse error");
-        hotPools = fallbackHotPools;
-      }
+    // First, try to get data from cache
+    let cacheResult = await getFromCache();
+    let result;
+    
+    if (cacheResult) {
+      console.log("Using cached hot pools data");
+      result = cacheResult;
     } else {
-      const errorText = await response.text();
-      console.error(`Hot pools API error (${response.status}):`, errorText);
-      console.log("Using fallback hot pools data due to API error");
-      hotPools = fallbackHotPools;
+      console.log("No valid cache found, fetching fresh data");
+      result = await fetchHotPoolsFromAPI();
     }
 
     // Get SOL logo for Wrapped SOL tokens
-    hotPools.forEach(pool => {
-      if (pool.sideToken?.address === "So11111111111111111111111111111111111111112") {
-        pool.sideToken.logo = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
-      }
-    });
+    if (result && result.hotPools) {
+      result.hotPools.forEach(pool => {
+        if (pool.sideToken?.address === "So11111111111111111111111111111111111111112") {
+          pool.sideToken.logo = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
+        }
+      });
+    }
 
     // Always return a valid response with either API data or fallback
     return new Response(
-      JSON.stringify({
-        hotPools: hotPools,
-        timestamp: Date.now(),
-        source: response.ok ? "api" : "fallback" 
-      }),
+      JSON.stringify(result),
       {
         headers: { 
           ...corsHeaders, 

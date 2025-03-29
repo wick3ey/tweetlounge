@@ -1,11 +1,12 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PoolInfo, TokenInfo, preloadImages } from '@/services/marketService';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Eye } from 'lucide-react';
+import { Eye, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface HotPoolsListProps {
   pools: PoolInfo[] | undefined;
@@ -14,6 +15,7 @@ interface HotPoolsListProps {
 const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   const safePools = Array.isArray(pools) ? pools : [];
   const imagesPreloadedRef = useRef<boolean>(false);
+  const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
   
   useEffect(() => {
     // Preload all token images when pools data is available
@@ -30,13 +32,37 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
         console.log(`Preloading ${urls.length} token images from HotPoolsList component`);
         imagesPreloadedRef.current = true;
         preloadImages(urls, true) // Force cache the images
-          .then(() => console.log('Token images preloaded and permanently cached successfully'))
+          .then(() => {
+            console.log('Token images preloaded and permanently cached successfully');
+            // Mark all images as loaded in state
+            const newStatus: Record<string, boolean> = {};
+            urls.forEach(url => {
+              newStatus[url] = true;
+            });
+            setImageLoadStatus(newStatus);
+          })
           .catch(err => console.error('Error preloading token images:', err));
       }
     }
     
     // Don't reset the flag when component unmounts to avoid reloading on remount
   }, [safePools]);
+  
+  // Handle image loading status updates
+  const handleImageLoad = (url: string) => {
+    setImageLoadStatus(prev => ({
+      ...prev,
+      [url]: true
+    }));
+  };
+
+  const handleImageError = (url: string) => {
+    console.error(`Failed to load image: ${url}`);
+    setImageLoadStatus(prev => ({
+      ...prev,
+      [url]: false
+    }));
+  };
   
   const formatDexName = (name?: string): string => {
     if (!name) return "Unknown";
@@ -181,14 +207,27 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
                         src={pool.mainToken?.logo} 
                         alt={pool.mainToken?.name || "Token logo"} 
                         loading="eager" // Load immediately
+                        onLoad={() => handleImageLoad(pool.mainToken?.logo || '')}
+                        onError={() => handleImageError(pool.mainToken?.logo || '')}
                       />
                       <AvatarFallback className="bg-gray-800 text-gray-400">
                         {(pool.mainToken?.symbol || "??")?.substring(0, 2)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="font-medium">
+                      <div className="font-medium flex items-center">
                         {pool.mainToken?.name || 'Unknown Token'}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1 text-gray-500 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-gray-900 border-gray-800">
+                              <p className="text-xs">Token Address:</p>
+                              <p className="text-gray-400 text-xs font-mono">{pool.mainToken?.address || 'Unknown'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                       <div className="text-xs text-gray-500">
                         {pool.mainToken?.symbol || 'N/A'}

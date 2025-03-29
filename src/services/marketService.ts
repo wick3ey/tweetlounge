@@ -362,21 +362,21 @@ async function fetchAndUpdateTopTokens(): Promise<TopTokensData | null> {
   }
 }
 
-// Function to fetch hot pools with improved caching (30 minute cache as requested)
+// Modified function to fetch hot pools with improved caching
 export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
-  // First check cache
-  const { data: cachedData, isFresh } = getFromCache<HotPoolsData>(
+  // First check browser cache
+  const { data: localCachedData, isFresh } = getFromCache<HotPoolsData>(
     CACHE_KEYS.HOT_POOLS, 
     CACHE_DURATIONS.HOT_POOLS
   );
   
-  // Return cache data immediately if it exists
-  if (cachedData && cachedData.hotPools && cachedData.hotPools.length > 0) {
-    console.log(`Hot pools: using ${isFresh ? 'fresh' : 'stale'} cached data from ${cachedData.source || 'unknown'} source`);
+  // Return cache data immediately if it exists and is fresh
+  if (localCachedData && localCachedData.hotPools && localCachedData.hotPools.length > 0 && isFresh) {
+    console.log(`Hot pools: using fresh cached data from ${localCachedData.source || 'unknown'} source`);
     
-    // If we have hot pools data, preload the images in the background with force cache
-    if (cachedData.hotPools && Array.isArray(cachedData.hotPools)) {
-      const imageUrls = cachedData.hotPools
+    // If we have hot pools data, preload the images in the background
+    if (localCachedData.hotPools && Array.isArray(localCachedData.hotPools)) {
+      const imageUrls = localCachedData.hotPools
         .map(pool => [
           pool.mainToken?.logo, 
           pool.sideToken?.logo
@@ -390,105 +390,93 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
       }, 0);
     }
     
-    // If data is fresh (less than 30 minutes old), don't fetch new data
-    if (isFresh) {
-      return cachedData;
-    }
-    
-    // If stale (older than 30 minutes), fetch in background but return cached data immediately
-    console.log('Hot pools data is stale, fetching new data in background');
-    fetchAndUpdateHotPools().catch(error => 
-      console.error('Background refresh of hot pools failed:', error)
-    );
-    
-    return cachedData;
+    return localCachedData;
   }
   
-  console.log('No cached hot pools data found, fetching new data');
-  // No cache, need to fetch fresh data
-  return fetchAndUpdateHotPools();
-};
-
-// Helper function to fetch and update hot pools cache
-async function fetchAndUpdateHotPools(): Promise<HotPoolsData | null> {
+  // Stale or no cache, need to fetch fresh data from server
   try {
-    console.log('Calling getHotPools edge function');
-    // Call Supabase function to securely access the DEXTools API
+    console.log('Fetching hot pools data from server');
+    
+    // Call Supabase function to get data (which handles its own caching)
     const { data, error } = await supabase.functions.invoke('getHotPools', {
       body: { chain: 'solana' }
     });
     
     if (error) {
       console.error('Error fetching hot pools:', error);
+      
+      // If we have stale cached data, use it as fallback
+      if (localCachedData && localCachedData.hotPools && localCachedData.hotPools.length > 0) {
+        console.log('Using stale cached data as fallback after error');
+        return localCachedData;
+      }
+      
       return null;
     }
     
-    // Fix for data structure - ensure we correctly process the nested response
-    let hotPoolsData: HotPoolsData | null = null;
-    
-    if (data && typeof data === 'object') {
-      // Check if data has the hotPools property directly
-      if (Array.isArray(data.hotPools)) {
-        hotPoolsData = { 
+    if (data && (data.hotPools || data.data?.hotPools)) {
+      let hotPoolsData: HotPoolsData;
+      
+      // Handle possible nested data structure
+      if (data.hotPools) {
+        hotPoolsData = {
           hotPools: data.hotPools,
           timestamp: data.timestamp || Date.now(),
           source: data.source || 'api'
         };
-        console.log(`Received ${hotPoolsData.hotPools.length} hot pools from ${hotPoolsData.source}`);
-        
-        // Preload images for hot pools tokens
-        const imageUrls = hotPoolsData.hotPools
-          .map(pool => [
-            pool.mainToken?.logo, 
-            pool.sideToken?.logo
-          ])
-          .flat()
-          .filter(url => !!url) as string[];
-        
-        // Preload images in background
-        setTimeout(() => {
-          preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
-        }, 0);
+      } else if (data.data?.hotPools) {
+        hotPoolsData = {
+          hotPools: data.data.hotPools,
+          timestamp: data.data.timestamp || Date.now(),
+          source: data.data.source || 'api'
+        };
+      } else {
+        hotPoolsData = data as HotPoolsData;
       }
       
-      // Handle the case where hotPools is nested under hotPools.data
-      else if (data.hotPools?.data && Array.isArray(data.hotPools.data)) {
-        hotPoolsData = { 
-          hotPools: data.hotPools.data,
-          timestamp: data.timestamp || Date.now(),
-          source: data.source || 'api'
-        };
-        console.log(`Received ${hotPoolsData.hotPools.length} hot pools from nested data`);
-        
-        // Also preload these images
-        const imageUrls = hotPoolsData.hotPools
-          .map(pool => [
-            pool.mainToken?.logo, 
-            pool.sideToken?.logo
-          ])
-          .flat()
-          .filter(url => !!url) as string[];
-        
-        setTimeout(() => {
-          preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
-        }, 0);
-      }
-    }
-    
-    if (hotPoolsData && hotPoolsData.hotPools.length > 0) {
-      // Update cache with new data
-      console.log(`Updating hot pools cache with ${hotPoolsData.hotPools.length} pools`);
+      console.log(`Received ${hotPoolsData.hotPools.length} hot pools from ${hotPoolsData.source || 'api'}`);
+      
+      // Preload images for the token logos
+      const imageUrls = hotPoolsData.hotPools
+        .map(pool => [
+          pool.mainToken?.logo, 
+          pool.sideToken?.logo
+        ])
+        .flat()
+        .filter(url => !!url) as string[];
+      
+      // Start preloading images right away
+      setTimeout(() => {
+        preloadImages(imageUrls, true).catch(err => console.error('Error preloading images:', err));
+      }, 0);
+      
+      // Update browser cache with new data
       updateCache(CACHE_KEYS.HOT_POOLS, hotPoolsData);
+      
       return hotPoolsData;
     }
     
-    console.error('Unexpected data format for hot pools or empty array:', data);
+    console.error('Unexpected data format for hot pools:', data);
+    
+    // If we have stale cached data, use it as fallback
+    if (localCachedData && localCachedData.hotPools && localCachedData.hotPools.length > 0) {
+      console.log('Using stale cached data as fallback after format error');
+      return localCachedData;
+    }
+    
     return null;
   } catch (error) {
     console.error('Error in fetchHotPools:', error);
+    
+    // If we have stale cached data, use it as fallback
+    if (localCachedData && localCachedData.hotPools && localCachedData.hotPools.length > 0) {
+      console.log('Using stale cached data as fallback after exception');
+      return localCachedData;
+    }
+    
     return null;
   }
-}
+};
 
 // Function to fetch token details by address
 export const fetchTokenDetails = async (address: string): Promise<TokenInfo | null> => {
