@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   LineChart, BarChart2, TrendingUp, TrendingDown, Search, 
-  Info, ArrowUp, ArrowDown, RefreshCw, Eye, ExternalLink
+  Info, ArrowUp, ArrowDown, RefreshCw, Eye, ExternalLink, Image
 } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -373,6 +373,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
             <TableHead>Pair</TableHead>
             <TableHead>DEX</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead>Metadata</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -408,6 +409,22 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                 </Badge>
               </TableCell>
               <TableCell>{formatDate(pool.creationTime)}</TableCell>
+              <TableCell>
+                <div className="flex items-center">
+                  <Avatar className="h-10 w-10 border border-gray-800">
+                    <AvatarImage 
+                      src={pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
+                      alt="Pool metadata" 
+                    />
+                    <AvatarFallback className="bg-gray-800 text-gray-400">
+                      <Image className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="ml-2 text-xs text-gray-400">
+                    {pool.mainToken?.name?.substring(0, 12) || 'Metadata'}
+                  </div>
+                </div>
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <Button 
