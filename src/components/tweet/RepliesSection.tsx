@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
 import Reply from './Reply';
@@ -33,7 +32,6 @@ const RepliesSection = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  // Validate tweetId on component mount
   useEffect(() => {
     if (!tweetId || tweetId.trim() === '') {
       console.error('Invalid tweetId provided to RepliesSection:', tweetId);
@@ -56,20 +54,15 @@ const RepliesSection = ({
       
       if (Array.isArray(data)) {
         const validatedReplies = data.map(reply => {
-          // Make sure profile data exists
-          if (!reply.profiles) {
-            console.warn("Missing profiles data for reply:", reply.id);
-            reply.profiles = {
-              id: '',
-              username: 'unknown',
-              display_name: 'Unknown User',
-              avatar_url: null,
-              avatar_nft_id: null,
-              avatar_nft_chain: null
-            };
-          }
+          const profileData = reply.profiles || {
+            id: '',
+            username: 'unknown',
+            display_name: 'Unknown User',
+            avatar_url: null,
+            avatar_nft_id: null,
+            avatar_nft_chain: null
+          };
           
-          // Validate date
           if (!reply.created_at || !isValidDateString(reply.created_at)) {
             console.warn("Invalid date detected for reply:", reply.id);
             reply.created_at = new Date().toISOString();
@@ -77,12 +70,12 @@ const RepliesSection = ({
           
           return {
             ...reply,
+            profiles: profileData,
             created_at: reply.created_at || new Date().toISOString(),
             safe_date: createSafeDate(reply.created_at)
           };
         });
         
-        // Sort replies by date (newest first)
         const sortedReplies = validatedReplies.sort((a, b) => {
           if (!a.safe_date) return 1;
           if (!b.safe_date) return -1;

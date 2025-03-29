@@ -538,11 +538,12 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       // Continue with reply fetch attempt anyway
     }
     
+    // Modified query to avoid the foreign key relationship issue
     const { data, error } = await supabase
       .from('replies')
       .select(`
         *,
-        profiles:user_id (
+        profiles(
           id,
           username,
           display_name,
