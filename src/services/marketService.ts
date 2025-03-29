@@ -124,13 +124,22 @@ export const fetchTopTokens = async (): Promise<TopTokensData | null> => {
 // Function to fetch hot pools
 export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   try {
-    const hotPools = await fetchCachedMarketData('ranking/hotpools', 'solana', {}, 15); // Cache for 15 minutes
+    // Call the getHotPools edge function directly instead of going through getCachedMarketData
+    const { data, error } = await supabase.functions.invoke('getHotPools', {
+      body: { chain: 'solana' }
+    });
     
-    if (!hotPools) {
+    if (error) {
+      console.error('Error fetching hot pools:', error);
       return null;
     }
     
-    return { hotPools: Array.isArray(hotPools) ? hotPools : [] };
+    if (!data || !data.hotPools) {
+      console.error('No hot pools data returned or invalid format');
+      return null;
+    }
+    
+    return data as HotPoolsData;
   } catch (error) {
     console.error('Error in fetchHotPools:', error);
     return null;
