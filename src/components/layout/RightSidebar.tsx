@@ -8,18 +8,76 @@ import MarketStats from '@/components/crypto/MarketStats';
 import NewsSection from '@/components/crypto/NewsSection';
 import TrendingTopics from '@/components/crypto/TrendingTopics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+
+// Define the type for user suggestions
+type UserSuggestion = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  avatar_nft_id: string | null;
+  avatar_nft_chain: string | null;
+};
 
 const RightSidebar = () => {
   const [activeTab, setActiveTab] = useState("stats");
+  const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
   
-  // Mock data
-  const whoToFollow = [
-    { id: 1, name: 'Satoshi', username: 'satoshi', avatar: 'https://avatars.githubusercontent.com/u/224?s=200&v=4' },
-    { id: 2, name: 'Vitalik', username: 'vitalik', avatar: 'https://avatars.githubusercontent.com/u/9454151?s=200&v=4' },
-    { id: 3, name: 'CZ Binance', username: 'cz_binance', avatar: 'https://avatars.githubusercontent.com/u/37979?s=200&v=4' },
-  ];
+  // Fetch user suggestions when the component mounts and every 30 minutes
+  useEffect(() => {
+    const fetchUserSuggestions = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase.rpc('get_user_suggestions', {
+          current_user_id: user ? user.id : null,
+          limit_count: 3
+        });
+        
+        if (error) {
+          console.error('Error fetching user suggestions:', error);
+          throw error;
+        }
+        
+        setUserSuggestions(data || []);
+      } catch (error) {
+        toast({
+          title: "Failed to load suggestions",
+          description: "Could not load user suggestions. Please try again later.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Initial fetch
+    fetchUserSuggestions();
+    
+    // Set up interval to refresh every 30 minutes (1800000 milliseconds)
+    const intervalId = setInterval(fetchUserSuggestions, 1800000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [user, toast]);
 
+  // Generate a placeholder for the avatar
+  const generateAvatarPlaceholder = (name: string | null) => {
+    if (!name) return "U";
+    const parts = name.split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+  
   return (
     <div className="hidden lg:block w-80 border-l border-gray-800 overflow-y-auto">
       <div className="p-4 sticky top-0 bg-black/95 backdrop-blur-sm z-10">
@@ -89,27 +147,92 @@ const RightSidebar = () => {
                     </Button>
                   </div>
                   <div className="space-y-4">
-                    {whoToFollow.map((profile) => (
-                      <div key={profile.id} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Avatar className="h-10 w-10 border border-gray-800">
-                            <AvatarImage src={profile.avatar} alt={profile.name} />
-                            <AvatarFallback>{profile.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
-                          <div className="ml-3">
-                            <p className="font-medium text-white">{profile.name}</p>
-                            <p className="text-xs text-gray-500">@{profile.username}</p>
+                    {isLoading ? (
+                      // Show loading skeletons
+                      Array(3).fill(0).map((_, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 rounded-full bg-gray-800 animate-pulse"></div>
+                            <div className="ml-3">
+                              <div className="h-4 w-24 bg-gray-800 rounded animate-pulse"></div>
+                              <div className="h-3 w-16 bg-gray-800 rounded animate-pulse mt-2"></div>
+                            </div>
                           </div>
+                          <div className="h-8 w-16 bg-gray-800 rounded-full animate-pulse"></div>
                         </div>
-                        <Button 
-                          className="bg-white hover:bg-gray-200 text-black rounded-full text-xs py-1 px-3 h-8 font-bold"
-                        >
-                          Follow
-                        </Button>
+                      ))
+                    ) : userSuggestions.length > 0 ? (
+                      // Show actual user suggestions
+                      userSuggestions.map((profile) => (
+                        <div key={profile.id} className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Avatar className="h-10 w-10 border border-gray-800">
+                              <AvatarImage src={profile.avatar_url || ''} alt={profile.display_name || 'User'} />
+                              <AvatarFallback>{generateAvatarPlaceholder(profile.display_name)}</AvatarFallback>
+                            </Avatar>
+                            <div className="ml-3">
+                              <p className="font-medium text-white">{profile.display_name || 'Unnamed User'}</p>
+                              <p className="text-xs text-gray-500">@{profile.username || 'user'}</p>
+                            </div>
+                          </div>
+                          <Button 
+                            className="bg-white hover:bg-gray-200 text-black rounded-full text-xs py-1 px-3 h-8 font-bold"
+                            onClick={() => {
+                              if (!user) {
+                                toast({
+                                  title: "Authentication Required",
+                                  description: "You need to be logged in to follow users",
+                                  variant: "destructive"
+                                });
+                                return;
+                              }
+                              // Follow user logic would go here
+                              toast({
+                                title: "Follow request",
+                                description: "Follow functionality will be implemented soon",
+                              });
+                            }}
+                          >
+                            Follow
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      // Show message when no suggestions are available
+                      <div className="text-center py-4 text-gray-500">
+                        <p>No suggestions available</p>
                       </div>
-                    ))}
+                    )}
                   </div>
-                  <Button variant="ghost" className="text-crypto-blue text-sm hover:bg-crypto-blue/10 mt-4 w-full justify-start px-3">
+                  <Button 
+                    variant="ghost" 
+                    className="text-crypto-blue text-sm hover:bg-crypto-blue/10 mt-4 w-full justify-start px-3"
+                    onClick={() => {
+                      // Refresh suggestions manually
+                      setActiveTab("follow");
+                      const fetchSuggestions = async () => {
+                        try {
+                          setIsLoading(true);
+                          const { data, error } = await supabase.rpc('get_user_suggestions', {
+                            current_user_id: user ? user.id : null,
+                            limit_count: 3
+                          });
+                          
+                          if (error) throw error;
+                          setUserSuggestions(data || []);
+                        } catch (error) {
+                          toast({
+                            title: "Failed to refresh suggestions",
+                            description: "Could not load user suggestions. Please try again later.",
+                            variant: "destructive"
+                          });
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      };
+                      fetchSuggestions();
+                    }}
+                  >
                     Show more
                   </Button>
                 </div>
