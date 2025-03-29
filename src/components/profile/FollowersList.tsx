@@ -1,9 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { Loader, Check, UserRound } from 'lucide-react';
-import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
+import { followUser, unfollowUser } from '@/services/profileService';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,13 +29,13 @@ const FollowersList = ({ profiles, isLoading, currentUserId, onFollowChange }: F
   const [loadingStatus, setLoadingStatus] = useState<Record<string, boolean>>({});
 
   // Initialize following status from the profiles data
-  useState(() => {
+  useEffect(() => {
     const initialStatus: Record<string, boolean> = {};
     profiles.forEach(profile => {
       initialStatus[profile.id] = !!profile.is_following;
     });
     setFollowingStatus(initialStatus);
-  });
+  }, [profiles]);
 
   const handleFollowToggle = async (profileId: string, currentlyFollowing: boolean) => {
     if (!currentUserId) {

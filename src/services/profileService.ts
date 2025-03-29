@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
 import { createNotification, deleteNotification } from './notificationService';
@@ -242,7 +241,7 @@ export async function isFollowing(followingId: string): Promise<boolean> {
       throw error;
     }
     
-    // Use strict comparison to ensure a primitive boolean
+    // Return a primitive boolean
     return data !== null;
   } catch (error) {
     console.error('Error checking follow status:', error);
@@ -257,20 +256,19 @@ export async function getFollowers(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Get followers with profiles
+    // Get followers with profiles using improved join query
     const { data, error } = await supabase
       .from('followers')
       .select(`
         follower_id,
-        follower:follower_id (
+        profiles!followers_follower_id_fkey (
           id,
           username,
           display_name,
           avatar_url
         )
       `)
-      .eq('following_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('following_id', userId);
       
     if (error) {
       console.error('Error fetching followers:', error);
@@ -279,10 +277,10 @@ export async function getFollowers(userId: string): Promise<any[]> {
     
     // Transform data to what UI expects
     const followers = data.map(item => ({
-      id: item.follower.id,
-      username: item.follower.username,
-      display_name: item.follower.display_name,
-      avatar_url: item.follower.avatar_url,
+      id: item.profiles.id,
+      username: item.profiles.username,
+      display_name: item.profiles.display_name,
+      avatar_url: item.profiles.avatar_url,
       is_following: false // We'll set this below
     }));
     
@@ -324,20 +322,19 @@ export async function getFollowing(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Get following with profiles
+    // Get following with profiles using improved join query
     const { data, error } = await supabase
       .from('followers')
       .select(`
         following_id,
-        following:following_id (
+        profiles!followers_following_id_fkey (
           id,
           username,
           display_name,
           avatar_url
         )
       `)
-      .eq('follower_id', userId)
-      .order('created_at', { ascending: false });
+      .eq('follower_id', userId);
       
     if (error) {
       console.error('Error fetching following:', error);
@@ -346,10 +343,10 @@ export async function getFollowing(userId: string): Promise<any[]> {
     
     // Transform data to what UI expects
     const following = data.map(item => ({
-      id: item.following.id,
-      username: item.following.username,
-      display_name: item.following.display_name,
-      avatar_url: item.following.avatar_url,
+      id: item.profiles.id,
+      username: item.profiles.username,
+      display_name: item.profiles.display_name,
+      avatar_url: item.profiles.avatar_url,
       is_following: currentUser?.id === userId // If current user is viewing their own following, they are following all these users
     }));
     
