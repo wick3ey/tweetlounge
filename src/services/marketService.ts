@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Cache constants
@@ -8,6 +7,7 @@ const CACHE_KEYS = {
   HOT_POOLS: 'hot_pools_cache',
   RECENT_TOKENS: 'recent_tokens_cache',
   TOKEN_METADATA_PREFIX: 'token_metadata_',
+  TOKEN_IMAGES: 'token_images_cache',
 };
 
 const CACHE_DURATIONS = {
@@ -16,6 +16,7 @@ const CACHE_DURATIONS = {
   HOT_POOLS: 30 * 60 * 1000, // 30 minutes - as requested
   RECENT_TOKENS: 60 * 60 * 1000, // 1 hour
   TOKEN_METADATA: 24 * 60 * 60 * 1000, // 24 hours
+  TOKEN_IMAGES: 30 * 60 * 1000, // 30 minutes - match hot pools
 };
 
 // Basic types
@@ -74,6 +75,11 @@ const MEMORY_CACHE: {[key: string]: {data: any, timestamp: number}} = {};
 const FAILED_REQUESTS: {[key: string]: {count: number, lastAttempt: number}} = {};
 const RETRY_AFTER = 5 * 60 * 1000; // 5 minutes
 
+// Image preloading state
+const IMAGE_PRELOAD_STATUS: {[url: string]: 'loading' | 'loaded' | 'error'} = {};
+const BATCH_SIZE = 15; // Process 15 images at a time
+const BATCH_INTERVAL = 4000; // 4 seconds between batches
+
 // Helper function to get cached data from localStorage
 function getFromCache<T>(key: string, maxAge: number): { data: T | null, isFresh: boolean } {
   try {
@@ -129,6 +135,81 @@ function updateCache(key: string, data: any): void {
     MEMORY_CACHE[key] = { data, timestamp: Date.now() };
   }
 }
+
+// Helper function for preloading images in batches
+export const preloadImages = async (urls: string[]): Promise<void> => {
+  if (!urls || urls.length === 0) return;
+  
+  // Check cache first
+  const { data: cachedData, isFresh } = getFromCache<{[url: string]: boolean}>(
+    CACHE_KEYS.TOKEN_IMAGES, 
+    CACHE_DURATIONS.TOKEN_IMAGES
+  );
+  
+  // Filter out already cached images
+  let imagesToLoad = urls;
+  if (cachedData && isFresh) {
+    imagesToLoad = urls.filter(url => !cachedData[url]);
+    if (imagesToLoad.length === 0) {
+      console.log('All images are already cached, no need to preload');
+      return; // All images are already cached
+    }
+  }
+  
+  console.log(`Preloading ${imagesToLoad.length} images in batches of ${BATCH_SIZE}`);
+  
+  // Process in batches
+  const batches = [];
+  for (let i = 0; i < imagesToLoad.length; i += BATCH_SIZE) {
+    batches.push(imagesToLoad.slice(i, i + BATCH_SIZE));
+  }
+  
+  const results: {[url: string]: boolean} = cachedData || {};
+  
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    
+    // Process each batch in parallel
+    await Promise.all(
+      batch.map(url => {
+        return new Promise<void>((resolve) => {
+          if (IMAGE_PRELOAD_STATUS[url] === 'loading' || IMAGE_PRELOAD_STATUS[url] === 'loaded') {
+            resolve();
+            return;
+          }
+          
+          IMAGE_PRELOAD_STATUS[url] = 'loading';
+          
+          const img = new Image();
+          
+          img.onload = () => {
+            IMAGE_PRELOAD_STATUS[url] = 'loaded';
+            results[url] = true;
+            resolve();
+          };
+          
+          img.onerror = () => {
+            IMAGE_PRELOAD_STATUS[url] = 'error';
+            results[url] = false;
+            resolve();
+          };
+          
+          img.src = url;
+        });
+      })
+    );
+    
+    // Wait before processing the next batch if there are more batches
+    if (i < batches.length - 1) {
+      console.log(`Batch ${i + 1}/${batches.length} processed, waiting ${BATCH_INTERVAL/1000}s before next batch`);
+      await new Promise(resolve => setTimeout(resolve, BATCH_INTERVAL));
+    }
+  }
+  
+  // Update cache with results
+  updateCache(CACHE_KEYS.TOKEN_IMAGES, results);
+  console.log(`Image preloading complete, cached ${Object.keys(results).length} images`);
+};
 
 // Primary function to fetch Solana chain information
 export const fetchSolanaStats = async (): Promise<SolanaMarketStats | null> => {
@@ -260,6 +341,22 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   if (cachedData) {
     console.log(`Hot pools: using ${isFresh ? 'fresh' : 'stale'} cached data from ${cachedData.source || 'unknown'} source`);
     
+    // If we have hot pools data, preload the images in the background
+    if (cachedData.hotPools && Array.isArray(cachedData.hotPools)) {
+      const imageUrls = cachedData.hotPools
+        .map(pool => [
+          pool.mainToken?.logo, 
+          pool.sideToken?.logo
+        ])
+        .flat()
+        .filter(url => !!url) as string[];
+      
+      // Preload images in the background
+      setTimeout(() => {
+        preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
+      }, 0);
+    }
+    
     // If data is fresh (less than 30 minutes old), don't fetch new data
     if (isFresh) {
       return cachedData;
@@ -305,6 +402,20 @@ async function fetchAndUpdateHotPools(): Promise<HotPoolsData | null> {
           source: data.source || 'api'
         };
         console.log(`Received ${hotPoolsData.hotPools.length} hot pools from ${hotPoolsData.source}`);
+        
+        // Preload images for hot pools tokens
+        const imageUrls = hotPoolsData.hotPools
+          .map(pool => [
+            pool.mainToken?.logo, 
+            pool.sideToken?.logo
+          ])
+          .flat()
+          .filter(url => !!url) as string[];
+        
+        // Preload images in background
+        setTimeout(() => {
+          preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
+        }, 0);
       }
       
       // Handle the case where hotPools is nested under hotPools.data
@@ -315,6 +426,19 @@ async function fetchAndUpdateHotPools(): Promise<HotPoolsData | null> {
           source: data.source || 'api'
         };
         console.log(`Received ${hotPoolsData.hotPools.length} hot pools from nested data`);
+        
+        // Also preload these images
+        const imageUrls = hotPoolsData.hotPools
+          .map(pool => [
+            pool.mainToken?.logo, 
+            pool.sideToken?.logo
+          ])
+          .flat()
+          .filter(url => !!url) as string[];
+        
+        setTimeout(() => {
+          preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
+        }, 0);
       }
     }
     
@@ -508,6 +632,15 @@ export const fetchRecentTokens = async (limit: number = 10): Promise<TokenInfo[]
   
   // Return cache data immediately if it exists
   if (cachedData && cachedData.length > 0) {
+    // Preload token logos in the background
+    const imageUrls = cachedData
+      .map(token => token.logo)
+      .filter(url => !!url) as string[];
+    
+    setTimeout(() => {
+      preloadImages(imageUrls).catch(err => console.error('Error preloading recent token images:', err));
+    }, 0);
+    
     // If data is fresh, don't fetch new data
     if (isFresh) return cachedData;
     
@@ -537,6 +670,15 @@ async function fetchAndUpdateRecentTokens(limit: number): Promise<TokenInfo[]> {
     }
     
     if (Array.isArray(data) && data.length > 0) {
+      // Preload token logos
+      const imageUrls = data
+        .map((token: TokenInfo) => token.logo)
+        .filter((url: string | undefined) => !!url) as string[];
+      
+      setTimeout(() => {
+        preloadImages(imageUrls).catch(err => console.error('Error preloading recent token images:', err));
+      }, 0);
+      
       // Update cache with new data
       updateCache(CACHE_KEYS.RECENT_TOKENS, data);
       return data as TokenInfo[];

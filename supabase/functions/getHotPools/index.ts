@@ -8,6 +8,7 @@ const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Cache-Control': 'public, max-age=1800', // 30 minutes cache
 };
 
 // Fallback hot pools data
@@ -132,15 +133,35 @@ serve(async (req) => {
       console.log("Using fallback hot pools data due to API error");
     }
 
+    // Pre-process the hot pools to ensure all required properties exist
+    const processedHotPools = hotPools.map(pool => {
+      return {
+        ...pool,
+        mainToken: {
+          ...pool.mainToken,
+          logo: pool.mainToken?.logo || 'https://placehold.co/200x200?text=No+Logo'
+        },
+        sideToken: {
+          ...pool.sideToken,
+          logo: pool.sideToken?.logo || 'https://placehold.co/200x200?text=No+Logo'
+        }
+      };
+    });
+
     // Always return a valid response with either API data or fallback
     return new Response(
       JSON.stringify({
-        hotPools,
+        hotPools: processedHotPools,
         timestamp: Date.now(),
         source: response.ok ? "api" : "fallback" 
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=1800", // 30 minutes cache
+          "Expires": new Date(Date.now() + 30 * 60 * 1000).toUTCString() // 30 minutes from now
+        },
       }
     );
   } catch (error) {
@@ -155,7 +176,12 @@ serve(async (req) => {
         error: error.message
       }),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=1800", // Still cache fallbacks for 30 minutes
+          "Expires": new Date(Date.now() + 30 * 60 * 1000).toUTCString()
+        },
       }
     );
   }
