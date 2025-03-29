@@ -135,8 +135,12 @@ serve(async (req) => {
 
     // Pre-process the hot pools to ensure all required properties exist
     const processedHotPools = hotPools.map(pool => {
+      // Ensure exchangeName is always present and valid
+      const exchangeName = pool.exchangeName || "Unknown";
+      
       return {
         ...pool,
+        exchangeName: exchangeName, // Ensure exchangeName is explicitly set
         mainToken: {
           ...pool.mainToken,
           logo: pool.mainToken?.logo || 'https://placehold.co/200x200?text=No+Logo'

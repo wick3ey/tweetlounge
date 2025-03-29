@@ -48,6 +48,7 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   const formatDexName = (name?: string): string => {
     if (!name) return "Unknown";
     
+    // Map of known DEX names to their proper display format
     const dexNames: {[key: string]: string} = {
       "raydium": "Raydium",
       "orca": "Orca",
@@ -70,13 +71,20 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
       "tensor": "Tensor"
     };
     
+    // First check if the exact name is in our map (case-insensitive)
     const lowerName = name.toLowerCase();
+    if (dexNames[lowerName]) {
+      return dexNames[lowerName];
+    }
+    
+    // Then check if any part of the name matches a known DEX
     for (const [key, value] of Object.entries(dexNames)) {
       if (lowerName.includes(key)) {
         return value;
       }
     }
     
+    // If not found in our map, capitalize the first letter of each word
     return name.split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
@@ -159,6 +167,7 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
         </TableHeader>
         <TableBody>
           {safePools.map((pool, index) => {
+            // Format the DEX name properly
             const dexName = formatDexName(pool.exchangeName);
             
             return (
@@ -210,4 +219,3 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
 };
 
 export default HotPoolsList;
-
