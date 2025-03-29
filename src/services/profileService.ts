@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
 import { createNotification, deleteNotification } from './notificationService';
@@ -242,7 +241,8 @@ export async function isFollowing(followingId: string): Promise<boolean> {
       throw error;
     }
     
-    return !!data;
+    // Ensure we return a primitive boolean value, not a Boolean object
+    return data !== null;
   } catch (error) {
     console.error('Error checking follow status:', error);
     return false;

@@ -73,8 +73,8 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fixed: Get the boolean result directly from isFollowing function
-        const followStatus = await isFollowing(userId);
+        // Get the boolean result directly from isFollowing function using Boolean()
+        const followStatus = Boolean(await isFollowing(userId));
         setFollowing(followStatus);
       } catch (error) {
         console.error("Error checking follow status:", error);
