@@ -108,7 +108,7 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
       }
       
       return data;
-    } catch (error) {
+    } catch (catchError) {
       // Fall back to direct query if RPC fails
       console.warn('RPC failed, falling back to direct query');
       const { data, error } = await supabase
