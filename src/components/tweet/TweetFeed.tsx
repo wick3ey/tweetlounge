@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
+import { useProfile } from '@/contexts/ProfileContext';
 
 interface TweetFeedProps {
   userId?: string;
@@ -19,6 +20,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -30,109 +32,74 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
-        // Step 1: Fetch tweets based on feed type
-        let tweetsQuery = supabase
-          .from('tweets')
-          .select(`
-            id,
-            content,
-            author_id,
-            created_at,
-            likes_count,
-            retweets_count,
-            replies_count,
-            is_retweet,
-            original_tweet_id,
-            image_url
-          `)
-          .order('created_at', { ascending: false });
+        // Approach 1: Use the Supabase stored procedure directly
+        // This is more reliable as it handles the join on the server side
+        let tweetsData;
+        let tweetsError;
         
-        // Apply filters based on feedType
-        if (feedType === 'user' && userId) {
-          tweetsQuery = tweetsQuery.eq('author_id', userId);
+        if (feedType === 'all') {
+          // Use get_tweets_with_authors stored procedure
+          const { data, error } = await supabase
+            .rpc('get_tweets_with_authors', { limit_count: limit });
+            
+          tweetsData = data;
+          tweetsError = error;
+          
+        } else if (feedType === 'user' && userId) {
+          // Use get_user_tweets stored procedure
+          const { data, error } = await supabase
+            .rpc('get_user_tweets', { user_id: userId, limit_count: limit });
+            
+          tweetsData = data;
+          tweetsError = error;
+          
         } else if (feedType === 'user-retweets' && userId) {
-          tweetsQuery = tweetsQuery.eq('author_id', userId).eq('is_retweet', true);
+          // Use get_user_retweets stored procedure
+          const { data, error } = await supabase
+            .rpc('get_user_retweets', { user_id: userId, limit_count: limit });
+            
+          tweetsData = data;
+          tweetsError = error;
         }
         
-        // Apply limit
-        tweetsQuery = tweetsQuery.limit(limit);
-        
-        // Execute the query
-        const { data: tweetsData, error: tweetsError } = await tweetsQuery;
-        
         if (tweetsError) {
-          console.error('[TweetFeed] Error fetching tweets:', tweetsError);
+          console.error('[TweetFeed] Error fetching tweets with RPC:', tweetsError);
           throw tweetsError;
         }
         
         if (!tweetsData || tweetsData.length === 0) {
-          console.log('[TweetFeed] No tweets found');
+          console.log('[TweetFeed] No tweets found using RPC method');
           setTweets([]);
           setLoading(false);
           return;
         }
         
-        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets`);
+        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets with authors using RPC`);
+        console.log(`[TweetFeed] Sample tweet:`, tweetsData[0]);
         
-        // Step 2: Get all unique author IDs from tweets
-        const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
-        
-        console.log(`[TweetFeed] Found ${authorIds.length} unique authors, IDs:`, authorIds);
-        
-        // Step 3: Fetch all authors using a different approach with "in" filter
-        const { data: authorsData, error: authorsError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', authorIds);
-        
-        if (authorsError) {
-          console.error('[TweetFeed] Error fetching authors:', authorsError);
-          throw authorsError;
-        }
-        
-        console.log(`[TweetFeed] Fetched ${authorsData?.length || 0} authors`, authorsData);
-        
-        // Create a map of author IDs to author data for quick lookup
-        const authorsMap = {};
-        if (authorsData) {
-          authorsData.forEach(author => {
-            console.log(`[TweetFeed] Adding author to map: id=${author.id}, username=${author.username}`);
-            authorsMap[author.id] = author;
-          });
-        }
-        
-        // Step 4: Combine tweets with their authors
-        const tweetsWithAuthors = tweetsData.map(tweet => {
-          const author = authorsMap[tweet.author_id];
-          
-          if (!author) {
-            console.warn(`[TweetFeed] Author not found for tweet ${tweet.id}, author_id: ${tweet.author_id}`);
+        // Transform the data to match our TweetWithAuthor type
+        const tweetsWithAuthors = tweetsData.map(tweet => ({
+          id: tweet.id,
+          content: tweet.content,
+          author_id: tweet.author_id,
+          created_at: tweet.created_at,
+          likes_count: tweet.likes_count,
+          retweets_count: tweet.retweets_count,
+          replies_count: tweet.replies_count,
+          is_retweet: tweet.is_retweet,
+          original_tweet_id: tweet.original_tweet_id,
+          image_url: tweet.image_url,
+          author: {
+            id: tweet.author_id,
+            username: tweet.username || 'unknown',
+            display_name: tweet.display_name || tweet.username || 'Unknown User',
+            avatar_url: tweet.avatar_url || '',
+            avatar_nft_id: tweet.avatar_nft_id,
+            avatar_nft_chain: tweet.avatar_nft_chain
           }
-          
-          // Use the RPC function to get the profile data if not found in the map
-          const tweetWithAuthor = {
-            ...tweet,
-            author: author ? {
-              id: author.id,
-              username: author.username || 'unknown',
-              display_name: author.display_name || 'Unknown User',
-              avatar_url: author.avatar_url || '',
-              avatar_nft_id: author.avatar_nft_id,
-              avatar_nft_chain: author.avatar_nft_chain
-            } : {
-              id: tweet.author_id,
-              username: 'unknown',
-              display_name: 'Unknown User',
-              avatar_url: '',
-              avatar_nft_id: null,
-              avatar_nft_chain: null
-            }
-          };
-          
-          return tweetWithAuthor;
-        });
+        }));
         
-        console.log('[TweetFeed] First tweet with author:', tweetsWithAuthors[0]);
+        console.log('[TweetFeed] First tweet with author after transform:', tweetsWithAuthors[0]);
         
         setTweets(tweetsWithAuthors);
       } catch (err) {
