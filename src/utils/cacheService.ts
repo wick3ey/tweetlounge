@@ -27,7 +27,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
       .from('market_cache')
       .select('data, expires_at')
       .eq('cache_key', key)
-      .lt('expires_at', new Date().toISOString())
+      .gt('expires_at', new Date().toISOString()) // Fixed: Use gt (greater than) instead of lt (less than)
       .maybeSingle();
     
     if (error) {
