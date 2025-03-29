@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -7,11 +6,11 @@ import {
   Mail, 
   User, 
   Bookmark, 
-  BarChart2,
   MessageSquare,
   Settings,
   Compass,
-  Zap
+  Zap,
+  LineChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,7 +37,7 @@ const LeftSidebar = () => {
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
-    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
+    { icon: LineChart, label: 'Market Watcher', path: '/market-watcher' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Settings, label: 'Settings', path: '/settings' }
   ];
@@ -59,7 +58,6 @@ const LeftSidebar = () => {
   
   return (
     <div className="hidden md:flex flex-col h-screen sticky top-0 w-72 py-4 bg-gradient-to-b from-black to-gray-900 border-r border-gray-800">
-      {/* Logo */}
       <div className="px-6 mb-6">
         <Link to="/home" className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
@@ -69,7 +67,6 @@ const LeftSidebar = () => {
         </Link>
       </div>
       
-      {/* Navigation Menu */}
       <nav className="flex-1 px-3">
         <ul className="space-y-1">
           {menuItems.map((item) => {
@@ -112,7 +109,6 @@ const LeftSidebar = () => {
         </ul>
       </nav>
       
-      {/* Tweet Button */}
       <div className="px-6 mt-4 mb-6">
         <Button 
           className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl h-12 font-bold shadow-md transition-all duration-300"
@@ -122,7 +118,6 @@ const LeftSidebar = () => {
         </Button>
       </div>
       
-      {/* User Profile */}
       {user && (
         <div className="px-4 mb-4">
           <Card className="bg-gradient-to-r from-gray-900 to-gray-800 border-gray-700 hover:border-gray-600 transition-colors duration-300">
@@ -148,7 +143,6 @@ const LeftSidebar = () => {
         </div>
       )}
 
-      {/* Mobile Navigation - Hidden on desktop */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-gray-800">
         <div className="flex justify-around items-center p-2">
           {menuItems.slice(0, 5).map((item) => (

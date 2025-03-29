@@ -16,6 +16,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
+import MarketWatcher from "./pages/MarketWatcher";  // Add the new import
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -45,6 +46,7 @@ const App = () => (
                     <Bookmarks />
                   </ProtectedRoute>
                 } />
+                <Route path="/market-watcher" element={<MarketWatcher />} />  {/* Add the new route */}
                 <Route path="/profile" element={
                   <ProtectedRoute>
                     <ProfilePage />
