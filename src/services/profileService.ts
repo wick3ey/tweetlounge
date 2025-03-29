@@ -45,6 +45,67 @@ export async function getProfileByUsername(username: string): Promise<Profile | 
   }
 }
 
+// Create a profile if it doesn't exist
+export async function createProfileIfNotExists(userId: string, userEmail?: string, metadata?: any): Promise<Profile | null> {
+  try {
+    // First check if profile exists
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+      
+    if (!checkError && existingProfile) {
+      // Profile already exists
+      return existingProfile as Profile;
+    }
+    
+    // Extract display name from metadata or email
+    let displayName = '';
+    let username = '';
+    
+    if (userEmail) {
+      displayName = userEmail.split('@')[0];
+      username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
+    }
+    
+    if (metadata?.full_name) {
+      displayName = metadata.full_name;
+    } else if (metadata?.name) {
+      displayName = metadata.name;
+    }
+    
+    const newProfile = {
+      id: userId,
+      username,
+      display_name: displayName,
+      bio: '',
+      avatar_url: metadata?.avatar_url || null,
+      updated_at: new Date().toISOString(),
+      followers_count: 0,
+      following_count: 0
+    };
+    
+    console.log("Creating new profile:", newProfile);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert(newProfile)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error creating profile:', error);
+      return null;
+    }
+    
+    return data as Profile;
+  } catch (error) {
+    console.error('Failed to create profile:', error);
+    return null;
+  }
+}
+
 // Update a profile
 export async function updateProfile(id: string, profile: Partial<ProfileUpdatePayload>): Promise<Profile | null> {
   try {

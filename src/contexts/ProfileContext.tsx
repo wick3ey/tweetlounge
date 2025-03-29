@@ -30,6 +30,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       if (!user?.id) return;
       
+      console.log("Fetching profile for user ID:", user.id);
+      
       const { data, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -38,11 +40,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       if (fetchError) {
         console.error('Error fetching profile:', fetchError);
+        
+        // If profile doesn't exist, create a new one for this user
+        if (fetchError.code === 'PGRST116') {
+          console.log("Profile not found, creating new profile for user:", user.id);
+          await createNewProfile(user.id);
+          return;
+        }
+        
         setError(fetchError.message);
         return;
       }
       
       if (data) {
+        console.log("Profile found:", data);
         const profileData: ProfileUpdatePayload = {
           username: data.username,
           display_name: data.display_name,
@@ -61,12 +72,81 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           replies_sort_order: data.replies_sort_order
         };
         setProfile(profileData);
+      } else {
+        // Handle case where data is null but no error
+        console.log("No profile found but no error, creating new profile for user:", user.id);
+        await createNewProfile(user.id);
       }
     } catch (error) {
       console.error('Profile loading error:', error);
       setError(error.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const createNewProfile = async (userId: string) => {
+    try {
+      // Extract display name from user email or metadata if available
+      let displayName = '';
+      let username = '';
+      
+      if (user?.email) {
+        displayName = user.email.split('@')[0];
+        username = displayName.toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
+      }
+      
+      if (user?.user_metadata?.full_name) {
+        displayName = user.user_metadata.full_name;
+      } else if (user?.user_metadata?.name) {
+        displayName = user.user_metadata.name;
+      }
+      
+      const newProfile = {
+        id: userId,
+        username,
+        display_name: displayName,
+        bio: '',
+        avatar_url: user?.user_metadata?.avatar_url || null,
+        updated_at: new Date().toISOString(),
+        followers_count: 0,
+        following_count: 0
+      };
+      
+      console.log("Creating new profile:", newProfile);
+      
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert(newProfile);
+      
+      if (insertError) {
+        console.error('Error creating profile:', insertError);
+        setError(insertError.message);
+        return;
+      }
+      
+      setProfile({
+        username,
+        display_name: displayName,
+        bio: '',
+        avatar_url: user?.user_metadata?.avatar_url || null,
+        cover_url: null,
+        location: null,
+        website: null,
+        updated_at: new Date().toISOString(),
+        ethereum_address: null,
+        solana_address: null,
+        avatar_nft_id: null,
+        avatar_nft_chain: null,
+        followers_count: 0,
+        following_count: 0,
+        replies_sort_order: 'newest_first'
+      });
+      
+      console.log("New profile created successfully");
+    } catch (error) {
+      console.error('Error in createNewProfile:', error);
+      setError(error.message);
     }
   };
 

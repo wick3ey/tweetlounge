@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { createProfileIfNotExists } from '@/services/profileService';
 
 type AuthContextType = {
   session: Session | null;
@@ -25,16 +26,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('Auth state changed, event:', _event);
+      
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Create profile for new users
+      if (session?.user) {
+        try {
+          console.log("Creating profile if not exists for user:", session.user.id);
+          await createProfileIfNotExists(
+            session.user.id, 
+            session.user.email, 
+            session.user.user_metadata
+          );
+        } catch (error) {
+          console.error("Error ensuring profile exists:", error);
+        }
+      }
+      
       setLoading(false);
     });
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      // Create profile for existing session
+      if (session?.user) {
+        try {
+          await createProfileIfNotExists(
+            session.user.id, 
+            session.user.email, 
+            session.user.user_metadata
+          );
+        } catch (error) {
+          console.error("Error ensuring profile exists for existing session:", error);
+        }
+      }
+      
       setLoading(false);
     });
 
