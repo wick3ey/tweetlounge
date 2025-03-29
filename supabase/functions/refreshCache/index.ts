@@ -16,22 +16,37 @@ const CACHE_CONFIG = [
   // Can add more endpoints to keep fresh in the cache
 ];
 
+// CORS headers for browser requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 // Initialize Supabase admin client
-const supabaseAdmin = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  {
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables");
+  }
+  
+  return createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,
     }
-  }
-);
+  });
+}
 
 // Function to update a single cache entry
 async function refreshCacheItem(config: { cacheKey: string, endpoint: string, ttl: number }) {
   console.log(`[${new Date().toISOString()}] Starting refreshCacheItem for ${config.cacheKey} (endpoint: ${config.endpoint})`);
   
+  let supabaseAdmin;
+  
   try {
+    supabaseAdmin = getSupabaseClient();
+    
     // Log Supabase URL (masked for security)
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     console.log(`Supabase URL: ${supabaseUrl.substring(0, 8)}...${supabaseUrl.substring(supabaseUrl.length - 5)}`);
@@ -135,6 +150,11 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+  
   // Log every request
   console.log(`[${new Date().toISOString()}] Received request to refreshCache function`);
   console.log(`Request method: ${req.method}, URL: ${req.url}`);
@@ -151,7 +171,7 @@ serve(async (req) => {
     console.log("Unauthorized request rejected");
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 
@@ -162,6 +182,15 @@ serve(async (req) => {
     console.log("Environment variables check:");
     console.log(`SUPABASE_URL exists: ${!!Deno.env.get("SUPABASE_URL")}`);
     console.log(`SUPABASE_SERVICE_ROLE_KEY exists: ${!!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
+    
+    if (!Deno.env.get("SUPABASE_URL") || !Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+      const errorMsg = "Missing required environment variables";
+      console.error(errorMsg);
+      return new Response(JSON.stringify({ error: errorMsg }), { 
+        status: 500, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
     
     // Refresh all configured caches
     console.log(`Refreshing ${CACHE_CONFIG.length} cache configurations`);
@@ -184,7 +213,7 @@ serve(async (req) => {
       }),
       { 
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   } catch (error) {
@@ -194,7 +223,7 @@ serve(async (req) => {
       JSON.stringify({ error: error.message }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }
