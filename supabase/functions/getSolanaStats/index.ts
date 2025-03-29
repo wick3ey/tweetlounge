@@ -10,6 +10,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Default fallback data
+const fallbackData = {
+  name: "Solana",
+  id: "solana",
+  website: "https://solana.com",
+  exchangeCount: 12,
+  tvl: 1458972341.23,
+  tokenCount: 23456,
+  poolCount: 34567
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,51 +39,37 @@ serve(async (req) => {
       },
     });
 
+    let resultData = { ...fallbackData };
+
     if (!response.ok) {
       const errorData = await response.text();
       console.error(`Error from DEXTools API: ${response.status}`, errorData);
-      
-      // Return a fallback data structure if the API fails
-      return new Response(
-        JSON.stringify({
-          name: "Solana",
-          id: "solana",
-          website: "https://solana.com",
-          exchangeCount: 12,
-          tvl: 1458972341.23,
-          tokenCount: 23456,
-          poolCount: 34567
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.log("Using fallback data");
+    } else {
+      try {
+        const apiData = await response.json();
+        console.log("Successfully fetched Solana stats:", apiData);
+        
+        // Merge with fallback data to ensure all required properties exist
+        if (apiData && apiData.data) {
+          resultData = { ...fallbackData, ...apiData.data };
         }
-      );
+      } catch (parseError) {
+        console.error("Error parsing API response:", parseError);
+        console.log("Using fallback data due to parsing error");
+      }
     }
-
-    const data = await response.json();
-    console.log("Successfully fetched Solana stats:", data);
     
-    // Return the data
-    return new Response(JSON.stringify(data), {
+    // Return the data (either from API or fallback)
+    return new Response(JSON.stringify(resultData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Error fetching Solana stats:", error);
     
     // Return fallback data in case of any error
-    return new Response(
-      JSON.stringify({
-        name: "Solana",
-        id: "solana",
-        website: "https://solana.com",
-        exchangeCount: 12,
-        tvl: 1458972341.23,
-        tokenCount: 23456,
-        poolCount: 34567
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify(fallbackData), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

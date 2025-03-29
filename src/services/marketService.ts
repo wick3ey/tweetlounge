@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Basic types
@@ -80,7 +81,24 @@ export const fetchTopTokens = async (): Promise<TopTokensData | null> => {
       return null;
     }
     
-    return data as TopTokensData;
+    // Fix for data structure - ensure we correctly process the nested response
+    if (data && typeof data === 'object') {
+      // Check if data has the expected structure with gainers and losers properties
+      if (data.gainers && data.losers) {
+        return data as TopTokensData;
+      }
+      
+      // Handle the case where gainers/losers are nested under statusCode/data
+      if (data.gainers?.data && data.losers?.data) {
+        return {
+          gainers: Array.isArray(data.gainers.data) ? data.gainers.data : [],
+          losers: Array.isArray(data.losers.data) ? data.losers.data : []
+        };
+      }
+    }
+    
+    console.error('Unexpected data format for top tokens:', data);
+    return null;
   } catch (error) {
     console.error('Error in fetchTopTokens:', error);
     return null;
@@ -100,7 +118,21 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
       return null;
     }
     
-    return data as HotPoolsData;
+    // Fix for data structure - ensure we correctly process the nested response
+    if (data && typeof data === 'object') {
+      // Check if data has the hotPools property directly
+      if (Array.isArray(data.hotPools)) {
+        return { hotPools: data.hotPools };
+      }
+      
+      // Handle the case where hotPools is nested under hotPools.data
+      if (data.hotPools?.data && Array.isArray(data.hotPools.data)) {
+        return { hotPools: data.hotPools.data };
+      }
+    }
+    
+    console.error('Unexpected data format for hot pools:', data);
+    return null;
   } catch (error) {
     console.error('Error in fetchHotPools:', error);
     return null;

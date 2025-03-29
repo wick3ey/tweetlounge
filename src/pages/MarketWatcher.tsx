@@ -219,7 +219,7 @@ const TopTokensTable = ({
         <TableBody>
           {pools.map((token, index) => (
             <TableRow 
-              key={token.mainToken.address || index} 
+              key={token.mainToken?.address || index} 
               className="border-gray-800 cursor-pointer hover:bg-gray-900/50"
               onClick={() => handleRowClick(token)}
             >
@@ -227,14 +227,14 @@ const TopTokensTable = ({
               <TableCell>
                 <div className="flex items-center">
                   <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={token.mainToken.logo} alt={token.mainToken.name} />
+                    <AvatarImage src={token.mainToken?.logo} alt={token.mainToken?.name} />
                     <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                      {token.mainToken.symbol?.substring(0, 2) || "??"}
+                      {token.mainToken?.symbol?.substring(0, 2) || "??"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-medium">{token.mainToken.name || 'Unknown'}</div>
-                    <div className="text-xs text-gray-500">{token.mainToken.symbol}</div>
+                    <div className="font-medium">{token.mainToken?.name || 'Unknown'}</div>
+                    <div className="text-xs text-gray-500">{token.mainToken?.symbol}</div>
                   </div>
                 </div>
               </TableCell>
@@ -399,27 +399,27 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                 <div className="flex items-center">
                   <div className="flex -space-x-2 mr-2">
                     <Avatar className="h-6 w-6 border-2 border-black">
-                      <AvatarImage src={pool.mainToken.logo} alt={pool.mainToken.name} />
+                      <AvatarImage src={pool.mainToken?.logo} alt={pool.mainToken?.name} />
                       <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                        {pool.mainToken.symbol?.substring(0, 2) || "??"}
+                        {pool.mainToken?.symbol?.substring(0, 2) || "??"}
                       </AvatarFallback>
                     </Avatar>
                     <Avatar className="h-6 w-6 border-2 border-black">
-                      <AvatarImage src={pool.sideToken.logo} alt={pool.sideToken.name} />
+                      <AvatarImage src={pool.sideToken?.logo} alt={pool.sideToken?.name} />
                       <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                        {pool.sideToken.symbol?.substring(0, 2) || "??"}
+                        {pool.sideToken?.symbol?.substring(0, 2) || "??"}
                       </AvatarFallback>
                     </Avatar>
                   </div>
                   <div>
-                    <span className="font-medium">{pool.mainToken.symbol || 'Unknown'}/{pool.sideToken.symbol || 'Unknown'}</span>
+                    <span className="font-medium">{pool.mainToken?.symbol || 'Unknown'}/{pool.sideToken?.symbol || 'Unknown'}</span>
                     <div className="text-xs text-gray-500">{shortenAddress(pool.address)}</div>
                   </div>
                 </div>
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className="bg-blue-900/10 text-blue-400 border-blue-500/20">
-                  {pool.exchangeName || 'Unknown'}
+                  {pool.exchangeName || pool.exchange?.name || 'Unknown'}
                 </Badge>
               </TableCell>
               <TableCell>{formatDate(pool.creationTime)}</TableCell>
