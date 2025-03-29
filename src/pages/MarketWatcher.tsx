@@ -361,7 +361,9 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
   const metadataCacheRef = useRef<TokenMetadataCache>({});
   const previousPoolsRef = useRef<string | null>(null);
   const pendingRequestsRef = useRef<Set<string>>(new Set());
-  const requestTimeoutsRef = useRef<{[key: string]: number}>({});
+  
+  // Fix: Change the type to use NodeJS.Timeout which works in both browser and Node environments
+  const requestTimeoutsRef = useRef<{[key: string]: NodeJS.Timeout}>({});
   
   const currentPoolsString = safePools.length > 0 
     ? JSON.stringify(safePools.map(p => p.mainToken?.address)) 
@@ -408,7 +410,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
   useEffect(() => {
     return () => {
       Object.values(requestTimeoutsRef.current).forEach(timeoutId => {
-        window.clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
       });
     };
   }, []);
@@ -451,7 +453,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
       
       // Clear any existing timeouts
       Object.values(requestTimeoutsRef.current).forEach(timeoutId => {
-        window.clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
       });
       requestTimeoutsRef.current = {};
       
