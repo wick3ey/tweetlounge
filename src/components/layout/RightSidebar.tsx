@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { Link, useNavigate } from 'react-router-dom';
 
 // Define the type for user suggestions
 type UserSuggestion = {
@@ -29,6 +30,7 @@ const RightSidebar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Fetch user suggestions when the component mounts and every 30 minutes
   useEffect(() => {
@@ -76,6 +78,19 @@ const RightSidebar = () => {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
+  };
+
+  // Handle navigation to user profile
+  const navigateToProfile = (username: string | null) => {
+    if (username) {
+      navigate(`/profile/${username}`);
+    } else {
+      toast({
+        title: "Profile not found",
+        description: "This user doesn't have a username set.",
+        variant: "destructive"
+      });
+    }
   };
   
   return (
@@ -165,13 +180,16 @@ const RightSidebar = () => {
                       // Show actual user suggestions
                       userSuggestions.map((profile) => (
                         <div key={profile.id} className="flex items-center justify-between">
-                          <div className="flex items-center">
+                          <div 
+                            className="flex items-center cursor-pointer" 
+                            onClick={() => navigateToProfile(profile.username)}
+                          >
                             <Avatar className="h-10 w-10 border border-gray-800">
                               <AvatarImage src={profile.avatar_url || ''} alt={profile.display_name || 'User'} />
                               <AvatarFallback>{generateAvatarPlaceholder(profile.display_name)}</AvatarFallback>
                             </Avatar>
                             <div className="ml-3">
-                              <p className="font-medium text-white">{profile.display_name || 'Unnamed User'}</p>
+                              <p className="font-medium text-white hover:underline">{profile.display_name || 'Unnamed User'}</p>
                               <p className="text-xs text-gray-500">@{profile.username || 'user'}</p>
                             </div>
                           </div>
