@@ -9,6 +9,35 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      bookmarks: {
+        Row: {
+          created_at: string
+          id: string
+          tweet_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tweet_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tweet_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
@@ -345,6 +374,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_bookmarked_tweets: {
+        Args: {
+          p_user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+          bookmarked_at: string
+        }[]
+      }
       get_tweet_comments: {
         Args: {
           p_tweet_id: string
@@ -596,6 +650,13 @@ export type Database = {
           "": unknown
         }
         Returns: unknown
+      }
+      is_tweet_bookmarked: {
+        Args: {
+          tweet_id: string
+          user_id: string
+        }
+        Returns: boolean
       }
       search_users: {
         Args: {

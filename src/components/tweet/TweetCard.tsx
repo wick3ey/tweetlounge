@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, Bookmark } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import {
   checkIfUserLikedTweet, 
   checkIfUserRetweetedTweet
 } from '@/services/tweetService';
+import { bookmarkTweet, unbookmarkTweet, checkIfTweetBookmarked } from '@/services/bookmarkService';
 import { useToast } from '@/components/ui/use-toast';
 
 interface TweetCardProps {
@@ -27,6 +29,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count);
@@ -47,8 +50,16 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
       setRetweeted(hasRetweeted);
     };
     
+    const checkBookmarkStatus = async () => {
+      if (!user) return;
+      
+      const hasBookmarked = await checkIfTweetBookmarked(tweet.id);
+      setBookmarked(hasBookmarked);
+    };
+    
     checkLikeStatus();
     checkRetweetStatus();
+    checkBookmarkStatus();
   }, [tweet.id, user]);
 
   const redirectToLogin = () => {
@@ -118,6 +129,50 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
       toast({
         title: "Action Failed",
         description: "Failed to retweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      let success;
+      
+      if (bookmarked) {
+        success = await unbookmarkTweet(tweet.id);
+        if (success) {
+          setBookmarked(false);
+          toast({
+            title: "Removed from Bookmarks",
+            description: "Tweet has been removed from your bookmarks."
+          });
+        }
+      } else {
+        success = await bookmarkTweet(tweet.id);
+        if (success) {
+          setBookmarked(true);
+          toast({
+            title: "Bookmarked",
+            description: "Tweet has been added to your bookmarks."
+          });
+        }
+      }
+      
+      if (onAction) onAction();
+    } catch (error) {
+      console.error("Error bookmarking tweet:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to bookmark the tweet. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -266,6 +321,14 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
             >
               <Heart className="h-4 w-4 mr-1" fill={liked ? "currentColor" : "none"} />
               <span>{formatNumber(likesCount)}</span>
+            </button>
+            
+            <button 
+              onClick={handleBookmark}
+              className={`flex items-center transition-colors ${bookmarked ? 'text-blue-500' : 'hover:text-blue-500'}`}
+              disabled={isSubmitting}
+            >
+              <Bookmark className="h-4 w-4 mr-1" fill={bookmarked ? "currentColor" : "none"} />
             </button>
             
             <button 

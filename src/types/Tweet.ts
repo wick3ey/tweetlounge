@@ -29,4 +29,6 @@ export type TweetWithAuthor = Tweet & {
   profile_avatar_nft_id?: string;
   profile_avatar_nft_chain?: string;
   profile_replies_sort_order?: string;
+  // Add bookmark-related field
+  bookmarked_at?: string;
 };
