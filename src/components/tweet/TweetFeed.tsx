@@ -44,21 +44,24 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
       
       console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets total`);
       
-      // Validate that the returned tweets have all the required data
-      const validTweets = tweetsData.filter(tweet => {
-        const hasAuthor = tweet.author && 
-                          tweet.author.id && 
-                          (tweet.author.username || tweet.author.display_name);
-        
-        if (!hasAuthor) {
-          console.warn('[TweetFeed] Dropping tweet with missing author data:', tweet);
-        }
-        
-        return hasAuthor;
-      });
+      // Validate and normalize tweet data
+      const validTweets = tweetsData.map(tweet => {
+        // Normalize author data to ensure we have valid values
+        return {
+          ...tweet,
+          author: {
+            id: tweet.author.id,
+            username: tweet.author.username || `user-${tweet.author_id.substring(0, 6)}`,
+            display_name: tweet.author.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+            avatar_url: tweet.author.avatar_url || '',
+            avatar_nft_id: tweet.author.avatar_nft_id,
+            avatar_nft_chain: tweet.author.avatar_nft_chain
+          }
+        };
+      }).filter(tweet => tweet.author.id); // Make sure author ID exists
       
       if (validTweets.length !== tweetsData.length) {
-        console.warn(`[TweetFeed] Dropped ${tweetsData.length - validTweets.length} tweets due to missing author data`);
+        console.warn(`[TweetFeed] Dropped ${tweetsData.length - validTweets.length} tweets due to invalid author data`);
       }
       
       if (validTweets.length > 0) {

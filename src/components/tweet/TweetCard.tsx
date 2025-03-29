@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -248,11 +247,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Debug the author information right before rendering
-  console.log("[TweetCard] Before render - author:", tweet.author);
-  console.log("[TweetCard] Before render - username:", tweet.author.username);
-  console.log("[TweetCard] Before render - display_name:", tweet.author.display_name);
-
+  // Ensure we have valid display values for author information
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
   const formatNumber = (num: number) => {
@@ -274,7 +269,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   // Additional debug for the actual author object being used in the render
   console.log("[TweetCard] Before render - originalAuthor:", originalAuthor);
   
-  // Debug username display values just before they're inserted into JSX
+  // Ensure we have valid display values
   const displayName = originalAuthor.display_name || originalAuthor.username || 'Unknown User';
   const displayUsername = originalAuthor.username || 'unknown';
   console.log("[TweetCard] Actual values being rendered - displayName:", displayName);
