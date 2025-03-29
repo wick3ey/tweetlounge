@@ -112,33 +112,47 @@ serve(async (req) => {
 
     if (response.ok) {
       try {
-        hotPools = await response.json();
-        console.log("Successfully fetched hot pools");
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
+          hotPools = data;
+          console.log("Successfully fetched hot pools, found", hotPools.length, "pools");
+        } else if (data && data.data && Array.isArray(data.data)) {
+          hotPools = data.data;
+          console.log("Successfully fetched hot pools from nested data, found", hotPools.length, "pools");
+        } else {
+          console.log("Hot pools data has unexpected format, using fallback");
+        }
       } catch (error) {
         console.error("Error parsing hot pools response:", error);
+        console.log("Using fallback hot pools data due to parse error");
       }
     } else {
       const errorText = await response.text();
       console.error(`Hot pools API error (${response.status}):`, errorText);
-      console.log("Using fallback hot pools data");
+      console.log("Using fallback hot pools data due to API error");
     }
 
-    // Return the data
+    // Always return a valid response with either API data or fallback
     return new Response(
       JSON.stringify({
         hotPools,
+        timestamp: Date.now(),
+        source: response.ok ? "api" : "fallback" 
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error("Error fetching hot pools:", error);
+    console.error("Error in getHotPools function:", error);
     
-    // Return fallback data in case of any error
+    // Always return a valid response with fallback data
     return new Response(
       JSON.stringify({
         hotPools: fallbackHotPools,
+        timestamp: Date.now(),
+        source: "fallback",
+        error: error.message
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

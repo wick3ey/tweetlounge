@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Cache constants
@@ -12,7 +13,7 @@ const CACHE_KEYS = {
 const CACHE_DURATIONS = {
   SOLANA_STATS: 30 * 60 * 1000, // 30 minutes
   TOP_TOKENS: 15 * 60 * 1000, // 15 minutes
-  HOT_POOLS: 15 * 60 * 1000, // 15 minutes
+  HOT_POOLS: 30 * 60 * 1000, // 30 minutes - as requested
   RECENT_TOKENS: 60 * 60 * 1000, // 1 hour
   TOKEN_METADATA: 24 * 60 * 60 * 1000, // 24 hours
 };
@@ -64,6 +65,8 @@ export interface TopTokensData {
 
 export interface HotPoolsData {
   hotPools: PoolInfo[];
+  timestamp?: number;
+  source?: string;
 }
 
 // Create a client-side memory cache
@@ -245,7 +248,7 @@ async function fetchAndUpdateTopTokens(): Promise<TopTokensData | null> {
   }
 }
 
-// Function to fetch hot pools
+// Function to fetch hot pools with improved caching (30 minute cache as requested)
 export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   // First check cache
   const { data: cachedData, isFresh } = getFromCache<HotPoolsData>(
@@ -255,10 +258,15 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   
   // Return cache data immediately if it exists
   if (cachedData) {
-    // If data is fresh, don't fetch new data
-    if (isFresh) return cachedData;
+    console.log(`Hot pools: using ${isFresh ? 'fresh' : 'stale'} cached data from ${cachedData.source || 'unknown'} source`);
     
-    // If stale, fetch in background but return cached data immediately
+    // If data is fresh (less than 30 minutes old), don't fetch new data
+    if (isFresh) {
+      return cachedData;
+    }
+    
+    // If stale (older than 30 minutes), fetch in background but return cached data immediately
+    console.log('Hot pools data is stale, fetching new data in background');
     fetchAndUpdateHotPools().catch(error => 
       console.error('Background refresh of hot pools failed:', error)
     );
@@ -266,13 +274,15 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
     return cachedData;
   }
   
+  console.log('No cached hot pools data found, fetching new data');
   // No cache, need to fetch fresh data
   return fetchAndUpdateHotPools();
 };
 
-// Helper function to fetch and update cache
+// Helper function to fetch and update hot pools cache
 async function fetchAndUpdateHotPools(): Promise<HotPoolsData | null> {
   try {
+    console.log('Calling getHotPools edge function');
     // Call Supabase function to securely access the DEXTools API
     const { data, error } = await supabase.functions.invoke('getHotPools', {
       body: { chain: 'solana' }
@@ -289,22 +299,33 @@ async function fetchAndUpdateHotPools(): Promise<HotPoolsData | null> {
     if (data && typeof data === 'object') {
       // Check if data has the hotPools property directly
       if (Array.isArray(data.hotPools)) {
-        hotPoolsData = { hotPools: data.hotPools };
+        hotPoolsData = { 
+          hotPools: data.hotPools,
+          timestamp: data.timestamp || Date.now(),
+          source: data.source || 'api'
+        };
+        console.log(`Received ${hotPoolsData.hotPools.length} hot pools from ${hotPoolsData.source}`);
       }
       
       // Handle the case where hotPools is nested under hotPools.data
       else if (data.hotPools?.data && Array.isArray(data.hotPools.data)) {
-        hotPoolsData = { hotPools: data.hotPools.data };
+        hotPoolsData = { 
+          hotPools: data.hotPools.data,
+          timestamp: data.timestamp || Date.now(),
+          source: data.source || 'api'
+        };
+        console.log(`Received ${hotPoolsData.hotPools.length} hot pools from nested data`);
       }
     }
     
-    if (hotPoolsData) {
+    if (hotPoolsData && hotPoolsData.hotPools.length > 0) {
       // Update cache with new data
+      console.log(`Updating hot pools cache with ${hotPoolsData.hotPools.length} pools`);
       updateCache(CACHE_KEYS.HOT_POOLS, hotPoolsData);
       return hotPoolsData;
     }
     
-    console.error('Unexpected data format for hot pools:', data);
+    console.error('Unexpected data format for hot pools or empty array:', data);
     return null;
   } catch (error) {
     console.error('Error in fetchHotPools:', error);
