@@ -18,7 +18,7 @@ export type TweetWithAuthor = Tweet & {
     username: string;
     display_name: string;
     avatar_url: string;
-    avatar_nft_id?: string;
-    avatar_nft_chain?: string;
+    avatar_nft_id?: string | null;
+    avatar_nft_chain?: string | null;
   };
 };

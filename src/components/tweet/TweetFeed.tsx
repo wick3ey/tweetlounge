@@ -32,13 +32,16 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
-        // First fetch tweets
+        // Step 1: Build and execute tweet query based on feedType
         let tweetsQuery = supabase.from('tweets').select('*');
         
         if (feedType === 'user' && userId) {
           tweetsQuery = tweetsQuery.eq('author_id', userId);
         } else if (feedType === 'user-retweets' && userId) {
           tweetsQuery = tweetsQuery.eq('author_id', userId).eq('is_retweet', true);
+        } else if (feedType === 'following' && user) {
+          // For the following feed (future implementation)
+          // This would require a join with followers table
         }
         
         const { data: tweetsData, error: tweetsError } = await tweetsQuery
@@ -57,15 +60,16 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
           return;
         }
         
-        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets`);
+        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets:`, tweetsData);
         
-        // Now fetch author information for each tweet
+        // Step 2: Get a unique list of author IDs from the tweets
         const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
         console.log('[TweetFeed] Fetching profiles for author IDs:', authorIds);
         
+        // Step 3: Fetch all author profiles in a single query
         const { data: authorsData, error: authorsError } = await supabase
           .from('profiles')
-          .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+          .select('*')
           .in('id', authorIds);
           
         if (authorsError) {
@@ -73,18 +77,23 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
           throw authorsError;
         }
         
-        // Create a map of author IDs to author data for easy lookup
+        console.log('[TweetFeed] Fetched authors data:', authorsData);
+        
+        // Step 4: Create a map of author IDs to their profile data for easy lookup
         const authorsMap = new Map();
-        authorsData?.forEach(author => {
-          authorsMap.set(author.id, author);
-        });
+        if (authorsData) {
+          authorsData.forEach(author => {
+            authorsMap.set(author.id, author);
+          });
+        }
         
         console.log('[TweetFeed] Authors map created with', authorsMap.size, 'entries');
         
-        // Combine tweet data with author data
+        // Step 5: Combine tweets with their author data
         const tweetsWithAuthors = tweetsData.map(tweet => {
           const author = authorsMap.get(tweet.author_id);
           
+          // If no author is found, log a warning but use fallback values
           if (!author) {
             console.warn(`[TweetFeed] No author found for tweet ${tweet.id} with author_id ${tweet.author_id}`);
           }
@@ -105,8 +114,8 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
               username: author?.username || 'unknown',
               display_name: author?.display_name || 'Unknown User',
               avatar_url: author?.avatar_url || '',
-              avatar_nft_id: author?.avatar_nft_id,
-              avatar_nft_chain: author?.avatar_nft_chain
+              avatar_nft_id: author?.avatar_nft_id || null,
+              avatar_nft_chain: author?.avatar_nft_chain || null
             }
           };
         });
@@ -129,7 +138,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
     };
 
     fetchTweets();
-  }, [limit, toast, feedType, userId]);
+  }, [limit, toast, feedType, userId, user]);
 
   if (loading) {
     return (
