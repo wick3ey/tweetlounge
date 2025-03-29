@@ -245,6 +245,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_tweet_comments: {
+        Args: {
+          p_tweet_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          user_id: string
+          tweet_id: string
+          parent_comment_id: string
+          created_at: string
+          likes_count: number
+          profile_username: string
+          profile_display_name: string
+          profile_avatar_url: string
+          profile_avatar_nft_id: string
+          profile_avatar_nft_chain: string
+        }[]
+      }
       get_tweet_with_author: {
         Args: {
           tweet_id: string

@@ -2,13 +2,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, Loader2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
+import { Comment } from '@/types/Comment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
-import { likeTweet, retweet, checkIfUserLikedTweet } from '@/services/tweetService';
+import { 
+  likeTweet, 
+  retweet, 
+  replyToTweet,
+  checkIfUserLikedTweet, 
+  checkIfUserRetweetedTweet,
+  getTweetComments
+} from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 
 interface TweetCardProps {
@@ -16,15 +25,24 @@ interface TweetCardProps {
   onLike?: () => void;
   onRetweet?: () => void;
   onReply?: () => void;
+  onAction?: () => void;
 }
 
-const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
+const TweetCard = ({ tweet, onLike, onRetweet, onReply, onAction }: TweetCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [liked, setLiked] = useState(false);
+  const [retweeted, setRetweeted] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
+  const [repliesCount, setRepliesCount] = useState(tweet.replies_count);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Comment functionality
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
     // Check if user has liked this tweet
@@ -35,8 +53,43 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       setLiked(hasLiked);
     };
     
+    // Check if user has retweeted this tweet
+    const checkRetweetStatus = async () => {
+      if (!user) return;
+      
+      const hasRetweeted = await checkIfUserRetweetedTweet(tweet.id);
+      setRetweeted(hasRetweeted);
+    };
+    
     checkLikeStatus();
+    checkRetweetStatus();
   }, [tweet.id, user]);
+  
+  // Load comments when comments section is opened
+  useEffect(() => {
+    if (showComments) {
+      fetchComments();
+    }
+  }, [showComments]);
+  
+  const fetchComments = async () => {
+    if (!showComments) return;
+    
+    setLoadingComments(true);
+    try {
+      const commentsData = await getTweetComments(tweet.id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load comments. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingComments(false);
+    }
+  };
 
   const handleLike = async () => {
     if (!user) {
@@ -58,6 +111,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
         setLikesCount(prevCount => newLikedState ? prevCount + 1 : prevCount - 1);
         
         if (onLike) onLike();
+        if (onAction) onAction();
       }
     } catch (error) {
       console.error("Error liking tweet:", error);
@@ -86,15 +140,17 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       const success = await retweet(tweet.id);
       
       if (success) {
-        // Update local state - this is simplified, ideally we'd check current state
-        setRetweetsCount(prevCount => prevCount + 1);
+        const newRetweetedState = !retweeted;
+        setRetweeted(newRetweetedState);
+        setRetweetsCount(prevCount => newRetweetedState ? prevCount + 1 : prevCount - 1);
         
         toast({
-          title: "Success",
-          description: "Tweet has been retweeted!",
+          title: newRetweetedState ? "Retweeted" : "Removed Retweet",
+          description: newRetweetedState ? "Tweet has been retweeted!" : "Retweet has been removed.",
         });
         
         if (onRetweet) onRetweet();
+        if (onAction) onAction();
       }
     } catch (error) {
       console.error("Error retweeting:", error);
@@ -118,13 +174,44 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
       return;
     }
     
-    // For now, just show a toast
-    toast({
-      title: "Coming Soon",
-      description: "Reply functionality will be available soon!",
-    });
+    setShowComments(true);
     
     if (onReply) onReply();
+  };
+  
+  const handleSubmitComment = async () => {
+    if (!user || !commentText.trim()) {
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await replyToTweet(tweet.id, commentText);
+      
+      if (success) {
+        setCommentText('');
+        setRepliesCount(prev => prev + 1);
+        
+        toast({
+          title: "Comment Added",
+          description: "Your reply has been posted successfully!",
+        });
+        
+        // Refresh the comments
+        await fetchComments();
+        
+        if (onAction) onAction();
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to post your reply. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -218,19 +305,19 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
           <div className="flex justify-between mt-3 text-xs text-gray-500">
             <button 
               onClick={handleReply} 
-              className="flex items-center hover:text-crypto-blue transition-colors"
+              className={`flex items-center hover:text-crypto-blue transition-colors ${showComments ? 'text-crypto-blue' : ''}`}
               disabled={isSubmitting}
             >
               <MessageCircle className="h-4 w-4 mr-1" />
-              <span>{formatNumber(tweet.replies_count)}</span>
+              <span>{formatNumber(repliesCount)}</span>
             </button>
             
             <button 
               onClick={handleRetweet} 
-              className="flex items-center hover:text-green-500 transition-colors"
+              className={`flex items-center ${retweeted ? 'text-green-500' : 'hover:text-green-500'} transition-colors`}
               disabled={isSubmitting}
             >
-              <Repeat className="h-4 w-4 mr-1" />
+              <Repeat className="h-4 w-4 mr-1" fill={retweeted ? "currentColor" : "none"} />
               <span>{formatNumber(retweetsCount)}</span>
             </button>
             
@@ -247,6 +334,95 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply }: TweetCardProps) => {
               <Share2 className="h-4 w-4" />
             </button>
           </div>
+          
+          {/* Comments Section */}
+          {showComments && (
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              {user && (
+                <div className="flex mb-4">
+                  <Avatar className="h-8 w-8 mr-3">
+                    {user.user_metadata?.avatar_url ? (
+                      <AvatarImage src={user.user_metadata.avatar_url} />
+                    ) : null}
+                    <AvatarFallback className="bg-gray-700">
+                      {user.email ? user.email.substring(0, 2).toUpperCase() : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <Textarea
+                      placeholder="Write your reply..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      className="bg-gray-800 border-gray-700 text-white resize-none"
+                      rows={2}
+                    />
+                    <div className="flex justify-end mt-2">
+                      <Button 
+                        size="sm"
+                        onClick={handleSubmitComment}
+                        disabled={!commentText.trim() || isSubmitting}
+                        className="bg-crypto-blue hover:bg-crypto-blue/80"
+                      >
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Reply
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {loadingComments ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-crypto-blue" />
+                </div>
+              ) : comments.length > 0 ? (
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex pt-4 pb-2 border-t border-gray-800">
+                      <Link to={`/profile/${comment.author.username}`}>
+                        <Avatar className="h-8 w-8 mr-3">
+                          {comment.author.avatar_url ? (
+                            <AvatarImage src={comment.author.avatar_url} />
+                          ) : null}
+                          <AvatarFallback className="bg-gray-700">
+                            {getInitials(comment.author.display_name || comment.author.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <Link to={`/profile/${comment.author.username}`} className="font-bold text-sm hover:underline">
+                            {comment.author.display_name}
+                          </Link>
+                          
+                          {comment.author.avatar_nft_id && comment.author.avatar_nft_chain && (
+                            <div className="inline-flex items-center ml-1">
+                              <div className="bg-crypto-blue rounded-full p-0.5 flex items-center justify-center">
+                                <Check className="h-2 w-2 text-white stroke-[3]" />
+                              </div>
+                            </div>
+                          )}
+                          
+                          <span className="text-gray-500 ml-1 text-xs">
+                            @{comment.author.username}
+                          </span>
+                          <span className="text-gray-500 mx-1 text-xs">·</span>
+                          <span className="text-gray-500 text-xs">
+                            {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-white text-sm mt-1">{comment.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <p>No comments yet. Be the first to reply!</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

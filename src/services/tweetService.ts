@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
+import { Comment } from '@/types/Comment';
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
@@ -309,7 +310,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     }
     
     const { error } = await supabase
-      .from('replies')
+      .from('comments')
       .insert({
         content,
         user_id: user.id,
@@ -338,9 +339,7 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
     }
     
     const { data, error } = await supabase
-      .from('likes')
-      .select()
-      .match({ 
+      .rpc('has_user_liked_tweet', { 
         user_id: user.id,
         tweet_id: tweetId 
       } as any);
@@ -350,36 +349,74 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    return data && data.length > 0;
+    return data || false;
   } catch (error) {
     console.error('Check like status failed:', error);
     return false;
   }
 }
 
-export async function getTweetReplies(tweetId: string): Promise<any[]> {
+export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
   try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      return false;
+    }
+    
     const { data, error } = await supabase
-      .from('replies')
-      .select(`
-        *,
-        profiles:user_id (
-          username,
-          display_name,
-          avatar_url
-        )
-      `)
-      .eq('tweet_id', tweetId as any)
-      .order('created_at', { ascending: false });
+      .rpc('has_user_retweeted_tweet', { 
+        user_id: user.id,
+        tweet_id: tweetId 
+      } as any);
       
     if (error) {
-      console.error('Error fetching tweet replies:', error);
+      console.error('Error checking retweet status:', error);
+      return false;
+    }
+    
+    return data || false;
+  } catch (error) {
+    console.error('Check retweet status failed:', error);
+    return false;
+  }
+}
+
+export async function getTweetComments(tweetId: string, limit = 20, offset = 0): Promise<Comment[]> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_tweet_comments', {
+        p_tweet_id: tweetId,
+        limit_count: limit,
+        offset_count: offset
+      } as any);
+      
+    if (error) {
+      console.error('Error fetching tweet comments:', error);
       throw error;
     }
     
-    return data || [];
+    const formattedComments: Comment[] = (data || []).map((comment: any) => ({
+      id: comment.id,
+      content: comment.content,
+      user_id: comment.user_id,
+      tweet_id: comment.tweet_id,
+      parent_comment_id: comment.parent_comment_id,
+      created_at: comment.created_at,
+      likes_count: comment.likes_count,
+      author: {
+        username: comment.profile_username,
+        display_name: comment.profile_display_name,
+        avatar_url: comment.profile_avatar_url || '',
+        avatar_nft_id: comment.profile_avatar_nft_id,
+        avatar_nft_chain: comment.profile_avatar_nft_chain
+      }
+    }));
+    
+    return formattedComments;
   } catch (error) {
-    console.error('Failed to fetch tweet replies:', error);
+    console.error('Failed to fetch tweet comments:', error);
     return [];
   }
 }
