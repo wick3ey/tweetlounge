@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/layout/Layout';
 
 const Notifications = () => {
@@ -27,16 +26,12 @@ const Notifications = () => {
     markAsRead, 
     markAllAsRead 
   } = useNotifications();
-  const [activeTab, setActiveTab] = useState<string>('all');
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    if (activeTab === 'all') {
-      setFilteredNotifications(notifications);
-    } else {
-      setFilteredNotifications(notifications.filter(n => n.type === activeTab));
-    }
-  }, [notifications, activeTab]);
+    // Now we just show all notifications without any filtering
+    setFilteredNotifications(notifications);
+  }, [notifications]);
 
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read
@@ -103,16 +98,6 @@ const Notifications = () => {
               Mark all as read
             </Button>
           </div>
-          
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full bg-gray-900">
-              <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-              <TabsTrigger value="like" className="flex-1">Likes</TabsTrigger>
-              <TabsTrigger value="comment" className="flex-1">Comments</TabsTrigger>
-              <TabsTrigger value="retweet" className="flex-1">Retweets</TabsTrigger>
-              <TabsTrigger value="follow" className="flex-1">Follows</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
         
         <div className="divide-y divide-gray-800">
