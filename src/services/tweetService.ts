@@ -50,7 +50,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
 
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
-    // Ändrat för att inte kräva autentisering för att hämta tweets
+    // Anropar RPC-funktion utan att kräva autentisering
     const { data, error } = await supabase
       .rpc('get_tweets_with_authors', {
         limit_count: limit,

@@ -31,7 +31,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         let fetchedTweets: TweetWithAuthor[] = [];
         
         if (feedType === 'all') {
-          // Fetch global feed
+          // Fetch global feed without requiring authentication
           fetchedTweets = await getTweets(limit, 0);
         } else if (feedType === 'user' && userId) {
           // Fetch user's posts only

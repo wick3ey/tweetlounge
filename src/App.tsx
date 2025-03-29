@@ -38,11 +38,7 @@ const App = () => (
                     <ProfilePage />
                   </ProtectedRoute>
                 } />
-                <Route path="/profile/:username" element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                } />
+                <Route path="/profile/:username" element={<ProfilePage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

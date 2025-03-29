@@ -113,9 +113,11 @@ const Home: React.FC = () => {
               </CryptoButton>
             </div>
             
-            <div className="mb-3 sm:mb-4">
-              <TweetComposer onTweetSubmit={handleTweetSubmit} />
-            </div>
+            {user && (
+              <div className="mb-3 sm:mb-4">
+                <TweetComposer onTweetSubmit={handleTweetSubmit} />
+              </div>
+            )}
             
             <div className="mb-4">
               <TweetFeedTabs />
