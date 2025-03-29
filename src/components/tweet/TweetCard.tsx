@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -401,7 +400,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
         </div>
       </div>
 
-      {/* Replies section */}
       <RepliesSection tweetId={tweet.id} isOpen={showReplies} />
 
       <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>

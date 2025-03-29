@@ -1,11 +1,11 @@
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
-import { Image, X, Smile } from 'lucide-react';
+import { Image as ImageIcon, X, Smile } from 'lucide-react';
 import { replyToTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -14,10 +14,19 @@ import Picker from '@emoji-mart/react';
 
 interface ReplyComposerProps {
   tweetId: string;
+  parentReplyId?: string;
   onReplySuccess: () => void;
+  onCancel?: () => void;
+  placeholder?: string;
 }
 
-const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
+const ReplyComposer = ({ 
+  tweetId, 
+  parentReplyId, 
+  onReplySuccess, 
+  onCancel, 
+  placeholder = "Post your reply..."
+}: ReplyComposerProps) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
@@ -26,13 +35,6 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Validate the tweetId when component mounts
-  useEffect(() => {
-    if (!tweetId || tweetId.trim() === '') {
-      console.error('Invalid tweet ID provided to ReplyComposer:', tweetId);
-    }
-  }, [tweetId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,6 +73,9 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (onCancel) {
+      onCancel();
+    }
   };
 
   const handleSubmit = async () => {
@@ -101,9 +106,18 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
       return;
     }
     
+    if (content.length > 280) {
+      toast({
+        title: "Reply too long",
+        description: "Replies are limited to 280 characters",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       setIsSubmitting(true);
-      const success = await replyToTweet(tweetId, content, imageFile || undefined);
+      const success = await replyToTweet(tweetId, content, parentReplyId, imageFile || undefined);
       
       if (success) {
         resetForm();
@@ -140,7 +154,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   return (
     <div className="p-4 border-t border-gray-800 bg-crypto-darkgray">
       <div className="flex gap-3">
-        <Avatar className="h-8 w-8">
+        <Avatar className="h-8 w-8 flex-shrink-0">
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt={profile.display_name || ''} />
           ) : null}
@@ -151,7 +165,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
         
         <div className="flex-1">
           <Textarea 
-            placeholder="Post your reply..."
+            placeholder={placeholder}
             className="min-h-[80px] bg-crypto-gray/15 border-gray-700 placeholder:text-gray-500 mb-3 focus-visible:ring-crypto-blue"
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -179,7 +193,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
                 onClick={() => fileInputRef.current?.click()}
                 className="text-crypto-blue hover:bg-crypto-blue/10 p-2 rounded-full transition-colors"
               >
-                <Image className="h-5 w-5" />
+                <ImageIcon className="h-5 w-5" />
               </button>
               
               <Popover>
@@ -208,15 +222,34 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
               onChange={handleFileChange}
             />
             
-            <CryptoButton
-              variant="default"
-              size="sm"
-              onClick={handleSubmit}
-              isLoading={isSubmitting}
-              disabled={(!content.trim() && !imageFile) || isSubmitting}
-            >
-              Reply
-            </CryptoButton>
+            <div className="flex gap-2">
+              {onCancel && (
+                <CryptoButton
+                  variant="outline"
+                  size="sm"
+                  onClick={resetForm}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </CryptoButton>
+              )}
+              
+              <CryptoButton
+                variant="default"
+                size="sm"
+                onClick={handleSubmit}
+                isLoading={isSubmitting}
+                disabled={(!content.trim() && !imageFile) || isSubmitting || content.length > 280}
+              >
+                Reply
+              </CryptoButton>
+            </div>
+            
+            {content.length > 0 && (
+              <div className={`absolute right-16 bottom-4 text-xs ${content.length > 280 ? 'text-red-500' : 'text-gray-500'}`}>
+                {content.length}/280
+              </div>
+            )}
           </div>
         </div>
       </div>

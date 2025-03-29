@@ -1,10 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
-import Reply from './Reply';
 import ReplyComposer from './ReplyComposer';
+import RenderRepliesTree from './RenderRepliesTree';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -17,7 +18,9 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   const [replies, setReplies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortOldestFirst, setSortOldestFirst] = useState(true);
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
@@ -27,7 +30,12 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
       console.error('Invalid tweetId provided to RepliesSection:', tweetId);
       setError('Invalid tweet reference');
     }
-  }, [tweetId]);
+    
+    // Set default sort order based on user preference if available
+    if (profile?.replies_sort_order) {
+      setSortOldestFirst(profile.replies_sort_order === 'oldest_first');
+    }
+  }, [tweetId, profile]);
   
   const fetchReplies = async () => {
     if (!isOpen) return;
@@ -42,7 +50,38 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
       const data = await getTweetReplies(tweetId);
       
       if (Array.isArray(data)) {
-        setReplies(data);
+        // Create a map for easy lookup of replies by ID
+        const repliesMap = new Map();
+        data.forEach(reply => {
+          // Initialize children array if it doesn't exist
+          reply.children = [];
+          repliesMap.set(reply.id, reply);
+        });
+        
+        // Organize into parent-child relationships
+        const rootReplies: any[] = [];
+        data.forEach(reply => {
+          if (reply.parent_reply_id) {
+            // This is a child reply, add it to its parent's children
+            const parent = repliesMap.get(reply.parent_reply_id);
+            if (parent) {
+              parent.children.push(reply);
+            } else {
+              // If parent not found, treat as a root reply
+              rootReplies.push(reply);
+            }
+          } else {
+            // This is a root reply (directly to the tweet)
+            rootReplies.push(reply);
+          }
+        });
+        
+        // Sort root replies by created_at
+        const sortedReplies = sortOldestFirst 
+          ? rootReplies.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          : rootReplies.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
+        setReplies(sortedReplies);
       } else {
         console.error('Unexpected response format:', data);
         setReplies([]);
@@ -65,7 +104,11 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
     if (isOpen && tweetId && tweetId.trim() !== '') {
       fetchReplies();
     }
-  }, [tweetId, isOpen]);
+  }, [tweetId, isOpen, sortOldestFirst]);
+  
+  const toggleSortOrder = () => {
+    setSortOldestFirst(!sortOldestFirst);
+  };
   
   if (!isOpen) return null;
   
@@ -76,6 +119,20 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
       ) : (
         <div className="p-3 sm:p-4 text-center text-gray-400 text-sm sm:text-base">
           Please sign in to reply to this tweet.
+        </div>
+      )}
+      
+      {replies.length > 0 && (
+        <div className="px-4 py-2 flex justify-between items-center border-t border-gray-800">
+          <span className="text-sm font-medium text-gray-400">
+            {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+          </span>
+          <button 
+            onClick={toggleSortOrder}
+            className="text-xs sm:text-sm text-crypto-blue hover:underline"
+          >
+            Sort by: {sortOldestFirst ? 'Oldest first' : 'Latest first'}
+          </button>
         </div>
       )}
       
@@ -90,9 +147,7 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
         </div>
       ) : replies.length > 0 ? (
         <div className="max-w-full overflow-hidden">
-          {replies.map(reply => (
-            <Reply key={reply.id} reply={reply} />
-          ))}
+          <RenderRepliesTree replies={replies} onReplySuccess={fetchReplies} />
         </div>
       ) : (
         <div className="p-3 sm:p-6 text-center text-gray-400 text-xs sm:text-sm">

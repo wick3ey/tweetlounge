@@ -19,11 +19,9 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
         
         if (!imageUrl) {
           console.warn('Failed to upload image but continuing with text-only tweet');
-          // We'll continue with a text-only tweet instead of failing completely
         }
       } catch (uploadError) {
         console.error('Image upload failed:', uploadError);
-        // Continue with text-only tweet
       }
     }
     
@@ -451,7 +449,7 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
   }
 }
 
-export async function replyToTweet(tweetId: string, content: string, imageFile?: File): Promise<boolean> {
+export async function replyToTweet(tweetId: string, content: string, parentReplyId?: string, imageFile?: File): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
       console.error('Invalid tweet ID provided for reply');
@@ -477,6 +475,20 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
       return false;
     }
     
+    // If this is a reply to another reply, verify the parent reply exists
+    if (parentReplyId) {
+      const { data: parentReplyExists, error: parentReplyCheckError } = await supabase
+        .from('replies')
+        .select('id')
+        .eq('id', parentReplyId)
+        .single();
+        
+      if (parentReplyCheckError || !parentReplyExists) {
+        console.error('Parent reply does not exist or cannot be accessed:', parentReplyCheckError);
+        return false;
+      }
+    }
+    
     let imageUrl = null;
     
     if (imageFile) {
@@ -485,11 +497,9 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
         
         if (!imageUrl) {
           console.warn('Failed to upload image but continuing with text-only reply');
-          // We'll continue with a text-only reply instead of failing completely
         }
       } catch (uploadError) {
         console.error('Image upload failed:', uploadError);
-        // Continue with text-only reply
       }
     }
     
@@ -497,6 +507,7 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
       content: content.trim(),
       user_id: userData.user.id,
       tweet_id: tweetId,
+      parent_reply_id: parentReplyId || null,
       image_url: imageUrl
     };
     
@@ -549,7 +560,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
         )
       `)
       .eq('tweet_id', tweetId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
       
     if (error) {
       console.error('Error fetching tweet replies:', error);
