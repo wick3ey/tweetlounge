@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
-import { formatSafeDate, isValidDateString } from './dateUtils';
 
 // News article interface
 export interface NewsArticle {
@@ -234,9 +233,29 @@ export const useNewsData = () => {
 
 /**
  * Format a date string into a more readable format
- * Enhanced with robust validation
  */
 export const formatNewsDate = (dateString: string): string => {
-  // Use our safer date formatting utility instead
-  return formatSafeDate(dateString, 'relative', 'recently');
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMilliseconds = now.getTime() - date.getTime();
+  const diffInHours = diffInMilliseconds / (1000 * 60 * 60);
+  
+  if (diffInHours < 1) {
+    const minutes = Math.floor(diffInMilliseconds / (1000 * 60));
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  } else if (diffInHours < 24) {
+    const hours = Math.floor(diffInHours);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  } else {
+    const days = Math.floor(diffInHours / 24);
+    if (days < 7) {
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+  }
 };

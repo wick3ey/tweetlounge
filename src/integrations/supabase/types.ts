@@ -73,7 +73,6 @@ export type Database = {
           following_count: number
           id: string
           location: string | null
-          replies_sort_order: string | null
           solana_address: string | null
           updated_at: string
           username: string | null
@@ -92,7 +91,6 @@ export type Database = {
           following_count?: number
           id: string
           location?: string | null
-          replies_sort_order?: string | null
           solana_address?: string | null
           updated_at?: string
           username?: string | null
@@ -111,7 +109,6 @@ export type Database = {
           following_count?: number
           id?: string
           location?: string | null
-          replies_sort_order?: string | null
           solana_address?: string | null
           updated_at?: string
           username?: string | null
@@ -125,7 +122,6 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
-          parent_reply_id: string | null
           tweet_id: string
           user_id: string
         }
@@ -134,7 +130,6 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
-          parent_reply_id?: string | null
           tweet_id: string
           user_id: string
         }
@@ -143,18 +138,10 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
-          parent_reply_id?: string | null
           tweet_id?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "replies_parent_reply_id_fkey"
-            columns: ["parent_reply_id"]
-            isOneToOne: false
-            referencedRelation: "replies"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "replies_tweet_id_fkey"
             columns: ["tweet_id"]
