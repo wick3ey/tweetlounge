@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { replyToTweet } from '@/services/tweetService';
@@ -7,7 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Image, Smile, X } from 'lucide-react';
+import { Image as ImageIcon, Smile, X } from 'lucide-react';
 import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 
@@ -188,7 +189,7 @@ const ReplyComposer = ({
                 onClick={() => fileInputRef.current?.click()}
                 className="text-crypto-blue hover:bg-crypto-blue/10 p-2 rounded-full transition-colors"
               >
-                <Image className="h-5 w-5" />
+                <ImageIcon className="h-5 w-5" />
               </button>
               
               <Popover>
