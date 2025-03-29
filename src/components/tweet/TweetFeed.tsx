@@ -32,72 +32,122 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
-        // Approach 1: Use the Supabase stored procedure directly
-        // This is more reliable as it handles the join on the server side
-        let tweetsData;
-        let tweetsError;
+        let { data, error } = { data: null, error: null };
         
         if (feedType === 'all') {
-          // Use get_tweets_with_authors stored procedure
-          const { data, error } = await supabase
-            .rpc('get_tweets_with_authors', { limit_count: limit });
+          // Fetch all tweets using direct query instead of RPC
+          const response = await supabase
+            .from('tweets')
+            .select(`
+              *,
+              author:profiles!tweets_author_id_fkey(
+                id, 
+                username, 
+                display_name, 
+                avatar_url,
+                avatar_nft_id,
+                avatar_nft_chain
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .limit(limit);
             
-          tweetsData = data;
-          tweetsError = error;
+          data = response.data;
+          error = response.error;
           
+          console.log('[TweetFeed] Direct query response:', data, error);
         } else if (feedType === 'user' && userId) {
-          // Use get_user_tweets stored procedure
-          const { data, error } = await supabase
-            .rpc('get_user_tweets', { user_id: userId, limit_count: limit });
+          // Fetch user tweets using direct query
+          const response = await supabase
+            .from('tweets')
+            .select(`
+              *,
+              author:profiles!tweets_author_id_fkey(
+                id, 
+                username, 
+                display_name, 
+                avatar_url,
+                avatar_nft_id,
+                avatar_nft_chain
+              )
+            `)
+            .eq('author_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
             
-          tweetsData = data;
-          tweetsError = error;
+          data = response.data;
+          error = response.error;
           
+          console.log('[TweetFeed] User tweets response:', data, error);
         } else if (feedType === 'user-retweets' && userId) {
-          // Use get_user_retweets stored procedure
-          const { data, error } = await supabase
-            .rpc('get_user_retweets', { user_id: userId, limit_count: limit });
+          // Fetch user retweets using direct query
+          const response = await supabase
+            .from('tweets')
+            .select(`
+              *,
+              author:profiles!tweets_author_id_fkey(
+                id, 
+                username, 
+                display_name, 
+                avatar_url,
+                avatar_nft_id,
+                avatar_nft_chain
+              )
+            `)
+            .eq('author_id', userId)
+            .eq('is_retweet', true)
+            .order('created_at', { ascending: false })
+            .limit(limit);
             
-          tweetsData = data;
-          tweetsError = error;
+          data = response.data;
+          error = response.error;
+          
+          console.log('[TweetFeed] User retweets response:', data, error);
         }
         
-        if (tweetsError) {
-          console.error('[TweetFeed] Error fetching tweets with RPC:', tweetsError);
-          throw tweetsError;
+        if (error) {
+          console.error('[TweetFeed] Error fetching tweets:', error);
+          throw error;
         }
         
-        if (!tweetsData || tweetsData.length === 0) {
-          console.log('[TweetFeed] No tweets found using RPC method');
+        if (!data || data.length === 0) {
+          console.log('[TweetFeed] No tweets found');
           setTweets([]);
           setLoading(false);
           return;
         }
         
-        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets with authors using RPC`);
-        console.log(`[TweetFeed] Sample tweet:`, tweetsData[0]);
+        console.log(`[TweetFeed] Fetched ${data.length} tweets`);
+        console.log(`[TweetFeed] Sample tweet:`, data[0]);
         
         // Transform the data to match our TweetWithAuthor type
-        const tweetsWithAuthors = tweetsData.map(tweet => ({
-          id: tweet.id,
-          content: tweet.content,
-          author_id: tweet.author_id,
-          created_at: tweet.created_at,
-          likes_count: tweet.likes_count,
-          retweets_count: tweet.retweets_count,
-          replies_count: tweet.replies_count,
-          is_retweet: tweet.is_retweet,
-          original_tweet_id: tweet.original_tweet_id,
-          image_url: tweet.image_url,
-          author: {
-            id: tweet.author_id,
-            username: tweet.username || 'unknown',
-            display_name: tweet.display_name || tweet.username || 'Unknown User',
-            avatar_url: tweet.avatar_url || '',
-            avatar_nft_id: tweet.avatar_nft_id,
-            avatar_nft_chain: tweet.avatar_nft_chain
-          }
-        }));
+        const tweetsWithAuthors: TweetWithAuthor[] = data.map((tweet: any) => {
+          // Access the author data from the nested author object
+          const authorData = tweet.author[0] || {};
+          
+          console.log('[TweetFeed] Tweet author data:', authorData);
+          
+          return {
+            id: tweet.id,
+            content: tweet.content,
+            author_id: tweet.author_id,
+            created_at: tweet.created_at,
+            likes_count: tweet.likes_count || 0,
+            retweets_count: tweet.retweets_count || 0,
+            replies_count: tweet.replies_count || 0,
+            is_retweet: tweet.is_retweet || false,
+            original_tweet_id: tweet.original_tweet_id,
+            image_url: tweet.image_url,
+            author: {
+              id: authorData.id || tweet.author_id,
+              username: authorData.username || 'unknown',
+              display_name: authorData.display_name || authorData.username || 'Unknown User',
+              avatar_url: authorData.avatar_url || '',
+              avatar_nft_id: authorData.avatar_nft_id,
+              avatar_nft_chain: authorData.avatar_nft_chain
+            }
+          };
+        });
         
         console.log('[TweetFeed] First tweet with author after transform:', tweetsWithAuthors[0]);
         
