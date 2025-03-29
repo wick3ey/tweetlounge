@@ -21,4 +21,10 @@ export type TweetWithAuthor = Tweet & {
     avatar_nft_id?: string | null;
     avatar_nft_chain?: string | null;
   };
+  // Add these fields to make TypeScript happy with the RPC function return types
+  profile_username?: string;
+  profile_display_name?: string;
+  profile_avatar_url?: string;
+  profile_avatar_nft_id?: string;
+  profile_avatar_nft_chain?: string;
 };

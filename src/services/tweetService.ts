@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -17,7 +16,6 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
     
     console.log('[tweetService] Authenticated user ID:', userData.user.id);
     
-    // Ensure this user has a profile
     const profileExists = await ensureProfileExists(userData.user.id);
     if (!profileExists) {
       console.error('[tweetService] Failed to ensure profile exists for user');
@@ -103,11 +101,11 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
         image_url: tweet.image_url,
         author: {
           id: tweet.author_id,
-          username: tweet.profile_username,  // Changed from tweet.username
-          display_name: tweet.profile_display_name,  // Changed from tweet.display_name
-          avatar_url: tweet.profile_avatar_url || '',  // Changed from tweet.avatar_url
-          avatar_nft_id: tweet.profile_avatar_nft_id,  // Changed from tweet.avatar_nft_id
-          avatar_nft_chain: tweet.profile_avatar_nft_chain  // Changed from tweet.avatar_nft_chain
+          username: tweet.profile_username || '',
+          display_name: tweet.profile_display_name || '',
+          avatar_url: tweet.profile_avatar_url || '',
+          avatar_nft_id: tweet.profile_avatar_nft_id,
+          avatar_nft_chain: tweet.profile_avatar_nft_chain
         }
       };
     });
@@ -182,11 +180,11 @@ export async function getUserTweets(
         image_url: tweet.image_url,
         author: {
           id: tweet.author_id,
-          username: tweet.profile_username,  // Changed from tweet.username
-          display_name: tweet.profile_display_name,  // Changed from tweet.display_name
-          avatar_url: tweet.profile_avatar_url || '',  // Changed from tweet.avatar_url
-          avatar_nft_id: tweet.profile_avatar_nft_id,  // Changed from tweet.avatar_nft_id
-          avatar_nft_chain: tweet.profile_avatar_nft_chain  // Changed from tweet.avatar_nft_chain
+          username: tweet.username || tweet.profile_username || '',
+          display_name: tweet.display_name || tweet.profile_display_name || '',
+          avatar_url: tweet.avatar_url || tweet.profile_avatar_url || '',
+          avatar_nft_id: tweet.avatar_nft_id || tweet.profile_avatar_nft_id,
+          avatar_nft_chain: tweet.avatar_nft_chain || tweet.profile_avatar_nft_chain
         }
       };
     });
@@ -427,11 +425,11 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
         image_url: tweet.image_url,
         author: {
           id: tweet.author_id,
-          username: tweet.profile_username,  // Changed from tweet.username
-          display_name: tweet.profile_display_name,  // Changed from tweet.display_name
-          avatar_url: tweet.profile_avatar_url || '',  // Changed from tweet.avatar_url
-          avatar_nft_id: tweet.profile_avatar_nft_id,  // Changed from tweet.avatar_nft_id
-          avatar_nft_chain: tweet.profile_avatar_nft_chain  // Changed from tweet.avatar_nft_chain
+          username: tweet.username || tweet.profile_username || '',
+          display_name: tweet.display_name || tweet.profile_display_name || '',
+          avatar_url: tweet.avatar_url || tweet.profile_avatar_url || '',
+          avatar_nft_id: tweet.avatar_nft_id || tweet.profile_avatar_nft_id,
+          avatar_nft_chain: tweet.avatar_nft_chain || tweet.profile_avatar_nft_chain
         }
       };
     }

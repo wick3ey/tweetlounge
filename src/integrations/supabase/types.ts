@@ -317,7 +317,23 @@ export type Database = {
           limit_count: number
           offset_count: number
         }
-        Returns: Json[]
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          profile_username: string
+          profile_display_name: string
+          profile_avatar_url: string
+          profile_avatar_nft_id: string
+          profile_avatar_nft_chain: string
+        }[]
       }
       get_user_retweets: {
         Args: {
