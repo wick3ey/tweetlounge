@@ -514,21 +514,28 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
 
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
-    if (!tweetId || !tweetId.trim()) {
+    if (!tweetId || tweetId.trim() === '') {
       console.error('Invalid tweet ID provided');
       return [];
     }
     
     // Verify the tweet exists before fetching replies
-    const { data: tweetExists, error: tweetCheckError } = await supabase
-      .from('tweets')
-      .select('id')
-      .eq('id', tweetId)
-      .single();
+    try {
+      const { data: tweetExists, error: tweetCheckError } = await supabase
+        .from('tweets')
+        .select('id')
+        .eq('id', tweetId)
+        .single();
       
-    if (tweetCheckError) {
-      console.error('Error verifying tweet existence:', tweetCheckError);
-      // We'll still attempt to fetch replies in case it's a permissions issue
+      if (tweetCheckError && tweetCheckError.code !== 'PGRST116') {
+        console.error('Error verifying tweet existence:', tweetCheckError);
+        // We'll still attempt to fetch replies in case it's a permissions issue
+      } else if (!tweetExists) {
+        console.warn('Tweet not found:', tweetId);
+      }
+    } catch (checkError) {
+      console.error('Error during tweet existence check:', checkError);
+      // Continue with reply fetch attempt anyway
     }
     
     const { data, error } = await supabase

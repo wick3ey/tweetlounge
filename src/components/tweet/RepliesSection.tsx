@@ -33,6 +33,7 @@ const RepliesSection = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
+  // Validate tweetId on component mount
   useEffect(() => {
     if (!tweetId || tweetId.trim() === '') {
       console.error('Invalid tweetId provided to RepliesSection:', tweetId);
@@ -50,19 +51,25 @@ const RepliesSection = ({
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching replies for tweet:', tweetId);
       const data = await getTweetReplies(tweetId);
       
       if (Array.isArray(data)) {
         const validatedReplies = data.map(reply => {
+          // Make sure profile data exists
           if (!reply.profiles) {
             console.warn("Missing profiles data for reply:", reply.id);
             reply.profiles = {
               id: '',
               username: 'unknown',
-              display_name: 'Unknown User'
+              display_name: 'Unknown User',
+              avatar_url: null,
+              avatar_nft_id: null,
+              avatar_nft_chain: null
             };
           }
           
+          // Validate date
           if (!reply.created_at || !isValidDateString(reply.created_at)) {
             console.warn("Invalid date detected for reply:", reply.id);
             reply.created_at = new Date().toISOString();
@@ -75,6 +82,7 @@ const RepliesSection = ({
           };
         });
         
+        // Sort replies by date (newest first)
         const sortedReplies = validatedReplies.sort((a, b) => {
           if (!a.safe_date) return 1;
           if (!b.safe_date) return -1;
@@ -82,6 +90,7 @@ const RepliesSection = ({
         });
         
         setReplies(sortedReplies);
+        console.log('Successfully fetched and processed replies:', sortedReplies.length);
       } else {
         console.error('Unexpected response format:', data);
         setReplies([]);
