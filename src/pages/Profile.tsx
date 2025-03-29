@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -16,9 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
-import { getProfileByUsername } from '@/services/profileService';
+import { getProfileByUsername, isFollowing } from '@/services/profileService';
 
-// Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
     {children}
@@ -41,17 +39,30 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
   
-  // Add state for the viewed profile when not viewing own profile
   const [viewedProfile, setViewedProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isUserFollowing, setIsUserFollowing] = useState(false);
   
-  // Determine which profile to use
   const profile = isOwnProfile ? currentUserProfile : viewedProfile;
   const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
   const error = isOwnProfile ? currentProfileError : profileError;
   
-  // Fetch the viewed profile if not viewing own profile
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (isOwnProfile || !user || !viewedProfile) return;
+      
+      try {
+        const following = await isFollowing(viewedProfile.id);
+        setIsUserFollowing(following);
+      } catch (error) {
+        console.error("Error checking follow status:", error);
+      }
+    };
+    
+    checkFollowStatus();
+  }, [isOwnProfile, user, viewedProfile]);
+  
   useEffect(() => {
     const fetchViewedProfile = async () => {
       if (!isOwnProfile && username) {
@@ -63,7 +74,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           if (profileData) {
             setViewedProfile(profileData);
             
-            // Fetch user creation date for the viewed profile
             try {
               const { data, error } = await supabase
                 .from('profiles')
@@ -92,7 +102,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     fetchViewedProfile();
   }, [username, isOwnProfile]);
   
-  // Fetch the user creation date for current user
   useEffect(() => {
     const fetchUserCreationDate = async () => {
       if (user && isOwnProfile) {
@@ -120,7 +129,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     fetchUserCreationDate();
   }, [user, isOwnProfile]);
   
-  // Check NFT verification for the appropriate profile
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
@@ -160,6 +168,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     if (profile?.avatar_url) {
       setShowProfileImage(true);
     }
+  };
+  
+  const handleFollowAction = () => {
+    setIsUserFollowing(!isUserFollowing);
   };
   
   if (isLoading) {
@@ -212,30 +224,32 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
       <ProfileHeader
-        userId={isOwnProfile ? (user?.id || '') : (profile.id || '')}
-        username={profile.username || 'username'}
-        displayName={profile.display_name || 'Display Name'}
-        avatarUrl={profile.avatar_url || undefined}
-        coverUrl={profile.cover_url || undefined}
-        bio={profile.bio || undefined}
-        location={profile.location || undefined}
-        website={profile.website ? formatWebsiteUrl(profile.website) : undefined}
-        ethereumAddress={profile.ethereum_address}
-        solanaAddress={profile.solana_address}
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+        username={profile?.username || 'username'}
+        displayName={profile?.display_name || 'Display Name'}
+        avatarUrl={profile?.avatar_url || undefined}
+        coverUrl={profile?.cover_url || undefined}
+        bio={profile?.bio || undefined}
+        location={profile?.location || undefined}
+        website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
+        ethereumAddress={profile?.ethereum_address}
+        solanaAddress={profile?.solana_address}
         isCurrentUser={isOwnProfile}
-        followersCount={profile.followers_count || 0}
-        followingCount={profile.following_count || 0}
+        followersCount={profile?.followers_count || 0}
+        followingCount={profile?.following_count || 0}
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
+        isFollowing={isUserFollowing}
+        onFollow={handleFollowAction}
         isNFTVerified={isNFTVerified}
         onAvatarClick={handleOpenProfileImage}
       />
       
       <ProfileTabs 
-        userId={isOwnProfile ? (user?.id || '') : (profile.id || '')}
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
         isCurrentUser={isOwnProfile}
-        solanaAddress={profile.solana_address}
+        solanaAddress={profile?.solana_address}
       />
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>

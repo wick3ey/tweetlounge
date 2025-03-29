@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistance } from 'date-fns';
@@ -10,6 +10,8 @@ import { connectEthereumWallet, connectSolanaWallet, updateWalletAddress } from 
 import { useToast } from '@/components/ui/use-toast';
 import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 import { CryptoButton } from '@/components/ui/crypto-button';
+import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -57,12 +59,80 @@ const ProfileHeader = ({
   isNFTVerified = false
 }: ProfileHeaderProps) => {
   const [following, setFollowing] = useState(isFollowing);
+  const [followersCountState, setFollowersCountState] = useState(followersCount);
   const { toast } = useToast();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const { user } = useAuth();
+  const [isCheckingFollowStatus, setIsCheckingFollowStatus] = useState(false);
+  const [isUpdatingFollow, setIsUpdatingFollow] = useState(false);
   
-  const handleFollowClick = () => {
-    setFollowing(!following);
-    if (onFollow) onFollow();
+  useEffect(() => {
+    const checkFollowStatus = async () => {
+      if (!userId || !user || isCurrentUser) return;
+      
+      try {
+        setIsCheckingFollowStatus(true);
+        const followed = await isFollowing(userId);
+        setFollowing(followed);
+      } catch (error) {
+        console.error("Error checking follow status:", error);
+      } finally {
+        setIsCheckingFollowStatus(false);
+      }
+    };
+    
+    checkFollowStatus();
+  }, [userId, user, isCurrentUser]);
+
+  const handleFollowClick = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to follow users",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (isCurrentUser) return;
+    
+    setIsUpdatingFollow(true);
+    
+    try {
+      if (following) {
+        const success = await unfollowUser(userId);
+        if (success) {
+          setFollowing(false);
+          setFollowersCountState(prev => Math.max(0, prev - 1));
+          toast({
+            title: "Unfollowed",
+            description: `You are no longer following ${displayName}`,
+          });
+        }
+      } 
+      else {
+        const success = await followUser(userId);
+        if (success) {
+          setFollowing(true);
+          setFollowersCountState(prev => prev + 1);
+          toast({
+            title: "Following",
+            description: `You are now following ${displayName}`,
+          });
+        }
+      }
+      
+      if (onFollow) onFollow();
+    } catch (error) {
+      console.error("Error updating follow status:", error);
+      toast({
+        title: "Action Failed",
+        description: "Could not update follow status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingFollow(false);
+    }
   };
 
   const getInitials = () => {
@@ -210,8 +280,11 @@ const ProfileHeader = ({
             variant={following ? "outline" : "default"}
             className={`rounded-full font-semibold ${following ? 'hover:bg-crypto-red/10 hover:text-crypto-red hover:border-crypto-red/20 border-crypto-gray text-crypto-text' : 'bg-crypto-blue hover:bg-crypto-darkblue text-white'}`}
             onClick={handleFollowClick}
+            disabled={isCheckingFollowStatus || isUpdatingFollow}
           >
-            {following ? 'Following' : 'Follow'}
+            {isUpdatingFollow ? 
+              (following ? 'Unfollowing...' : 'Following...') : 
+              (following ? 'Following' : 'Follow')}
           </CryptoButton>
         )}
       </div>
@@ -322,7 +395,7 @@ const ProfileHeader = ({
             <span className="text-crypto-lightgray">Following</span>
           </a>
           <a href="#" className="text-crypto-text hover:underline">
-            <span className="font-bold">{followersCount}</span>{' '}
+            <span className="font-bold">{followersCountState}</span>{' '}
             <span className="text-crypto-lightgray">Followers</span>
           </a>
         </div>

@@ -43,23 +43,28 @@ export async function createNotification(
   }
 }
 
-// Delete a notification (e.g., when unliking a tweet)
+// Delete a notification (e.g., when unliking a tweet or unfollowing a user)
 export async function deleteNotification(
   userId: string,
   actorId: string,
   type: NotificationType,
-  tweetId?: string
+  tweetId?: string,
+  commentId?: string
 ) {
   try {
+    const match: any = {
+      user_id: userId,
+      actor_id: actorId,
+      type
+    };
+    
+    if (tweetId) match.tweet_id = tweetId;
+    if (commentId) match.comment_id = commentId;
+    
     const { error } = await supabase
       .from('notifications')
       .delete()
-      .match({
-        user_id: userId,
-        actor_id: actorId,
-        type,
-        tweet_id: tweetId
-      });
+      .match(match);
       
     if (error) {
       console.error('Error deleting notification:', error);
