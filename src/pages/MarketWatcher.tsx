@@ -19,6 +19,12 @@ import {
   isPositivePercent
 } from '@/utils/marketService';
 
+// Define a type for the API response that might contain a tokens array
+interface TokensResponse {
+  tokens?: any[];
+  [key: string]: any;
+}
+
 const MarketWatcher = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,16 +122,24 @@ const MarketWatcher = () => {
     : [];
   
   // Transform token data for tables
-  const transformTokensForTable = (tokens: any[]): TokenData[] => {
-    // Check if tokens is actually an object with a tokens property (API response format)
-    if (tokens && typeof tokens === 'object' && !Array.isArray(tokens) && 'tokens' in tokens) {
-      console.log('Found tokens array inside object:', tokens.tokens);
+  const transformTokensForTable = (tokensData: any[] | TokensResponse): TokenData[] => {
+    // Make a local variable to hold the tokens array
+    let tokens: any[] = [];
+    
+    // Check if tokensData is actually an object with a tokens property (API response format)
+    if (tokensData && typeof tokensData === 'object' && !Array.isArray(tokensData) && 'tokens' in tokensData) {
+      console.log('Found tokens array inside object:', tokensData.tokens);
       // Extract the tokens array from the object
-      tokens = tokens.tokens;
+      tokens = tokensData.tokens || [];
+    } else if (Array.isArray(tokensData)) {
+      tokens = tokensData;
+    } else {
+      console.error('Expected tokens to be an array or object with tokens property but got:', tokensData);
+      return [];
     }
     
     if (!Array.isArray(tokens)) {
-      console.error('Expected tokens to be an array but got:', tokens);
+      console.error('Failed to extract tokens array:', tokens);
       return [];
     }
     
