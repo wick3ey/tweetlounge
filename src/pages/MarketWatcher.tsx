@@ -97,24 +97,31 @@ const MarketWatcher = () => {
   });
   
   // Transform hot pools data to the format expected by the component
-  const transformedHotPools: PoolData[] = hotPoolsData.map((pool: any) => ({
-    address: pool.address,
-    name: pool.name || 'Unknown',
-    symbol: pool.symbol || 'UNKNOWN',
-    logo: pool.logo || '',
-    price: pool.price || 0,
-    priceFormatted: formatNumber(pool.price, pool.price < 0.01 ? 4 : 2),
-    change24h: pool.variation24h || 0,
-    change24hFormatted: formatPercent(pool.variation24h || 0),
-    volume24h: pool.volume24h || 0,
-    volume24hFormatted: formatNumber(pool.volume24h || 0),
-    liquidity: pool.liquidity || 0,
-    liquidityFormatted: formatNumber(pool.liquidity || 0),
-    vLRatio: pool.liquidity ? (pool.volume24h / pool.liquidity) : 0
-  }));
+  const transformedHotPools: PoolData[] = Array.isArray(hotPoolsData) 
+    ? hotPoolsData.map((pool: any) => ({
+        address: pool.address,
+        name: pool.name || 'Unknown',
+        symbol: pool.symbol || 'UNKNOWN',
+        logo: pool.logo || '',
+        price: pool.price || 0,
+        priceFormatted: formatNumber(pool.price, pool.price < 0.01 ? 4 : 2),
+        change24h: pool.variation24h || 0,
+        change24hFormatted: formatPercent(pool.variation24h || 0),
+        volume24h: pool.volume24h || 0,
+        volume24hFormatted: formatNumber(pool.volume24h || 0),
+        liquidity: pool.liquidity || 0,
+        liquidityFormatted: formatNumber(pool.liquidity || 0),
+        vLRatio: pool.liquidity ? (pool.volume24h / pool.liquidity) : 0
+      }))
+    : [];
   
   // Transform token data for tables
   const transformTokensForTable = (tokens: any[]): TokenData[] => {
+    if (!Array.isArray(tokens)) {
+      console.error('Expected tokens to be an array but got:', tokens);
+      return [];
+    }
+    
     return tokens.map(token => ({
       address: token.address,
       name: token.name || 'Unknown',
@@ -174,6 +181,41 @@ const MarketWatcher = () => {
     window.open(`https://www.dextools.io/app/en/solana/pair-explorer/${address}`, '_blank');
   };
   
+  // Safely transform data with error checking
+  const safeTransform = (data: any, transformer: Function) => {
+    if (!Array.isArray(data)) {
+      console.error('Data is not an array:', data);
+      return [];
+    }
+    try {
+      return transformer(data);
+    } catch (error) {
+      console.error('Error transforming data:', error);
+      return [];
+    }
+  };
+  
+  // Safely get gainers data for display
+  const getGainersForDisplay = (count?: number): TokenData[] => {
+    if (!Array.isArray(gainersData)) return [];
+    
+    const dataToUse = count ? gainersData.slice(0, count) : gainersData;
+    return safeTransform(dataToUse, transformTokensForTable);
+  };
+  
+  // Safely get losers data for display
+  const getLosersForDisplay = (count?: number): TokenData[] => {
+    if (!Array.isArray(losersData)) return [];
+    
+    const dataToUse = count ? losersData.slice(0, count) : losersData;
+    return safeTransform(dataToUse, transformTokensForTable);
+  };
+  
+  // Safely get recent tokens data for display
+  const getRecentTokensForDisplay = (): TokenData[] => {
+    return safeTransform(recentTokensData, transformTokensForTable);
+  };
+  
   return (
     <Layout>
       <div className="container max-w-7xl mx-auto px-4 py-8">
@@ -228,14 +270,14 @@ const MarketWatcher = () => {
             />
             
             <TokenTable 
-              tokens={filterTokensBySearch(transformTokensForTable(gainersData.slice(0, 5)))}
+              tokens={filterTokensBySearch(getGainersForDisplay(5))}
               title="Top Gainers (24h)"
               loading={isLoadingGainers}
               onViewDetails={handleViewTokenDetails}
             />
             
             <TokenTable 
-              tokens={filterTokensBySearch(transformTokensForTable(losersData.slice(0, 5)))}
+              tokens={filterTokensBySearch(getLosersForDisplay(5))}
               title="Top Losers (24h)"
               loading={isLoadingLosers}
               onViewDetails={handleViewTokenDetails}
@@ -244,7 +286,7 @@ const MarketWatcher = () => {
           
           <TabsContent value="gainers">
             <TokenTable 
-              tokens={filterTokensBySearch(transformTokensForTable(gainersData))}
+              tokens={filterTokensBySearch(getGainersForDisplay())}
               title="Top Gainers (24h)"
               loading={isLoadingGainers}
               onViewDetails={handleViewTokenDetails}
@@ -253,7 +295,7 @@ const MarketWatcher = () => {
           
           <TabsContent value="losers">
             <TokenTable 
-              tokens={filterTokensBySearch(transformTokensForTable(losersData))}
+              tokens={filterTokensBySearch(getLosersForDisplay())}
               title="Top Losers (24h)"
               loading={isLoadingLosers}
               onViewDetails={handleViewTokenDetails}
@@ -262,7 +304,7 @@ const MarketWatcher = () => {
           
           <TabsContent value="recent">
             <TokenTable 
-              tokens={filterTokensBySearch(transformTokensForTable(recentTokensData))}
+              tokens={filterTokensBySearch(getRecentTokensForDisplay())}
               title="Recently Added Tokens"
               loading={isLoadingRecentTokens}
               onViewDetails={handleViewTokenDetails}
