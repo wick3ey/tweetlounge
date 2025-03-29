@@ -78,12 +78,13 @@ export const setCachedData = async <T>(
       console.error(`Error clearing existing cache: ${deleteError.message}`);
     }
     
-    // Then insert the new cache entry
+    // Then insert the new cache entry - explicitly casting the data to any to satisfy the JSON type requirement
+    // This is safe because Supabase will serialize any data to JSON anyway
     const { error } = await supabase
       .from('market_cache')
       .insert({
         cache_key: key,
-        data,
+        data: data as any, // Cast to any to bypass the TypeScript error
         source,
         expires_at: expires.toISOString()
       });

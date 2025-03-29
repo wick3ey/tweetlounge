@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,58 +23,60 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
-      <AuthProvider>
-        <ProfileProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Navigate to="/home" replace />} />
-                <Route path="/home" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/notifications" element={
-                  <ProtectedRoute>
-                    <Notifications />
-                  </ProtectedRoute>
-                } />
-                <Route path="/bookmarks" element={
-                  <ProtectedRoute>
-                    <Bookmarks />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile/:username" element={
-                  <ProtectedRoute>
-                    <ProfilePage />
-                  </ProtectedRoute>
-                } />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
-
-useEffect(() => {
+const App = () => {
   // Initialize cache cleanup service when the app starts
-  const cleanup = initCacheCleanupService();
-  
-  // Clean up when component unmounts
-  return () => {
-    if (cleanup) cleanup();
-  };
-}, []);
+  useEffect(() => {
+    const cleanup = initCacheCleanupService();
+    
+    // Clean up when component unmounts
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
+        <AuthProvider>
+          <ProfileProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/home" replace />} />
+                  <Route path="/home" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/notifications" element={
+                    <ProtectedRoute>
+                      <Notifications />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/bookmarks" element={
+                    <ProtectedRoute>
+                      <Bookmarks />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/profile/:username" element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </ProfileProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
