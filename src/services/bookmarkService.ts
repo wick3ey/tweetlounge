@@ -12,6 +12,17 @@ export async function bookmarkTweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to bookmark a tweet');
     }
     
+    // First check if the tweet exists
+    const { count: tweetExists } = await supabase
+      .from('tweets')
+      .select('*', { count: 'exact', head: true })
+      .eq('id', tweetId);
+      
+    if (!tweetExists) {
+      console.log('Tweet does not exist, cannot bookmark');
+      return false;
+    }
+    
     const { error } = await supabase
       .from('bookmarks')
       .insert({
@@ -145,6 +156,17 @@ export async function getBookmarkedTweets(limit = 20, offset = 0): Promise<Tweet
 // Get bookmark count for a tweet
 export async function getBookmarkCount(tweetId: string): Promise<number> {
   try {
+    // First check if the tweet exists
+    const { count: tweetExists } = await supabase
+      .from('tweets')
+      .select('*', { count: 'exact', head: true })
+      .eq('id', tweetId);
+      
+    if (!tweetExists) {
+      console.log('Tweet does not exist, bookmark count is 0');
+      return 0;
+    }
+    
     const { count, error } = await supabase
       .from('bookmarks')
       .select('*', { count: 'exact', head: true })

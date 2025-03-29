@@ -63,27 +63,43 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
     const checkLikeStatus = async () => {
       if (!user) return;
       
-      const hasLiked = await checkIfUserLikedTweet(tweet.id);
-      setLiked(hasLiked);
+      try {
+        const hasLiked = await checkIfUserLikedTweet(tweet.id);
+        setLiked(hasLiked);
+      } catch (error) {
+        console.error("Error checking like status:", error);
+      }
     };
     
     const checkRetweetStatus = async () => {
       if (!user) return;
       
-      const hasRetweeted = await checkIfUserRetweetedTweet(tweet.id);
-      setRetweeted(hasRetweeted);
+      try {
+        const hasRetweeted = await checkIfUserRetweetedTweet(tweet.id);
+        setRetweeted(hasRetweeted);
+      } catch (error) {
+        console.error("Error checking retweet status:", error);
+      }
     };
     
     const checkBookmarkStatus = async () => {
       if (!user) return;
       
-      const hasBookmarked = await checkIfTweetBookmarked(tweet.id);
-      setBookmarked(hasBookmarked);
+      try {
+        const hasBookmarked = await checkIfTweetBookmarked(tweet.id);
+        setBookmarked(hasBookmarked);
+      } catch (error) {
+        console.error("Error checking bookmark status:", error);
+      }
     };
     
     const fetchBookmarkCount = async () => {
-      const count = await getBookmarkCount(tweet.id);
-      setBookmarksCount(count);
+      try {
+        const count = await getBookmarkCount(tweet.id);
+        setBookmarksCount(count);
+      } catch (error) {
+        console.error("Error fetching bookmark count:", error);
+      }
     };
     
     checkLikeStatus();
@@ -246,13 +262,20 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
           description: "Your tweet has been successfully deleted."
         });
         
-        if (onAction) onAction();
+        setDeleteDialogOpen(false);
+        
+        if (onAction) {
+          setTimeout(() => {
+            onAction();
+          }, 300);
+        }
       } else {
         toast({
           title: "Action Failed",
           description: "Failed to delete the tweet. Please try again.",
           variant: "destructive"
         });
+        setDeleteDialogOpen(false);
       }
     } catch (error) {
       console.error("Error deleting tweet:", error);
@@ -261,9 +284,9 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
         description: "Failed to delete the tweet. Please try again.",
         variant: "destructive"
       });
+      setDeleteDialogOpen(false);
     } finally {
       setIsSubmitting(false);
-      setDeleteDialogOpen(false);
     }
   };
 
@@ -436,7 +459,10 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
           <AlertDialogFooter>
             <AlertDialogCancel 
               className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
-              onClick={(e) => e.stopPropagation()}>
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteDialogOpen(false);
+              }}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
@@ -444,8 +470,10 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete();
-              }}>
-              Delete
+              }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

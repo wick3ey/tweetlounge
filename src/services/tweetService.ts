@@ -565,15 +565,53 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       .from('tweets')
       .select('author_id')
       .eq('id', tweetId)
-      .single();
+      .maybeSingle();
       
     if (fetchError) {
       console.error('Error fetching tweet:', fetchError);
       throw fetchError;
     }
     
+    if (!tweet) {
+      console.error('Tweet not found or already deleted');
+      return true; // Consider it a success if tweet is already gone
+    }
+    
     if (tweet.author_id !== user.id) {
       throw new Error('You can only delete your own tweets');
+    }
+    
+    // Delete related bookmarks first to avoid foreign key constraints
+    const { error: bookmarksDeleteError } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (bookmarksDeleteError) {
+      console.error('Error deleting related bookmarks:', bookmarksDeleteError);
+      // Continue with deletion anyway
+    }
+    
+    // Delete related likes
+    const { error: likesDeleteError } = await supabase
+      .from('likes')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (likesDeleteError) {
+      console.error('Error deleting related likes:', likesDeleteError);
+      // Continue with deletion anyway
+    }
+    
+    // Delete related retweets
+    const { error: retweetsDeleteError } = await supabase
+      .from('retweets')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (retweetsDeleteError) {
+      console.error('Error deleting related retweets:', retweetsDeleteError);
+      // Continue with deletion anyway
     }
     
     // Delete the tweet

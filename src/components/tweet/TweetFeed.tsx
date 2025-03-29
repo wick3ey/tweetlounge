@@ -59,6 +59,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
       setLoading(true);
       const freshTweets = await getTweets(limit, 0);
       setTweets(freshTweets);
+      setLoading(false);
     } catch (err) {
       console.error('Failed to refresh tweets:', err);
       toast({
@@ -66,7 +67,6 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
         description: 'Failed to refresh tweets.',
         variant: 'destructive'
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -78,6 +78,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
 
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
+    setSelectedTweet(null); // Clear selected tweet to prevent stale references
     // Refresh the feed when closing the detail view to show updated likes/comments
     handleRefresh();
   };
