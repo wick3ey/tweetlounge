@@ -1,6 +1,9 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
+const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
+
 // Define CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,7 +84,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Parsing request body");
+    console.log("Attempting to parse request body");
     const { chain } = await req.json();
     
     if (chain !== "solana") {
@@ -94,36 +97,30 @@ serve(async (req) => {
       );
     }
 
-    console.log("Using centralized cache for hot pools");
-    
-    // Fetch hot pools from centralized cache
-    const response = await fetch(
-      `https://kasreuudfxznhzekybzg.supabase.co/functions/v1/getCachedMarketData`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
-        },
-        body: JSON.stringify({
-          endpoint: "ranking/hotpools",
-          chain: "solana",
-          expirationMinutes: 15 // 15 minutes
-        })
-      }
-    );
+    console.log("Fetching hot pools from DEXTools API");
+
+    // Fetch hot pools
+    const response = await fetch(`${API_BASE_URL}/ranking/solana/hotpools`, {
+      method: "GET",
+      headers: {
+        "X-API-KEY": DEXTOOLS_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
 
     let hotPools = fallbackHotPools;
 
     if (response.ok) {
       try {
         hotPools = await response.json();
-        console.log("Successfully fetched hot pools from cache");
+        console.log("Successfully fetched hot pools");
       } catch (error) {
         console.error("Error parsing hot pools response:", error);
       }
     } else {
-      console.warn(`Hot pools API returned ${response.status}, using fallback data`);
+      const errorText = await response.text();
+      console.error(`Hot pools API error (${response.status}):`, errorText);
+      console.log("Using fallback hot pools data");
     }
 
     // Return the data

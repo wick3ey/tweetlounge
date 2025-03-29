@@ -1,23 +1,14 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+
+const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
+const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
 
 // Define CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Create Supabase client with admin privileges
-const supabaseAdmin = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  {
-    auth: {
-      persistSession: false,
-    }
-  }
-);
 
 // Fallback gainers data
 const fallbackGainers = [
@@ -126,7 +117,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Parsing request body");
+    console.log("Attempting to parse request body");
     const { chain } = await req.json();
     
     if (chain !== "solana") {
@@ -139,40 +130,24 @@ serve(async (req) => {
       );
     }
 
-    console.log("Using centralized cache for top tokens");
+    console.log("Fetching gainers from DEXTools API");
     
-    // Fetch gainers and losers in parallel using centralized cache
+    // Fetch gainers and losers in parallel
     const [gainersResponse, losersResponse] = await Promise.all([
-      fetch(
-        `https://kasreuudfxznhzekybzg.supabase.co/functions/v1/getCachedMarketData`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
-          },
-          body: JSON.stringify({
-            endpoint: "ranking/gainers",
-            chain: "solana",
-            expirationMinutes: 10 // 10 minutes
-          })
-        }
-      ),
-      fetch(
-        `https://kasreuudfxznhzekybzg.supabase.co/functions/v1/getCachedMarketData`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
-          },
-          body: JSON.stringify({
-            endpoint: "ranking/losers",
-            chain: "solana",
-            expirationMinutes: 10 // 10 minutes
-          })
-        }
-      )
+      fetch(`${API_BASE_URL}/ranking/solana/gainers`, {
+        method: "GET",
+        headers: {
+          "X-API-KEY": DEXTOOLS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }),
+      fetch(`${API_BASE_URL}/ranking/solana/losers`, {
+        method: "GET",
+        headers: {
+          "X-API-KEY": DEXTOOLS_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }),
     ]);
 
     let gainers = fallbackGainers;
@@ -182,7 +157,7 @@ serve(async (req) => {
     if (gainersResponse.ok) {
       try {
         gainers = await gainersResponse.json();
-        console.log("Successfully fetched gainers from cache");
+        console.log("Successfully fetched gainers");
       } catch (error) {
         console.error("Error parsing gainers response:", error);
       }
@@ -194,7 +169,7 @@ serve(async (req) => {
     if (losersResponse.ok) {
       try {
         losers = await losersResponse.json();
-        console.log("Successfully fetched losers from cache");
+        console.log("Successfully fetched losers");
       } catch (error) {
         console.error("Error parsing losers response:", error);
       }

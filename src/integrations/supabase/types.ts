@@ -140,33 +140,6 @@ export type Database = {
           },
         ]
       }
-      market_cache: {
-        Row: {
-          cache_key: string
-          created_at: string
-          data: Json
-          expires_at: string
-          id: string
-          source: string | null
-        }
-        Insert: {
-          cache_key: string
-          created_at?: string
-          data: Json
-          expires_at: string
-          id?: string
-          source?: string | null
-        }
-        Update: {
-          cache_key?: string
-          created_at?: string
-          data?: Json
-          expires_at?: string
-          id?: string
-          source?: string | null
-        }
-        Relationships: []
-      }
       notifications: {
         Row: {
           actor_id: string
