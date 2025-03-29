@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
+import { ensureProfileExists } from '@/services/profileService';
 
 export async function createTweet(content: string, imageFile?: File): Promise<boolean> {
   try {
@@ -15,6 +16,13 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
     }
     
     console.log('[tweetService] Authenticated user ID:', userData.user.id);
+    
+    // Ensure this user has a profile
+    const profileExists = await ensureProfileExists(userData.user.id);
+    if (!profileExists) {
+      console.error('[tweetService] Failed to ensure profile exists for user');
+      return false;
+    }
     
     let imageUrl = null;
     

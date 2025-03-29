@@ -147,3 +147,18 @@ export async function getProfiles(userIds: string[]): Promise<Profile[]> {
     return [];
   }
 }
+
+export async function ensureProfileExists(userId: string): Promise<boolean> {
+  try {
+    const profile = await getProfileById(userId);
+    if (profile) {
+      return true;
+    }
+    
+    const newProfile = await createDefaultProfileIfNeeded(userId);
+    return !!newProfile;
+  } catch (error) {
+    console.error('[profileService] Failed to ensure profile exists:', error);
+    return false;
+  }
+}
