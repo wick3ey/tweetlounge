@@ -256,10 +256,10 @@ export async function getFollowers(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Use a simpler query approach first to get the followers
+    // Fetch followers directly with joined profile information
     const { data: followersData, error: followersError } = await supabase
       .from('followers')
-      .select('follower_id')
+      .select('follower_id, profiles(id, username, display_name, avatar_url)')
       .eq('following_id', userId);
       
     if (followersError) {
@@ -267,42 +267,19 @@ export async function getFollowers(userId: string): Promise<any[]> {
       return [];
     }
     
-    if (!followersData || followersData.length === 0) {
-      return [];
-    }
-    
-    // Get the follower IDs
-    const followerIds = followersData.map(item => item.follower_id);
-    
-    // Now fetch the profile data for these follower IDs
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url')
-      .in('id', followerIds);
-      
-    if (profilesError) {
-      console.error('Error fetching follower profiles:', profilesError);
-      return [];
-    }
-    
-    if (!profilesData) {
-      return [];
-    }
-    
-    // Transform data to what UI expects
-    const followers = profilesData.map(profile => ({
-      id: profile.id,
-      username: profile.username,
-      display_name: profile.display_name,
-      avatar_url: profile.avatar_url,
-      is_following: false // We'll set this below
-    }));
+    // Transform data to match expected format
+    const followers = followersData.map(follower => ({
+      id: follower.profiles?.id,
+      username: follower.profiles?.username,
+      display_name: follower.profiles?.display_name,
+      avatar_url: follower.profiles?.avatar_url,
+      is_following: false // We'll update this below
+    })).filter(profile => profile.id); // Remove any null profiles
     
     // Check which of these followers the current user is following back
     if (currentUser) {
-      const followIds = followers.map(f => f.id);
+      const followIds = followers.map(f => f.id).filter(Boolean);
       
-      // Only run this check if we have followers
       if (followIds.length > 0) {
         const { data: followingData } = await supabase
           .from('followers')
@@ -311,10 +288,8 @@ export async function getFollowers(userId: string): Promise<any[]> {
           .in('following_id', followIds);
           
         if (followingData) {
-          // Create a set for faster lookups
           const followingSet = new Set(followingData.map(f => f.following_id));
           
-          // Update is_following status
           followers.forEach(follower => {
             follower.is_following = followingSet.has(follower.id);
           });
@@ -336,10 +311,10 @@ export async function getFollowing(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Use a simpler query approach first to get who the user is following
+    // Fetch following directly with joined profile information
     const { data: followingData, error: followingError } = await supabase
       .from('followers')
-      .select('following_id')
+      .select('following_id, profiles(id, username, display_name, avatar_url)')
       .eq('follower_id', userId);
       
     if (followingError) {
@@ -347,42 +322,19 @@ export async function getFollowing(userId: string): Promise<any[]> {
       return [];
     }
     
-    if (!followingData || followingData.length === 0) {
-      return [];
-    }
+    // Transform data to match expected format
+    const following = followingData.map(follow => ({
+      id: follow.profiles?.id,
+      username: follow.profiles?.username,
+      display_name: follow.profiles?.display_name,
+      avatar_url: follow.profiles?.avatar_url,
+      is_following: false // We'll update this below
+    })).filter(profile => profile.id); // Remove any null profiles
     
-    // Get the following IDs
-    const followingIds = followingData.map(item => item.following_id);
-    
-    // Now fetch the profile data for these following IDs
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url')
-      .in('id', followingIds);
-      
-    if (profilesError) {
-      console.error('Error fetching following profiles:', profilesError);
-      return [];
-    }
-    
-    if (!profilesData) {
-      return [];
-    }
-    
-    // Transform data to what UI expects
-    const following = profilesData.map(profile => ({
-      id: profile.id,
-      username: profile.username,
-      display_name: profile.display_name,
-      avatar_url: profile.avatar_url,
-      is_following: currentUser?.id === userId // If current user is viewing their own following, they are following all these users
-    }));
-    
-    // If current user is different from userId, check which of these users the current user is following
+    // Check which of these users the current user is following
     if (currentUser && currentUser.id !== userId) {
-      const followIds = following.map(f => f.id);
+      const followIds = following.map(f => f.id).filter(Boolean);
       
-      // Only run this check if we have following
       if (followIds.length > 0) {
         const { data: followingCheckData } = await supabase
           .from('followers')
@@ -391,10 +343,8 @@ export async function getFollowing(userId: string): Promise<any[]> {
           .in('following_id', followIds);
           
         if (followingCheckData) {
-          // Create a set for faster lookups
           const followingSet = new Set(followingCheckData.map(f => f.following_id));
           
-          // Update is_following status
           following.forEach(follow => {
             follow.is_following = followingSet.has(follow.id);
           });
