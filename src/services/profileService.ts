@@ -249,3 +249,137 @@ export async function isFollowing(followingId: string): Promise<boolean> {
     return false;
   }
 }
+
+// Get a user's followers
+export async function getFollowers(userId: string): Promise<any[]> {
+  try {
+    // Get the current user's ID to check who the user is following
+    const { data: currentUserData } = await supabase.auth.getUser();
+    const currentUser = currentUserData?.user;
+    
+    // Get followers with profiles
+    const { data, error } = await supabase
+      .from('followers')
+      .select(`
+        follower_id,
+        follower:follower_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('following_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching followers:', error);
+      return [];
+    }
+    
+    // Transform data to what UI expects
+    const followers = data.map(item => ({
+      id: item.follower.id,
+      username: item.follower.username,
+      display_name: item.follower.display_name,
+      avatar_url: item.follower.avatar_url,
+      is_following: false // We'll set this below
+    }));
+    
+    // Check which of these followers the current user is following back
+    if (currentUser) {
+      const followIds = followers.map(f => f.id);
+      
+      // Only run this check if we have followers
+      if (followIds.length > 0) {
+        const { data: followingData } = await supabase
+          .from('followers')
+          .select('following_id')
+          .eq('follower_id', currentUser.id)
+          .in('following_id', followIds);
+          
+        if (followingData) {
+          // Create a set for faster lookups
+          const followingSet = new Set(followingData.map(f => f.following_id));
+          
+          // Update is_following status
+          followers.forEach(follower => {
+            follower.is_following = followingSet.has(follower.id);
+          });
+        }
+      }
+    }
+    
+    return followers;
+  } catch (error) {
+    console.error('Error fetching followers:', error);
+    return [];
+  }
+}
+
+// Get who a user is following
+export async function getFollowing(userId: string): Promise<any[]> {
+  try {
+    // Get the current user's ID to check who the user is following
+    const { data: currentUserData } = await supabase.auth.getUser();
+    const currentUser = currentUserData?.user;
+    
+    // Get following with profiles
+    const { data, error } = await supabase
+      .from('followers')
+      .select(`
+        following_id,
+        following:following_id (
+          id,
+          username,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('follower_id', userId)
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error('Error fetching following:', error);
+      return [];
+    }
+    
+    // Transform data to what UI expects
+    const following = data.map(item => ({
+      id: item.following.id,
+      username: item.following.username,
+      display_name: item.following.display_name,
+      avatar_url: item.following.avatar_url,
+      is_following: currentUser?.id === userId // If current user is viewing their own following, they are following all these users
+    }));
+    
+    // If current user is different from userId, check which of these users the current user is following
+    if (currentUser && currentUser.id !== userId) {
+      const followIds = following.map(f => f.id);
+      
+      // Only run this check if we have following
+      if (followIds.length > 0) {
+        const { data: followingData } = await supabase
+          .from('followers')
+          .select('following_id')
+          .eq('follower_id', currentUser.id)
+          .in('following_id', followIds);
+          
+        if (followingData) {
+          // Create a set for faster lookups
+          const followingSet = new Set(followingData.map(f => f.following_id));
+          
+          // Update is_following status
+          following.forEach(follow => {
+            follow.is_following = followingSet.has(follow.id);
+          });
+        }
+      }
+    }
+    
+    return following;
+  } catch (error) {
+    console.error('Error fetching following:', error);
+    return [];
+  }
+}

@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
+import { CalendarDays, LinkIcon, MapPin, Wallet, Check, Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistance } from 'date-fns';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { connectEthereumWallet, connectSolanaWallet, updateWalletAddress } from '@/utils/walletConnector';
 import { useToast } from '@/components/ui/use-toast';
 import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 import { CryptoButton } from '@/components/ui/crypto-button';
-import { followUser, unfollowUser, isFollowing as checkIsFollowing } from '@/services/profileService';
+import { followUser, unfollowUser, isFollowing, getFollowers, getFollowing } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
+import FollowersList from '@/components/profile/FollowersList';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -60,11 +62,18 @@ const ProfileHeader = ({
 }: ProfileHeaderProps) => {
   const [following, setFollowing] = useState(isFollowing);
   const [followersCountState, setFollowersCountState] = useState(followersCount);
+  const [followingCountState, setFollowingCountState] = useState(followingCount);
   const { toast } = useToast();
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const { user } = useAuth();
   const [isCheckingFollowStatus, setIsCheckingFollowStatus] = useState(false);
   const [isUpdatingFollow, setIsUpdatingFollow] = useState(false);
+  const [showFollowersDialog, setShowFollowersDialog] = useState(false);
+  const [showFollowingDialog, setShowFollowingDialog] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<any[]>([]);
+  const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
+  const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
   
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -72,9 +81,8 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fixed: Using the imported checkIsFollowing function instead of the prop isFollowing
-        const followStatus = await checkIsFollowing(userId);
-        setFollowing(!!followStatus); // Use double negation to ensure a primitive boolean
+        const followStatus = await isFollowing(userId);
+        setFollowing(!!followStatus);
       } catch (error) {
         console.error("Error checking follow status:", error);
       } finally {
@@ -84,6 +92,11 @@ const ProfileHeader = ({
     
     checkFollowStatus();
   }, [userId, user, isCurrentUser]);
+
+  useEffect(() => {
+    setFollowersCountState(followersCount);
+    setFollowingCountState(followingCount);
+  }, [followersCount, followingCount]);
 
   const handleFollowClick = async () => {
     if (!user) {
@@ -212,6 +225,54 @@ const ProfileHeader = ({
     } finally {
       setIsConnectingWallet(false);
     }
+  };
+
+  const fetchFollowers = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoadingFollowers(true);
+      const data = await getFollowers(userId);
+      setFollowers(data);
+    } catch (error) {
+      console.error("Error fetching followers:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load followers",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingFollowers(false);
+    }
+  };
+
+  const fetchFollowing = async () => {
+    if (!userId) return;
+    
+    try {
+      setIsLoadingFollowing(true);
+      const data = await getFollowing(userId);
+      setFollowingUsers(data);
+    } catch (error) {
+      console.error("Error fetching following:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load following",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingFollowing(false);
+    }
+  };
+
+  const handleShowFollowers = async () => {
+    await fetchFollowers();
+    setShowFollowersDialog(true);
+  };
+
+  const handleShowFollowing = async () => {
+    await fetchFollowing();
+    setShowFollowingDialog(true);
   };
 
   const hasWallet = !!ethereumAddress || !!solanaAddress;
@@ -391,16 +452,56 @@ const ProfileHeader = ({
         )}
         
         <div className="flex gap-5 mt-3 mb-4">
-          <a href="#" className="text-crypto-text hover:underline">
-            <span className="font-bold">{followingCount}</span>{' '}
-            <span className="text-crypto-lightgray">Following</span>
-          </a>
-          <a href="#" className="text-crypto-text hover:underline">
+          <button 
+            onClick={handleShowFollowing}
+            className="text-crypto-text hover:underline flex items-center"
+          >
+            <span className="font-bold">{followingCountState}</span>{' '}
+            <span className="text-crypto-lightgray ml-1">Following</span>
+          </button>
+          <button 
+            onClick={handleShowFollowers}
+            className="text-crypto-text hover:underline flex items-center"
+          >
             <span className="font-bold">{followersCountState}</span>{' '}
-            <span className="text-crypto-lightgray">Followers</span>
-          </a>
+            <span className="text-crypto-lightgray ml-1">Followers</span>
+          </button>
         </div>
       </div>
+
+      <Dialog open={showFollowersDialog} onOpenChange={setShowFollowersDialog}>
+        <DialogContent className="sm:max-w-md bg-crypto-darkgray border-crypto-gray">
+          <DialogHeader>
+            <DialogTitle className="text-crypto-blue flex items-center">
+              <Users className="mr-2 h-5 w-5" />
+              Followers
+            </DialogTitle>
+          </DialogHeader>
+          <FollowersList 
+            profiles={followers} 
+            isLoading={isLoadingFollowers} 
+            currentUserId={user?.id}
+            onFollowChange={fetchFollowers}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFollowingDialog} onOpenChange={setShowFollowingDialog}>
+        <DialogContent className="sm:max-w-md bg-crypto-darkgray border-crypto-gray">
+          <DialogHeader>
+            <DialogTitle className="text-crypto-blue flex items-center">
+              <Users className="mr-2 h-5 w-5" />
+              Following
+            </DialogTitle>
+          </DialogHeader>
+          <FollowersList 
+            profiles={followingUsers} 
+            isLoading={isLoadingFollowing} 
+            currentUserId={user?.id}
+            onFollowChange={fetchFollowing}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
