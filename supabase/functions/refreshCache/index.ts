@@ -29,10 +29,15 @@ const supabaseAdmin = createClient(
 
 // Function to update a single cache entry
 async function refreshCacheItem(config: { cacheKey: string, endpoint: string, ttl: number }) {
-  console.log(`Refreshing cache for ${config.cacheKey} (endpoint: ${config.endpoint})`);
+  console.log(`[${new Date().toISOString()}] Starting refreshCacheItem for ${config.cacheKey} (endpoint: ${config.endpoint})`);
   
   try {
+    // Log Supabase URL (masked for security)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    console.log(`Supabase URL: ${supabaseUrl.substring(0, 8)}...${supabaseUrl.substring(supabaseUrl.length - 5)}`);
+    
     // Fetch from API
+    console.log(`Fetching data from ${API_BASE_URL}${config.endpoint}`);
     const response = await fetch(`${API_BASE_URL}${config.endpoint}`, {
       method: "GET",
       headers: {
@@ -42,14 +47,21 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
     });
 
     if (!response.ok) {
-      throw new Error(`API error (${response.status}): ${await response.text()}`);
+      const errorText = await response.text();
+      throw new Error(`API error (${response.status}): ${errorText}`);
     }
 
     const apiData = await response.json();
+    console.log(`API request succeeded with status: ${response.status}`);
     
     // Log the structure of the response for debugging
     console.log(`API response structure for ${config.cacheKey}:`, 
       JSON.stringify(apiData).slice(0, 200) + "...");
+    
+    // Log some stats about the response
+    if (apiData.data && Array.isArray(apiData.data)) {
+      console.log(`Received ${apiData.data.length} items in the response`);
+    }
     
     // Process the data based on cache key
     let processedData;
@@ -86,16 +98,21 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
         timestamp: Date.now(),
         source: "api_cron" 
       };
+      
+      console.log(`Processed ${hotPools.length} hot pools successfully`);
     } else {
       // For other data types
       processedData = apiData;
+      console.log(`Using default data processing for ${config.cacheKey}`);
     }
 
     // Calculate expiration date
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + config.ttl);
+    console.log(`Setting cache expiration to ${expiresAt.toISOString()}`);
 
     // Store in cache
+    console.log(`Storing data in market_cache table with key ${config.cacheKey}`);
     const { error } = await supabaseAdmin
       .from('market_cache')
       .upsert({
@@ -118,12 +135,20 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
 }
 
 serve(async (req) => {
+  // Log every request
+  console.log(`[${new Date().toISOString()}] Received request to refreshCache function`);
+  console.log(`Request method: ${req.method}, URL: ${req.url}`);
+  
   // Check for authorized requests
   const authHeader = req.headers.get("Authorization") || "";
   const isInternalRequest = req.headers.get("X-Client-Info")?.includes("supabase");
   
+  console.log(`Authorization header exists: ${!!authHeader}`);
+  console.log(`Is internal request: ${isInternalRequest}`);
+  
   // Only allow requests from cron jobs or other authorized services
   if (!isInternalRequest && !authHeader.startsWith("Bearer ")) {
+    console.log("Unauthorized request rejected");
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" }
@@ -133,7 +158,13 @@ serve(async (req) => {
   try {
     console.log("Starting cache refresh job");
     
+    // Check environment
+    console.log("Environment variables check:");
+    console.log(`SUPABASE_URL exists: ${!!Deno.env.get("SUPABASE_URL")}`);
+    console.log(`SUPABASE_SERVICE_ROLE_KEY exists: ${!!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`);
+    
     // Refresh all configured caches
+    console.log(`Refreshing ${CACHE_CONFIG.length} cache configurations`);
     const refreshResults = await Promise.all(
       CACHE_CONFIG.map(config => refreshCacheItem(config))
     );
@@ -143,6 +174,7 @@ serve(async (req) => {
     const failed = refreshResults.filter(r => !r.success).length;
     
     console.log(`Cache refresh complete. Success: ${succeeded}, Failed: ${failed}`);
+    console.log("Detailed results:", JSON.stringify(refreshResults));
     
     return new Response(
       JSON.stringify({
