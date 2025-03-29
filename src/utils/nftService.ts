@@ -107,8 +107,8 @@ export const setNFTAsProfilePicture = async (
         avatar_url: imageUrl,
         avatar_nft_id: nftId, // Store the NFT ID for verification
         avatar_nft_chain: chain // Store which blockchain the NFT is from
-      })
-      .eq('id', userId);
+      } as any)
+      .eq('id', userId as any);
     
     if (error) throw error;
     
@@ -140,10 +140,10 @@ export const verifyNFTOwnership = async (
     console.log('SOL address:', solanaAddress);
     
     // Get the user's profile to check if they're using an NFT
-    const { data: profile, error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('avatar_url, avatar_nft_id, avatar_nft_chain')
-      .eq('id', userId)
+      .eq('id', userId as any)
       .single();
     
     if (error) {
@@ -152,22 +152,22 @@ export const verifyNFTOwnership = async (
     }
     
     // If there's no NFT ID set, it's not an NFT profile picture
-    if (!profile || !profile.avatar_nft_id) {
+    if (!data || !data.avatar_nft_id) {
       console.log('User is not using an NFT as profile picture');
       return false;
     }
     
-    console.log('User has NFT as profile picture with ID:', profile.avatar_nft_id);
-    console.log('NFT chain:', profile.avatar_nft_chain);
+    console.log('User has NFT as profile picture with ID:', data.avatar_nft_id);
+    console.log('NFT chain:', data.avatar_nft_chain);
     
     // For demo/testing purposes, if there's an avatar_nft_id and a wallet is connected,
     // let's consider it verified to make it easier to see the feature
-    if ((ethereumAddress || solanaAddress) && profile.avatar_nft_id) {
+    if ((ethereumAddress || solanaAddress) && data.avatar_nft_id) {
       // Only verify if the wallet matches the chain of the NFT
-      if (profile.avatar_nft_chain === 'ethereum' && ethereumAddress) {
+      if (data.avatar_nft_chain === 'ethereum' && ethereumAddress) {
         console.log('User has Ethereum wallet and Ethereum NFT, marking as verified');
         return true;
-      } else if (profile.avatar_nft_chain === 'solana' && solanaAddress) {
+      } else if (data.avatar_nft_chain === 'solana' && solanaAddress) {
         console.log('User has Solana wallet and Solana NFT, marking as verified');
         return true;
       }
@@ -176,20 +176,20 @@ export const verifyNFTOwnership = async (
     // Fetch NFTs from both chains if addresses are available
     let userNFTs: NFT[] = [];
     
-    if (ethereumAddress && profile.avatar_nft_chain === 'ethereum') {
+    if (ethereumAddress && data.avatar_nft_chain === 'ethereum') {
       const ethNFTs = await fetchEthereumNFTs(ethereumAddress);
       console.log('Found ETH NFTs:', ethNFTs.length);
       userNFTs = [...userNFTs, ...ethNFTs];
     }
     
-    if (solanaAddress && profile.avatar_nft_chain === 'solana') {
+    if (solanaAddress && data.avatar_nft_chain === 'solana') {
       const solNFTs = await fetchSolanaNFTs(solanaAddress);
       console.log('Found SOL NFTs:', solNFTs.length);
       userNFTs = [...userNFTs, ...solNFTs];
     }
     
     // Check if the user owns the NFT used as profile picture
-    const hasNFT = userNFTs.some(nft => nft.id === profile.avatar_nft_id);
+    const hasNFT = userNFTs.some(nft => nft.id === data.avatar_nft_id);
     console.log('User owns this NFT:', hasNFT);
     
     return hasNFT;

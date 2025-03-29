@@ -113,10 +113,13 @@ export const updateWalletAddress = async (
   try {
     const column = walletType === 'ethereum' ? 'ethereum_address' : 'solana_address';
     
+    const updates: Record<string, string> = {};
+    updates[column] = address;
+    
     const { error } = await supabase
       .from('profiles')
-      .update({ [column]: address })
-      .eq('id', userId);
+      .update(updates as any)
+      .eq('id', userId as any);
     
     if (error) throw error;
     

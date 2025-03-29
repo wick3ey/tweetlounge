@@ -1,11 +1,13 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (!(await user).data.user) {
+    if (!user) {
       throw new Error('User must be logged in to create a tweet');
     }
     
@@ -15,7 +17,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${(await user).data.user?.id}/${fileName}`;
+      const filePath = `${user.id}/${fileName}`;
       
       const { error: uploadError } = await supabase.storage
         .from('tweet-images')
@@ -38,9 +40,9 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       .from('tweets')
       .insert({
         content,
-        author_id: (await user).data.user?.id,
+        author_id: user.id,
         image_url: imageUrl
-      })
+      } as any)
       .select()
       .single();
       
@@ -49,7 +51,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       throw error;
     }
     
-    return data;
+    return data as Tweet;
   } catch (error) {
     console.error('Tweet creation failed:', error);
     return null;
@@ -59,7 +61,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
 export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
   try {
     const { data, error } = await supabase
-      .rpc('get_tweets_with_authors', { 
+      .rpc('get_tweets_with_authors_reliable', { 
         limit_count: limit, 
         offset_count: offset 
       });
@@ -70,7 +72,9 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
     }
     
     // Transform the data to match the TweetWithAuthor type
-    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
       // Support both naming conventions 
       // (direct fields and profile_ prefixed fields)
       return {
@@ -112,7 +116,7 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
 export async function getUserTweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
   try {
     const { data, error } = await supabase
-      .rpc('get_user_tweets', { 
+      .rpc('get_user_tweets_reliable', { 
         user_id: userId,
         limit_count: limit, 
         offset_count: offset 
@@ -123,8 +127,10 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
       throw error;
     }
     
+    if (!data) return [];
+    
     // Transform the data to match the TweetWithAuthor type
-    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
       // Support both naming conventions
       return {
         id: item.id,
@@ -164,18 +170,19 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
 
 export async function likeTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (!(await user).data.user) {
+    if (!user) {
       throw new Error('User must be logged in to like a tweet');
     }
     
     const { error } = await supabase
       .from('likes')
       .insert({
-        user_id: (await user).data.user?.id,
+        user_id: user.id,
         tweet_id: tweetId
-      });
+      } as any);
       
     if (error) {
       // If error is because user already liked tweet
@@ -185,9 +192,9 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
           .from('likes')
           .delete()
           .match({ 
-            user_id: (await user).data.user?.id,
+            user_id: user.id,
             tweet_id: tweetId 
-          });
+          } as any);
           
         if (unlikeError) {
           console.error('Error unliking tweet:', unlikeError);
@@ -209,9 +216,10 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
 
 export async function retweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (!(await user).data.user) {
+    if (!user) {
       throw new Error('User must be logged in to retweet');
     }
     
@@ -220,9 +228,9 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .from('retweets')
       .select()
       .match({ 
-        user_id: (await user).data.user?.id,
+        user_id: user.id,
         tweet_id: tweetId 
-      });
+      } as any);
       
     if (checkError) {
       console.error('Error checking retweet status:', checkError);
@@ -235,9 +243,9 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .from('retweets')
         .delete()
         .match({ 
-          user_id: (await user).data.user?.id,
+          user_id: user.id,
           tweet_id: tweetId 
-        });
+        } as any);
         
       if (deleteError) {
         console.error('Error removing retweet:', deleteError);
@@ -251,9 +259,9 @@ export async function retweet(tweetId: string): Promise<boolean> {
     const { error } = await supabase
       .from('retweets')
       .insert({
-        user_id: (await user).data.user?.id,
+        user_id: user.id,
         tweet_id: tweetId
-      });
+      } as any);
       
     if (error) {
       console.error('Error retweeting:', error);
@@ -265,10 +273,10 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .from('tweets')
       .insert({
         content: '',
-        author_id: (await user).data.user?.id,
+        author_id: user.id,
         is_retweet: true,
         original_tweet_id: tweetId
-      });
+      } as any);
       
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
@@ -277,9 +285,9 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .from('retweets')
         .delete()
         .match({ 
-          user_id: (await user).data.user?.id,
+          user_id: user.id,
           tweet_id: tweetId 
-        });
+        } as any);
         
       return false;
     }
@@ -293,9 +301,10 @@ export async function retweet(tweetId: string): Promise<boolean> {
 
 export async function replyToTweet(tweetId: string, content: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (!(await user).data.user) {
+    if (!user) {
       throw new Error('User must be logged in to reply to a tweet');
     }
     
@@ -303,9 +312,9 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
       .from('replies')
       .insert({
         content,
-        user_id: (await user).data.user?.id,
+        user_id: user.id,
         tweet_id: tweetId
-      });
+      } as any);
       
     if (error) {
       console.error('Error replying to tweet:', error);
@@ -321,9 +330,10 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
 
 export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (!(await user).data.user) {
+    if (!user) {
       return false;
     }
     
@@ -331,9 +341,9 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       .from('likes')
       .select()
       .match({ 
-        user_id: (await user).data.user?.id,
+        user_id: user.id,
         tweet_id: tweetId 
-      });
+      } as any);
       
     if (error) {
       console.error('Error checking like status:', error);
@@ -359,7 +369,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
           avatar_url
         )
       `)
-      .eq('tweet_id', tweetId)
+      .eq('tweet_id', tweetId as any)
       .order('created_at', { ascending: false });
       
     if (error) {

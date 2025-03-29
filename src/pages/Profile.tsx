@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -67,7 +66,7 @@ const Profile = () => {
             return;
           }
           
-          if (data) {
+          if (data && 'created_at' in data) {
             setUserCreatedAt(data.created_at);
           }
         } catch (error) {

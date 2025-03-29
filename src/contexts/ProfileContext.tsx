@@ -87,7 +87,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       }
       
       const updatedProfile = {
-        ...profile,
         ...updatedData,
         updated_at: new Date().toISOString()
       };
@@ -99,7 +98,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       
       if (updateError) throw updateError;
       
-      setProfile(updatedProfile);
+      setProfile(prev => prev ? { ...prev, ...updatedProfile } : null);
     } catch (error) {
       console.error('Error updating profile:', error);
       setError(error.message);

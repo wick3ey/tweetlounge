@@ -10,8 +10,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     flowType: 'pkce',
     autoRefreshToken: true,
     persistSession: true,
-    storage: localStorage,
-    // Enable anonymous access
-    autoJoinProjectRef: true
+    storage: localStorage
   }
 });
