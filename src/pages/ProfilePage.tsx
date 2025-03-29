@@ -9,6 +9,7 @@ import { Loader } from "lucide-react";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import Navbar from "@/components/layout/Navbar";
+import { getProfileByUsername } from "@/services/profileService";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
@@ -18,6 +19,7 @@ const ProfilePage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
+  const [viewingOwnProfile, setViewingOwnProfile] = useState(true);
 
   useEffect(() => {
     const checkProfileExists = async () => {
@@ -28,16 +30,35 @@ const ProfilePage = () => {
           return;
         }
         // If we don't have a username in the URL or in the profile, show the user's profile anyway
+        setViewingOwnProfile(true);
         setProfileExists(true);
         setIsLoading(false);
         return;
       }
 
-      // If viewing own profile (with username), just continue
-      try {
-        // In a real implementation, we would check if username exists in database
-        // For now, we assume all usernames exist
+      // Check if this is the user's own profile by comparing usernames
+      if (profile?.username === username) {
+        setViewingOwnProfile(true);
         setProfileExists(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // If not viewing own profile, fetch the profile data for the requested username
+      try {
+        // Actually check if the profile exists in the database
+        const profileData = await getProfileByUsername(username);
+        if (profileData) {
+          setProfileExists(true);
+          setViewingOwnProfile(false);
+        } else {
+          setProfileExists(false);
+          toast({
+            title: "Error",
+            description: "Could not find user profile",
+            variant: "destructive",
+          });
+        }
       } catch (error) {
         console.error("Error checking profile:", error);
         toast({
@@ -88,7 +109,7 @@ const ProfilePage = () => {
       <div className="container mx-auto flex flex-col lg:flex-row">
         <LeftSidebar />
         <main className="flex-1 min-h-screen border-x border-crypto-gray/30">
-          <Profile />
+          <Profile username={username} isOwnProfile={viewingOwnProfile} />
         </main>
         <RightSidebar />
       </div>

@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import ProfileHeader from '@/components/profile/ProfileHeader';
@@ -17,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
+import { getProfileByUsername } from '@/services/profileService';
 
 // Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
@@ -25,22 +25,77 @@ const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-const Profile = () => {
+interface ProfileProps {
+  username?: string;
+  isOwnProfile: boolean;
+}
+
+const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const { user } = useAuth();
-  const { profile, isLoading, error } = useProfile();
+  const { profile: currentUserProfile, isLoading: currentProfileLoading, error: currentProfileError } = useProfile();
   const { toast } = useToast();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
-  const { username } = useParams<{ username: string }>();
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
   
-  const isCurrentUser = !username || (profile?.username === username);
+  // Add state for the viewed profile when not viewing own profile
+  const [viewedProfile, setViewedProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   
+  // Determine which profile to use
+  const profile = isOwnProfile ? currentUserProfile : viewedProfile;
+  const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
+  const error = isOwnProfile ? currentProfileError : profileError;
+  
+  // Fetch the viewed profile if not viewing own profile
+  useEffect(() => {
+    const fetchViewedProfile = async () => {
+      if (!isOwnProfile && username) {
+        try {
+          setIsLoadingProfile(true);
+          setProfileError(null);
+          
+          const profileData = await getProfileByUsername(username);
+          if (profileData) {
+            setViewedProfile(profileData);
+            
+            // Fetch user creation date for the viewed profile
+            try {
+              const { data, error } = await supabase
+                .from('profiles')
+                .select('created_at')
+                .eq('id', profileData.id)
+                .single();
+                
+              if (!error && data) {
+                setUserCreatedAt(data.created_at);
+              }
+            } catch (err) {
+              console.error("Error fetching user creation date:", err);
+            }
+          } else {
+            setProfileError("Profile not found");
+          }
+        } catch (err) {
+          console.error("Error fetching profile by username:", err);
+          setProfileError("Failed to load profile");
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+    
+    fetchViewedProfile();
+  }, [username, isOwnProfile]);
+  
+  // Fetch the user creation date for current user
   useEffect(() => {
     const fetchUserCreationDate = async () => {
-      if (user) {
+      if (user && isOwnProfile) {
         try {
           const { data, error } = await supabase
             .from('profiles')
@@ -63,14 +118,15 @@ const Profile = () => {
     };
     
     fetchUserCreationDate();
-  }, [user]);
+  }, [user, isOwnProfile]);
   
+  // Check NFT verification for the appropriate profile
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
         console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
-          user.id,
+          isOwnProfile ? user.id : profile.id,
           profile.ethereum_address,
           profile.solana_address
         );
@@ -82,7 +138,7 @@ const Profile = () => {
     if (!isLoading && profile) {
       checkNFTVerification();
     }
-  }, [profile, isLoading, user]);
+  }, [profile, isLoading, user, isOwnProfile]);
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -156,7 +212,7 @@ const Profile = () => {
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
       <ProfileHeader
-        userId={user?.id || ''}
+        userId={isOwnProfile ? (user?.id || '') : (profile.id || '')}
         username={profile.username || 'username'}
         displayName={profile.display_name || 'Display Name'}
         avatarUrl={profile.avatar_url || undefined}
@@ -166,9 +222,9 @@ const Profile = () => {
         website={profile.website ? formatWebsiteUrl(profile.website) : undefined}
         ethereumAddress={profile.ethereum_address}
         solanaAddress={profile.solana_address}
-        isCurrentUser={isCurrentUser}
-        followersCount={0} // placeholder
-        followingCount={0} // placeholder
+        isCurrentUser={isOwnProfile}
+        followersCount={profile.followers_count || 0}
+        followingCount={profile.following_count || 0}
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
@@ -177,8 +233,8 @@ const Profile = () => {
       />
       
       <ProfileTabs 
-        userId={user?.id || ''} 
-        isCurrentUser={isCurrentUser}
+        userId={isOwnProfile ? (user?.id || '') : (profile.id || '')}
+        isCurrentUser={isOwnProfile}
         solanaAddress={profile.solana_address}
       />
       
@@ -206,7 +262,6 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for enlarged profile image */}
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">
