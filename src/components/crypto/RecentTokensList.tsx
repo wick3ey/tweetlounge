@@ -24,16 +24,13 @@ const RecentTokensList: React.FC<RecentTokensListProps> = ({ tokens }) => {
       if (urls.length > 0) {
         console.log(`Preloading ${urls.length} images from RecentTokensList component`);
         imagesPreloadedRef.current = true;
-        preloadImages(urls)
-          .then(() => console.log('Recent token images preloaded successfully'))
+        preloadImages(urls, true) // Pass true to force cache images
+          .then(() => console.log('Recent token images preloaded and cached successfully'))
           .catch(err => console.error('Error preloading recent token images:', err));
       }
     }
     
-    // Reset the flag when tokens change
-    return () => {
-      imagesPreloadedRef.current = false;
-    };
+    // Don't reset the flag when component unmounts to prevent reloading on remount
   }, [safeTokens]);
   
   const formatDate = (dateString: string) => {

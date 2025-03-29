@@ -36,16 +36,13 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
       if (urls.length > 0) {
         console.log(`Preloading ${urls.length} token images from HotPoolsList component`);
         imagesPreloadedRef.current = true;
-        preloadImages(urls)
-          .then(() => console.log('Token images preloaded successfully'))
+        preloadImages(urls, true) // Force cache the images
+          .then(() => console.log('Token images preloaded and permanently cached successfully'))
           .catch(err => console.error('Error preloading token images:', err));
       }
     }
     
-    // Reset preloaded flag when pools change completely
-    return () => {
-      imagesPreloadedRef.current = false;
-    };
+    // Don't reset the flag when component unmounts to avoid reloading on remount
   }, [safePools]);
   
   const formatDexName = (name?: string): string => {
