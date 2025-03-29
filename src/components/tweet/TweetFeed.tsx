@@ -44,11 +44,33 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
       
       console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets total`);
       
-      if (tweetsData.length > 0) {
-        console.log('[TweetFeed] First tweet with author:', tweetsData[0]);
+      // Validate that the returned tweets have all the required data
+      const validTweets = tweetsData.filter(tweet => {
+        const hasAuthor = tweet.author && 
+                          tweet.author.id && 
+                          (tweet.author.username || tweet.author.display_name);
+        
+        if (!hasAuthor) {
+          console.warn('[TweetFeed] Dropping tweet with missing author data:', tweet);
+        }
+        
+        return hasAuthor;
+      });
+      
+      if (validTweets.length !== tweetsData.length) {
+        console.warn(`[TweetFeed] Dropped ${tweetsData.length - validTweets.length} tweets due to missing author data`);
       }
       
-      setTweets(tweetsData);
+      if (validTweets.length > 0) {
+        console.log('[TweetFeed] First tweet with author:', validTweets[0]);
+        console.log('[TweetFeed] Author data validation:', {
+          id: validTweets[0].author.id,
+          username: validTweets[0].author.username,
+          display_name: validTweets[0].author.display_name
+        });
+      }
+      
+      setTweets(validTweets);
     } catch (err) {
       console.error('[TweetFeed] Failed to fetch tweets:', err);
       setError('Failed to load tweets. Please try again later.');
