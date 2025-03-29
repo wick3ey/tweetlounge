@@ -42,12 +42,20 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         tweetsData = await getTweets(limit);
       }
       
-      // Filter out tweets that don't have proper author information
+      // Validate and debug author data for each tweet
       const validTweets = tweetsData.filter(tweet => {
         if (!tweet.author || !tweet.author.username) {
           console.warn(`[TweetFeed] Tweet ${tweet.id} has invalid author data, skipping`, tweet);
           return false;
         }
+        
+        // Debug author info - make sure we have valid usernames
+        console.log(`[TweetFeed] Tweet ${tweet.id} author data:`, {
+          id: tweet.author.id,
+          username: tweet.author.username,
+          display_name: tweet.author.display_name
+        });
+        
         return true;
       });
       

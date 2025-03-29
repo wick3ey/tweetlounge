@@ -53,7 +53,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   
   const isAuthor = user && tweet.author_id === user.id;
 
-  // Log the tweet author to help with debugging
+  // More detailed debugging of tweet data
+  console.log("[TweetCard] Tweet full data:", tweet);
+  console.log("[TweetCard] Tweet author_id:", tweet.author_id);
   console.log("[TweetCard] Tweet author data:", tweet.author);
 
   useEffect(() => {
@@ -271,6 +273,12 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
 
   // Additional debug for the actual author object being used in the render
   console.log("[TweetCard] Before render - originalAuthor:", originalAuthor);
+  
+  // Debug username display values just before they're inserted into JSX
+  const displayName = originalAuthor.display_name || originalAuthor.username || 'Unknown User';
+  const displayUsername = originalAuthor.username || 'unknown';
+  console.log("[TweetCard] Actual values being rendered - displayName:", displayName);
+  console.log("[TweetCard] Actual values being rendered - displayUsername:", displayUsername);
 
   if (isRetweet && isLoadingOriginalTweet) {
     return (
@@ -301,21 +309,25 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
           </div>
         )}
         <div className="flex gap-3">
-          <Link to={`/profile/${originalAuthor.username}`}>
+          <Link to={`/profile/${displayUsername}`}>
             <Avatar className="h-10 w-10">
               {originalAuthor.avatar_url ? (
-                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name || originalAuthor.username || 'User'} />
+                <AvatarImage src={originalAuthor.avatar_url} alt={displayName} />
               ) : null}
               <AvatarFallback className="bg-twitter-blue text-white">
-                {getInitials(originalAuthor.display_name || originalAuthor.username || 'User')}
+                {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Link to={`/profile/${originalAuthor.username}`} className="font-bold hover:underline text-sm">
-                  {originalAuthor.display_name || originalAuthor.username || 'Unknown User'}
+                <Link 
+                  to={`/profile/${displayUsername}`} 
+                  className="font-bold hover:underline text-sm"
+                  data-testid="tweet-author-displayname"
+                >
+                  {displayName}
                 </Link>
                 
                 {isNFTVerified && (
@@ -336,8 +348,11 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
                   </HoverCard>
                 )}
                 
-                <span className="text-gray-500 ml-1 text-sm">
-                  @{originalAuthor.username || 'unknown'}
+                <span 
+                  className="text-gray-500 ml-1 text-sm"
+                  data-testid="tweet-author-username"
+                >
+                  @{displayUsername}
                 </span>
                 <span className="text-gray-500 mx-1 text-xs">·</span>
                 <span className="text-gray-500 text-xs">{timeAgo}</span>
