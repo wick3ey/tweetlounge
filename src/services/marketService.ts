@@ -173,26 +173,36 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       return cachedData.data;
     }
     
-    // If not in memory cache, get from database cache
-    const data = await fetchCachedMarketData('token/metadata', 'solana', { address }, 60); // Cache for 1 hour
-    
-    // Process and cache the data
-    let tokenData: TokenInfo | null = null;
-    
-    if (data) {
-      tokenData = data as TokenInfo;
+    // If not in memory cache, get from database cache via our edge function
+    try {
+      const { data, error } = await supabase.functions.invoke('getTokenMetadata', {
+        body: { chain: 'solana', address }
+      });
       
-      // Update in-memory cache
-      TOKEN_METADATA_CACHE[address] = {
-        data: tokenData,
-        timestamp: Date.now()
-      };
-      
-      // Reset failure count on successful request
-      if (FAILED_REQUESTS[address]) {
-        delete FAILED_REQUESTS[address];
+      if (error) {
+        throw error;
       }
-    } else {
+      
+      if (data && data.statusCode === 200 && data.data) {
+        // Update in-memory cache
+        TOKEN_METADATA_CACHE[address] = {
+          data: data.data,
+          timestamp: Date.now()
+        };
+        
+        // Reset failure count on successful request
+        if (FAILED_REQUESTS[address]) {
+          delete FAILED_REQUESTS[address];
+        }
+        
+        return data.data;
+      }
+      
+      // Handle case where data exists but isn't properly formatted
+      throw new Error('Invalid data format returned from token metadata');
+    } catch (error) {
+      console.error(`Error fetching token metadata for ${address}:`, error);
+      
       // Track failed requests
       if (!FAILED_REQUESTS[address]) {
         FAILED_REQUESTS[address] = { count: 0, lastAttempt: 0 };
@@ -204,9 +214,14 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       if (cachedData) {
         return cachedData.data;
       }
+      
+      // Create a minimum metadata object as last resort
+      return {
+        address,
+        name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+        symbol: address.substring(0, 6).toUpperCase(),
+      };
     }
-    
-    return tokenData;
   } catch (error) {
     console.error(`Error in fetchTokenMetadata for ${address}:`, error);
     
@@ -223,7 +238,12 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       return cachedData.data;
     }
     
-    return null;
+    // Return minimal token info if all else fails
+    return {
+      address,
+      name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+      symbol: address.substring(0, 6).toUpperCase(),
+    };
   }
 };
 

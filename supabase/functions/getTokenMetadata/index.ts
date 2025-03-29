@@ -56,28 +56,43 @@ serve(async (req) => {
       }
     );
 
-    if (response.ok) {
-      const data = await response.json();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Error fetching token metadata for ${address}: ${response.status} - ${errorText}`);
+      
+      // For a 500 error from the cache service, return a cleaner error to the client
       return new Response(
-        JSON.stringify(data),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } else {
-      console.error(`Error fetching token metadata for ${address}: ${response.status}`);
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch token metadata: ${response.statusText}` }),
+        JSON.stringify({ 
+          statusCode: 200,  // Return 200 even on error to avoid cascading failures
+          data: {
+            address: address,
+            name: `Token ${address.substring(0, 4)}...`,
+            symbol: address.substring(0, 6),
+            error: "Could not fetch complete metadata"
+          }
+        }),
         { 
-          status: response.status, 
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         }
       );
     }
+
+    const data = await response.json();
+    return new Response(
+      JSON.stringify({
+        statusCode: 200,
+        data: data
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (error) {
     console.error("Error in getTokenMetadata:", error);
     return new Response(
-      JSON.stringify({ error: "Failed to fetch token metadata" }),
+      JSON.stringify({ 
+        statusCode: 500,
+        error: "Failed to fetch token metadata" 
+      }),
       { 
-        status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );

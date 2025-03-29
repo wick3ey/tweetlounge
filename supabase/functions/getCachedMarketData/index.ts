@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 // Define CORS headers
 const corsHeaders = {
@@ -8,515 +8,336 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Create Supabase client with admin privileges (needed to update cache)
+// Establish Supabase connection using service role (for cache writing privileges)
 const supabaseAdmin = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  Deno.env.get('SUPABASE_URL') || '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
   {
     auth: {
       persistSession: false,
-    }
+      autoRefreshToken: false,
+    },
   }
 );
 
-const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
-const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
-
-interface CacheOptions {
-  expirationMinutes: number;
-  fallbackData?: any;
-  source?: string;
-}
-
-type EndpointType = "blockchain" | "ranking/gainers" | "ranking/losers" | 
-                   "ranking/hotpools" | "token" | "token/metadata" | "token/recent";
-
-/**
- * Main function to get cached market data or fetch from API if needed
- */
-async function getCachedMarketData(
-  endpoint: EndpointType,
-  chain: string,
-  params: Record<string, string> = {},
-  options: CacheOptions = { expirationMinutes: 30 }
-) {
-  console.log(`Requested ${endpoint} data for ${chain} with params:`, params);
-  
-  // Build a unique cache key
-  const cacheKey = buildCacheKey(endpoint, chain, params);
-  
-  // Try to get data from cache first
-  const cachedData = await getFromCache(cacheKey);
-  
-  if (cachedData) {
-    console.log(`Cache hit for ${cacheKey}`);
-    return cachedData;
-  }
-  
-  console.log(`Cache miss for ${cacheKey}, fetching from API`);
-  
+// Function to fetch data from cache or API and update cache
+async function getCachedMarketData(endpoint: string, chain: string, params: Record<string, string>, expirationMinutes: number) {
   try {
-    // If not in cache, fetch from API
-    const freshData = await fetchFromDexTools(endpoint, chain, params);
-    
-    // Store in cache for future requests
-    await storeInCache(
-      cacheKey, 
-      freshData, 
-      options.expirationMinutes, 
-      options.source || 'dextools'
-    );
-    
-    return freshData;
-  } catch (error) {
-    console.error(`Error fetching ${endpoint} from API:`, error);
-    
-    // If we have fallback data, store it in cache with shorter expiration
-    if (options.fallbackData) {
-      console.log(`Using fallback data for ${cacheKey}`);
-      // Cache fallback for a shorter time (5 minutes)
-      await storeInCache(
-        cacheKey, 
-        options.fallbackData, 
-        5, 
-        options.source || 'fallback'
-      );
-      return options.fallbackData;
+    // Build cache key from endpoint, chain, and parameters
+    let cacheKey = `${chain}:${endpoint}`;
+    if (Object.keys(params).length > 0) {
+      const paramsString = Object.entries(params)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, value]) => `${key}=${value}`)
+        .join('&');
+      cacheKey += `:${paramsString}`;
     }
-    
+
+    // First, check the cache
+    const { data: cacheData, error: cacheError } = await supabaseAdmin
+      .from('market_cache')
+      .select('data, expires_at')
+      .eq('cache_key', cacheKey)
+      .single();
+
+    // If found in cache and not expired, return it
+    const now = new Date();
+    if (cacheData && !cacheError && new Date(cacheData.expires_at) > now) {
+      console.log(`Cache hit for ${cacheKey}`);
+      return cacheData.data;
+    }
+
+    // If not found or expired, fetch from API
+    console.log(`Cache miss for ${cacheKey}, fetching from API`);
+    let data = null;
+
+    try {
+      data = await fetchFromDexTools(endpoint, chain, params);
+      
+      // Calculate expiration time
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
+      
+      // Update cache with new data
+      const { error: updateError } = await supabaseAdmin
+        .from('market_cache')
+        .upsert({
+          cache_key: cacheKey,
+          data: data,
+          expires_at: expiresAt.toISOString(),
+          source: 'dextools'
+        }, { onConflict: 'cache_key' });
+        
+      if (updateError) {
+        console.error(`Error updating cache for ${cacheKey}:`, updateError);
+      } else {
+        console.log(`Cached ${cacheKey} until ${expiresAt.toISOString()}`);
+      }
+      
+      return data;
+    } catch (apiError) {
+      // If API fetch fails, try to return expired cache data as fallback
+      console.error(`Error fetching ${endpoint} from API:`, apiError);
+      
+      if (cacheData) {
+        console.log(`Using fallback data for ${cacheKey}`);
+        return cacheData.data;
+      }
+      
+      // If no cached data, provide fallback mock data for critical endpoints
+      const fallbackData = getFallbackData(endpoint, chain);
+      if (fallbackData) {
+        // Cache the fallback data with short expiration
+        const shortExpiresAt = new Date();
+        shortExpiresAt.setMinutes(shortExpiresAt.getMinutes() + 5); // Short 5-min expiration
+        
+        await supabaseAdmin
+          .from('market_cache')
+          .upsert({
+            cache_key: cacheKey,
+            data: fallbackData,
+            expires_at: shortExpiresAt.toISOString(),
+            source: 'fallback'
+          }, { onConflict: 'cache_key' });
+          
+        return fallbackData;
+      }
+      
+      // Re-throw if we can't provide fallback
+      throw apiError;
+    }
+  } catch (error) {
+    console.error(`Error in getCachedMarketData:`, error);
     throw error;
   }
 }
 
-/**
- * Build a unique cache key based on endpoint, chain and params
- */
-function buildCacheKey(endpoint: string, chain: string, params: Record<string, string>): string {
-  const paramString = Object.entries(params)
-    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB)) // Sort for consistency
-    .map(([key, value]) => `${key}=${value}`)
-    .join('&');
+// Helper function to fetch data from DexTools API
+async function fetchFromDexTools(endpoint: string, chain: string, params: Record<string, string>) {
+  let url = '';
+  const baseUrl = 'https://public-api.dextools.io/trial/v2';
+  const apiKey = Deno.env.get('DEXTOOLS_API_KEY') || '';
   
-  return `${chain}:${endpoint}${paramString ? `:${paramString}` : ''}`;
-}
-
-/**
- * Fetch data from cache if available and not expired
- */
-async function getFromCache(cacheKey: string): Promise<any | null> {
-  const { data, error } = await supabaseAdmin
-    .from('market_cache')
-    .select('data, expires_at')
-    .eq('cache_key', cacheKey)
-    .single();
-  
-  if (error || !data) {
-    return null;
+  // Build URL based on endpoint type
+  switch (endpoint) {
+    case 'blockchain':
+      url = `${baseUrl}/blockchain/${chain}`;
+      break;
+    case 'ranking/gainers':
+      url = `${baseUrl}/ranking/gainers/${chain}`;
+      break;
+    case 'ranking/losers':
+      url = `${baseUrl}/ranking/losers/${chain}`;
+      break;
+    case 'ranking/hotpools':
+      url = `${baseUrl}/ranking/hotpools/${chain}`;
+      break;
+    case 'token':
+      url = `${baseUrl}/token/${chain}/${params.address}`;
+      break;
+    case 'token/metadata':
+      url = `${baseUrl}/token/${chain}/${params.address}`;
+      break;
+    case 'token/recent':
+      url = `${baseUrl}/token/${chain}?sort=creationTime&order=desc`;
+      if (params.page) url += `&page=${params.page}`;
+      if (params.pageSize) url += `&pageSize=${params.pageSize}`;
+      break;
+    default:
+      throw new Error(`Unsupported endpoint: ${endpoint}`);
   }
   
-  // Check if cache has expired
-  const now = new Date();
-  const expiresAt = new Date(data.expires_at);
+  console.log(`Fetching from DexTools API: ${url}`);
   
-  if (now > expiresAt) {
-    console.log(`Cache for ${cacheKey} expired at ${expiresAt}`);
-    
-    // Delete expired cache entry (don't await, let it happen in background)
-    supabaseAdmin
-      .from('market_cache')
-      .delete()
-      .eq('cache_key', cacheKey)
-      .then(() => console.log(`Deleted expired cache for ${cacheKey}`))
-      .catch(err => console.error(`Error deleting expired cache: ${err}`));
-    
-    return null;
-  }
-  
-  return data.data;
-}
-
-/**
- * Store data in cache for future requests
- */
-async function storeInCache(
-  cacheKey: string, 
-  data: any, 
-  expirationMinutes: number,
-  source: string
-): Promise<void> {
-  // Calculate expiration time
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
-  
-  // Upsert cache entry (update if exists, insert if not)
-  const { error } = await supabaseAdmin
-    .from('market_cache')
-    .upsert({
-      cache_key: cacheKey,
-      data: data,
-      expires_at: expiresAt.toISOString(),
-      source: source
-    }, {
-      onConflict: 'cache_key'
-    });
-  
-  if (error) {
-    console.error(`Error storing data in cache: ${error.message}`);
-    // Continue even if caching fails - we already have the data to return
-  } else {
-    console.log(`Cached ${cacheKey} until ${expiresAt.toISOString()}`);
-  }
-}
-
-/**
- * Fetch data directly from DEXTools API
- */
-async function fetchFromDexTools(
-  endpoint: EndpointType, 
-  chain: string,
-  params: Record<string, string> = {}
-): Promise<any> {
-  // Build URL and query parameters
-  let url = `${API_BASE_URL}`;
-  
-  if (endpoint === "blockchain") {
-    url += `/${endpoint}/${chain}`;
-  } else if (endpoint === "token/recent") {
-    // Handle recently created tokens
-    url += `/token/${chain}?sort=creationTime&order=desc`;
-    
-    // Add any additional params
-    for (const [key, value] of Object.entries(params)) {
-      url += `&${key}=${encodeURIComponent(value)}`;
-    }
-  } else if (endpoint.startsWith("ranking/")) {
-    url += `/${endpoint}/${chain}`;
-    
-    // Add any additional params
-    for (const [key, value] of Object.entries(params)) {
-      url += `${url.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(value)}`;
-    }
-  } else if (endpoint === "token") {
-    // Handle token lookup by address
-    if (!params.address) {
-      throw new Error("Token address is required for token endpoint");
-    }
-    url += `/${endpoint}/${chain}/${params.address}`;
-    
-    // Add any additional params except address which we used in the path
-    const { address, ...restParams } = params;
-    for (const [key, value] of Object.entries(restParams)) {
-      url += `${url.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(value)}`;
-    }
-  } else if (endpoint === "token/metadata") {
-    // Handle token metadata by address
-    if (!params.address) {
-      throw new Error("Token address is required for token/metadata endpoint");
-    }
-    
-    // Token metadata endpoint pattern
-    url += `/token/${chain}/${params.address}`;
-  }
-  
-  console.log(`Fetching from DEXTools API: ${url}`);
-  
-  // Make API request
   const response = await fetch(url, {
-    method: "GET",
+    method: 'GET',
     headers: {
-      "X-API-KEY": DEXTOOLS_API_KEY,
-      "Content-Type": "application/json",
-    },
+      'X-API-KEY': apiKey,
+      'Content-Type': 'application/json'
+    }
   });
   
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`DEXTools API error (${response.status}): ${errorText}`);
-    throw new Error(`DEXTools API returned ${response.status}: ${errorText}`);
+    const responseText = await response.text();
+    const errorMsg = `DEXTools API error (${response.status}): ${responseText}`;
+    console.error(errorMsg);
+    throw new Error(`DEXTools API returned ${response.status}: ${responseText}`);
   }
   
   const result = await response.json();
   
-  // Handle different response formats from DEXTools API
-  if (result.statusCode === 200 && result.data) {
+  // Most DEXTools endpoints wrap data in a data property
+  if (result.data !== undefined) {
     return result.data;
-  } else if (result.data) {
-    return result.data;
-  } else if (result.results) {
-    return result.results;
+  }
+  
+  // Handle special case for token metadata
+  if (endpoint === 'token/metadata') {
+    return result;
   }
   
   return result;
 }
 
-// Fallback data for various endpoints
-const FALLBACK_DATA = {
-  solana: {
-    blockchain: {
-      name: "Solana",
-      id: "solana",
-      website: "https://solana.com",
-      exchangeCount: 12,
-      tvl: 1458972341.23,
-      tokenCount: 23456,
-      poolCount: 34567
-    },
-    gainers: [
-      {
-        address: "4TBi66vi32S7J8X1A6eWfaLHYmUXu7CStcEmsJQdpump",
-        exchangeName: "Raydium",
-        exchangeFactory: "CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz",
-        creationTime: "2025-03-15T11:30:00.000Z",
-        creationBlock: 234567890,
-        mainToken: {
-          address: "4TBi66vi32S7J8X1A6eWfaLHYmUXu7CStcEmsJQdpump",
-          symbol: "PUMP",
-          name: "Solana Pump",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        sideToken: {
-          address: "So11111111111111111111111111111111111111112",
-          symbol: "SOL",
-          name: "Wrapped SOL",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        fee: 0.3,
-        rank: 1,
-        price: 1.23,
-        price24h: 0.95,
-        variation24h: 29.47
-      },
-      {
-        exchangeName: "Orca",
-        exchangeFactory: "3oGsJcDPGnNjmDfZH7GGJUBQPxNzVQZLGF3GNkKXCYuW",
-        creationTime: "2025-03-10T14:22:35.000Z",
-        creationBlock: 234532151,
-        mainToken: {
-          address: "BNTYkJdHdJzQzgJLHEquuCHAiX8VqePTjAmJi1GTh2XU",
-          symbol: "BONK",
-          name: "Bonk",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        sideToken: {
-          address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-          symbol: "USDC",
-          name: "USD Coin",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        fee: 0.25,
-        rank: 2,
-        price: 0.00034,
-        price24h: 0.00029,
-        variation24h: 17.24
-      }
-    ],
-    losers: [
-      {
-        exchangeName: "Orca",
-        exchangeFactory: "3oGsJcDPGnNjmDfZH7GGJUBQPxNzVQZLGF3GNkKXCYuW",
-        creationTime: "2025-01-05T11:30:00.000Z",
-        creationBlock: 233750890,
-        mainToken: {
-          address: "6Y7dENQgNiKUfRCrYa1LjQxwgkWxPkxUmQYoqYi7Vdn3",
-          symbol: "BEARISH",
-          name: "Bearish Token",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        sideToken: {
-          address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-          symbol: "USDC",
-          name: "USD Coin",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        fee: 0.25,
-        rank: 1,
-        price: 0.032,
-        price24h: 0.085,
-        variation24h: -62.35
-      },
-      {
-        exchangeName: "Raydium",
-        exchangeFactory: "CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz",
-        creationTime: "2025-02-15T14:20:30.000Z",
-        creationBlock: 234245678,
-        mainToken: {
-          address: "FaLLxzJ4p9vCcQUTFARzYQEg4QBQpXNUaMe1FgxR2Vev",
-          symbol: "DUMP",
-          name: "Dumping Token",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        sideToken: {
-          address: "So11111111111111111111111111111111111111112",
-          symbol: "SOL",
-          name: "Wrapped SOL",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        fee: 0.3,
-        rank: 2,
-        price: 0.75,
-        price24h: 1.25,
-        variation24h: -40.0
-      }
-    ],
-    hotpools: [
-      {
-        address: "9XyQVZKLw2qMcvtaXGKTTeZaR2pKRfV6ts4zVk6ji5LC",
-        exchangeName: "Raydium",
-        exchangeFactory: "CJsLwbP1iu5DuUikHEJnLfANgKy6stB2uFgvBBHoyxwz",
-        creationTime: "2025-03-15T11:30:00.000Z",
-        creationBlock: 234567890,
-        mainToken: {
-          address: "4TBi66vi32S7J8X1A6eWfaLHYmUXu7CStcEmsJQdpump",
-          symbol: "PUMP",
-          name: "Solana Pump",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        sideToken: {
-          address: "So11111111111111111111111111111111111111112",
-          symbol: "SOL",
-          name: "Wrapped SOL",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-        },
-        fee: 0.3,
-        rank: 1
-      },
-      {
-        address: "HULn6Ssogh6rkwTJMJAjEWvMkQy2ZgYpCPK5NPcnufnx",
-        exchangeName: "Orca",
-        exchangeFactory: "3oGsJcDPGnNjmDfZH7GGJUBQPxNzVQZLGF3GNkKXCYuW",
-        creationTime: "2025-03-10T14:22:35.000Z",
-        creationBlock: 234532151,
-        mainToken: {
-          address: "BNTYkJdHdJzQzgJLHEquuCHAiX8VqePTjAmJi1GTh2XU",
-          symbol: "BONK",
-          name: "Bonk",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        sideToken: {
-          address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-          symbol: "USDC",
-          name: "USD Coin",
-          logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-        },
-        fee: 0.25,
-        rank: 2
-      }
-    ],
-    tokenRecent: [
-      {
-        address: "4TBi66vi32S7J8X1A6eWfaLHYmUXu7CStcEmsJQdpump",
-        name: "Solana Pump",
-        symbol: "PUMP",
-        decimals: 9,
-        socialInfo: {
-          website: "https://solanapump.io",
-          twitter: "solanapump",
-          telegram: "solanapump_official",
-          discord: "solanapump"
-        },
-        creationTime: "2025-03-15T10:23:45.000Z",
-        creationBlock: 234567890,
-        logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
-      },
-      {
-        address: "BNTYkJdHdJzQzgJLHEquuCHAiX8VqePTjAmJi1GTh2XU",
-        name: "Bonk",
-        symbol: "BONK",
-        decimals: 9,
-        socialInfo: {
-          website: "https://bonk.io",
-          twitter: "bonk_inu",
-          telegram: "bonk_official",
-          discord: "bonk"
-        },
-        creationTime: "2025-03-14T09:15:30.000Z",
-        creationBlock: 234566789,
-        logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png"
-      }
-    ]
+// Provide fallback data for critical endpoints
+function getFallbackData(endpoint: string, chain: string) {
+  if (chain !== 'solana') return null;
+  
+  switch (endpoint) {
+    case 'blockchain':
+      return {
+        name: "Solana",
+        id: "solana",
+        website: "https://solana.com/es",
+        exchangeCount: 12,
+        tvl: 1458972341.23,
+        tokenCount: 23456,
+        poolCount: 34567
+      };
+    case 'ranking/gainers':
+      return getMockTokens(20, true);
+    case 'ranking/losers':
+      return getMockTokens(20, false);
+    case 'ranking/hotpools':
+      return getMockPools(25);
+    case 'token/recent':
+      return getMockRecentTokens(10);
+    default:
+      return null;
   }
-};
+}
 
+// Helper functions to generate mock data for fallbacks
+function getMockTokens(count: number, gaining: boolean) {
+  return Array.from({ length: count }, (_, i) => {
+    const variation = gaining 
+      ? Math.random() * 100 + 5 
+      : -(Math.random() * 100 + 5);
+      
+    return {
+      rank: i + 1,
+      price: Math.random() * 0.1,
+      price24h: Math.random() * 0.01,
+      variation24h: variation,
+      creationBlock: 300000000 + Math.floor(Math.random() * 30000000),
+      creationTime: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      exchange: {
+        name: ["Raydium", "Jupiter", "Orca", "PumpSwap"][Math.floor(Math.random() * 4)],
+        factory: "factory" + Math.random().toString(36).substring(2, 10)
+      },
+      address: Math.random().toString(36).substring(2, 15),
+      mainToken: {
+        name: "Token " + Math.random().toString(36).substring(2, 7),
+        symbol: Math.random().toString(36).substring(2, 6).toUpperCase(),
+        address: Math.random().toString(36).substring(2, 15)
+      },
+      sideToken: {
+        name: "Wrapped SOL",
+        symbol: "SOL",
+        address: "So11111111111111111111111111111111111111112"
+      }
+    };
+  });
+}
+
+function getMockPools(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    return {
+      rank: i + 1,
+      creationTime: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      exchange: {
+        name: ["Raydium", "Jupiter", "Orca", "PumpSwap"][Math.floor(Math.random() * 4)],
+        factory: "factory" + Math.random().toString(36).substring(2, 10)
+      },
+      address: Math.random().toString(36).substring(2, 15),
+      mainToken: {
+        name: "Token " + Math.random().toString(36).substring(2, 7),
+        symbol: Math.random().toString(36).substring(2, 6).toUpperCase(),
+        address: Math.random().toString(36).substring(2, 15)
+      },
+      sideToken: {
+        name: "Wrapped SOL",
+        symbol: "SOL",
+        address: "So11111111111111111111111111111111111111112"
+      }
+    };
+  });
+}
+
+function getMockRecentTokens(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    return {
+      address: Math.random().toString(36).substring(2, 15),
+      name: "Token " + Math.random().toString(36).substring(2, 7),
+      symbol: Math.random().toString(36).substring(2, 6).toUpperCase(),
+      decimals: 9,
+      socialInfo: {
+        website: "https://example.com",
+        twitter: "exampletoken",
+        telegram: "exampletoken_official",
+        discord: "exampletoken"
+      },
+      creationTime: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+      creationBlock: 300000000 + Math.floor(Math.random() * 30000000),
+      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+    };
+  });
+}
+
+// Main handler function for the Edge Function
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    // Parse request
-    const { endpoint, chain, params, expirationMinutes = 30 } = await req.json();
+    // Parse the request body
+    const { endpoint, chain, params, expirationMinutes } = await req.json();
     
+    // Validate required parameters
     if (!endpoint || !chain) {
       return new Response(
-        JSON.stringify({ error: "Missing required parameters: endpoint and chain are required" }),
+        JSON.stringify({ 
+          error: "Both endpoint and chain are required" 
+        }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
     
-    // Check if endpoint is supported
-    const supportedEndpoints: EndpointType[] = [
-      "blockchain", 
-      "ranking/gainers", 
-      "ranking/losers", 
-      "ranking/hotpools", 
-      "token", 
-      "token/metadata", 
-      "token/recent"
-    ];
+    console.log(`Requested ${endpoint} data for ${chain} with params:`, params || {});
     
-    if (!supportedEndpoints.includes(endpoint as EndpointType)) {
-      return new Response(
-        JSON.stringify({ error: `Unsupported endpoint: ${endpoint}` }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
-    }
-    
-    // Determine which fallback to use based on endpoint
-    let fallbackData = undefined;
-    if (chain === "solana") {
-      if (endpoint === "blockchain") {
-        fallbackData = FALLBACK_DATA.solana.blockchain;
-      } else if (endpoint === "ranking/gainers") {
-        fallbackData = FALLBACK_DATA.solana.gainers;
-      } else if (endpoint === "ranking/losers") {
-        fallbackData = FALLBACK_DATA.solana.losers;
-      } else if (endpoint === "ranking/hotpools") {
-        fallbackData = FALLBACK_DATA.solana.hotpools;
-      } else if (endpoint === "token/recent") {
-        fallbackData = FALLBACK_DATA.solana.tokenRecent;
-      }
-    }
-    
-    // Get data with caching
+    // Get data from cache or API
     const data = await getCachedMarketData(
-      endpoint as EndpointType, 
+      endpoint, 
       chain, 
       params || {}, 
-      { 
-        expirationMinutes: parseInt(expirationMinutes.toString()),
-        fallbackData,
-        source: 'dextools'
-      }
+      expirationMinutes || 30 // Default to 30 minutes if not specified
     );
     
+    // Return the data
     return new Response(
       JSON.stringify(data),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   } catch (error) {
     console.error("Error in getCachedMarketData:", error);
+    
+    // Return a properly formatted error response
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: "Failed to fetch market data",
+        message: error instanceof Error ? error.message : String(error)
+      }),
       { 
         status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
