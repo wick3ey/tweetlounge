@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
 import Reply from './Reply';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import TweetCard from './TweetCard';
-import { createSafeDate } from '@/utils/dateUtils';
+import { createSafeDate, isValidDateString } from '@/utils/dateUtils';
 
 interface RepliesSectionProps {
   tweetId: string;
@@ -55,7 +56,13 @@ const RepliesSection = ({
       if (Array.isArray(data)) {
         // Enhanced validation for each reply's created_at date
         const validatedReplies = data.map(reply => {
-          // Return reply with safe date - if date is invalid, our utility will handle it
+          // Set default date to now if missing
+          if (!reply.created_at || !isValidDateString(reply.created_at)) {
+            console.warn("Invalid date detected for reply:", reply.id);
+            reply.created_at = new Date().toISOString();
+          }
+          
+          // Return reply with safe date
           return {
             ...reply,
             created_at: reply.created_at || new Date().toISOString(),
@@ -63,10 +70,12 @@ const RepliesSection = ({
           };
         });
         
-        // Sort by the safe date (newest first)
-        const sortedReplies = validatedReplies.sort((a, b) => 
-          b.safe_date.getTime() - a.safe_date.getTime()
-        );
+        // Sort by the safe date (newest first) - vi hanterar null-värden också
+        const sortedReplies = validatedReplies.sort((a, b) => {
+          if (!a.safe_date) return 1;
+          if (!b.safe_date) return -1;
+          return b.safe_date.getTime() - a.safe_date.getTime();
+        });
         
         setReplies(sortedReplies);
       } else {

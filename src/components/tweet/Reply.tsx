@@ -1,3 +1,4 @@
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { Check, MessageCircle, Heart, Repeat, Share2, MoreHorizontal } from 'lucide-react';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { likeTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
-import { formatRelativeTime } from '@/utils/dateUtils';
+import { formatSafeDate } from '@/utils/dateUtils';
 
 interface ReplyProps {
   reply: {
@@ -44,7 +45,9 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
     return null;
   }
   
-  const timeAgo = formatRelativeTime(reply.created_at);
+  // Använd vår nya, säkra dateutils-funktion för att formatera tiden
+  const timeAgo = formatSafeDate(reply.created_at, 'relative', 'recently');
+  
   const isNFTVerified = reply.profiles.avatar_nft_id && reply.profiles.avatar_nft_chain;
   const isMobile = useIsMobile();
   
