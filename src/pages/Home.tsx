@@ -1,5 +1,5 @@
 
-import React from 'react'
+import React, { useState } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -20,6 +20,7 @@ const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
@@ -38,8 +39,8 @@ const Home: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Refresh the page to show the new tweet
-      window.location.reload();
+      // Update feed by incrementing key instead of reloading the page
+      setFeedKey(prevKey => prevKey + 1);
       
       return Promise.resolve();
     } catch (error) {
@@ -51,6 +52,11 @@ const Home: React.FC = () => {
       });
       throw error;
     }
+  };
+
+  const handleRefresh = () => {
+    // Update feed by incrementing key
+    setFeedKey(prevKey => prevKey + 1);
   };
 
   return (
@@ -76,7 +82,7 @@ const Home: React.FC = () => {
                   variant="outline" 
                   size="sm" 
                   className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
-                  onClick={() => window.location.reload()}
+                  onClick={handleRefresh}
                 >
                   <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
                   Refresh
@@ -94,7 +100,7 @@ const Home: React.FC = () => {
               <div className="border-b border-gray-800">
                 <TweetFeedTabs />
               </div>
-              <TweetFeed limit={10} />
+              <TweetFeed key={feedKey} limit={10} onCommentAdded={handleRefresh} />
             </div>
           </main>
         </div>

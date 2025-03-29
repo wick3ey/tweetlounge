@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,13 +23,21 @@ interface TweetDetailProps {
   onClose: () => void;
   onAction: () => void;
   onDelete: (tweetId: string) => void;
+  onCommentAdded?: (tweetId: string) => void; // Add callback for comment events
 }
 
-const TweetDetail: React.FC<TweetDetailProps> = ({ tweet, onClose, onAction, onDelete }) => {
+const TweetDetail: React.FC<TweetDetailProps> = ({ 
+  tweet, 
+  onClose, 
+  onAction, 
+  onDelete, 
+  onCommentAdded 
+}) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [commentsVisible, setCommentsVisible] = useState(false);
+  const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -49,7 +58,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({ tweet, onClose, onAction, onD
 
     checkLikeStatus();
     checkBookmarkStatus();
-  }, [tweet?.id, user?.id]);
+    setRepliesCount(tweet?.replies_count || 0);
+  }, [tweet?.id, user?.id, tweet?.replies_count]);
 
   const toggleLike = async () => {
     if (!user) {
@@ -130,6 +140,19 @@ const TweetDetail: React.FC<TweetDetailProps> = ({ tweet, onClose, onAction, onD
     }
   };
 
+  const handleCommentSubmit = () => {
+    // Update the local replies count
+    setRepliesCount(prevCount => prevCount + 1);
+    
+    // Notify parent components about the new comment
+    if (onCommentAdded && tweet) {
+      onCommentAdded(tweet.id);
+    }
+    
+    // Also trigger the general refresh
+    onAction();
+  };
+
   return (
     <div className="bg-black text-white rounded-lg shadow-md p-4 relative">
       {/* Close Button */}
@@ -195,7 +218,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({ tweet, onClose, onAction, onD
       <div className="mt-4 flex justify-between text-gray-500">
         <button onClick={toggleComments} className="hover:text-crypto-blue focus:outline-none">
           <MessageSquare className="inline-block h-5 w-5 mr-1" />
-          <span className="align-middle">{tweet?.replies_count || 0}</span>
+          <span className="align-middle">{repliesCount}</span>
         </button>
         <button onClick={toggleLike} className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}>
           <Heart className="inline-block h-5 w-5 mr-1" />
@@ -216,7 +239,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({ tweet, onClose, onAction, onD
       {/* Comment Form */}
       {commentsVisible && (
         <div className="mt-4">
-          <CommentForm tweetId={tweet?.id} onSubmit={onAction} />
+          <CommentForm tweetId={tweet?.id} onSubmit={handleCommentSubmit} />
         </div>
       )}
 

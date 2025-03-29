@@ -12,9 +12,10 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 interface TweetFeedProps {
   userId?: string;
   limit?: number;
+  onCommentAdded?: () => void; // Add callback for comment events
 }
 
-const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
+const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +82,22 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
     setSelectedTweet(null); // Clear selected tweet to prevent stale references
     // Refresh the feed when closing the detail view to show updated likes/comments
     handleRefresh();
+  };
+
+  const handleCommentAdded = (tweetId: string) => {
+    // Update the comment count for a specific tweet in the state
+    setTweets(prevTweets => 
+      prevTweets.map(tweet => 
+        tweet.id === tweetId 
+          ? { ...tweet, replies_count: tweet.replies_count + 1 } 
+          : tweet
+      )
+    );
+    
+    // Also trigger parent callback if provided
+    if (onCommentAdded) {
+      onCommentAdded();
+    }
   };
 
   const handleTweetDeleted = (deletedTweetId: string) => {
@@ -152,6 +169,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
               onClose={handleCloseDetail}
               onAction={handleRefresh}
               onDelete={handleTweetDeleted}
+              onCommentAdded={handleCommentAdded}
             />
           )}
         </DialogContent>
