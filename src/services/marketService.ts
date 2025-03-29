@@ -50,20 +50,48 @@ export interface HotPoolsData {
   hotPools: PoolInfo[];
 }
 
-// Create a client-side cache for token metadata
+// Create a client-side cache for token metadata to reduce redundant requests
 const TOKEN_METADATA_CACHE: {[key: string]: {data: TokenInfo | null, timestamp: number}} = {};
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const FAILED_REQUESTS: {[key: string]: {count: number, lastAttempt: number}} = {};
 const RETRY_AFTER = 5 * 60 * 1000; // 5 minutes
 
+// Central function to call our cached market data endpoint
+async function fetchCachedMarketData(
+  endpoint: string,
+  chain: string = 'solana',
+  params: Record<string, string> = {},
+  expirationMinutes: number = 30
+): Promise<any> {
+  try {
+    const { data, error } = await supabase.functions.invoke('getCachedMarketData', {
+      body: {
+        endpoint,
+        chain,
+        params,
+        expirationMinutes
+      }
+    });
+    
+    if (error) {
+      console.error(`Error fetching cached market data for ${endpoint}:`, error);
+      return null;
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error in fetchCachedMarketData for ${endpoint}:`, error);
+    return null;
+  }
+}
+
 // Primary function to fetch Solana chain information
 export const fetchSolanaStats = async (): Promise<SolanaMarketStats | null> => {
   try {
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getSolanaStats', {});
+    const data = await fetchCachedMarketData('blockchain', 'solana', {}, 60); // Cache for 1 hour
     
-    if (error) {
-      console.error('Error fetching Solana stats:', error);
+    if (!data) {
+      console.error('No data returned from cached market data endpoint');
       return null;
     }
     
@@ -77,34 +105,16 @@ export const fetchSolanaStats = async (): Promise<SolanaMarketStats | null> => {
 // Function to fetch top gainers and losers
 export const fetchTopTokens = async (): Promise<TopTokensData | null> => {
   try {
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getTopTokens', {
-      body: { chain: 'solana' }
-    });
+    // Fetch gainers and losers in parallel
+    const [gainers, losers] = await Promise.all([
+      fetchCachedMarketData('ranking/gainers', 'solana', {}, 10), // Cache for 10 minutes
+      fetchCachedMarketData('ranking/losers', 'solana', {}, 10)   // Cache for 10 minutes
+    ]);
     
-    if (error) {
-      console.error('Error fetching top tokens:', error);
-      return null;
-    }
-    
-    // Fix for data structure - ensure we correctly process the nested response
-    if (data && typeof data === 'object') {
-      // Check if data has the expected structure with gainers and losers properties
-      if (data.gainers && data.losers) {
-        return data as TopTokensData;
-      }
-      
-      // Handle the case where gainers/losers are nested under statusCode/data
-      if (data.gainers?.data && data.losers?.data) {
-        return {
-          gainers: Array.isArray(data.gainers.data) ? data.gainers.data : [],
-          losers: Array.isArray(data.losers.data) ? data.losers.data : []
-        };
-      }
-    }
-    
-    console.error('Unexpected data format for top tokens:', data);
-    return null;
+    return {
+      gainers: Array.isArray(gainers) ? gainers : [],
+      losers: Array.isArray(losers) ? losers : []
+    };
   } catch (error) {
     console.error('Error in fetchTopTokens:', error);
     return null;
@@ -114,31 +124,13 @@ export const fetchTopTokens = async (): Promise<TopTokensData | null> => {
 // Function to fetch hot pools
 export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   try {
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getHotPools', {
-      body: { chain: 'solana' }
-    });
+    const hotPools = await fetchCachedMarketData('ranking/hotpools', 'solana', {}, 15); // Cache for 15 minutes
     
-    if (error) {
-      console.error('Error fetching hot pools:', error);
+    if (!hotPools) {
       return null;
     }
     
-    // Fix for data structure - ensure we correctly process the nested response
-    if (data && typeof data === 'object') {
-      // Check if data has the hotPools property directly
-      if (Array.isArray(data.hotPools)) {
-        return { hotPools: data.hotPools };
-      }
-      
-      // Handle the case where hotPools is nested under hotPools.data
-      if (data.hotPools?.data && Array.isArray(data.hotPools.data)) {
-        return { hotPools: data.hotPools.data };
-      }
-    }
-    
-    console.error('Unexpected data format for hot pools:', data);
-    return null;
+    return { hotPools: Array.isArray(hotPools) ? hotPools : [] };
   } catch (error) {
     console.error('Error in fetchHotPools:', error);
     return null;
@@ -148,15 +140,12 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
 // Function to fetch token details by address
 export const fetchTokenDetails = async (address: string): Promise<TokenInfo | null> => {
   try {
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getTokenDetails', {
-      body: { chain: 'solana', address }
-    });
-    
-    if (error) {
-      console.error(`Error fetching token details for ${address}:`, error);
+    if (!address) {
+      console.error('Token address is required for fetchTokenDetails');
       return null;
     }
+    
+    const data = await fetchCachedMarketData('token', 'solana', { address }, 60); // Cache for 1 hour
     
     return data as TokenInfo;
   } catch (error) {
@@ -178,20 +167,32 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       }
     }
     
-    // Check if we have a valid cached response
+    // Check if we have a valid cached response in memory
     const cachedData = TOKEN_METADATA_CACHE[address];
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
       return cachedData.data;
     }
     
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getTokenMetadata', {
-      body: { chain: 'solana', address }
-    });
+    // If not in memory cache, get from database cache
+    const data = await fetchCachedMarketData('token/metadata', 'solana', { address }, 60); // Cache for 1 hour
     
-    if (error) {
-      console.error(`Error fetching token metadata for ${address}:`, error);
+    // Process and cache the data
+    let tokenData: TokenInfo | null = null;
+    
+    if (data) {
+      tokenData = data as TokenInfo;
       
+      // Update in-memory cache
+      TOKEN_METADATA_CACHE[address] = {
+        data: tokenData,
+        timestamp: Date.now()
+      };
+      
+      // Reset failure count on successful request
+      if (FAILED_REQUESTS[address]) {
+        delete FAILED_REQUESTS[address];
+      }
+    } else {
       // Track failed requests
       if (!FAILED_REQUESTS[address]) {
         FAILED_REQUESTS[address] = { count: 0, lastAttempt: 0 };
@@ -199,34 +200,11 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       FAILED_REQUESTS[address].count++;
       FAILED_REQUESTS[address].lastAttempt = Date.now();
       
-      // Return cached data even if expired
+      // Return cached data even if expired as fallback
       if (cachedData) {
         return cachedData.data;
       }
-      
-      return null;
     }
-    
-    // Reset failure count on successful request
-    if (FAILED_REQUESTS[address]) {
-      delete FAILED_REQUESTS[address];
-    }
-    
-    // Process and cache the data
-    let tokenData: TokenInfo | null = null;
-    
-    // Check if the data has a nested structure
-    if (data && data.data) {
-      tokenData = data.data as TokenInfo;
-    } else {
-      tokenData = data as TokenInfo;
-    }
-    
-    // Update cache
-    TOKEN_METADATA_CACHE[address] = {
-      data: tokenData,
-      timestamp: Date.now()
-    };
     
     return tokenData;
   } catch (error) {
@@ -252,13 +230,16 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
 // Function to fetch recent tokens
 export const fetchRecentTokens = async (limit: number = 10): Promise<TokenInfo[]> => {
   try {
-    // Call Supabase function to securely access the DEXTools API
-    const { data, error } = await supabase.functions.invoke('getRecentTokens', {
-      body: { chain: 'solana', limit }
-    });
+    // Get cached recent tokens data
+    const data = await fetchCachedMarketData(
+      'token/recent', 
+      'solana', 
+      { page: '0', pageSize: limit.toString() },
+      15 // Cache for 15 minutes
+    );
     
-    if (error) {
-      console.error('Error fetching recent tokens:', error);
+    if (!data || !Array.isArray(data)) {
+      console.error('Invalid or missing data from recent tokens endpoint');
       return [];
     }
     

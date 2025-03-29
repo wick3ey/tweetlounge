@@ -1,9 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
-const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
-
 // Define CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -66,7 +63,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Attempting to parse request body");
+    console.log("Parsing request body");
     const { chain, limit = 10 } = await req.json();
     
     if (chain !== "solana") {
@@ -79,26 +76,26 @@ serve(async (req) => {
       );
     }
 
-    // Get current date for "to" parameter
-    const now = new Date();
-    const to = now.toISOString();
+    console.log("Using centralized cache for recent tokens");
     
-    // Get date 30 days ago for "from" parameter
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const from = thirtyDaysAgo.toISOString();
-
-    console.log(`Fetching recent tokens from ${from} to ${to}, limit: ${limit}`);
-
-    // Fetch recent tokens
+    // Fetch recent tokens from centralized cache
     const response = await fetch(
-      `${API_BASE_URL}/token/solana?sort=creationTime&order=desc&from=${from}&to=${to}&page=0&pageSize=${limit}`,
+      `https://kasreuudfxznhzekybzg.supabase.co/functions/v1/getCachedMarketData`,
       {
-        method: "GET",
+        method: "POST",
         headers: {
-          "X-API-KEY": DEXTOOLS_API_KEY,
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
         },
+        body: JSON.stringify({
+          endpoint: "token/recent",
+          chain: "solana",
+          params: {
+            page: "0",
+            pageSize: limit.toString()
+          },
+          expirationMinutes: 15 // 15 minutes
+        })
       }
     );
 
@@ -106,23 +103,16 @@ serve(async (req) => {
 
     if (response.ok) {
       try {
-        const data = await response.json();
-        if (data && data.results && Array.isArray(data.results)) {
-          recentTokens = data.results;
-          console.log(`Successfully fetched ${recentTokens.length} recent tokens`);
-        } else {
-          console.warn("Unexpected response format from recent tokens API, using fallback");
-        }
+        recentTokens = await response.json();
+        console.log(`Successfully fetched ${recentTokens.length} recent tokens from cache`);
       } catch (error) {
         console.error("Error parsing recent tokens response:", error);
       }
     } else {
-      const errorText = await response.text();
-      console.error(`Recent tokens API error (${response.status}):`, errorText);
-      console.log("Using fallback recent tokens data");
+      console.warn(`Recent tokens API returned ${response.status}, using fallback data`);
     }
 
-    // Return just the results array if it exists
+    // Return the results array
     return new Response(
       JSON.stringify(recentTokens),
       {
