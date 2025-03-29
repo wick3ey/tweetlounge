@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
@@ -105,7 +104,7 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
   globalCryptoCache.lastError = null;
   
   try {
-    // Check database cache
+    // First try to get data from database cache
     const cachedData = await getCachedData<CryptoCurrency[]>(CACHE_KEYS.CRYPTO_DATA);
     if (cachedData && cachedData.length > 0) {
       console.log('Using database cached crypto data');
@@ -114,7 +113,25 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
       return cachedData;
     }
     
-    console.warn('No cached crypto data available, using fallback data');
+    console.warn('No cached crypto data available in database, triggering backend refresh');
+    
+    // Trigger the backend to refresh data
+    await triggerDataRefresh();
+    
+    // Wait a moment for the backend to process
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Try fetching again from cache
+    const freshData = await getCachedData<CryptoCurrency[]>(CACHE_KEYS.CRYPTO_DATA);
+    if (freshData && freshData.length > 0) {
+      console.log('Using newly fetched crypto data');
+      globalCryptoCache.data = freshData;
+      globalCryptoCache.timestamp = Date.now();
+      return freshData;
+    }
+    
+    // If still no data, use fallback
+    console.warn('Still no cached data available after refresh, using fallback data');
     const fallbackData = getFallbackCryptoData();
     globalCryptoCache.data = fallbackData;
     globalCryptoCache.timestamp = Date.now();
@@ -161,7 +178,7 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
   globalStatsCache.lastError = null;
   
   try {
-    // Check database cache
+    // First try to get data from database cache
     const cachedData = await getCachedData<MarketStats>(CACHE_KEYS.MARKET_STATS);
     if (cachedData) {
       console.log('Using database cached market stats data');
@@ -170,7 +187,25 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
       return cachedData;
     }
     
-    console.warn('No cached market stats available, using fallback data');
+    console.warn('No cached market stats available in database, triggering backend refresh');
+    
+    // Trigger the backend to refresh data
+    await triggerDataRefresh();
+    
+    // Wait a moment for the backend to process
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Try fetching again from cache
+    const freshData = await getCachedData<MarketStats>(CACHE_KEYS.MARKET_STATS);
+    if (freshData) {
+      console.log('Using newly fetched market stats data');
+      globalStatsCache.data = freshData;
+      globalStatsCache.timestamp = Date.now();
+      return freshData;
+    }
+    
+    // If still no data, use fallback
+    console.warn('Still no cached data available after refresh, using fallback stats');
     const fallbackStats = getFallbackMarketStats();
     globalStatsCache.data = fallbackStats;
     globalStatsCache.timestamp = Date.now();

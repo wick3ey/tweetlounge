@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,9 +25,23 @@ const queryClient = new QueryClient();
 const App = () => {
   // Initialize cache cleanup service when the app starts
   useEffect(() => {
-    const cleanup = initCacheCleanupService();
+    // Clean up expired cache entries every 30 minutes
+    const cleanup = initCacheCleanupService(30 * 60 * 1000);
     
-    // Clean up when component unmounts
+    // Trigger an initial fetch when the app loads
+    const triggerInitialFetch = async () => {
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        await supabase.functions.invoke('fetchCryptoData', {
+          body: { trigger: 'initial' }
+        });
+      } catch (error) {
+        console.error('Failed to trigger initial data fetch:', error);
+      }
+    };
+    
+    triggerInitialFetch();
+    
     return () => {
       if (cleanup) cleanup();
     };
