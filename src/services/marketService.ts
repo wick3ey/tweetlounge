@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Basic types
@@ -48,6 +49,12 @@ export interface TopTokensData {
 export interface HotPoolsData {
   hotPools: PoolInfo[];
 }
+
+// Create a client-side cache for token metadata
+const TOKEN_METADATA_CACHE: {[key: string]: {data: TokenInfo | null, timestamp: number}} = {};
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const FAILED_REQUESTS: {[key: string]: {count: number, lastAttempt: number}} = {};
+const RETRY_AFTER = 5 * 60 * 1000; // 5 minutes
 
 // Primary function to fetch Solana chain information
 export const fetchSolanaStats = async (): Promise<SolanaMarketStats | null> => {
@@ -158,9 +165,25 @@ export const fetchTokenDetails = async (address: string): Promise<TokenInfo | nu
   }
 };
 
-// Function to fetch token metadata
+// Function to fetch token metadata with improved caching and error handling
 export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | null> => {
   try {
+    // Check if we recently failed to fetch this token and should wait before retrying
+    const failedRequest = FAILED_REQUESTS[address];
+    if (failedRequest) {
+      const now = Date.now();
+      if (now - failedRequest.lastAttempt < RETRY_AFTER && failedRequest.count > 2) {
+        console.log(`Skipping request for ${address} due to previous failures, will retry later`);
+        return null;
+      }
+    }
+    
+    // Check if we have a valid cached response
+    const cachedData = TOKEN_METADATA_CACHE[address];
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
+      return cachedData.data;
+    }
+    
     // Call Supabase function to securely access the DEXTools API
     const { data, error } = await supabase.functions.invoke('getTokenMetadata', {
       body: { chain: 'solana', address }
@@ -168,17 +191,60 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
     
     if (error) {
       console.error(`Error fetching token metadata for ${address}:`, error);
+      
+      // Track failed requests
+      if (!FAILED_REQUESTS[address]) {
+        FAILED_REQUESTS[address] = { count: 0, lastAttempt: 0 };
+      }
+      FAILED_REQUESTS[address].count++;
+      FAILED_REQUESTS[address].lastAttempt = Date.now();
+      
+      // Return cached data even if expired
+      if (cachedData) {
+        return cachedData.data;
+      }
+      
       return null;
     }
     
-    // Check if the data has a nested structure
-    if (data && data.data) {
-      return data.data as TokenInfo;
+    // Reset failure count on successful request
+    if (FAILED_REQUESTS[address]) {
+      delete FAILED_REQUESTS[address];
     }
     
-    return data as TokenInfo;
+    // Process and cache the data
+    let tokenData: TokenInfo | null = null;
+    
+    // Check if the data has a nested structure
+    if (data && data.data) {
+      tokenData = data.data as TokenInfo;
+    } else {
+      tokenData = data as TokenInfo;
+    }
+    
+    // Update cache
+    TOKEN_METADATA_CACHE[address] = {
+      data: tokenData,
+      timestamp: Date.now()
+    };
+    
+    return tokenData;
   } catch (error) {
     console.error(`Error in fetchTokenMetadata for ${address}:`, error);
+    
+    // Track failed requests
+    if (!FAILED_REQUESTS[address]) {
+      FAILED_REQUESTS[address] = { count: 0, lastAttempt: 0 };
+    }
+    FAILED_REQUESTS[address].count++;
+    FAILED_REQUESTS[address].lastAttempt = Date.now();
+    
+    // Return cached data even if expired as fallback
+    const cachedData = TOKEN_METADATA_CACHE[address];
+    if (cachedData) {
+      return cachedData.data;
+    }
+    
     return null;
   }
 };

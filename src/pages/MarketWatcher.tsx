@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   LineChart, BarChart2, TrendingUp, TrendingDown, Search, 
@@ -359,6 +360,8 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
   const [poolMetadata, setPoolMetadata] = useState<{[key: string]: TokenInfo | null}>({});
   const metadataCacheRef = useRef<TokenMetadataCache>({});
   const previousPoolsRef = useRef<string | null>(null);
+  const pendingRequestsRef = useRef<Set<string>>(new Set());
+  const requestTimeoutsRef = useRef<{[key: string]: number}>({});
   
   const currentPoolsString = safePools.length > 0 
     ? JSON.stringify(safePools.map(p => p.mainToken?.address)) 
@@ -401,6 +404,40 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
       .join(' ');
   };
   
+  // Clean up any pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(requestTimeoutsRef.current).forEach(timeoutId => {
+        window.clearTimeout(timeoutId);
+      });
+    };
+  }, []);
+  
+  const fetchMetadataWithDebounce = useCallback(async (address: string) => {
+    if (pendingRequestsRef.current.has(address)) {
+      return;
+    }
+    
+    pendingRequestsRef.current.add(address);
+    
+    try {
+      console.log(`Fetching metadata for ${address}`);
+      const metadata = await fetchTokenMetadata(address);
+      
+      if (metadata) {
+        setPoolMetadata(prev => ({...prev, [address]: metadata}));
+        metadataCacheRef.current[address] = {
+          data: metadata,
+          timestamp: Date.now()
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching metadata for ${address}:`, error);
+    } finally {
+      pendingRequestsRef.current.delete(address);
+    }
+  }, []);
+  
   useEffect(() => {
     const fetchMetadata = async () => {
       if (!safePools || safePools.length === 0) return;
@@ -409,11 +446,17 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
       
       previousPoolsRef.current = currentPoolsString;
       
-      const metadataResults: {[key: string]: TokenInfo | null} = {};
       const currentTime = Date.now();
       const CACHE_DURATION = 30 * 60 * 1000;
       
-      for (const pool of safePools) {
+      // Clear any existing timeouts
+      Object.values(requestTimeoutsRef.current).forEach(timeoutId => {
+        window.clearTimeout(timeoutId);
+      });
+      requestTimeoutsRef.current = {};
+      
+      // Stagger requests to avoid overwhelming the API
+      safePools.forEach((pool, index) => {
         if (pool.mainToken?.address) {
           const address = pool.mainToken.address;
           
@@ -425,38 +468,62 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
             !shouldRefreshAll && 
             poolMetadata[address]
           ) {
-            continue;
+            return;
           }
           
-          try {
-            console.log(`Fetching metadata for ${address}`);
-            const metadata = await fetchTokenMetadata(address);
-            
-            if (metadata) {
-              metadataResults[address] = metadata;
-              metadataCacheRef.current[address] = {
-                data: metadata,
-                timestamp: currentTime
-              };
-            }
-          } catch (error) {
-            console.error(`Error fetching metadata for ${address}:`, error);
-          }
+          // Stagger requests by 300ms each to avoid rate limiting
+          const timeout = setTimeout(() => {
+            fetchMetadataWithDebounce(address);
+          }, index * 300);
+          
+          requestTimeoutsRef.current[address] = timeout;
         }
-      }
-      
-      if (Object.keys(metadataResults).length > 0) {
-        setPoolMetadata(prev => ({...prev, ...metadataResults}));
-      }
+      });
     };
     
     fetchMetadata();
-  }, [safePools, currentPoolsString]);
+  }, [safePools, currentPoolsString, fetchMetadataWithDebounce, poolMetadata]);
   
   if (!pools) {
     return (
       <div className="space-y-4 py-4">
-        <div className="text-center py-8 text-gray-500">Loading hot pools...</div>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-gray-800 hover:bg-black">
+              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead>Token</TableHead>
+              <TableHead>DEX</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[1, 2, 3, 4, 5].map((index) => (
+              <TableRow key={index} className="border-gray-800 hover:bg-gray-900/50">
+                <TableCell className="font-medium">{index}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <div className="h-10 w-10 mr-2 bg-gray-800 rounded-full animate-pulse"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 w-24 bg-gray-800 rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-6 w-16 bg-gray-800 rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-4 w-20 bg-gray-800 rounded animate-pulse"></div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <div className="h-8 w-16 bg-gray-800 rounded animate-pulse"></div>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     );
   }
@@ -493,7 +560,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-2">
                       <AvatarImage 
-                        src={tokenMetadata?.logo || pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
+                        src={tokenMetadata?.logo || pool.mainToken?.logo} 
                         alt={tokenMetadata?.name || pool.mainToken?.name || "Token logo"} 
                       />
                       <AvatarFallback className="bg-gray-800 text-gray-400">
