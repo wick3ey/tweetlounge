@@ -31,26 +31,31 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         let fetchedTweets: TweetWithAuthor[] = [];
         
         if (feedType === 'all') {
-          // Fetch global feed without requiring authentication
+          // Public feed - fetch all tweets without authentication
+          console.log('Fetching public feed of all tweets');
           fetchedTweets = await getTweets(limit, 0);
         } else if (feedType === 'user' && userId) {
           // Fetch user's posts only
+          console.log(`Fetching tweets for user: ${userId}`);
           fetchedTweets = await getUserTweets(userId, limit, 0);
         } else if (feedType === 'user-retweets' && userId) {
           // Fetch user's retweets
+          console.log(`Fetching retweets for user: ${userId}`);
           fetchedTweets = await getUserTweets(userId, limit, 0, true);
         } else {
           // Default to global feed
+          console.log('Defaulting to public feed');
           fetchedTweets = await getTweets(limit, 0);
         }
         
+        console.log(`Fetched ${fetchedTweets.length} tweets for feed`);
         setTweets(fetchedTweets);
       } catch (err) {
         console.error('Failed to fetch tweets:', err);
         setError('Failed to load tweets. Please try again later.');
         
         toast({
-          title: 'Error',
+          title: "Error",
           description: 'Failed to load tweets. Please try again later.',
           variant: 'destructive'
         });

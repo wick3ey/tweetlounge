@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -41,6 +40,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
       return false;
     }
     
+    console.log('Tweet successfully created and added to public feed');
     return true;
   } catch (error) {
     console.error('Tweet creation failed:', error);
@@ -50,7 +50,9 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
 
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
-    // Anropar RPC-funktion utan att kräva autentisering
+    console.log(`Fetching public feed: limit=${limit}, offset=${offset}`);
+    
+    // Public feed - no authentication required
     const { data, error } = await supabase
       .rpc('get_tweets_with_authors', {
         limit_count: limit,
@@ -58,9 +60,11 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       });
       
     if (error) {
-      console.error('Error fetching tweets:', error);
+      console.error('Error fetching tweets for public feed:', error);
       throw error;
     }
+    
+    console.log(`Successfully fetched ${data?.length || 0} tweets for public feed`);
     
     const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
       id: tweet.id,
@@ -85,7 +89,7 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
     
     return formattedTweets;
   } catch (error) {
-    console.error('Failed to fetch tweets:', error);
+    console.error('Failed to fetch tweets for public feed:', error);
     return [];
   }
 }
