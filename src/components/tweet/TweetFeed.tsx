@@ -33,7 +33,18 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         // Step 1: Fetch tweets based on feed type
         let tweetsQuery = supabase
           .from('tweets')
-          .select('*')
+          .select(`
+            id,
+            content,
+            author_id,
+            created_at,
+            likes_count,
+            retweets_count,
+            replies_count,
+            is_retweet,
+            original_tweet_id,
+            image_url
+          `)
           .order('created_at', { ascending: false });
         
         // Apply filters based on feedType
@@ -68,23 +79,24 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Found ${authorIds.length} unique authors, IDs:`, authorIds);
         
-        // Step 3: Fetch all authors in a single query
+        // Step 3: Fetch all authors using a different approach with "in" filter
         const { data: authorsData, error: authorsError } = await supabase
           .from('profiles')
           .select('*')
           .in('id', authorIds);
-          
+        
         if (authorsError) {
           console.error('[TweetFeed] Error fetching authors:', authorsError);
           throw authorsError;
         }
         
-        console.log(`[TweetFeed] Fetched ${authorsData?.length || 0} authors`);
+        console.log(`[TweetFeed] Fetched ${authorsData?.length || 0} authors`, authorsData);
         
         // Create a map of author IDs to author data for quick lookup
         const authorsMap = {};
         if (authorsData) {
           authorsData.forEach(author => {
+            console.log(`[TweetFeed] Adding author to map: id=${author.id}, username=${author.username}`);
             authorsMap[author.id] = author;
           });
         }
@@ -97,13 +109,14 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
             console.warn(`[TweetFeed] Author not found for tweet ${tweet.id}, author_id: ${tweet.author_id}`);
           }
           
-          return {
+          // Use the RPC function to get the profile data if not found in the map
+          const tweetWithAuthor = {
             ...tweet,
             author: author ? {
               id: author.id,
               username: author.username || 'unknown',
               display_name: author.display_name || 'Unknown User',
-              avatar_url: author.avatar_url,
+              avatar_url: author.avatar_url || '',
               avatar_nft_id: author.avatar_nft_id,
               avatar_nft_chain: author.avatar_nft_chain
             } : {
@@ -115,6 +128,8 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
               avatar_nft_chain: null
             }
           };
+          
+          return tweetWithAuthor;
         });
         
         console.log('[TweetFeed] First tweet with author:', tweetsWithAuthors[0]);
