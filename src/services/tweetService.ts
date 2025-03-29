@@ -1,6 +1,64 @@
-import { supabase } from '@/integrations/supabase/client';
-import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
+import { uploadFile } from '@/services/storageService';
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Check if user has liked a tweet
+ */
+export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> => {
+  if (!tweetId) return false;
+  
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return false;
+    
+    const { data, error } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('user_id', user.user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error checking if tweet is liked:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Error checking if tweet is liked:', error);
+    return false;
+  }
+};
+
+/**
+ * Check if user has retweeted a tweet
+ */
+export const checkIfUserRetweetedTweet = async (tweetId: string): Promise<boolean> => {
+  if (!tweetId) return false;
+  
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return false;
+    
+    const { data, error } = await supabase
+      .from('retweets')
+      .select('id')
+      .eq('user_id', user.user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error checking if tweet is retweeted:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Error checking if tweet is retweeted:', error);
+    return false;
+  }
+};
 
 export async function createTweet(content: string, imageFile?: File): Promise<boolean> {
   try {
@@ -289,68 +347,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Retweet action failed:', error);
-    return false;
-  }
-}
-
-export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
-  try {
-    if (!tweetId || !tweetId.trim()) {
-      return false;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !userData.user) {
-      return false;
-    }
-    
-    const { data, error } = await supabase
-      .from('likes')
-      .select('id')
-      .eq('user_id', userData.user.id)
-      .eq('tweet_id', tweetId)
-      .single();
-      
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking like status:', error);
-      return false;
-    }
-    
-    return !!data;
-  } catch (error) {
-    console.error('Failed to check like status:', error);
-    return false;
-  }
-}
-
-export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
-  try {
-    if (!tweetId || !tweetId.trim()) {
-      return false;
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !userData.user) {
-      return false;
-    }
-    
-    const { data, error } = await supabase
-      .from('retweets')
-      .select('id')
-      .eq('user_id', userData.user.id)
-      .eq('tweet_id', tweetId)
-      .single();
-      
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking retweet status:', error);
-      return false;
-    }
-    
-    return !!data;
-  } catch (error) {
-    console.error('Failed to check retweet status:', error);
     return false;
   }
 }

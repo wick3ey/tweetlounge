@@ -46,7 +46,22 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
     return null;
   }
   
-  const timeAgo = formatDistanceToNow(new Date(reply.created_at), { addSuffix: true });
+  // Safely format the time difference
+  const getTimeAgo = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid by comparing with epoch time
+      if (isNaN(date.getTime())) {
+        return "recently";
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      console.warn("Error formatting date:", error);
+      return "recently";
+    }
+  };
+  
+  const timeAgo = getTimeAgo(reply.created_at);
   const isNFTVerified = reply.profiles.avatar_nft_id && reply.profiles.avatar_nft_chain;
   const isMobile = useIsMobile();
   
