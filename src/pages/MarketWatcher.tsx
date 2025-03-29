@@ -117,6 +117,13 @@ const MarketWatcher = () => {
   
   // Transform token data for tables
   const transformTokensForTable = (tokens: any[]): TokenData[] => {
+    // Check if tokens is actually an object with a tokens property (API response format)
+    if (tokens && typeof tokens === 'object' && !Array.isArray(tokens) && 'tokens' in tokens) {
+      console.log('Found tokens array inside object:', tokens.tokens);
+      // Extract the tokens array from the object
+      tokens = tokens.tokens;
+    }
+    
     if (!Array.isArray(tokens)) {
       console.error('Expected tokens to be an array but got:', tokens);
       return [];
@@ -183,10 +190,6 @@ const MarketWatcher = () => {
   
   // Safely transform data with error checking
   const safeTransform = (data: any, transformer: Function) => {
-    if (!Array.isArray(data)) {
-      console.error('Data is not an array:', data);
-      return [];
-    }
     try {
       return transformer(data);
     } catch (error) {

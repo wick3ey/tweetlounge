@@ -47,7 +47,7 @@ export interface PoolInfo {
  * @param pageSize Number of tokens per page
  * @returns Promise with token data
  */
-export const fetchRecentTokens = async (page = 0, pageSize = 20): Promise<TokenBasic[]> => {
+export const fetchRecentTokens = async (page = 0, pageSize = 20): Promise<any> => {
   try {
     const now = new Date().toISOString();
     const oneYearAgo = new Date();
@@ -73,7 +73,9 @@ export const fetchRecentTokens = async (page = 0, pageSize = 20): Promise<TokenB
     }
     
     if (data?.statusCode === 200 && data?.data) {
-      return data.data as TokenBasic[];
+      console.log('Raw recent tokens data:', data.data);
+      // Return the data as is, whether it's an array or an object with tokens array
+      return data.data;
     }
     
     return [];
