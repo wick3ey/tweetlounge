@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   LineChart, BarChart2, TrendingUp, TrendingDown, Search, 
@@ -274,6 +274,13 @@ const transformTokensForTable = (tokens: TokenInfo[] | undefined): any[] => {
   }));
 };
 
+type TokenMetadataCache = {
+  [key: string]: {
+    data: TokenInfo | null;
+    timestamp: number;
+  }
+};
+
 const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
   const safeTokens = Array.isArray(tokens) ? tokens : [];
   const formattedTokens = transformTokensForTable(safeTokens);
@@ -350,31 +357,101 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
   const { toast } = useToast();
   const safePools = Array.isArray(pools) ? pools : [];
   const [poolMetadata, setPoolMetadata] = useState<{[key: string]: TokenInfo | null}>({});
+  const metadataCacheRef = useRef<TokenMetadataCache>({});
+  const previousPoolsRef = useRef<string | null>(null);
+  
+  const currentPoolsString = safePools.length > 0 
+    ? JSON.stringify(safePools.map(p => p.mainToken?.address)) 
+    : null;
+  
+  const formatDexName = (name?: string): string => {
+    if (!name) return "Unknown";
+    
+    const dexNames: {[key: string]: string} = {
+      "raydium": "Raydium",
+      "orca": "Orca",
+      "jupiter": "Jupiter",
+      "openbook": "OpenBook",
+      "serum": "Serum",
+      "meteora": "Meteora",
+      "lifinity": "Lifinity",
+      "cykura": "Cykura",
+      "aldrin": "Aldrin",
+      "atrix": "Atrix",
+      "step": "Step Finance",
+      "solflare": "Solflare",
+      "mango": "Mango Markets",
+      "saber": "Saber",
+      "marinade": "Marinade",
+      "saros": "Saros",
+      "symmetry": "Symmetry",
+      "cropper": "Cropper",
+      "tensor": "Tensor"
+    };
+    
+    const lowerName = name.toLowerCase();
+    for (const [key, value] of Object.entries(dexNames)) {
+      if (lowerName.includes(key)) {
+        return value;
+      }
+    }
+    
+    return name.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
   
   useEffect(() => {
     const fetchMetadata = async () => {
       if (!safePools || safePools.length === 0) return;
       
+      const shouldRefreshAll = previousPoolsRef.current !== currentPoolsString;
+      
+      previousPoolsRef.current = currentPoolsString;
+      
       const metadataResults: {[key: string]: TokenInfo | null} = {};
+      const currentTime = Date.now();
+      const CACHE_DURATION = 30 * 60 * 1000;
       
       for (const pool of safePools) {
-        if (pool.mainToken?.address && !poolMetadata[pool.mainToken.address]) {
+        if (pool.mainToken?.address) {
+          const address = pool.mainToken.address;
+          
+          const cachedData = metadataCacheRef.current[address];
+          
+          if (
+            cachedData && 
+            currentTime - cachedData.timestamp < CACHE_DURATION && 
+            !shouldRefreshAll && 
+            poolMetadata[address]
+          ) {
+            continue;
+          }
+          
           try {
-            const metadata = await fetchTokenMetadata(pool.mainToken.address);
+            console.log(`Fetching metadata for ${address}`);
+            const metadata = await fetchTokenMetadata(address);
+            
             if (metadata) {
-              metadataResults[pool.mainToken.address] = metadata;
+              metadataResults[address] = metadata;
+              metadataCacheRef.current[address] = {
+                data: metadata,
+                timestamp: currentTime
+              };
             }
           } catch (error) {
-            console.error(`Error fetching metadata for ${pool.mainToken.address}:`, error);
+            console.error(`Error fetching metadata for ${address}:`, error);
           }
         }
       }
       
-      setPoolMetadata(prev => ({...prev, ...metadataResults}));
+      if (Object.keys(metadataResults).length > 0) {
+        setPoolMetadata(prev => ({...prev, ...metadataResults}));
+      }
     };
     
     fetchMetadata();
-  }, [safePools]);
+  }, [safePools, currentPoolsString]);
   
   if (!pools) {
     return (
@@ -407,6 +484,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
         <TableBody>
           {safePools.map((pool, index) => {
             const tokenMetadata = pool.mainToken?.address ? poolMetadata[pool.mainToken.address] : null;
+            const dexName = formatDexName(pool.exchangeName);
             
             return (
               <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
@@ -429,7 +507,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="bg-blue-900/10 text-blue-400 border-blue-500/20">
-                    {pool.exchangeName || 'Unknown'}
+                    {dexName}
                   </Badge>
                 </TableCell>
                 <TableCell>{formatDate(pool.creationTime)}</TableCell>
@@ -467,7 +545,7 @@ const MarketWatcher: React.FC = () => {
   } = useQuery({
     queryKey: ['solanaStats'],
     queryFn: fetchSolanaStats,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { 
@@ -478,7 +556,7 @@ const MarketWatcher: React.FC = () => {
   } = useQuery({
     queryKey: ['topTokens'],
     queryFn: fetchTopTokens,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { 
@@ -489,7 +567,7 @@ const MarketWatcher: React.FC = () => {
   } = useQuery({
     queryKey: ['hotPools'],
     queryFn: fetchHotPools,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const { 
@@ -500,7 +578,7 @@ const MarketWatcher: React.FC = () => {
   } = useQuery({
     queryKey: ['recentTokens'],
     queryFn: () => fetchRecentTokens(10),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
