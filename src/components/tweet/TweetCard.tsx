@@ -246,6 +246,11 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
+  // Debug the author information right before rendering
+  console.log("[TweetCard] Before render - author:", tweet.author);
+  console.log("[TweetCard] Before render - username:", tweet.author.username);
+  console.log("[TweetCard] Before render - display_name:", tweet.author.display_name);
+
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
   const formatNumber = (num: number) => {
@@ -263,6 +268,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   const isRetweet = tweet.is_retweet;
   const retweeter = tweet.author;
   const originalAuthor = isRetweet && originalTweet ? originalTweet.author : tweet.author;
+
+  // Additional debug for the actual author object being used in the render
+  console.log("[TweetCard] Before render - originalAuthor:", originalAuthor);
 
   if (isRetweet && isLoadingOriginalTweet) {
     return (
