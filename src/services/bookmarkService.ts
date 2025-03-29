@@ -141,3 +141,23 @@ export async function getBookmarkedTweets(limit = 20, offset = 0): Promise<Tweet
     return [];
   }
 }
+
+// Get bookmark count for a tweet
+export async function getBookmarkCount(tweetId: string): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('tweet_id', tweetId);
+      
+    if (error) {
+      console.error('Error fetching bookmark count:', error);
+      return 0;
+    }
+    
+    return count || 0;
+  } catch (error) {
+    console.error('Failed to fetch bookmark count:', error);
+    return 0;
+  }
+}

@@ -14,7 +14,12 @@ import {
   checkIfUserLikedTweet, 
   checkIfUserRetweetedTweet
 } from '@/services/tweetService';
-import { bookmarkTweet, unbookmarkTweet, checkIfTweetBookmarked } from '@/services/bookmarkService';
+import { 
+  bookmarkTweet, 
+  unbookmarkTweet, 
+  checkIfTweetBookmarked, 
+  getBookmarkCount 
+} from '@/services/bookmarkService';
 import { useToast } from '@/components/ui/use-toast';
 
 interface TweetCardProps {
@@ -33,6 +38,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
   const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count);
+  const [bookmarksCount, setBookmarksCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -57,9 +63,15 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
       setBookmarked(hasBookmarked);
     };
     
+    const fetchBookmarkCount = async () => {
+      const count = await getBookmarkCount(tweet.id);
+      setBookmarksCount(count);
+    };
+    
     checkLikeStatus();
     checkRetweetStatus();
     checkBookmarkStatus();
+    fetchBookmarkCount();
   }, [tweet.id, user]);
 
   const redirectToLogin = () => {
@@ -151,6 +163,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
         success = await unbookmarkTweet(tweet.id);
         if (success) {
           setBookmarked(false);
+          setBookmarksCount(prev => Math.max(0, prev - 1));
           toast({
             title: "Removed from Bookmarks",
             description: "Tweet has been removed from your bookmarks."
@@ -160,6 +173,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
         success = await bookmarkTweet(tweet.id);
         if (success) {
           setBookmarked(true);
+          setBookmarksCount(prev => prev + 1);
           toast({
             title: "Bookmarked",
             description: "Tweet has been added to your bookmarks."
@@ -290,7 +304,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
               <img 
                 src={tweet.image_url} 
                 alt="Tweet media"
-                className="rounded-lg w-full max-h-96 object-cover border border-gray-800" 
+                className="rounded-lg w-full max-h-96 object-contain border border-gray-800" 
               />
             </div>
           )}
@@ -329,6 +343,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
               disabled={isSubmitting}
             >
               <Bookmark className="h-4 w-4 mr-1" fill={bookmarked ? "currentColor" : "none"} />
+              <span>{formatNumber(bookmarksCount)}</span>
             </button>
             
             <button 

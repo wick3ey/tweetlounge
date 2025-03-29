@@ -10,6 +10,7 @@ export type Tweet = {
   is_retweet: boolean;
   original_tweet_id?: string;
   image_url?: string;
+  bookmarks_count?: number;
 };
 
 export type TweetWithAuthor = Tweet & {
