@@ -114,6 +114,8 @@ serve(async (req) => {
     if (response.ok) {
       try {
         const data = await response.json();
+        console.log("Successfully fetched hot pools");
+        
         if (data && Array.isArray(data)) {
           hotPools = data;
           console.log("Successfully fetched hot pools, found", hotPools.length, "pools");
@@ -133,10 +135,43 @@ serve(async (req) => {
       console.log("Using fallback hot pools data due to API error");
     }
 
+    // Normalize exchange names to ensure consistency
+    const normalizeExchangeName = (name) => {
+      if (!name) return "Unknown";
+      
+      // Map common variations to standard names
+      const standardNames = {
+        "raydium": "Raydium",
+        "orca": "Orca",
+        "jupiter": "Jupiter",
+        "openbook": "OpenBook",
+        "meteora": "Meteora",
+        "lifinity": "Lifinity"
+      };
+      
+      // Check for exact match (case-insensitive)
+      const lowercaseName = name.toLowerCase();
+      if (standardNames[lowercaseName]) {
+        return standardNames[lowercaseName];
+      }
+      
+      // Check for partial match
+      for (const [key, value] of Object.entries(standardNames)) {
+        if (lowercaseName.includes(key)) {
+          return value;
+        }
+      }
+      
+      // Format name if no matches
+      return name.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    };
+
     // Pre-process the hot pools to ensure all required properties exist
     const processedHotPools = hotPools.map(pool => {
       // Ensure exchangeName is always present and valid
-      const exchangeName = pool.exchangeName || "Unknown";
+      const exchangeName = normalizeExchangeName(pool.exchangeName || "Unknown");
       
       return {
         ...pool,
