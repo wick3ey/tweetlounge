@@ -96,7 +96,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         <p className="text-gray-400 text-xs sm:text-base">
           {feedType === 'user' ? 'No tweets yet. Post something to get started!' : 
            feedType === 'user-retweets' ? 'No retweets yet.' : 
-           'No tweets yet. Be the first to post!'}
+           'No tweets found. Loading might take a moment or there are no posts yet.'}
         </p>
       </div>
     );

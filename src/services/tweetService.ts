@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -31,15 +32,19 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
       image_url: imageUrl
     };
     
-    const { error } = await supabase
+    console.log('Creating tweet with data:', tweetData);
+    
+    const { error, data } = await supabase
       .from('tweets')
-      .insert(tweetData);
+      .insert(tweetData)
+      .select();
       
     if (error) {
       console.error('Error creating tweet:', error);
       return false;
     }
     
+    console.log('Tweet successfully created with ID:', data?.[0]?.id);
     console.log('Tweet successfully created and added to public feed');
     return true;
   } catch (error) {
@@ -51,6 +56,15 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
     console.log(`Fetching public feed: limit=${limit}, offset=${offset}`);
+    
+    // First try to directly query the tweets table to debug
+    const { data: rawTweets, error: rawError } = await supabase
+      .from('tweets')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+      
+    console.log('Raw tweets query result:', rawTweets, rawError);
     
     // Public feed - no authentication required
     const { data, error } = await supabase

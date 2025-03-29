@@ -20,6 +20,7 @@ const Home: React.FC = () => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mainContentLoaded, setMainContentLoaded] = useState(false);
+  const [refreshFeed, setRefreshFeed] = useState(0); // Counter to trigger feed refresh
 
   useEffect(() => {
     // Mark content as loaded after a small delay to ensure proper rendering
@@ -49,7 +50,13 @@ const Home: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      window.location.reload();
+      // Instead of forcing page reload, trigger feed refresh
+      setRefreshFeed(prev => prev + 1);
+      
+      toast({
+        title: "Success!",
+        description: "Your tweet has been posted",
+      });
       
       return Promise.resolve();
     } catch (error) {
@@ -61,6 +68,10 @@ const Home: React.FC = () => {
       });
       throw error;
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshFeed(prev => prev + 1);
   };
 
   return (
@@ -106,7 +117,7 @@ const Home: React.FC = () => {
                 variant="outline" 
                 size="sm" 
                 className="ml-auto text-xs h-7 sm:h-8 border-crypto-gray/40 hover:bg-crypto-gray/30"
-                onClick={() => window.location.reload()}
+                onClick={handleRefresh}
               >
                 <RefreshCwIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                 {!isMobile && "Refresh"}
@@ -121,7 +132,7 @@ const Home: React.FC = () => {
             
             <div className="mb-4">
               <TweetFeedTabs />
-              <TweetFeed limit={10} />
+              <TweetFeed key={refreshFeed} limit={10} />
             </div>
           </main>
         </div>
