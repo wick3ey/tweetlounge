@@ -398,10 +398,9 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
         <TableHeader>
           <TableRow className="border-gray-800 hover:bg-black">
             <TableHead className="w-[50px]">#</TableHead>
-            <TableHead>Pair</TableHead>
+            <TableHead>Token</TableHead>
             <TableHead>DEX</TableHead>
             <TableHead>Created</TableHead>
-            <TableHead>Metadata</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -414,24 +413,18 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                 <TableCell className="font-medium">{index + 1}</TableCell>
                 <TableCell>
                   <div className="flex items-center">
-                    <div className="flex -space-x-2 mr-2">
-                      <Avatar className="h-6 w-6 border-2 border-black">
-                        <AvatarImage src={pool.mainToken?.logo} alt={pool.mainToken?.name} />
-                        <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                          {pool.mainToken?.symbol?.substring(0, 2) || "??"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Avatar className="h-6 w-6 border-2 border-black">
-                        <AvatarImage src={pool.sideToken?.logo} alt={pool.sideToken?.name} />
-                        <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                          {pool.sideToken?.symbol?.substring(0, 2) || "??"}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div>
-                      <span className="font-medium">{pool.mainToken?.symbol || 'Unknown'}/{pool.sideToken?.symbol || 'Unknown'}</span>
-                      <div className="text-xs text-gray-500">{shortenAddress(pool.address)}</div>
-                    </div>
+                    <Avatar className="h-10 w-10 mr-2">
+                      <AvatarImage 
+                        src={tokenMetadata?.logo || pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
+                        alt={tokenMetadata?.name || pool.mainToken?.name || "Token logo"} 
+                      />
+                      <AvatarFallback className="bg-gray-800 text-gray-400">
+                        {(tokenMetadata?.symbol || pool.mainToken?.symbol || "??")?.substring(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">
+                      {tokenMetadata?.name || pool.mainToken?.name || 'Unknown Token'}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -440,27 +433,6 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
                   </Badge>
                 </TableCell>
                 <TableCell>{formatDate(pool.creationTime)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center">
-                    <Avatar className="h-10 w-10 border border-gray-800">
-                      <AvatarImage 
-                        src={tokenMetadata?.logo || pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
-                        alt={tokenMetadata?.name || pool.mainToken?.name || "Pool metadata"} 
-                      />
-                      <AvatarFallback className="bg-gray-800 text-gray-400">
-                        <Image className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="ml-2 text-xs text-gray-400">
-                      <div className="font-medium">
-                        {tokenMetadata?.name || pool.mainToken?.name?.substring(0, 12) || 'Metadata'}
-                      </div>
-                      {tokenMetadata?.socialInfo?.twitter && (
-                        <div className="text-blue-400">@{tokenMetadata.socialInfo.twitter}</div>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button 
