@@ -80,9 +80,14 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
     return num.toFixed(2);
   };
   
+  // Generate explorer link for the token
+  const getExplorerLink = (): string => {
+    return token.explorerUrl || `https://solscan.io/token/${token.address}`;
+  };
+  
   // Generate dexscreener link for the token
   const getDexScreenerLink = (): string => {
-    return `https://dexscreener.com/solana/${token.address}`;
+    return token.dexScreenerUrl || `https://dexscreener.com/solana/${token.address}`;
   };
   
   // Generate a color gradient for the token
@@ -147,7 +152,10 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => window.open(getDexScreenerLink(), '_blank')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(getDexScreenerLink(), '_blank');
+                }}
                 className="text-xs h-8 bg-primary/5 hover:bg-primary/10"
               >
                 View <ExternalLink className="ml-1 h-3 w-3" />
@@ -163,7 +171,9 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
             <div className="text-xs text-muted-foreground space-y-2 p-2 rounded-md bg-background/50">
               <div className="flex justify-between">
                 <span>Token Address</span>
-                <span className="font-mono text-xs truncate max-w-[180px]">{token.address.substring(0, 8)}...{token.address.substring(token.address.length - 8)}</span>
+                <span className="font-mono text-xs truncate max-w-[180px]">
+                  {token.address.substring(0, 8)}...{token.address.substring(token.address.length - 8)}
+                </span>
               </div>
               
               <div className="border-t border-border/30 pt-2 mt-2 flex justify-between">
@@ -171,7 +181,10 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
                   variant="outline"
                   size="sm"
                   className="text-xs h-8 border-primary/20 hover:bg-primary/5"
-                  onClick={() => window.open(getDexScreenerLink(), '_blank')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(getDexScreenerLink(), '_blank');
+                  }}
                 >
                   <BarChart3 className="mr-1 h-3 w-3" />
                   Chart
@@ -181,9 +194,13 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
                   variant="outline"
                   size="sm"
                   className="text-xs h-8 border-primary/20 hover:bg-primary/5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(getExplorerLink(), '_blank');
+                  }}
                 >
-                  <ArrowUpRight className="mr-1 h-3 w-3" />
-                  Send
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  Explorer
                 </Button>
               </div>
             </div>

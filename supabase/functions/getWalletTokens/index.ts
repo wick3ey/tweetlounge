@@ -142,13 +142,10 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
             continue;
           }
           
-          // Format token address for display (first 4 and last 5 characters)
-          const formattedAddress = `${mintAddress.slice(0, 4)}...${mintAddress.slice(-5)}`;
-          
           // Get token metadata from our map or use defaults
           const metadata = tokenMetadata[mintAddress] || {
-            name: formattedAddress,
-            symbol: formattedAddress,
+            name: "Unknown Token",
+            symbol: mintAddress.substring(0, 4),
             decimals: tokenDecimals
           };
           
