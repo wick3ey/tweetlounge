@@ -50,6 +50,9 @@ serve(async (req) => {
       case 'losers':
         url += `/ranking/solana/losers`;
         break;
+      case 'blockchain':
+        url += `/blockchain/solana`;
+        break;
       default:
         throw new Error(`Unknown endpoint: ${endpoint}`);
     }

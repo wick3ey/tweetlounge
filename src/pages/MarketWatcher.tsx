@@ -13,6 +13,7 @@ import {
   fetchGainers, 
   fetchHotPools, 
   fetchLosers, 
+  fetchMarketOverview,
   fetchRecentTokens,
   formatNumber,
   formatPercent,
@@ -29,34 +30,51 @@ const MarketWatcher = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
   
-  // Market overview stats - these would normally come from an API
-  const marketStats: MarketStat[] = [
-    {
-      label: 'SOL Price',
-      value: '$152.43',
-      change: '+3.2% (24h)',
-      isPositive: true
-    },
-    {
-      label: 'Market Volume 24h',
-      value: '$2.1B',
-      change: '+15.8% (24h)',
-      isPositive: true
-    },
-    {
-      label: 'Total Value Locked',
-      value: '$5.7B',
-      change: '+1.5% (24h)',
-      isPositive: true
-    },
-    {
-      label: 'New Tokens 24h',
-      value: '142',
-      change: '+12.7% (24h)',
-      isPositive: true
+  // Fetch market overview data
+  const {
+    data: marketOverview,
+    isLoading: isLoadingOverview,
+    refetch: refetchOverview
+  } = useQuery({
+    queryKey: ['marketOverview'],
+    queryFn: fetchMarketOverview,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Update market stats when market overview data changes
+  useEffect(() => {
+    if (marketOverview) {
+      const stats: MarketStat[] = [
+        {
+          label: 'SOL Price',
+          value: formatNumber(marketOverview.solPrice, 2),
+          change: `${formatPercent(marketOverview.solChange24h)} (24h)`,
+          isPositive: isPositivePercent(marketOverview.solChange24h)
+        },
+        {
+          label: 'Market Volume 24h',
+          value: formatNumber(marketOverview.marketVolume24h, 1),
+          change: `${formatPercent(marketOverview.marketVolumeChange24h)} (24h)`,
+          isPositive: isPositivePercent(marketOverview.marketVolumeChange24h)
+        },
+        {
+          label: 'Total Value Locked',
+          value: formatNumber(marketOverview.totalValueLocked, 1),
+          change: `${formatPercent(marketOverview.tvlChange24h)} (24h)`,
+          isPositive: isPositivePercent(marketOverview.tvlChange24h)
+        },
+        {
+          label: 'New Tokens 24h',
+          value: marketOverview.newTokens24h.toString(),
+          change: `${formatPercent(marketOverview.newTokensChange24h)} (24h)`,
+          isPositive: isPositivePercent(marketOverview.newTokensChange24h)
+        }
+      ];
+      setMarketStats(stats);
     }
-  ];
+  }, [marketOverview]);
   
   // Fetch hot pools
   const { 
@@ -103,23 +121,21 @@ const MarketWatcher = () => {
   });
   
   // Transform hot pools data to the format expected by the component
-  const transformedHotPools: PoolData[] = Array.isArray(hotPoolsData) 
-    ? hotPoolsData.map((pool: any) => ({
-        address: pool.address,
-        name: pool.name || 'Unknown',
-        symbol: pool.symbol || 'UNKNOWN',
-        logo: pool.logo || '',
-        price: pool.price || 0,
-        priceFormatted: formatNumber(pool.price, pool.price < 0.01 ? 4 : 2),
-        change24h: pool.variation24h || 0,
-        change24hFormatted: formatPercent(pool.variation24h || 0),
-        volume24h: pool.volume24h || 0,
-        volume24hFormatted: formatNumber(pool.volume24h || 0),
-        liquidity: pool.liquidity || 0,
-        liquidityFormatted: formatNumber(pool.liquidity || 0),
-        vLRatio: pool.liquidity ? (pool.volume24h / pool.liquidity) : 0
-      }))
-    : [];
+  const transformedHotPools: PoolData[] = hotPoolsData.map((pool) => ({
+    address: pool.address,
+    name: pool.name || 'Unknown',
+    symbol: pool.symbol || 'UNKNOWN',
+    logo: pool.logo || '',
+    price: pool.price || 0,
+    priceFormatted: formatNumber(pool.price, pool.price < 0.01 ? 4 : 2),
+    change24h: pool.variation24h || 0,
+    change24hFormatted: formatPercent(pool.variation24h || 0),
+    volume24h: pool.volume24h || 0,
+    volume24hFormatted: formatNumber(pool.volume24h || 0),
+    liquidity: pool.liquidity || 0,
+    liquidityFormatted: formatNumber(pool.liquidity || 0),
+    vLRatio: pool.liquidity > 0 ? (pool.volume24h / pool.liquidity) : 0
+  }));
   
   // Transform token data for tables
   const transformTokensForTable = (tokensData: any[] | TokensResponse): TokenData[] => {
@@ -184,6 +200,7 @@ const MarketWatcher = () => {
   
   // Handle refresh of all data
   const handleRefreshAll = () => {
+    refetchOverview();
     refetchHotPools();
     refetchGainers();
     refetchLosers();
