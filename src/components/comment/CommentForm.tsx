@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { createComment } from '@/services/commentService';
@@ -16,7 +17,8 @@ interface CommentFormProps {
 const CommentForm: React.FC<CommentFormProps> = ({ tweetId, parentCommentId, onSubmit }) => {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {

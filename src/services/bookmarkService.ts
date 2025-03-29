@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor } from '@/types/Tweet';
 
@@ -111,15 +110,15 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
     } catch (catchError) {
       // Fall back to direct query if RPC fails
       console.warn('RPC failed, falling back to direct query');
-      const { data, queryError } = await supabase
+      const { data, error } = await supabase
         .from('bookmarks')
         .select('*')
         .eq('user_id', user.id)
         .eq('tweet_id', tweetId)
         .maybeSingle();
         
-      if (queryError) {
-        console.error('Error checking bookmark status with direct query:', queryError);
+      if (error) {
+        console.error('Error checking bookmark status with direct query:', error);
         return false;
       }
       
