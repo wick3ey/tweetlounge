@@ -17,6 +17,7 @@ import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
 import NotFound from "./pages/NotFound";
+import MarketWatcher from "./pages/MarketWatcher";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -47,7 +48,7 @@ const App = () => (
                 } />
                 <Route path="/profile" element={
                   <ProtectedRoute>
-                    <ProfilePage />
+                    <Profile />
                   </ProtectedRoute>
                 } />
                 <Route path="/profile/:username" element={
@@ -55,6 +56,7 @@ const App = () => (
                     <ProfilePage />
                   </ProtectedRoute>
                 } />
+                <Route path="/market" element={<MarketWatcher />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

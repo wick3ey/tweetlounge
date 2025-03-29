@@ -7,11 +7,11 @@ import {
   Mail, 
   User, 
   Bookmark, 
-  BarChart2,
   MessageSquare,
   Settings,
   Compass,
-  Zap
+  Zap,
+  LineChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ const LeftSidebar = () => {
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
-    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
+    { icon: LineChart, label: 'Market Watcher', path: '/market' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Settings, label: 'Settings', path: '/settings' }
   ];
