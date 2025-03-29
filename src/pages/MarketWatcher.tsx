@@ -189,6 +189,9 @@ const TopTokensTable = ({
     );
   }
 
+  // Ensure data is an array before mapping
+  const pools = Array.isArray(data) ? data : [];
+
   const handleRowClick = (token: PoolInfo) => {
     if (token?.mainToken?.address) {
       // Open in Solscan
@@ -214,7 +217,7 @@ const TopTokensTable = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((token, index) => (
+          {pools.map((token, index) => (
             <TableRow 
               key={token.mainToken.address || index} 
               className="border-gray-800 cursor-pointer hover:bg-gray-900/50"
@@ -261,7 +264,12 @@ const TopTokensTable = ({
 
 // Function to transform token data for the table
 const transformTokensForTable = (tokens: TokenInfo[] | undefined): any[] => {
-  if (!tokens || !Array.isArray(tokens)) {
+  if (!tokens) {
+    console.error("Tokens data is undefined");
+    return [];
+  }
+  
+  if (!Array.isArray(tokens)) {
     console.error("Invalid tokens data:", tokens);
     return [];
   }
@@ -278,7 +286,9 @@ const transformTokensForTable = (tokens: TokenInfo[] | undefined): any[] => {
 
 // Component for the recent tokens list
 const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
-  const formattedTokens = transformTokensForTable(tokens);
+  // Make sure tokens is an array before transforming
+  const safeTokens = Array.isArray(tokens) ? tokens : [];
+  const formattedTokens = transformTokensForTable(safeTokens);
   
   if (!tokens) {
     return (
@@ -350,6 +360,9 @@ const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
 
 // Component for hot pools list
 const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
+  // Ensure pools is an array
+  const safePools = Array.isArray(pools) ? pools : [];
+  
   if (!pools) {
     return (
       <div className="space-y-4 py-4">
@@ -358,7 +371,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
     );
   }
   
-  if (pools.length === 0) {
+  if (safePools.length === 0) {
     return (
       <div className="space-y-4 py-4">
         <div className="text-center py-8 text-gray-500">No hot pools found</div>
@@ -379,7 +392,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {pools.map((pool, index) => (
+          {safePools.map((pool, index) => (
             <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
               <TableCell className="font-medium">{index + 1}</TableCell>
               <TableCell>
@@ -523,6 +536,11 @@ const MarketWatcher: React.FC = () => {
       description: "Market data has been updated",
     });
   };
+
+  // For debugging
+  console.log("Top tokens data:", topTokens);
+  console.log("Hot pools data:", hotPools);
+  console.log("Recent tokens data:", recentTokens);
 
   return (
     <Layout>
