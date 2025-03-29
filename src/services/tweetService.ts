@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -14,7 +13,6 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
     
     let imageUrl = null;
     
-    // If image file is provided, upload it to storage
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -36,7 +34,6 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       imageUrl = data.publicUrl;
     }
     
-    // Insert tweet into database
     const { data, error } = await supabase
       .from('tweets')
       .insert({
@@ -72,12 +69,9 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
       throw error;
     }
     
-    // Transform the data to match the TweetWithAuthor type
     if (!data) return [];
     
     const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
-      // Support both naming conventions 
-      // (direct fields and profile_ prefixed fields)
       return {
         id: item.id,
         content: item.content,
@@ -89,13 +83,11 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
         is_retweet: item.is_retweet,
         original_tweet_id: item.original_tweet_id,
         image_url: item.image_url,
-        // Keep profile_ prefixed fields for compatibility with the type
         profile_username: item.profile_username || item.username,
         profile_display_name: item.profile_display_name || item.display_name,
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        // Create the author object from either naming convention
         author: {
           id: item.author_id,
           username: item.profile_username || item.username,
@@ -130,9 +122,7 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
     
     if (!data) return [];
     
-    // Transform the data to match the TweetWithAuthor type
     const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
-      // Support both naming conventions
       return {
         id: item.id,
         content: item.content,
@@ -144,13 +134,11 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
         is_retweet: item.is_retweet,
         original_tweet_id: item.original_tweet_id,
         image_url: item.image_url,
-        // Keep profile_ prefixed fields for compatibility with the type
         profile_username: item.profile_username || item.username,
         profile_display_name: item.profile_display_name || item.display_name,
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        // Create the author object from either naming convention
         author: {
           id: item.author_id,
           username: item.profile_username || item.username,
@@ -186,9 +174,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
       } as any);
       
     if (error) {
-      // If error is because user already liked tweet
       if (error.code === '23505') {
-        // Delete the like instead (unlike)
         const { error: unlikeError } = await supabase
           .from('likes')
           .delete()
@@ -224,7 +210,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
-    // First check if user already retweeted this tweet
     const { data: existingRetweet, error: checkError } = await supabase
       .from('retweets')
       .select()
@@ -238,7 +223,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // If user already retweeted, remove the retweet
     if (existingRetweet && existingRetweet.length > 0) {
       const { error: deleteError } = await supabase
         .from('retweets')
@@ -256,7 +240,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return true;
     }
     
-    // Otherwise create a new retweet
     const { error } = await supabase
       .from('retweets')
       .insert({
@@ -269,7 +252,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // Also create a tweet entry that is marked as a retweet
     const { error: tweetError } = await supabase
       .from('tweets')
       .insert({
@@ -281,7 +263,6 @@ export async function retweet(tweetId: string): Promise<boolean> {
       
     if (tweetError) {
       console.error('Error creating retweet tweet:', tweetError);
-      // Try to rollback the retweet entry
       await supabase
         .from('retweets')
         .delete()
@@ -310,7 +291,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     }
     
     const { error } = await supabase
-      .from('comments')
+      .from('replies')
       .insert({
         content,
         user_id: user.id,
@@ -339,17 +320,18 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
     }
     
     const { data, error } = await supabase
-      .rpc('has_user_liked_tweet', { 
-        user_id: user.id,
-        tweet_id: tweetId 
-      } as any);
+      .from('likes')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
       
     if (error) {
       console.error('Error checking like status:', error);
       return false;
     }
     
-    return data || false;
+    return !!data;
   } catch (error) {
     console.error('Check like status failed:', error);
     return false;
@@ -366,17 +348,18 @@ export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolea
     }
     
     const { data, error } = await supabase
-      .rpc('has_user_retweeted_tweet', { 
-        user_id: user.id,
-        tweet_id: tweetId 
-      } as any);
+      .from('retweets')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
       
     if (error) {
       console.error('Error checking retweet status:', error);
       return false;
     }
     
-    return data || false;
+    return !!data;
   } catch (error) {
     console.error('Check retweet status failed:', error);
     return false;
