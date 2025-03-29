@@ -560,7 +560,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
         )
       `)
       .eq('tweet_id', tweetId)
-      .order('created_at');
+      .order('created_at', { ascending: true });
       
     if (error) {
       console.error('Error fetching tweet replies:', error);
