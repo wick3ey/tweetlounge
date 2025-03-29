@@ -25,6 +25,7 @@ export type Profile = {
   website: string | null;
   updated_at: string | null;
   created_at: string;
+  replies_sort_order: string | null;
 };
 
 export type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
