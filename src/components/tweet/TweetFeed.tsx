@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import TweetCard from '@/components/tweet/TweetCard';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -32,19 +31,15 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
       let tweetsData: TweetWithAuthor[] = [];
       
       if (feedType === 'user' && userId) {
-        // Fetch user-specific tweets
         tweetsData = await getUserTweets(userId, limit, 0, false);
       } else if (feedType === 'user-retweets' && userId) {
-        // Fetch user's retweets
         tweetsData = await getUserTweets(userId, limit, 0, true);
       } else {
-        // Fetch all tweets
         tweetsData = await getTweets(limit);
       }
       
       console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets total`);
       
-      // Only validate that we have author IDs - no fallback logic at all
       const validTweets = tweetsData.filter(tweet => tweet.author && tweet.author.id);
       
       if (validTweets.length !== tweetsData.length) {
@@ -80,7 +75,6 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
   }, [limit, feedType, userId, user]);
 
   const handleTweetAction = () => {
-    // Refresh the feed when actions like like, retweet, etc. happen
     fetchTweets();
   };
 
@@ -121,16 +115,23 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
 
   return (
     <div className="tweet-feed rounded-lg overflow-hidden bg-crypto-darkgray border border-gray-800">
-      {tweets.map((tweet) => (
-        <TweetCard
-          key={tweet.id}
-          tweet={tweet}
-          onLike={handleTweetAction}
-          onRetweet={handleTweetAction}
-          onReply={handleTweetAction}
-          onDelete={handleTweetAction}
-        />
-      ))}
+      {tweets.map((tweet) => {
+        console.log("[TweetFeed] Rendering tweet with author:", {
+          id: tweet.id,
+          username: tweet.author.username,
+          display_name: tweet.author.display_name
+        });
+        return (
+          <TweetCard
+            key={tweet.id}
+            tweet={tweet}
+            onLike={handleTweetAction}
+            onRetweet={handleTweetAction}
+            onReply={handleTweetAction}
+            onDelete={handleTweetAction}
+          />
+        );
+      })}
     </div>
   );
 };

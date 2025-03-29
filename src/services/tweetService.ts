@@ -412,6 +412,8 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
       const tweet = data[0];
       console.log('[tweetService] Found original tweet:', tweet);
       
+      console.log('[tweetService] Original tweet field names:', Object.keys(tweet));
+      
       return {
         id: tweet.id,
         content: tweet.content,

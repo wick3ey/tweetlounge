@@ -267,10 +267,13 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
 
   console.log("[TweetCard] Before render - originalAuthor:", originalAuthor);
   
-  const displayName = originalAuthor.display_name;
-  const displayUsername = originalAuthor.username;
+  const displayName = originalAuthor.display_name || "User";
+  const displayUsername = originalAuthor.username || "user";
   console.log("[TweetCard] Actual values being rendered - displayName:", displayName);
   console.log("[TweetCard] Actual values being rendered - displayUsername:", displayUsername);
+  console.log("[TweetCard] originalAuthor data type:", typeof originalAuthor);
+  console.log("[TweetCard] Is username null?", originalAuthor.username === null);
+  console.log("[TweetCard] Is display_name null?", originalAuthor.display_name === null);
 
   if (isRetweet && isLoadingOriginalTweet) {
     return (
