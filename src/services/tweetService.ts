@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -49,6 +50,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
 
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
+    // Ändrat för att inte kräva autentisering för att hämta tweets
     const { data, error } = await supabase
       .rpc('get_tweets_with_authors', {
         limit_count: limit,
