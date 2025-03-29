@@ -19,47 +19,62 @@ export function useNotifications() {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // First, fetch notifications
+      const { data: notificationsData, error: notificationsError } = await supabase
         .from('notifications')
-        .select(`
-          id,
-          user_id,
-          actor_id,
-          type,
-          tweet_id,
-          comment_id,
-          created_at,
-          read,
-          profiles:actor_id (
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) {
-        console.error('Error fetching notifications:', error);
-        throw error;
+      if (notificationsError) {
+        console.error('Error fetching notifications:', notificationsError);
+        throw notificationsError;
       }
 
-      const formattedNotifications: Notification[] = data.map((notification: any) => ({
-        id: notification.id,
-        userId: notification.user_id,
-        actorId: notification.actor_id,
-        type: notification.type,
-        tweetId: notification.tweet_id,
-        commentId: notification.comment_id,
-        createdAt: notification.created_at,
-        read: notification.read,
-        actor: {
-          username: notification.profiles.username,
-          displayName: notification.profiles.display_name,
-          avatarUrl: notification.profiles.avatar_url
-        }
-      }));
+      // Then fetch profile data for each actor_id
+      const actorIds = notificationsData.map(notification => notification.actor_id);
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', actorIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      // Create a map of actor_id to profile data for quick lookup
+      const profilesMap = profilesData.reduce((map, profile) => {
+        map[profile.id] = profile;
+        return map;
+      }, {});
+
+      // Combine notification data with actor profile data
+      const formattedNotifications: Notification[] = notificationsData.map((notification) => {
+        const actorProfile = profilesMap[notification.actor_id] || {
+          username: 'unknown',
+          display_name: 'Unknown User',
+          avatar_url: null
+        };
+
+        return {
+          id: notification.id,
+          userId: notification.user_id,
+          actorId: notification.actor_id,
+          type: notification.type,
+          tweetId: notification.tweet_id,
+          commentId: notification.comment_id,
+          createdAt: notification.created_at,
+          read: notification.read,
+          actor: {
+            username: actorProfile.username,
+            displayName: actorProfile.display_name,
+            avatarUrl: actorProfile.avatar_url
+          }
+        };
+      });
 
       setNotifications(formattedNotifications);
       
@@ -151,53 +166,49 @@ export function useNotifications() {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
-          // Fetch the actor details
-          const fetchActorDetails = async () => {
-            const { data, error } = await supabase
+        async (payload) => {
+          // When new notification is received, fetch the actor details separately
+          try {
+            const { data: actorData, error: actorError } = await supabase
               .from('profiles')
               .select('username, display_name, avatar_url')
               .eq('id', payload.new.actor_id)
               .single();
 
-            if (error) {
-              console.error('Error fetching actor details:', error);
-              return null;
+            if (actorError) {
+              console.error('Error fetching actor details:', actorError);
+              return;
             }
 
-            return {
-              username: data.username,
-              displayName: data.display_name,
-              avatarUrl: data.avatar_url
-            };
-          };
-
-          fetchActorDetails().then(actorDetails => {
-            if (actorDetails) {
-              const newNotification: Notification = {
-                id: payload.new.id,
-                userId: payload.new.user_id,
-                actorId: payload.new.actor_id,
-                type: payload.new.type,
-                tweetId: payload.new.tweet_id,
-                commentId: payload.new.comment_id,
-                createdAt: payload.new.created_at,
-                read: payload.new.read,
-                actor: actorDetails
-              };
-
-              // Add to notifications
-              setNotifications(prev => [newNotification, ...prev]);
-              
-              // Update unread count
-              if (!newNotification.read) {
-                setUnreadCount(prev => prev + 1);
+            const newNotification: Notification = {
+              id: payload.new.id,
+              userId: payload.new.user_id,
+              actorId: payload.new.actor_id,
+              type: payload.new.type,
+              tweetId: payload.new.tweet_id,
+              commentId: payload.new.comment_id,
+              createdAt: payload.new.created_at,
+              read: payload.new.read,
+              actor: {
+                username: actorData.username,
+                displayName: actorData.display_name,
+                avatarUrl: actorData.avatar_url
               }
-              
-              // Show toast notification
-              showNotificationToast(newNotification);
+            };
+
+            // Add to notifications
+            setNotifications(prev => [newNotification, ...prev]);
+            
+            // Update unread count
+            if (!newNotification.read) {
+              setUnreadCount(prev => prev + 1);
             }
-          });
+            
+            // Show toast notification
+            showNotificationToast(newNotification);
+          } catch (error) {
+            console.error('Error processing new notification:', error);
+          }
         }
       )
       .subscribe();
