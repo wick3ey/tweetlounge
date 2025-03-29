@@ -62,7 +62,11 @@ const TweetCard = ({
   const [showReplies, setShowReplies] = useState(false);
   const [showFullScreenReplies, setShowFullScreenReplies] = useState(false);
   
-  const isAuthor = user && tweet.author_id === user.id;
+  if (!tweet || !tweet.id) {
+    return null;
+  }
+  
+  const isAuthor = user && tweet?.author_id === user.id;
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -252,12 +256,13 @@ const TweetCard = ({
   };
 
   const getInitials = (name: string) => {
+    if (!name) return "??";
     return name.substring(0, 2).toUpperCase();
   };
 
   const timeAgo = safeFormatDistanceToNow(tweet.created_at, 'recently');
 
-  const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
+  const isNFTVerified = tweet.author && tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
@@ -291,15 +296,15 @@ const TweetCard = ({
   const displayImage = tweet.is_retweet && originalTweet ? originalTweet.image_url : tweet.image_url;
 
   const isRetweet = tweet.is_retweet;
-  const retweeter = tweet.author;
-  const originalAuthor = isRetweet && originalTweet ? originalTweet.author : tweet.author;
+  const retweeter = tweet.author || { display_name: 'Unknown', username: 'unknown' };
+  const originalAuthor = isRetweet && originalTweet ? originalTweet.author : (tweet.author || { display_name: 'Unknown', username: 'unknown' });
 
   if (isRetweet && isLoadingOriginalTweet) {
     return (
       <div className="p-4 border-b border-gray-800 animate-pulse">
         <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
           <Repeat className="h-3 w-3 mr-2" />
-          <span>{retweeter.display_name} retweeted</span>
+          <span>{retweeter.display_name || 'User'} retweeted</span>
         </div>
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-full bg-gray-700"></div>
@@ -319,17 +324,17 @@ const TweetCard = ({
         {isRetweet && !expandedView && (
           <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
             <Repeat className="h-3 w-3 mr-2" />
-            <span>{retweeter.display_name} retweeted</span>
+            <span>{retweeter.display_name || 'User'} retweeted</span>
           </div>
         )}
         <div className="flex gap-3">
-          <Link to={`/profile/${originalAuthor.username}`} onClick={(e) => e.stopPropagation()}>
+          <Link to={`/profile/${originalAuthor.username || 'unknown'}`} onClick={(e) => e.stopPropagation()}>
             <Avatar className="h-10 w-10">
               {originalAuthor.avatar_url ? (
-                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name} />
+                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name || 'User'} />
               ) : null}
               <AvatarFallback className="bg-twitter-blue text-white">
-                {getInitials(originalAuthor.display_name || originalAuthor.username)}
+                {getInitials(originalAuthor.display_name || originalAuthor.username || 'User')}
               </AvatarFallback>
             </Avatar>
           </Link>
@@ -337,11 +342,11 @@ const TweetCard = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Link 
-                  to={`/profile/${originalAuthor.username}`} 
+                  to={`/profile/${originalAuthor.username || 'unknown'}`} 
                   className="font-bold hover:underline text-sm"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {originalAuthor.display_name}
+                  {originalAuthor.display_name || 'Unknown'}
                 </Link>
                 
                 {isNFTVerified && (
@@ -363,7 +368,7 @@ const TweetCard = ({
                 )}
                 
                 <span className="text-gray-500 ml-1 text-sm">
-                  @{originalAuthor.username}
+                  @{originalAuthor.username || 'unknown'}
                 </span>
                 <span className="text-gray-500 mx-1 text-xs">·</span>
                 <span className="text-gray-500 text-xs">{timeAgo}</span>
@@ -421,7 +426,7 @@ const TweetCard = ({
               )}
             </div>
             
-            <div className="mt-1 text-sm text-gray-100">{displayContent}</div>
+            <div className="mt-1 text-sm text-gray-100">{displayContent || ''}</div>
             
             {displayImage && (
               <div className="mt-3">

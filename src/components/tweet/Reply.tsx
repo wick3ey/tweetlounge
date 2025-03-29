@@ -1,4 +1,3 @@
-
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { Check, MessageCircle, Heart, Repeat, Share2, MoreHorizontal } from 'lucide-react';
@@ -41,14 +40,20 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   
-  if (!reply || !reply.profiles) {
+  if (!reply || !reply.id) {
     return null;
   }
   
-  // Använd vår nya, säkra dateutils-funktion för att formatera tiden
+  const profiles = reply.profiles || { 
+    id: '', 
+    username: 'unknown', 
+    display_name: 'Unknown User',
+    avatar_url: undefined
+  };
+  
   const timeAgo = formatSafeDate(reply.created_at, 'relative', 'recently');
   
-  const isNFTVerified = reply.profiles.avatar_nft_id && reply.profiles.avatar_nft_chain;
+  const isNFTVerified = profiles.avatar_nft_id && profiles.avatar_nft_chain;
   const isMobile = useIsMobile();
   
   const getInitials = (name: string) => {
@@ -101,13 +106,13 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
   return (
     <div className={`p-3 sm:p-4 border-t border-gray-800 bg-crypto-darkgray hover:bg-gray-900/30 transition-colors ${expanded ? 'pb-6' : ''}`}>
       <div className="flex gap-2 sm:gap-3">
-        <Link to={`/profile/${reply.profiles.username}`} className="flex-shrink-0">
+        <Link to={`/profile/${profiles.username || 'unknown'}`} className="flex-shrink-0">
           <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-            {reply.profiles.avatar_url ? (
-              <AvatarImage src={reply.profiles.avatar_url} alt={reply.profiles.display_name || reply.profiles.username || 'User'} />
+            {profiles.avatar_url ? (
+              <AvatarImage src={profiles.avatar_url} alt={profiles.display_name || profiles.username || 'User'} />
             ) : null}
             <AvatarFallback className="bg-twitter-blue text-white text-xs sm:text-sm">
-              {getInitials(reply.profiles.display_name || reply.profiles.username || 'User')}
+              {getInitials(profiles.display_name || profiles.username || 'User')}
             </AvatarFallback>
           </Avatar>
         </Link>
@@ -115,10 +120,10 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
           <div className="flex flex-wrap items-center gap-x-1 justify-between">
             <div className="flex items-center flex-wrap">
               <Link 
-                to={`/profile/${reply.profiles.username}`} 
+                to={`/profile/${profiles.username || 'unknown'}`} 
                 className="font-bold hover:underline text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none"
               >
-                {reply.profiles.display_name || reply.profiles.username || 'User'}
+                {profiles.display_name || profiles.username || 'User'}
               </Link>
               
               {isNFTVerified && (
@@ -140,7 +145,7 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
               )}
               
               <span className="text-gray-500 text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none ml-1">
-                @{reply.profiles.username || 'unknown'}
+                @{profiles.username || 'unknown'}
               </span>
               <span className="text-gray-500 mx-1 text-xs hidden sm:inline">·</span>
               <span className="text-gray-500 text-xs w-full sm:w-auto sm:inline-block">{timeAgo}</span>
@@ -154,10 +159,10 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="min-w-[140px] bg-gray-900 text-white border-gray-700">
                 <DropdownMenuItem>
-                  Follow @{reply.profiles.username}
+                  Follow @{profiles.username}
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  Block @{reply.profiles.username}
+                  Block @{profiles.username}
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   Report post
@@ -166,7 +171,7 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
             </DropdownMenu>
           </div>
           
-          <div className="mt-1 text-xs sm:text-sm text-gray-100 break-words">{reply.content}</div>
+          <div className="mt-1 text-xs sm:text-sm text-gray-100 break-words">{reply.content || ''}</div>
           
           {reply.image_url && (
             <div className="mt-2 max-w-full">

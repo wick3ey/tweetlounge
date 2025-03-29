@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
 import Reply from './Reply';
@@ -33,7 +32,6 @@ const RepliesSection = ({
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  // Validate tweetId when component mounts
   useEffect(() => {
     if (!tweetId || tweetId.trim() === '') {
       console.error('Invalid tweetId provided to RepliesSection:', tweetId);
@@ -54,15 +52,21 @@ const RepliesSection = ({
       const data = await getTweetReplies(tweetId);
       
       if (Array.isArray(data)) {
-        // Enhanced validation for each reply's created_at date
         const validatedReplies = data.map(reply => {
-          // Set default date to now if missing
+          if (!reply.profiles) {
+            console.warn("Missing profiles data for reply:", reply.id);
+            reply.profiles = {
+              id: '',
+              username: 'unknown',
+              display_name: 'Unknown User'
+            };
+          }
+          
           if (!reply.created_at || !isValidDateString(reply.created_at)) {
             console.warn("Invalid date detected for reply:", reply.id);
             reply.created_at = new Date().toISOString();
           }
           
-          // Return reply with safe date
           return {
             ...reply,
             created_at: reply.created_at || new Date().toISOString(),
@@ -70,7 +74,6 @@ const RepliesSection = ({
           };
         });
         
-        // Sort by the safe date (newest first) - vi hanterar null-värden också
         const sortedReplies = validatedReplies.sort((a, b) => {
           if (!a.safe_date) return 1;
           if (!b.safe_date) return -1;
@@ -104,7 +107,6 @@ const RepliesSection = ({
   
   if (!isOpen) return null;
 
-  // For full screen mode (separate page-like view)
   if (showFullScreen) {
     return (
       <div className="fixed inset-0 bg-crypto-darkgray z-50 overflow-y-auto">
@@ -121,14 +123,12 @@ const RepliesSection = ({
         </div>
 
         <div className="p-0 divide-y divide-gray-800">
-          {/* Original Tweet */}
           <TweetCard 
             tweet={{id: tweetId} as any} 
             hideActions={true}
             expandedView={true}
           />
           
-          {/* Reply Composer */}
           {user ? (
             <ReplyComposer tweetId={tweetId} onReplySuccess={fetchReplies} fullScreen={true} />
           ) : (
@@ -137,7 +137,6 @@ const RepliesSection = ({
             </div>
           )}
           
-          {/* Replies Section */}
           {loading ? (
             <div className="p-6 flex flex-col items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-crypto-blue" />
@@ -163,7 +162,6 @@ const RepliesSection = ({
     );
   }
   
-  // Regular embedded view
   return (
     <div className="border-t border-gray-800 bg-crypto-darkgray">
       {user ? (
