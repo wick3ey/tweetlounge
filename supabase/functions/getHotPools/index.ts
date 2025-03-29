@@ -117,8 +117,32 @@ serve(async (req) => {
         
         // Check if the response has the correct structure
         if (responseData && responseData.statusCode === 200 && Array.isArray(responseData.data)) {
-          hotPools = responseData.data;
-          console.log("Successfully parsed hot pools data from API, found", hotPools.length, "pools");
+          console.log("Successfully parsed hot pools data from API, found", responseData.data.length, "pools");
+          
+          // Preserve the exact structure and order from the API
+          hotPools = responseData.data.map(pool => {
+            return {
+              rank: pool.rank || 0,
+              address: pool.address || "",
+              creationTime: pool.creationTime || "",
+              creationBlock: pool.creationBlock || 0,
+              exchangeName: pool.exchange?.name || "Unknown",
+              exchangeFactory: pool.exchange?.factory || "",
+              mainToken: {
+                name: pool.mainToken?.name || "Unknown Token",
+                symbol: pool.mainToken?.symbol || "???",
+                address: pool.mainToken?.address || "",
+                logo: pool.mainToken?.logo || `https://placehold.co/200x200?text=${pool.mainToken?.symbol?.substring(0, 2) || "??"}`,
+              },
+              sideToken: {
+                name: pool.sideToken?.name || "Unknown Token", 
+                symbol: pool.sideToken?.symbol || "???",
+                address: pool.sideToken?.address || "",
+                logo: pool.sideToken?.logo || `https://placehold.co/200x200?text=${pool.sideToken?.symbol?.substring(0, 2) || "??"}`,
+              },
+              fee: 0.3, // Default fee
+            };
+          });
         } else {
           console.log("Hot pools API response has unexpected format, using fallback");
           hotPools = fallbackHotPools;
@@ -135,50 +159,17 @@ serve(async (req) => {
       hotPools = fallbackHotPools;
     }
 
-    // Process the hot pools data to match the expected format in our frontend
-    const processedHotPools = hotPools.map(pool => {
-      // Extract exchange details
-      const exchangeName = pool.exchange?.name || "Unknown";
-      const exchangeFactory = pool.exchange?.factory || "";
-      
-      // Format main token
-      const mainToken = {
-        address: pool.mainToken?.address || "",
-        name: pool.mainToken?.name || "Unknown Token",
-        symbol: pool.mainToken?.symbol || "???",
-        logo: pool.mainToken?.logo || `https://placehold.co/200x200?text=${pool.mainToken?.symbol?.substring(0, 2) || "??"}`
-      };
-      
-      // Format side token
-      const sideToken = {
-        address: pool.sideToken?.address || "",
-        name: pool.sideToken?.name || "Unknown Token",
-        symbol: pool.sideToken?.symbol || "???",
-        logo: pool.sideToken?.logo || `https://placehold.co/200x200?text=${pool.sideToken?.symbol?.substring(0, 2) || "??"}`
-      };
-      
-      // Try to get SOL logo for Wrapped SOL
-      if (sideToken.address === "So1111111111111111111111111111111111111112") {
-        sideToken.logo = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So1111111111111111111111111111111111111112/logo.png";
+    // Get SOL logo for Wrapped SOL tokens
+    hotPools.forEach(pool => {
+      if (pool.sideToken?.address === "So11111111111111111111111111111111111111112") {
+        pool.sideToken.logo = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
       }
-      
-      return {
-        address: pool.address || "",
-        exchangeName: exchangeName,
-        exchangeFactory: exchangeFactory,
-        creationTime: pool.creationTime || "",
-        creationBlock: pool.creationBlock || 0,
-        mainToken: mainToken,
-        sideToken: sideToken,
-        fee: 0.3, // Default fee
-        rank: pool.rank || 0
-      };
     });
 
     // Always return a valid response with either API data or fallback
     return new Response(
       JSON.stringify({
-        hotPools: processedHotPools,
+        hotPools: hotPools,
         timestamp: Date.now(),
         source: response.ok ? "api" : "fallback" 
       }),

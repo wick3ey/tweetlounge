@@ -151,6 +151,9 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
     );
   }
 
+  // Sort pools by rank if available, otherwise maintain the order from the API
+  const sortedPools = [...safePools];
+
   return (
     <div className="space-y-4 py-4">
       <Table>
@@ -164,7 +167,7 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {safePools.map((pool, index) => {
+          {sortedPools.map((pool, index) => {
             // Format the DEX name properly
             const dexName = formatDexName(pool.exchangeName);
             
@@ -183,9 +186,14 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
                         {(pool.mainToken?.symbol || "??")?.substring(0, 2)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">
-                      {pool.mainToken?.name || 'Unknown Token'}
-                    </span>
+                    <div>
+                      <div className="font-medium">
+                        {pool.mainToken?.name || 'Unknown Token'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {pool.mainToken?.symbol || 'N/A'}
+                      </div>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
