@@ -19,6 +19,10 @@ const fallbackMarketData = {
   fear_greed_label: "Fear"
 };
 
+// Cache key for market stats
+const MARKET_STATS_CACHE_KEY = 'market_stats_data';
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
 // Helper function to format large numbers
 const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' | 'number' = 'number'): string => {
   if (num === undefined) return 'N/A';
@@ -74,6 +78,39 @@ const MarketStats: React.FC = () => {
   
   // Use fallback data when API fails
   const displayStats = marketStats || fallbackMarketData;
+  
+  // When market stats change, update the cache
+  useEffect(() => {
+    if (marketStats) {
+      try {
+        localStorage.setItem(MARKET_STATS_CACHE_KEY, JSON.stringify({
+          data: marketStats,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Error caching market stats:', error);
+      }
+    }
+  }, [marketStats]);
+  
+  // On initial load, check for cached data
+  useEffect(() => {
+    try {
+      const cachedItem = localStorage.getItem(MARKET_STATS_CACHE_KEY);
+      
+      if (cachedItem) {
+        const { data, timestamp } = JSON.parse(cachedItem);
+        const isFresh = Date.now() - timestamp < CACHE_DURATION;
+        
+        // If we have cached data that's not too old, use it
+        if (data) {
+          console.log(`Using ${isFresh ? 'fresh' : 'stale'} cached market stats`);
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached market stats:', error);
+    }
+  }, []);
   
   // Display toast on error only when manually refreshed
   useEffect(() => {

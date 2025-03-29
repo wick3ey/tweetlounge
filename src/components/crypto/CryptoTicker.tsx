@@ -39,6 +39,10 @@ const fallbackCryptoData: CryptoCurrency[] = [
   { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.70, change: -2.4 }
 ];
 
+// Cache key for crypto ticker data
+const CRYPTO_CACHE_KEY = 'crypto_ticker_data';
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
 const CryptoTicker: React.FC = () => {
   const { cryptoData, loading, error, refreshData } = useCryptoData()
   const [refreshing, setRefreshing] = React.useState(false);
@@ -59,6 +63,39 @@ const CryptoTicker: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error, retryCount, lastRefreshAttempt, refreshData]);
+  
+  // When crypto data changes, update the cache
+  React.useEffect(() => {
+    if (cryptoData.length > 0) {
+      try {
+        localStorage.setItem(CRYPTO_CACHE_KEY, JSON.stringify({
+          data: cryptoData,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Error caching crypto data:', error);
+      }
+    }
+  }, [cryptoData]);
+  
+  // On initial load, check for cached data
+  React.useEffect(() => {
+    try {
+      const cachedItem = localStorage.getItem(CRYPTO_CACHE_KEY);
+      
+      if (cachedItem) {
+        const { data, timestamp } = JSON.parse(cachedItem);
+        const isFresh = Date.now() - timestamp < CACHE_DURATION;
+        
+        // If we have cached data that's not too old, use it
+        if (data && Array.isArray(data) && data.length > 0) {
+          console.log(`Using ${isFresh ? 'fresh' : 'stale'} cached crypto data`);
+        }
+      }
+    } catch (error) {
+      console.error('Error reading cached crypto data:', error);
+    }
+  }, []);
   
   const handleRefresh = async () => {
     setRefreshing(true);
