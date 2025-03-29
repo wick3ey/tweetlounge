@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PoolInfo, TokenInfo, preloadImages } from '@/services/marketService';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,13 @@ import { Eye } from 'lucide-react';
 interface HotPoolsListProps {
   pools: PoolInfo[] | undefined;
 }
+
+type TokenMetadataCache = {
+  [key: string]: {
+    data: TokenInfo | null;
+    timestamp: number;
+  }
+};
 
 const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   const safePools = Array.isArray(pools) ? pools : [];
@@ -29,13 +36,16 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
       if (urls.length > 0) {
         console.log(`Preloading ${urls.length} token images from HotPoolsList component`);
         imagesPreloadedRef.current = true;
-        preloadImages(urls, true) // Force cache the images
-          .then(() => console.log('Token images preloaded and permanently cached successfully'))
+        preloadImages(urls)
+          .then(() => console.log('Token images preloaded successfully'))
           .catch(err => console.error('Error preloading token images:', err));
       }
     }
     
-    // Don't reset the flag when component unmounts to avoid reloading on remount
+    // Reset preloaded flag when pools change completely
+    return () => {
+      imagesPreloadedRef.current = false;
+    };
   }, [safePools]);
   
   const formatDexName = (name?: string): string => {
@@ -44,19 +54,15 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
     // Map of known DEX names to their proper display format
     const dexNames: {[key: string]: string} = {
       "raydium": "Raydium",
-      "raydium cpmm": "Raydium",
-      "raydium amm": "Raydium",
       "orca": "Orca",
       "jupiter": "Jupiter",
       "openbook": "OpenBook",
       "serum": "Serum",
       "meteora": "Meteora",
-      "meteora dlmm": "Meteora",
       "lifinity": "Lifinity",
       "cykura": "Cykura",
       "aldrin": "Aldrin",
       "atrix": "Atrix",
-      "step finance": "Step Finance",
       "step": "Step Finance",
       "solflare": "Solflare",
       "mango": "Mango Markets",
@@ -65,8 +71,7 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
       "saros": "Saros",
       "symmetry": "Symmetry",
       "cropper": "Cropper",
-      "tensor": "Tensor",
-      "pumpswap": "PumpSwap"
+      "tensor": "Tensor"
     };
     
     // First check if the exact name is in our map (case-insensitive)
@@ -151,9 +156,6 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
     );
   }
 
-  // Sort pools by rank if available, otherwise maintain the order from the API
-  const sortedPools = [...safePools];
-
   return (
     <div className="space-y-4 py-4">
       <Table>
@@ -167,13 +169,13 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedPools.map((pool, index) => {
-            // Format the DEX name properly
+          {safePools.map((pool, index) => {
+            // Format the DEX name properly from both server-normalized and client-normalized versions
             const dexName = formatDexName(pool.exchangeName);
             
             return (
               <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
-                <TableCell className="font-medium">{pool.rank || (index + 1)}</TableCell>
+                <TableCell className="font-medium">{index + 1}</TableCell>
                 <TableCell>
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-2">
@@ -186,14 +188,9 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
                         {(pool.mainToken?.symbol || "??")?.substring(0, 2)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="font-medium">
-                        {pool.mainToken?.name || 'Unknown Token'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {pool.mainToken?.symbol || 'N/A'}
-                      </div>
-                    </div>
+                    <span className="font-medium">
+                      {pool.mainToken?.name || 'Unknown Token'}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>

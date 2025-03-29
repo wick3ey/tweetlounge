@@ -80,9 +80,6 @@ const IMAGE_PRELOAD_STATUS: {[url: string]: 'loading' | 'loaded' | 'error'} = {}
 const BATCH_SIZE = 15; // Process 15 images at a time
 const BATCH_INTERVAL = 4000; // 4 seconds between batches
 
-// Add a new in-memory cache specifically for images
-const PRELOADED_IMAGES_CACHE = new Map<string, HTMLImageElement>();
-
 // Helper function to get cached data from localStorage
 function getFromCache<T>(key: string, maxAge: number): { data: T | null, isFresh: boolean } {
   try {
@@ -150,7 +147,7 @@ function updateCache(key: string, data: any): void {
 }
 
 // Helper function for preloading images in batches
-export const preloadImages = async (urls: string[], forceCache: boolean = false): Promise<void> => {
+export const preloadImages = async (urls: string[]): Promise<void> => {
   if (!urls || urls.length === 0) return;
   
   const validUrls = urls.filter(url => !!url && typeof url === 'string');
@@ -164,7 +161,7 @@ export const preloadImages = async (urls: string[], forceCache: boolean = false)
   
   // Filter out already cached images
   let imagesToLoad = validUrls;
-  if (cachedData && (isFresh || forceCache)) {
+  if (cachedData && isFresh) {
     imagesToLoad = validUrls.filter(url => !cachedData[url]);
     if (imagesToLoad.length === 0) {
       console.log('All images are already cached, no need to preload');
@@ -194,10 +191,7 @@ export const preloadImages = async (urls: string[], forceCache: boolean = false)
             return;
           }
           
-          // Check if already in memory cache or being loaded
-          if (PRELOADED_IMAGES_CACHE.has(url) || 
-              IMAGE_PRELOAD_STATUS[url] === 'loading' || 
-              IMAGE_PRELOAD_STATUS[url] === 'loaded') {
+          if (IMAGE_PRELOAD_STATUS[url] === 'loading' || IMAGE_PRELOAD_STATUS[url] === 'loaded') {
             resolve();
             return;
           }
@@ -209,8 +203,6 @@ export const preloadImages = async (urls: string[], forceCache: boolean = false)
           img.onload = () => {
             IMAGE_PRELOAD_STATUS[url] = 'loaded';
             results[url] = true;
-            // Store the loaded image in memory cache
-            PRELOADED_IMAGES_CACHE.set(url, img);
             resolve();
           };
           
@@ -232,16 +224,9 @@ export const preloadImages = async (urls: string[], forceCache: boolean = false)
     }
   }
   
-  // Update cache with results - with persistent flag
-  if (forceCache) {
-    // Force a cache update even if we're just refreshing existing data
-    updateCache(CACHE_KEYS.TOKEN_IMAGES, results);
-    console.log(`Image preloading complete, forcibly cached ${Object.keys(results).length} images`);
-  } else {
-    // Standard update
-    updateCache(CACHE_KEYS.TOKEN_IMAGES, results);
-    console.log(`Image preloading complete, cached ${Object.keys(results).length} images`);
-  }
+  // Update cache with results
+  updateCache(CACHE_KEYS.TOKEN_IMAGES, results);
+  console.log(`Image preloading complete, cached ${Object.keys(results).length} images`);
 };
 
 // Primary function to fetch Solana chain information
@@ -374,7 +359,7 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   if (cachedData && cachedData.hotPools && cachedData.hotPools.length > 0) {
     console.log(`Hot pools: using ${isFresh ? 'fresh' : 'stale'} cached data from ${cachedData.source || 'unknown'} source`);
     
-    // If we have hot pools data, preload the images in the background with force cache
+    // If we have hot pools data, preload the images in the background
     if (cachedData.hotPools && Array.isArray(cachedData.hotPools)) {
       const imageUrls = cachedData.hotPools
         .map(pool => [
@@ -384,9 +369,9 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
         .flat()
         .filter(url => !!url) as string[];
       
-      // Preload images in the background and force cache them
+      // Preload images in the background
       setTimeout(() => {
-        preloadImages(imageUrls, true).catch(err => console.error('Error preloading images:', err));
+        preloadImages(imageUrls).catch(err => console.error('Error preloading images:', err));
       }, 0);
     }
     
@@ -695,13 +680,13 @@ export const fetchRecentTokens = async (limit: number = 10): Promise<TokenInfo[]
   
   // Return cache data immediately if it exists
   if (cachedData && cachedData.length > 0) {
-    // Preload token logos in the background with forced cache
+    // Preload token logos in the background
     const imageUrls = cachedData
       .map(token => token.logo)
       .filter(url => !!url) as string[];
     
     setTimeout(() => {
-      preloadImages(imageUrls, true).catch(err => console.error('Error preloading recent token images:', err));
+      preloadImages(imageUrls).catch(err => console.error('Error preloading recent token images:', err));
     }, 0);
     
     // If data is fresh, don't fetch new data
@@ -739,7 +724,7 @@ async function fetchAndUpdateRecentTokens(limit: number): Promise<TokenInfo[]> {
         .filter((url: string | undefined) => !!url) as string[];
       
       setTimeout(() => {
-        preloadImages(imageUrls, true).catch(err => console.error('Error preloading recent token images:', err));
+        preloadImages(imageUrls).catch(err => console.error('Error preloading recent token images:', err));
       }, 0);
       
       // Update cache with new data
