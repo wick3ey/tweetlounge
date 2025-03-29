@@ -42,30 +42,13 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         tweetsData = await getTweets(limit);
       }
       
-      // Validate and debug author data for each tweet
-      const validTweets = tweetsData.filter(tweet => {
-        if (!tweet.author || !tweet.author.username) {
-          console.warn(`[TweetFeed] Tweet ${tweet.id} has invalid author data, skipping`, tweet);
-          return false;
-        }
-        
-        // Debug author info - make sure we have valid usernames
-        console.log(`[TweetFeed] Tweet ${tweet.id} author data:`, {
-          id: tweet.author.id,
-          username: tweet.author.username,
-          display_name: tweet.author.display_name
-        });
-        
-        return true;
-      });
+      console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets total`);
       
-      console.log(`[TweetFeed] Fetched ${validTweets.length} valid tweets out of ${tweetsData.length} total`);
-      
-      if (validTweets.length > 0) {
-        console.log('[TweetFeed] First tweet with author:', validTweets[0]);
+      if (tweetsData.length > 0) {
+        console.log('[TweetFeed] First tweet with author:', tweetsData[0]);
       }
       
-      setTweets(validTweets);
+      setTweets(tweetsData);
     } catch (err) {
       console.error('[TweetFeed] Failed to fetch tweets:', err);
       setError('Failed to load tweets. Please try again later.');

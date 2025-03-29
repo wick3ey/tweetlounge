@@ -72,43 +72,61 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
   try {
     console.log(`[tweetService] Fetching public feed: limit=${limit}, offset=${offset}`);
     
+    // Directly query the tweets and join with profiles to ensure we get actual profile data
     const { data, error } = await supabase
-      .rpc('get_tweets_with_authors_reliable', {
-        limit_count: limit,
-        offset_count: offset
-      });
+      .from('tweets')
+      .select(`
+        *,
+        author:profiles!tweets_author_id_fkey(
+          id,
+          username,
+          display_name,
+          avatar_url,
+          avatar_nft_id,
+          avatar_nft_chain
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+      .range(offset, offset + limit - 1);
       
     if (error) {
       console.error('[tweetService] Error fetching tweets for public feed:', error);
       throw error;
     }
     
-    console.log(`[tweetService] Successfully fetched ${data?.length || 0} tweets using reliable RPC function`);
+    console.log(`[tweetService] Successfully fetched ${data?.length || 0} tweets with direct join`);
     
     if (data && data.length > 0) {
-      console.log('[tweetService] First tweet from reliable RPC:', data[0]);
+      console.log('[tweetService] First tweet from direct join:', data[0]);
     }
     
-    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
-      id: tweet.id,
-      content: tweet.content,
-      author_id: tweet.author_id,
-      created_at: tweet.created_at,
-      likes_count: tweet.likes_count,
-      retweets_count: tweet.retweets_count,
-      replies_count: tweet.replies_count,
-      is_retweet: tweet.is_retweet,
-      original_tweet_id: tweet.original_tweet_id,
-      image_url: tweet.image_url,
-      author: {
-        id: tweet.author_id,
-        username: tweet.username,
-        display_name: tweet.display_name,
-        avatar_url: tweet.avatar_url || '',
-        avatar_nft_id: tweet.avatar_nft_id,
-        avatar_nft_chain: tweet.avatar_nft_chain
-      }
-    }));
+    // Map the nested author to a flattened structure as expected by TweetWithAuthor
+    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => {
+      // Extract the author from the nested structure
+      const author = tweet.author;
+      
+      // Delete the nested author to avoid conflicts
+      delete tweet.author;
+      
+      // Return a properly structured TweetWithAuthor
+      return {
+        ...tweet,
+        author: {
+          id: author.id,
+          username: author.username,
+          display_name: author.display_name,
+          avatar_url: author.avatar_url || '',
+          avatar_nft_id: author.avatar_nft_id,
+          avatar_nft_chain: author.avatar_nft_chain
+        }
+      };
+    });
+    
+    console.log(`[tweetService] Formatted ${formattedTweets.length} tweets for the UI`);
+    if (formattedTweets.length > 0) {
+      console.log('[tweetService] First formatted tweet author:', formattedTweets[0].author);
+    }
     
     return formattedTweets;
   } catch (error) {
@@ -129,54 +147,66 @@ export async function getUserTweets(
       return [];
     }
     
-    let data;
-    let error;
+    console.log(`[tweetService] Fetching ${retweetsOnly ? 'retweets' : 'tweets'} for user: ${userId}`);
     
+    // Directly query the tweets with the proper filter and join with profiles
+    let query = supabase
+      .from('tweets')
+      .select(`
+        *,
+        author:profiles!tweets_author_id_fkey(
+          id,
+          username,
+          display_name,
+          avatar_url,
+          avatar_nft_id,
+          avatar_nft_chain
+        )
+      `)
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+      .range(offset, offset + limit - 1);
+    
+    // If fetching only retweets, add that filter
     if (retweetsOnly) {
-      const response = await supabase
-        .rpc('get_user_retweets_reliable', {
-          user_id: userId,
-          limit_count: limit,
-          offset_count: offset
-        });
-      data = response.data;
-      error = response.error;
-    } else {
-      const response = await supabase
-        .rpc('get_user_tweets_reliable', {
-          user_id: userId,
-          limit_count: limit,
-          offset_count: offset
-        });
-      data = response.data;
-      error = response.error;
+      query = query.eq('is_retweet', true);
     }
+    
+    const { data, error } = await query;
       
     if (error) {
       console.error('[tweetService] Error fetching user tweets:', error);
       throw error;
     }
     
-    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
-      id: tweet.id,
-      content: tweet.content,
-      author_id: tweet.author_id,
-      created_at: tweet.created_at,
-      likes_count: tweet.likes_count,
-      retweets_count: tweet.retweets_count,
-      replies_count: tweet.replies_count,
-      is_retweet: tweet.is_retweet,
-      original_tweet_id: tweet.original_tweet_id,
-      image_url: tweet.image_url,
-      author: {
-        id: tweet.author_id,
-        username: tweet.username,
-        display_name: tweet.display_name,
-        avatar_url: tweet.avatar_url || '',
-        avatar_nft_id: tweet.avatar_nft_id,
-        avatar_nft_chain: tweet.avatar_nft_chain
-      }
-    }));
+    console.log(`[tweetService] Successfully fetched ${data?.length || 0} ${retweetsOnly ? 'retweets' : 'tweets'} for user ${userId}`);
+    
+    // Map the nested author to a flattened structure as expected by TweetWithAuthor
+    const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => {
+      // Extract the author from the nested structure
+      const author = tweet.author;
+      
+      // Delete the nested author to avoid conflicts
+      delete tweet.author;
+      
+      // Return a properly structured TweetWithAuthor
+      return {
+        ...tweet,
+        author: {
+          id: author.id,
+          username: author.username,
+          display_name: author.display_name,
+          avatar_url: author.avatar_url || '',
+          avatar_nft_id: author.avatar_nft_id,
+          avatar_nft_chain: author.avatar_nft_chain
+        }
+      };
+    });
+    
+    if (formattedTweets.length > 0) {
+      console.log('[tweetService] First user tweet author:', formattedTweets[0].author);
+    }
     
     return formattedTweets;
   } catch (error) {
@@ -388,36 +418,49 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
       return null;
     }
     
+    console.log(`[tweetService] Fetching original tweet: ${originalTweetId}`);
+    
+    // Directly query the tweet by ID and join with profiles
     const { data, error } = await supabase
-      .rpc('get_tweet_with_author_reliable', {
-        tweet_id: originalTweetId
-      });
+      .from('tweets')
+      .select(`
+        *,
+        author:profiles!tweets_author_id_fkey(
+          id,
+          username,
+          display_name,
+          avatar_url,
+          avatar_nft_id,
+          avatar_nft_chain
+        )
+      `)
+      .eq('id', originalTweetId)
+      .single();
       
     if (error) {
       console.error('[tweetService] Error fetching original tweet:', error);
       return null;
     }
     
-    if (data && data.length > 0) {
-      const tweet = data[0];
+    if (data) {
+      console.log('[tweetService] Found original tweet:', data);
+      
+      // Extract the author from the nested structure
+      const author = data.author;
+      
+      // Delete the nested author to avoid conflicts
+      delete data.author;
+      
+      // Return a properly structured TweetWithAuthor
       return {
-        id: tweet.id,
-        content: tweet.content,
-        author_id: tweet.author_id,
-        created_at: tweet.created_at,
-        likes_count: tweet.likes_count,
-        retweets_count: tweet.retweets_count,
-        replies_count: tweet.replies_count,
-        is_retweet: tweet.is_retweet,
-        original_tweet_id: tweet.original_tweet_id,
-        image_url: tweet.image_url,
+        ...data,
         author: {
-          id: tweet.author_id,
-          username: tweet.username,
-          display_name: tweet.display_name,
-          avatar_url: tweet.avatar_url || '',
-          avatar_nft_id: tweet.avatar_nft_id,
-          avatar_nft_chain: tweet.avatar_nft_chain
+          id: author.id,
+          username: author.username,
+          display_name: author.display_name,
+          avatar_url: author.avatar_url || '',
+          avatar_nft_id: author.avatar_nft_id,
+          avatar_nft_chain: author.avatar_nft_chain
         }
       };
     }
