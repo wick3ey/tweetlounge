@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -72,8 +73,9 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        const followed = await isFollowing(userId);
-        setFollowing(followed);
+        // Fix: Here we're properly awaiting the isFollowing function call
+        const followStatus = await isFollowing(userId);
+        setFollowing(followStatus);
       } catch (error) {
         console.error("Error checking follow status:", error);
       } finally {
