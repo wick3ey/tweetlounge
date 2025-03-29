@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
 import { createNotification, deleteNotification } from './notificationService';
@@ -347,8 +346,9 @@ export async function getFollowing(userId: string): Promise<any[]> {
       return [];
     }
     
-    // Extract following IDs
-    const followingIds = followingRelations.map(relation => relation.following_id);
+    // Extract following IDs and make sure we're using each ID only once
+    const followingIdsSet = new Set(followingRelations.map(relation => relation.following_id));
+    const followingIds = Array.from(followingIdsSet);
     
     // Fetch the profile information for these followings
     const { data: profilesData, error: profilesError } = await supabase
