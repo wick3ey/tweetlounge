@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { CalendarDays, LinkIcon, MapPin, Wallet, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,7 +10,7 @@ import { connectEthereumWallet, connectSolanaWallet, updateWalletAddress } from 
 import { useToast } from '@/components/ui/use-toast';
 import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 import { CryptoButton } from '@/components/ui/crypto-button';
-import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
+import { followUser, unfollowUser, isFollowing as checkIsFollowing } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProfileHeaderProps {
@@ -73,8 +72,8 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fixed: Properly handle the boolean result without using Boolean constructor
-        const followStatus = await isFollowing(userId);
+        // Fixed: Using the imported checkIsFollowing function instead of the prop isFollowing
+        const followStatus = await checkIsFollowing(userId);
         setFollowing(!!followStatus); // Use double negation to ensure a primitive boolean
       } catch (error) {
         console.error("Error checking follow status:", error);
