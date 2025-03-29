@@ -314,26 +314,10 @@ export type Database = {
       }
       get_tweets_with_authors_reliable: {
         Args: {
-          limit_count?: number
-          offset_count?: number
+          limit_count: number
+          offset_count: number
         }
-        Returns: {
-          id: string
-          content: string
-          author_id: string
-          created_at: string
-          likes_count: number
-          retweets_count: number
-          replies_count: number
-          is_retweet: boolean
-          original_tweet_id: string
-          image_url: string
-          username: string
-          display_name: string
-          avatar_url: string
-          avatar_nft_id: string
-          avatar_nft_chain: string
-        }[]
+        Returns: Json[]
       }
       get_user_retweets: {
         Args: {
