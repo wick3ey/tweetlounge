@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Basic types
@@ -8,6 +7,11 @@ export interface TokenInfo {
   symbol: string;
   logo?: string;
   decimals?: number;
+  creationTime?: string;
+  creationBlock?: number;
+  socialInfo?: {
+    [key: string]: string;
+  };
 }
 
 export interface PoolInfo {
