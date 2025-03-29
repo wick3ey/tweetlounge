@@ -15,9 +15,10 @@ import Picker from '@emoji-mart/react';
 interface ReplyComposerProps {
   tweetId: string;
   onReplySuccess: () => void;
+  fullScreen?: boolean;
 }
 
-const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
+const ReplyComposer = ({ tweetId, onReplySuccess, fullScreen = false }: ReplyComposerProps) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
@@ -138,9 +139,9 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
   if (!user) return null;
 
   return (
-    <div className="p-4 border-t border-gray-800 bg-crypto-darkgray">
+    <div className={`p-4 border-t border-gray-800 bg-crypto-darkgray ${fullScreen ? 'sticky bottom-0 pb-6' : ''}`}>
       <div className="flex gap-3">
-        <Avatar className="h-8 w-8">
+        <Avatar className={`h-8 w-8 ${fullScreen ? 'h-10 w-10' : ''}`}>
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt={profile.display_name || ''} />
           ) : null}
@@ -151,8 +152,8 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
         
         <div className="flex-1">
           <Textarea 
-            placeholder="Post your reply..."
-            className="min-h-[80px] bg-crypto-gray/15 border-gray-700 placeholder:text-gray-500 mb-3 focus-visible:ring-crypto-blue"
+            placeholder={fullScreen ? "Add a comment..." : "Post your reply..."}
+            className={`min-h-[60px] ${fullScreen ? 'min-h-[80px]' : ''} bg-crypto-gray/15 border-gray-700 placeholder:text-gray-500 mb-3 focus-visible:ring-crypto-blue`}
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
@@ -215,7 +216,7 @@ const ReplyComposer = ({ tweetId, onReplySuccess }: ReplyComposerProps) => {
               isLoading={isSubmitting}
               disabled={(!content.trim() && !imageFile) || isSubmitting}
             >
-              Reply
+              {fullScreen ? "Post" : "Reply"}
             </CryptoButton>
           </div>
         </div>

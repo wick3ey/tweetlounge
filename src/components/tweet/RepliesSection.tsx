@@ -3,17 +3,28 @@ import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
 import Reply from './Reply';
 import ReplyComposer from './ReplyComposer';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import TweetCard from './TweetCard';
 
 interface RepliesSectionProps {
   tweetId: string;
   isOpen: boolean;
+  onClose?: () => void;
+  showFullScreen?: boolean;
 }
 
-const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
+const RepliesSection = ({ 
+  tweetId, 
+  isOpen,
+  onClose,
+  showFullScreen = false
+}: RepliesSectionProps) => {
   const [replies, setReplies] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +79,67 @@ const RepliesSection = ({ tweetId, isOpen }: RepliesSectionProps) => {
   }, [tweetId, isOpen]);
   
   if (!isOpen) return null;
+
+  // For full screen mode (separate page-like view)
+  if (showFullScreen) {
+    return (
+      <div className="fixed inset-0 bg-crypto-darkgray z-50 overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-crypto-darkgray p-4 border-b border-gray-800 flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-6"
+            onClick={onClose}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold">Post</h1>
+        </div>
+
+        <div className="p-0 divide-y divide-gray-800">
+          {/* Original Tweet */}
+          <TweetCard 
+            tweet={{id: tweetId} as any} 
+            hideActions={true}
+            expandedView={true}
+          />
+          
+          {/* Reply Composer */}
+          {user ? (
+            <ReplyComposer tweetId={tweetId} onReplySuccess={fetchReplies} fullScreen={true} />
+          ) : (
+            <div className="p-4 text-center text-gray-400 text-sm">
+              Please sign in to reply to this tweet.
+            </div>
+          )}
+          
+          {/* Replies Section */}
+          {loading ? (
+            <div className="p-6 flex flex-col items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-crypto-blue" />
+              <p className="text-gray-400 mt-2 text-sm">Loading replies...</p>
+            </div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-500 text-sm">
+              {error}
+            </div>
+          ) : replies.length > 0 ? (
+            <div className="divide-y divide-gray-800">
+              {replies.map(reply => (
+                <Reply key={reply.id} reply={reply} expanded={true} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 text-center text-gray-400 text-sm">
+              No replies yet. Be the first to reply!
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
   
+  // Regular embedded view
   return (
     <div className="border-t border-gray-800 bg-crypto-darkgray">
       {user ? (
