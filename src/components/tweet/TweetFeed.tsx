@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { getTweets, getUserTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
@@ -31,171 +30,88 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
-        let fetchedTweets: TweetWithAuthor[] = [];
+        let tweetsQuery = supabase
+          .from('tweets')
+          .select('*')
+          .order('created_at', { ascending: false });
         
-        if (feedType === 'all') {
-          // Hämta tweets direkt från tweets-tabellen med join till profiles
-          const { data, error: fetchError } = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles(id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-          
-          if (fetchError) {
-            console.error('[TweetFeed] Error fetching tweets:', fetchError);
-            throw fetchError;
-          }
-          
-          // Formatera datan till TweetWithAuthor-format
-          fetchedTweets = data?.map((tweet: any) => ({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
-            likes_count: tweet.likes_count,
-            retweets_count: tweet.retweets_count,
-            replies_count: tweet.replies_count,
-            is_retweet: tweet.is_retweet,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author.id,
-              username: tweet.author.username,
-              display_name: tweet.author.display_name,
-              avatar_url: tweet.author.avatar_url,
-              avatar_nft_id: tweet.author.avatar_nft_id,
-              avatar_nft_chain: tweet.author.avatar_nft_chain
-            }
-          })) || [];
-          
-        } else if (feedType === 'user' && userId) {
-          // Hämta användarens tweets direkt
-          const { data, error: fetchError } = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles(id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
-            `)
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          if (fetchError) {
-            console.error('[TweetFeed] Error fetching user tweets:', fetchError);
-            throw fetchError;
-          }
-          
-          // Formatera datan till TweetWithAuthor-format
-          fetchedTweets = data?.map((tweet: any) => ({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
-            likes_count: tweet.likes_count,
-            retweets_count: tweet.retweets_count,
-            replies_count: tweet.replies_count,
-            is_retweet: tweet.is_retweet,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author.id,
-              username: tweet.author.username,
-              display_name: tweet.author.display_name,
-              avatar_url: tweet.author.avatar_url,
-              avatar_nft_id: tweet.author.avatar_nft_id,
-              avatar_nft_chain: tweet.author.avatar_nft_chain
-            }
-          })) || [];
-          
+        // Apply filters based on feedType
+        if (feedType === 'user' && userId) {
+          tweetsQuery = tweetsQuery.eq('author_id', userId);
         } else if (feedType === 'user-retweets' && userId) {
-          // Hämta användarens retweets direkt
-          const { data, error: fetchError } = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles(id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
-            `)
-            .eq('author_id', userId)
-            .eq('is_retweet', true)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          if (fetchError) {
-            console.error('[TweetFeed] Error fetching user retweets:', fetchError);
-            throw fetchError;
-          }
-          
-          // Formatera datan till TweetWithAuthor-format
-          fetchedTweets = data?.map((tweet: any) => ({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
-            likes_count: tweet.likes_count,
-            retweets_count: tweet.retweets_count,
-            replies_count: tweet.replies_count,
-            is_retweet: tweet.is_retweet,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author.id,
-              username: tweet.author.username,
-              display_name: tweet.author.display_name,
-              avatar_url: tweet.author.avatar_url,
-              avatar_nft_id: tweet.author.avatar_nft_id,
-              avatar_nft_chain: tweet.author.avatar_nft_chain
-            }
-          })) || [];
-        } else {
-          // Default till global feed
-          const { data, error: fetchError } = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles(id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          if (fetchError) {
-            console.error('[TweetFeed] Error fetching default tweets:', fetchError);
-            throw fetchError;
-          }
-          
-          // Formatera datan till TweetWithAuthor-format
-          fetchedTweets = data?.map((tweet: any) => ({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
-            likes_count: tweet.likes_count,
-            retweets_count: tweet.retweets_count,
-            replies_count: tweet.replies_count,
-            is_retweet: tweet.is_retweet,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author.id,
-              username: tweet.author.username,
-              display_name: tweet.author.display_name,
-              avatar_url: tweet.author.avatar_url,
-              avatar_nft_id: tweet.author.avatar_nft_id,
-              avatar_nft_chain: tweet.author.avatar_nft_chain
-            }
-          })) || [];
+          tweetsQuery = tweetsQuery.eq('author_id', userId).eq('is_retweet', true);
         }
         
-        console.log(`[TweetFeed] Fetched ${fetchedTweets.length} tweets for feed`);
-        if (fetchedTweets.length > 0) {
-          console.log('[TweetFeed] First tweet:', fetchedTweets[0]);
-        } else {
-          console.log('[TweetFeed] No tweets returned from the query');
+        // Apply limit
+        tweetsQuery = tweetsQuery.limit(limit);
+        
+        // Execute the query
+        const { data: tweetsData, error: tweetsError } = await tweetsQuery;
+        
+        if (tweetsError) {
+          console.error('[TweetFeed] Error fetching tweets:', tweetsError);
+          throw tweetsError;
         }
         
-        setTweets(fetchedTweets);
+        if (!tweetsData || tweetsData.length === 0) {
+          console.log('[TweetFeed] No tweets found');
+          setTweets([]);
+          setLoading(false);
+          return;
+        }
+        
+        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets`);
+        
+        // Get all unique author IDs from tweets
+        const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
+        
+        // Fetch all authors in a single query
+        const { data: authorsData, error: authorsError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', authorIds);
+          
+        if (authorsError) {
+          console.error('[TweetFeed] Error fetching authors:', authorsError);
+          throw authorsError;
+        }
+        
+        // Create a map of author IDs to author data for quick lookup
+        const authorsMap = authorsData.reduce((acc, author) => {
+          acc[author.id] = author;
+          return acc;
+        }, {});
+        
+        // Combine tweets with their authors
+        const tweetsWithAuthors = tweetsData.map(tweet => {
+          const author = authorsMap[tweet.author_id];
+          if (!author) {
+            console.warn(`[TweetFeed] Author not found for tweet ${tweet.id}`);
+          }
+          
+          return {
+            ...tweet,
+            author: author ? {
+              id: author.id,
+              username: author.username || 'unknown',
+              display_name: author.display_name || 'Unknown User',
+              avatar_url: author.avatar_url,
+              avatar_nft_id: author.avatar_nft_id,
+              avatar_nft_chain: author.avatar_nft_chain
+            } : {
+              id: tweet.author_id,
+              username: 'unknown',
+              display_name: 'Unknown User',
+              avatar_url: '',
+              avatar_nft_id: null,
+              avatar_nft_chain: null
+            }
+          };
+        });
+        
+        console.log('[TweetFeed] First tweet with author:', tweetsWithAuthors[0]);
+        
+        setTweets(tweetsWithAuthors);
       } catch (err) {
         console.error('[TweetFeed] Failed to fetch tweets:', err);
         setError('Failed to load tweets. Please try again later.');
