@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Notification } from '@/types/Notification';
+import { markNotificationAsRead, markAllNotificationsAsRead as markAllRead } from '@/services/notificationService';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -78,30 +79,23 @@ export function useNotifications() {
   };
 
   // Mark notification as read
-  const markAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     if (!user) return;
     
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId)
-        .eq('user_id', user.id);
+      const success = await markNotificationAsRead(notificationId);
 
-      if (error) {
-        console.error('Error marking notification as read:', error);
-        throw error;
+      if (success) {
+        // Update local state
+        setNotifications(prev => prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, read: true } 
+            : notification
+        ));
+        
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
-
-      // Update local state
-      setNotifications(prev => prev.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, read: true } 
-          : notification
-      ));
-      
-      // Update unread count
-      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
       toast({
@@ -113,29 +107,22 @@ export function useNotifications() {
   };
 
   // Mark all notifications as read
-  const markAllAsRead = async () => {
+  const handleMarkAllAsRead = async () => {
     if (!user || unreadCount === 0) return;
     
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
+      const success = await markAllRead(user.id);
 
-      if (error) {
-        console.error('Error marking all notifications as read:', error);
-        throw error;
+      if (success) {
+        // Update local state
+        setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
+        setUnreadCount(0);
+        
+        toast({
+          title: 'Success',
+          description: 'All notifications marked as read',
+        });
       }
-
-      // Update local state
-      setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
-      setUnreadCount(0);
-      
-      toast({
-        title: 'Success',
-        description: 'All notifications marked as read',
-      });
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
       toast({
@@ -253,7 +240,7 @@ export function useNotifications() {
     unreadCount,
     loading,
     fetchNotifications,
-    markAsRead,
-    markAllAsRead
+    markAsRead: handleMarkAsRead,
+    markAllAsRead: handleMarkAllAsRead
   };
 }

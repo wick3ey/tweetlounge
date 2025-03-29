@@ -11,7 +11,8 @@ import {
   User, 
   AtSign,
   CheckCircle,
-  Loader2 
+  Loader2,
+  Bell 
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -178,6 +179,3 @@ const Notifications = () => {
 };
 
 export default Notifications;
-
-// We need to import Bell here for the empty state
-import { Bell } from 'lucide-react';
