@@ -126,3 +126,21 @@ export const formatSafeDate = (dateString: unknown, format: string = 'relative',
     return fallback;
   }
 };
+
+/**
+ * Safe wrapper for date-fns formatDistanceToNow
+ * Returns fallback string if date is invalid
+ */
+export const safeFormatDistanceToNow = (dateString: unknown, fallback: string = 'recently'): string => {
+  if (!isValidDateString(dateString)) {
+    return fallback;
+  }
+  
+  try {
+    const date = new Date(dateString as string);
+    return formatDistanceToNow(date, { addSuffix: true });
+  } catch (error) {
+    console.warn("Error in safeFormatDistanceToNow:", error, "for date string:", dateString);
+    return fallback;
+  }
+};

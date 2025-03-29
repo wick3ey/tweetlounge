@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, X, Trash2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import RepliesSection from './RepliesSection';
+import { safeFormatDistanceToNow } from '@/utils/dateUtils';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -255,7 +255,7 @@ const TweetCard = ({
     return name.substring(0, 2).toUpperCase();
   };
 
-  const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
+  const timeAgo = safeFormatDistanceToNow(tweet.created_at, 'recently');
 
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
