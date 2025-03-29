@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,7 +57,8 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
           avatar_nft_id: data.avatar_nft_id,
           avatar_nft_chain: data.avatar_nft_chain,
           followers_count: data.followers_count,
-          following_count: data.following_count
+          following_count: data.following_count,
+          replies_sort_order: data.replies_sort_order || 'newest_first'
         };
         setProfile(profileData);
       }

@@ -529,7 +529,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       .from('replies')
       .select(`
         *,
-        profiles(
+        profiles:user_id(
           id,
           username,
           display_name,
@@ -547,19 +547,28 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
     }
     
     // Organize replies into a threaded structure
+    const repliesWithChildren = data?.map(reply => ({
+      ...reply,
+      children: []
+    })) || [];
+    
     const repliesMap = new Map();
     const rootReplies: any[] = [];
 
-    data?.forEach(reply => {
-      reply.children = [];
+    repliesWithChildren.forEach(reply => {
       repliesMap.set(reply.id, reply);
+    });
 
+    repliesWithChildren.forEach(reply => {
       if (!reply.parent_reply_id) {
         rootReplies.push(reply);
       } else {
         const parentReply = repliesMap.get(reply.parent_reply_id);
         if (parentReply) {
           parentReply.children.push(reply);
+        } else {
+          // If parent doesn't exist, treat as a root reply
+          rootReplies.push(reply);
         }
       }
     });

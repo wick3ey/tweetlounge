@@ -1,6 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { replyToTweet } from '@/services/tweetService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useToast } from '@/components/ui/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Image, Smile, X } from 'lucide-react';
+import Picker from '@emoji-mart/react';
+import data from '@emoji-mart/data';
 
 interface ReplyComposerProps {
   tweetId: string;
