@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -33,7 +32,6 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Check if user has liked this tweet
     const checkLikeStatus = async () => {
       if (!user) return;
       
@@ -41,7 +39,6 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
       setLiked(hasLiked);
     };
     
-    // Check if user has retweeted this tweet
     const checkRetweetStatus = async () => {
       if (!user) return;
       
@@ -137,10 +134,8 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Check if the author has a verified NFT profile picture
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
-  // Format numbers for engagement metrics
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
       return (num / 1000000).toFixed(1) + 'M';
@@ -152,7 +147,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
 
   return (
     <div 
-      className="p-4 border-b border-gray-800 hover:bg-gray-900/30 transition-colors cursor-pointer"
+      className="p-4 border-b border-gray-800 hover:bg-gray-900 transition-colors cursor-pointer"
       onClick={onClick}
     >
       {tweet.is_retweet && (
@@ -167,7 +162,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
             {tweet.author.avatar_url ? (
               <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name} />
             ) : null}
-            <AvatarFallback className="bg-twitter-blue text-white">
+            <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
               {getInitials(tweet.author.display_name || tweet.author.username)}
             </AvatarFallback>
           </Avatar>
@@ -183,7 +178,6 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
                 {tweet.author.display_name}
               </Link>
               
-              {/* Verified Badge */}
               {isNFTVerified && (
                 <HoverCard openDelay={200} closeDelay={100}>
                   <HoverCardTrigger asChild>
@@ -193,7 +187,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
                       </div>
                     </div>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-64 text-sm" onClick={(e) => e.stopPropagation()}>
+                  <HoverCardContent className="w-64 text-sm bg-black border-gray-800" onClick={(e) => e.stopPropagation()}>
                     <p className="font-semibold">Verified NFT Owner</p>
                     <p className="text-gray-500 mt-1">
                       This user owns the NFT used as their profile picture.
@@ -226,7 +220,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
               <img 
                 src={tweet.image_url} 
                 alt="Tweet media"
-                className="rounded-xl w-full max-h-96 object-cover border border-gray-800" 
+                className="rounded-lg w-full max-h-96 object-cover border border-gray-800" 
               />
             </div>
           )}

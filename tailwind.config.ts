@@ -1,3 +1,4 @@
+
 import { type Config } from "tailwindcss";
 import { fontFamily } from "tailwindcss/defaultTheme";
 
@@ -29,15 +30,22 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         crypto: {
-          blue: "#0d8aff",
+          blue: "#1d9bf0",
           darkblue: "#0a66c2",
           green: "#00c853",
           red: "#ff3b30",
-          black: "#111317",
-          darkgray: "#1a1d24",
+          black: "#000000",
+          darkgray: "#181818",
           gray: "#2a2d35",
           lightgray: "#9ba1a6",
           text: "#e5e7eb",
+        },
+        twitter: {
+          blue: "#1d9bf0",
+          black: "#000000",
+          white: "#ffffff",
+          gray: "#2f3336",
+          lightGray: "#6e767d",
         },
         primary: {
           DEFAULT: "hsl(var(--primary))",

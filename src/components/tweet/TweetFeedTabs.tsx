@@ -6,7 +6,7 @@ const TweetFeedTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'for-you' | 'following'>('for-you');
 
   return (
-    <div className="flex border-b border-gray-800 mb-1">
+    <div className="flex bg-black">
       <button
         onClick={() => setActiveTab('for-you')}
         className={cn(
@@ -18,7 +18,7 @@ const TweetFeedTabs: React.FC = () => {
       >
         For you
         {activeTab === 'for-you' && (
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 rounded-full bg-crypto-blue" />
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-crypto-blue" />
         )}
       </button>
       
@@ -33,7 +33,7 @@ const TweetFeedTabs: React.FC = () => {
       >
         Following
         {activeTab === 'following' && (
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-1 rounded-full bg-crypto-blue" />
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-crypto-blue" />
         )}
       </button>
     </div>

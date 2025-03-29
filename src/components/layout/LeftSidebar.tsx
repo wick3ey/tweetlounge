@@ -1,27 +1,38 @@
 
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, User, Bell, MessageSquare, BookmarkIcon, ListIcon, MoreHorizontal, Activity, Zap } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  Search, 
+  Bell, 
+  Mail, 
+  User, 
+  Bookmark, 
+  MessageSquare,
+  MoreHorizontal, 
+  Zap, 
+  BarChart2,
+  Hash
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const LeftSidebar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useProfile();
-
+  
   const menuItems = [
-    { path: '/home', label: 'Home', icon: Home },
-    { path: '/explore', label: 'Explore', icon: Activity },
-    { path: '/notifications', label: 'Notifications', icon: Bell },
-    { path: '/messages', label: 'Messages', icon: MessageSquare },
-    { path: '/bookmarks', label: 'Bookmarks', icon: BookmarkIcon },
-    { path: '/profile', label: 'Profile', icon: User },
+    { icon: Home, label: 'Home', path: '/home' },
+    { icon: Hash, label: 'Explore', path: '/explore' },
+    { icon: Bell, label: 'Notifications', path: '/notifications' },
+    { icon: Mail, label: 'Messages', path: '/messages' },
+    { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
+    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
+    { icon: User, label: 'Profile', path: '/profile' },
   ];
-
+  
   const getInitials = () => {
     if (profile?.display_name) {
       return profile.display_name.substring(0, 2).toUpperCase();
@@ -31,84 +42,70 @@ const LeftSidebar = () => {
       return user?.email?.substring(0, 2).toUpperCase() || 'TL';
     }
   };
-
-  const handleMenuItemClick = (path: string) => {
-    if (path === '/profile' && profile?.username) {
-      navigate(`/profile/${profile.username}`);
-    } else {
-      navigate(path);
-    }
-  };
-
-  const isActive = (path: string) => {
-    if (path === '/profile') {
-      return location.pathname.includes('/profile');
-    }
-    return location.pathname === path;
-  };
-
+  
   return (
-    <div className="hidden md:flex flex-col h-screen py-4 px-2 sticky top-0 w-20 xl:w-64 border-r border-border/50">
-      <div className="flex items-center justify-center xl:justify-start mb-6 p-2">
-        <Link to="/home" className="text-2xl font-display font-bold text-primary flex items-center">
-          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-            <Zap className="h-5 w-5 text-primary" />
+    <div className="hidden md:flex flex-col h-screen sticky top-0 w-16 xl:w-64 p-2 xl:p-4">
+      <div className="p-2 xl:p-3 mb-2">
+        <Link to="/home" className="flex items-center justify-center xl:justify-start">
+          <div className="bg-crypto-blue/10 rounded-full w-10 h-10 flex items-center justify-center">
+            <Zap className="h-6 w-6 text-crypto-blue" />
           </div>
+          <span className="hidden xl:block text-xl font-bold ml-3">TweetLounge</span>
         </Link>
       </div>
       
-      <nav className="space-y-2 mb-8">
-        <TooltipProvider>
-          {menuItems.map((item) => (
-            <Tooltip key={item.path} delayDuration={300}>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => handleMenuItemClick(item.path)}
-                  className={`flex items-center justify-center xl:justify-start p-3 rounded-full xl:rounded-lg hover:bg-primary/10 transition-colors w-full text-left ${
-                    isActive(item.path) 
-                      ? 'font-medium text-primary bg-primary/5'
-                      : 'text-foreground/80'
-                  }`}
-                >
-                  <item.icon className={`h-6 w-6 ${isActive(item.path) ? 'text-primary' : ''}`} />
-                  <span className="hidden xl:block ml-4 text-lg">{item.label}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="xl:hidden">
-                {item.label}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </TooltipProvider>
+      <nav className="space-y-1 mb-4">
+        {menuItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`flex items-center justify-center xl:justify-start p-2 xl:p-3 rounded-full xl:rounded-full text-lg hover:bg-gray-900 transition-colors ${
+              location.pathname === item.path
+                ? 'font-bold'
+                : 'text-gray-400'
+            }`}
+          >
+            <item.icon className="h-6 w-6" />
+            <span className="hidden xl:block ml-4">{item.label}</span>
+          </Link>
+        ))}
+        
+        <button className="flex items-center justify-center xl:justify-start p-2 xl:p-3 rounded-full xl:rounded-full text-lg hover:bg-gray-900 transition-colors text-gray-400 w-full">
+          <MoreHorizontal className="h-6 w-6" />
+          <span className="hidden xl:block ml-4">More</span>
+        </button>
       </nav>
       
       <Button 
-        className="web3-button py-3 rounded-full flex items-center justify-center xl:justify-start w-full mt-4 shadow-glow-sm hover:shadow-glow-md"
+        className="mt-2 bg-crypto-blue hover:bg-crypto-blue/90 text-white rounded-full h-12 w-12 xl:h-auto xl:w-full p-0 xl:p-3 shadow-sm hover:shadow-md transition-all"
       >
-        <Zap className="h-5 w-5 xl:mr-2" />
-        <span className="hidden xl:inline">Tweet</span>
+        <span className="hidden xl:block font-bold">Tweet</span>
+        <MessageSquare className="xl:hidden h-6 w-6" />
       </Button>
       
-      <div className="mt-auto mb-4">
+      <div className="mt-auto">
         {user && (
-          <button 
-            onClick={() => profile?.username ? navigate(`/profile/${profile.username}`) : navigate('/profile')}
-            className="flex items-center justify-center xl:justify-start p-3 rounded-full hover:bg-primary/10 transition-colors w-full text-left"
-          >
-            <Avatar className="h-10 w-10 border-2 border-border hover-glow">
-              {profile?.avatar_url ? (
-                <AvatarImage src={profile.avatar_url} alt="Profile" />
-              ) : null}
-              <AvatarFallback className="bg-primary/20 text-primary font-medium">
-                {getInitials()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="hidden xl:block ml-3 flex-1 truncate">
-              <p className="font-semibold text-foreground">{profile?.display_name || user.email?.split('@')[0]}</p>
-              <p className="text-muted-foreground text-sm truncate">@{profile?.username || user.email?.split('@')[0]}</p>
+          <div className="flex items-center justify-center xl:justify-between p-2 xl:p-3 rounded-full hover:bg-gray-900 transition-colors">
+            <div className="flex items-center">
+              <Avatar className="h-10 w-10">
+                {profile?.avatar_url ? (
+                  <AvatarImage src={profile.avatar_url} alt="Profile" />
+                ) : null}
+                <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="hidden xl:block ml-3">
+                <p className="font-bold text-sm leading-tight">
+                  {profile?.display_name || user.email?.split('@')[0]}
+                </p>
+                <p className="text-gray-500 text-sm">
+                  @{profile?.username || user.email?.split('@')[0]}
+                </p>
+              </div>
             </div>
-            <MoreHorizontal className="hidden xl:block h-5 w-5 text-muted-foreground" />
-          </button>
+            <MoreHorizontal className="hidden xl:block h-5 w-5 text-gray-500" />
+          </div>
         )}
       </div>
     </div>

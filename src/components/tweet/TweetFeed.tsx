@@ -107,7 +107,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
 
   if (tweets.length === 0) {
     return (
-      <div className="p-6 text-center border-b border-gray-800 rounded-lg bg-gray-900/20">
+      <div className="p-6 text-center border-b border-gray-800 bg-black">
         <p className="text-gray-400">No tweets yet. Be the first to post!</p>
       </div>
     );
@@ -115,7 +115,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
 
   return (
     <>
-      <div className="tweet-feed rounded-lg overflow-hidden bg-gray-900/20 border border-gray-800">
+      <div className="tweet-feed bg-black">
         {tweets.map((tweet) => (
           <TweetCard
             key={tweet.id}
@@ -127,7 +127,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-2xl bg-crypto-black border-crypto-gray/40 p-0 max-h-[90vh] overflow-auto">
+        <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-auto">
           {selectedTweet && (
             <TweetDetail 
               tweet={selectedTweet} 

@@ -86,22 +86,19 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
     }
   };
 
-  // Check if the user has a verified NFT profile picture
-  const isNFTVerified = profile?.avatar_nft_id && profile?.avatar_nft_chain;
-
   // Calculate remaining characters
   const remainingChars = 280 - content.length;
   const isNearLimit = remainingChars <= 20;
   const isAtLimit = remainingChars <= 0;
 
   return (
-    <div className="p-4 rounded-xl bg-gray-900/50 border border-gray-800 mb-4">
-      <div className="flex gap-3">
+    <div className="rounded-lg bg-black border border-gray-800">
+      <div className="flex gap-3 p-4">
         <Avatar className="h-10 w-10 mt-1">
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt="Profile" />
           ) : null}
-          <AvatarFallback className="bg-twitter-blue text-white">
+          <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
             {getInitials()}
           </AvatarFallback>
         </Avatar>
@@ -116,7 +113,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
           />
           
           {imagePreview && (
-            <div className="relative mt-3 rounded-xl overflow-hidden">
+            <div className="relative mt-3 rounded-lg overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -128,7 +125,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
               <img 
                 src={imagePreview} 
                 alt="Selected media" 
-                className="rounded-xl max-h-80 w-auto" 
+                className="rounded-lg max-h-80 w-auto" 
               />
             </div>
           )}

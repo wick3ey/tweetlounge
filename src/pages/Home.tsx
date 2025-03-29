@@ -14,6 +14,8 @@ import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
+import LeftSidebar from '@/components/layout/LeftSidebar'
+import RightSidebar from '@/components/layout/RightSidebar'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -51,50 +53,52 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-crypto-black crypto-pattern">
+    <div className="flex flex-col h-screen bg-black">
       <Header />
-      <CryptoTicker />
+      <div className="hidden sm:block">
+        <CryptoTicker />
+      </div>
       
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <LeftSidebar />
         
-        <div className="flex-1 overflow-y-auto">
-          <main className="max-w-xl mx-auto p-4 md:p-6">
-            <div className="flex gap-3 items-center mb-5">
-              <div className="rounded-lg bg-crypto-gray/20 p-1.5">
-                <ZapIcon className="text-crypto-blue h-5 w-5" />
+        <div className="flex-1 border-x border-gray-800 overflow-y-auto">
+          <main className="max-w-xl mx-auto">
+            <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
+              <div className="flex gap-3 items-center">
+                <div className="rounded-lg bg-crypto-blue/10 p-1.5">
+                  <ZapIcon className="text-crypto-blue h-5 w-5" />
+                </div>
+                <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
+                
+                <CryptoButton 
+                  variant="outline" 
+                  size="sm" 
+                  className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
+                  onClick={() => window.location.reload()}
+                >
+                  <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
+                  Refresh
+                </CryptoButton>
               </div>
-              <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
-              
-              <CryptoButton 
-                variant="outline" 
-                size="sm" 
-                className="ml-auto text-xs h-8 border-crypto-gray/40 hover:bg-crypto-gray/30"
-                onClick={() => window.location.reload()}
-              >
-                <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
-                Refresh
-              </CryptoButton>
             </div>
             
             {/* Tweet Composer */}
-            <div className="mb-5">
+            <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
             {/* Tweet Feed with Tabs */}
-            <div className="mb-6">
-              <TweetFeedTabs />
+            <div>
+              <div className="border-b border-gray-800">
+                <TweetFeedTabs />
+              </div>
               <TweetFeed limit={10} />
             </div>
           </main>
         </div>
         
-        <div className="w-80 overflow-y-auto border-l border-crypto-gray/40 p-5 hidden lg:block">
-          <MarketStats />
-          <Separator className="my-6 bg-crypto-gray/20" />
-          <NewsSection />
-        </div>
+        <RightSidebar />
       </div>
     </div>
   )
