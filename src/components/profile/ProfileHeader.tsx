@@ -81,9 +81,8 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fixed: Using the renamed function checkIsFollowing instead of isFollowing
         const followStatus = await checkIsFollowing(userId);
-        setFollowing(!!followStatus);
+        setFollowing(followStatus);
       } catch (error) {
         console.error("Error checking follow status:", error);
       } finally {
