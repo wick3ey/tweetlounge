@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -218,7 +217,7 @@ async function fetchHotPoolsFromAPI() {
         const fallbackResponse = {
           hotPools: fallbackHotPools,
           timestamp: Date.now(),
-          source: "fallback"
+          source: "fallback_format"
         };
         
         await writeToCache(fallbackResponse, "fallback_format");

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { PoolInfo, TokenInfo, preloadImages } from '@/services/marketService';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -178,7 +177,17 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   }
 
   // Sort pools by rank if available, otherwise maintain the order from the API
-  const sortedPools = [...safePools];
+  const sortedPools = [...safePools].sort((a, b) => {
+    // If both have ranks, sort by rank
+    if (a.rank !== undefined && b.rank !== undefined) {
+      return a.rank - b.rank;
+    }
+    // If only one has rank, prioritize the one with rank
+    if (a.rank !== undefined) return -1;
+    if (b.rank !== undefined) return 1;
+    // Otherwise keep original order
+    return 0;
+  });
 
   return (
     <div className="space-y-4 py-4">

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -46,11 +47,16 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
 
     const apiData = await response.json();
     
+    // Log the structure of the response for debugging
+    console.log(`API response structure for ${config.cacheKey}:`, 
+      JSON.stringify(apiData).slice(0, 200) + "...");
+    
     // Process the data based on cache key
     let processedData;
     
     if (config.cacheKey === "solana_hot_pools" && apiData.statusCode === 200 && Array.isArray(apiData.data)) {
-      // Format hot pools data
+      // For hot pools, we must preserve the exact ranking and order from the API
+      // Only do minimal transformation to ensure consistent field access
       const hotPools = apiData.data.map((pool: any) => {
         return {
           rank: pool.rank || 0,
