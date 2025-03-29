@@ -111,15 +111,15 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
     } catch (catchError) {
       // Fall back to direct query if RPC fails
       console.warn('RPC failed, falling back to direct query');
-      const { data, error } = await supabase
+      const { data, queryError } = await supabase
         .from('bookmarks')
         .select('*')
         .eq('user_id', user.id)
         .eq('tweet_id', tweetId)
         .maybeSingle();
         
-      if (error) {
-        console.error('Error checking bookmark status with direct query:', error);
+      if (queryError) {
+        console.error('Error checking bookmark status with direct query:', queryError);
         return false;
       }
       
