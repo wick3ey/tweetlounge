@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -24,6 +24,7 @@ interface TweetCardProps {
 const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
@@ -50,14 +51,19 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
     checkRetweetStatus();
   }, [tweet.id, user]);
 
+  const redirectToLogin = () => {
+    toast({
+      title: "Authentication Required",
+      description: "You must be logged in to perform this action",
+      variant: "destructive"
+    });
+    navigate('/login');
+  };
+
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to like a tweet",
-        variant: "destructive"
-      });
+      redirectToLogin();
       return;
     }
     
@@ -87,11 +93,7 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const handleRetweet = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to retweet",
-        variant: "destructive"
-      });
+      redirectToLogin();
       return;
     }
     
@@ -125,7 +127,20 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
 
   const handleReply = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
     if (onClick) onClick();
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    // Share functionality would go here
   };
 
   const getInitials = (name: string) => {

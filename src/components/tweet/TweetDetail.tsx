@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -17,7 +18,7 @@ import {
   checkIfUserRetweetedTweet,
   getTweetComments
 } from '@/services/tweetService';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 interface TweetDetailProps {
@@ -30,6 +31,7 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count);
@@ -73,13 +75,18 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
     fetchComments();
   }, [tweet.id, user, toast]);
 
+  const redirectToLogin = () => {
+    toast({
+      title: "Authentication Required",
+      description: "You must be logged in to perform this action",
+      variant: "destructive"
+    });
+    navigate('/login');
+  };
+
   const handleLike = async () => {
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to like a tweet",
-        variant: "destructive"
-      });
+      redirectToLogin();
       return;
     }
     
@@ -108,11 +115,7 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
 
   const handleRetweet = async () => {
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to retweet",
-        variant: "destructive"
-      });
+      redirectToLogin();
       return;
     }
     
@@ -145,13 +148,23 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   };
 
   const handleReply = () => {
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    
     if (commentInputRef.current) {
       commentInputRef.current.focus();
     }
   };
   
   const handleSubmitComment = async () => {
-    if (!user || !commentText.trim()) {
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    
+    if (!commentText.trim()) {
       return;
     }
     

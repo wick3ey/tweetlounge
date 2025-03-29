@@ -14,10 +14,12 @@ import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
+import { useNavigate } from 'react-router-dom'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
@@ -26,6 +28,7 @@ const Home: React.FC = () => {
         description: "You must be logged in to post a tweet",
         variant: "destructive"
       });
+      navigate('/login');
       return;
     }
 

@@ -4,7 +4,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { Comment } from '@/types/Comment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, Heart, MoreHorizontal } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 interface CommentCardProps {
   comment: Comment;
@@ -14,6 +16,9 @@ interface CommentCardProps {
 
 const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   const getInitials = (name: string) => {
     return name
@@ -30,6 +35,23 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
     } catch (error) {
       console.error('Date formatting error:', error);
       return 'some time ago';
+    }
+  };
+
+  const handleInteraction = (action: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to perform this action",
+        variant: "destructive"
+      });
+      navigate('/login');
+      return;
+    }
+    
+    // Handle the interaction (like reply, like, etc)
+    if (action === 'like') {
+      setIsLiked(!isLiked);
     }
   };
   
@@ -67,20 +89,26 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
           </Link>
           
           <div className="flex items-center gap-6 mt-3">
-            <button className="flex items-center text-crypto-lightgray hover:text-crypto-blue group">
+            <button 
+              className="flex items-center text-crypto-lightgray hover:text-crypto-blue group"
+              onClick={() => handleInteraction('reply')}
+            >
               <MessageSquare className="h-4 w-4 mr-2 group-hover:text-crypto-blue" />
               <span className="text-xs">{comment.replies?.length || 0}</span>
             </button>
             
             <button 
               className={`flex items-center ${isLiked ? 'text-red-500' : 'text-crypto-lightgray hover:text-red-500'} group`}
-              onClick={() => setIsLiked(!isLiked)}
+              onClick={() => handleInteraction('like')}
             >
               <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : 'group-hover:text-red-500'}`} />
               <span className="text-xs">{comment.likes_count}</span>
             </button>
             
-            <button className="flex items-center text-crypto-lightgray hover:text-crypto-blue">
+            <button 
+              className="flex items-center text-crypto-lightgray hover:text-crypto-blue"
+              onClick={() => handleInteraction('more')}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </button>
           </div>
