@@ -131,8 +131,8 @@ const MarketWatcher = () => {
     }));
   };
   
-  // Apply search filter to tokens
-  const filterTokensBySearch = (tokens: TokenData[]) => {
+  // Apply search filter to tokens and pools
+  const filterTokensBySearch = (tokens: TokenData[]): TokenData[] => {
     if (!searchTerm) return tokens;
     
     const term = searchTerm.toLowerCase();
@@ -140,6 +140,17 @@ const MarketWatcher = () => {
       token.name.toLowerCase().includes(term) || 
       token.symbol.toLowerCase().includes(term) ||
       token.address.toLowerCase().includes(term)
+    );
+  };
+  
+  const filterPoolsBySearch = (pools: PoolData[]): PoolData[] => {
+    if (!searchTerm) return pools;
+    
+    const term = searchTerm.toLowerCase();
+    return pools.filter(pool => 
+      pool.name.toLowerCase().includes(term) || 
+      pool.symbol.toLowerCase().includes(term) ||
+      pool.address.toLowerCase().includes(term)
     );
   };
   
@@ -211,7 +222,7 @@ const MarketWatcher = () => {
           
           <TabsContent value="overview">
             <TrendingPools 
-              pools={filterTokensBySearch(transformedHotPools)}
+              pools={filterPoolsBySearch(transformedHotPools)}
               loading={isLoadingHotPools}
               onSelect={handleViewTokenDetails}
             />
