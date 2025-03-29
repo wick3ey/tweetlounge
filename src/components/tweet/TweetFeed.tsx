@@ -84,7 +84,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-8">
+      <div className="flex justify-center items-center p-8 bg-black">
         <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
         <span className="ml-2 text-gray-400">Loading tweets...</span>
       </div>
@@ -93,7 +93,7 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
 
   if (error) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-6 text-center bg-black">
         <p className="text-red-500 mb-4">{error}</p>
         <button 
           onClick={() => window.location.reload()}
