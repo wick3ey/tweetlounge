@@ -6,7 +6,7 @@ import { MoreHorizontal, Heart, MessageCircle, Repeat, Share, Trash2 } from 'luc
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import { likeTweet, unlikeTweet, deleteTweet } from '@/services/tweetService';
+import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
 import {
   DropdownMenu,
@@ -26,9 +26,21 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [isLiked, setIsLiked] = React.useState(tweet.is_liked || false);
+  const [isLiked, setIsLiked] = React.useState(false);
   const [likeCount, setLikeCount] = React.useState(tweet.likes_count || 0);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  
+  // Check if user liked the tweet on component mount
+  React.useEffect(() => {
+    const checkLikeStatus = async () => {
+      if (user) {
+        const liked = await checkIfUserLikedTweet(tweet.id);
+        setIsLiked(liked);
+      }
+    };
+    
+    checkLikeStatus();
+  }, [tweet.id, user]);
   
   // Format the date to a human-readable format
   const formattedDate = React.useMemo(() => {
@@ -54,16 +66,22 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     }
     
     try {
-      if (isLiked) {
-        await unlikeTweet(tweet.id);
-        setLikeCount(prev => prev - 1);
-      } else {
-        await likeTweet(tweet.id);
-        setLikeCount(prev => prev + 1);
-      }
-      setIsLiked(!isLiked);
+      // The likeTweet function already handles both liking and unliking
+      const success = await likeTweet(tweet.id);
       
-      if (onAction) onAction();
+      if (success) {
+        if (isLiked) {
+          // If it was already liked, we're unliking it now
+          setLikeCount(prev => Math.max(0, prev - 1));
+        } else {
+          // If it wasn't liked, we're liking it now
+          setLikeCount(prev => prev + 1);
+        }
+        
+        setIsLiked(!isLiked);
+        
+        if (onAction) onAction();
+      }
     } catch (error) {
       console.error('Like action failed:', error);
       toast({
