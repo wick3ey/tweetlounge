@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -25,7 +24,6 @@ import {
   type TokenInfo
 } from '@/services/marketService';
 
-// Helper function to format numbers
 const formatNumber = (num: number, digits = 2) => {
   if (num === undefined || num === null) return 'N/A';
   
@@ -40,13 +38,11 @@ const formatNumber = (num: number, digits = 2) => {
   }
 };
 
-// Helper function to format percentages
 const formatPercent = (percent: number) => {
   if (percent === undefined || percent === null) return 'N/A';
   return `${percent > 0 ? '+' : ''}${percent.toFixed(2)}%`;
 };
 
-// Helper function to format dates
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';
   
@@ -58,13 +54,11 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-// Helper function to shorten addresses
 const shortenAddress = (address: string) => {
   if (!address) return 'N/A';
   return `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
 };
 
-// Component for displaying market overview stats
 const MarketOverview = ({ stats }: { stats: SolanaMarketStats | null }) => {
   if (!stats) {
     return (
@@ -146,7 +140,6 @@ const MarketOverview = ({ stats }: { stats: SolanaMarketStats | null }) => {
   );
 };
 
-// Component for individual stat cards
 const StatCard = ({ 
   title, 
   value, 
@@ -169,7 +162,6 @@ const StatCard = ({
   );
 };
 
-// Component for top tokens table (gainers and losers)
 const TopTokensTable = ({ 
   data, 
   type 
@@ -189,12 +181,10 @@ const TopTokensTable = ({
     );
   }
 
-  // Ensure data is an array before mapping
   const pools = Array.isArray(data) ? data : [];
 
   const handleRowClick = (token: PoolInfo) => {
     if (token?.mainToken?.address) {
-      // Open in Solscan
       window.open(`https://solscan.io/token/${token.mainToken.address}`, '_blank');
     } else {
       toast({
@@ -262,7 +252,6 @@ const TopTokensTable = ({
   );
 };
 
-// Function to transform token data for the table
 const transformTokensForTable = (tokens: TokenInfo[] | undefined): any[] => {
   if (!tokens) {
     console.error("Tokens data is undefined");
@@ -284,9 +273,7 @@ const transformTokensForTable = (tokens: TokenInfo[] | undefined): any[] => {
   }));
 };
 
-// Component for the recent tokens list
 const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
-  // Make sure tokens is an array before transforming
   const safeTokens = Array.isArray(tokens) ? tokens : [];
   const formattedTokens = transformTokensForTable(safeTokens);
   
@@ -358,9 +345,7 @@ const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
   );
 };
 
-// Component for hot pools list
 const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
-  // Ensure pools is an array
   const safePools = Array.isArray(pools) ? pools : [];
   
   if (!pools) {
@@ -419,7 +404,7 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
               </TableCell>
               <TableCell>
                 <Badge variant="outline" className="bg-blue-900/10 text-blue-400 border-blue-500/20">
-                  {pool.exchangeName || pool.exchange?.name || 'Unknown'}
+                  {pool.exchangeName || 'Unknown'}
                 </Badge>
               </TableCell>
               <TableCell>{formatDate(pool.creationTime)}</TableCell>
@@ -444,12 +429,10 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
   );
 };
 
-// Main Market Watcher component
 const MarketWatcher: React.FC = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Fetch Solana stats
   const { 
     data: solanaStats, 
     isLoading: isLoadingStats,
@@ -461,7 +444,6 @@ const MarketWatcher: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch top tokens (gainers and losers)
   const { 
     data: topTokens, 
     isLoading: isLoadingTopTokens,
@@ -473,7 +455,6 @@ const MarketWatcher: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch hot pools
   const { 
     data: hotPools, 
     isLoading: isLoadingHotPools,
@@ -485,7 +466,6 @@ const MarketWatcher: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch recent tokens
   const { 
     data: recentTokens, 
     isLoading: isLoadingRecentTokens,
@@ -497,7 +477,6 @@ const MarketWatcher: React.FC = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Handle any fetch errors
   useEffect(() => {
     const errors = [
       { error: statsError, name: 'Solana stats' },
@@ -524,7 +503,6 @@ const MarketWatcher: React.FC = () => {
     toast
   ]);
 
-  // Refresh all data
   const refreshAllData = () => {
     refetchStats();
     refetchTopTokens();
@@ -537,7 +515,6 @@ const MarketWatcher: React.FC = () => {
     });
   };
 
-  // For debugging
   console.log("Top tokens data:", topTokens);
   console.log("Hot pools data:", hotPools);
   console.log("Recent tokens data:", recentTokens);
@@ -545,7 +522,6 @@ const MarketWatcher: React.FC = () => {
   return (
     <Layout>
       <div className="container px-4 py-6 mx-auto max-w-7xl">
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Market Watcher</h1>
@@ -574,11 +550,9 @@ const MarketWatcher: React.FC = () => {
           </div>
         </div>
 
-        {/* Market Overview */}
         <MarketOverview stats={solanaStats} />
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Gainers & Losers */}
           <Card className="border-gray-800 bg-black/60">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -617,7 +591,6 @@ const MarketWatcher: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Hot Pools */}
           <Card className="border-gray-800 bg-black/60">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -634,7 +607,6 @@ const MarketWatcher: React.FC = () => {
           </Card>
         </div>
 
-        {/* Recent Tokens */}
         <div className="mt-6">
           <Card className="border-gray-800 bg-black/60">
             <CardHeader>
