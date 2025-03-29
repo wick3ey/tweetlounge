@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -47,18 +48,18 @@ const LeftSidebar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const primaryMenuItems = [
-    { icon: Home, label: 'Hem', path: '/home' },
-    { icon: Hash, label: 'Utforska', path: '/explore' },
-    { icon: Bell, label: 'Notifikationer', path: '/notifications' },
-    { icon: Mail, label: 'Meddelanden', path: '/messages' },
-    { icon: Bookmark, label: 'Bokmärken', path: '/bookmarks' },
+    { icon: Home, label: 'Home', path: '/home' },
+    { icon: Hash, label: 'Explore', path: '/explore' },
+    { icon: Bell, label: 'Notifications', path: '/notifications' },
+    { icon: Mail, label: 'Messages', path: '/messages' },
+    { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
   ];
   
   const secondaryMenuItems = [
-    { icon: BarChart2, label: 'Analys', path: '/analytics' },
-    { icon: Coins, label: 'Krypto', path: '/crypto' },
-    { icon: Compass, label: 'Trender', path: '/trends' },
-    { icon: Settings, label: 'Inställningar', path: '/settings' },
+    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
+    { icon: Coins, label: 'Crypto', path: '/crypto' },
+    { icon: Compass, label: 'Trends', path: '/trends' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
   ];
   
   const getInitials = () => {
@@ -122,13 +123,14 @@ const LeftSidebar = () => {
   };
   
   const DesktopSidebar = () => (
-    <div className="hidden md:flex flex-col h-screen sticky top-0 w-16 xl:w-64 py-3 border-r border-gray-800">
+    // Changed the width from w-16 xl:w-64 to always be expanded w-64
+    <div className="hidden md:flex flex-col h-screen sticky top-0 w-64 py-3 border-r border-gray-800">
       <div className="p-2 xl:p-3 mb-3">
         <Link to="/home" className="flex items-center justify-center xl:justify-start">
           <div className="bg-crypto-blue rounded-full w-10 h-10 flex items-center justify-center">
             <Zap className="h-6 w-6 text-white" />
           </div>
-          <span className="hidden xl:block text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">TweetLounge</span>
+          <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">TweetLounge</span>
         </Link>
       </div>
       
@@ -138,32 +140,32 @@ const LeftSidebar = () => {
         <Collapsible open={isMoreOpen} onOpenChange={setIsMoreOpen} className="w-full">
           <CollapsibleTrigger asChild>
             <button className={cn(
-              "w-full flex items-center justify-center xl:justify-start p-2.5 xl:p-3 rounded-full text-base hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-white",
+              "w-full flex items-center justify-start p-2.5 xl:p-3 rounded-full text-base hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-white",
               isMoreOpen && "bg-gray-800 text-white"
             )}>
               <div className="flex items-center justify-center">
                 <MoreHorizontal className="h-5 w-5" />
               </div>
-              <span className="hidden xl:block ml-4">Mer</span>
-              <ChevronDown className="hidden xl:block ml-auto h-4 w-4 transition-transform duration-200" 
+              <span className="ml-4">More</span>
+              <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200" 
                 style={{ transform: isMoreOpen ? 'rotate(180deg)' : 'rotate(0)' }} 
               />
             </button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="xl:ml-2 space-y-0.5 mt-0.5 overflow-hidden">
+          <CollapsibleContent className="ml-2 space-y-0.5 mt-0.5 overflow-hidden">
             {secondaryMenuItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex items-center justify-center xl:justify-start p-2.5 xl:p-3 rounded-full text-base hover:bg-gray-800 transition-all duration-200",
+                  "flex items-center justify-start p-2.5 xl:p-3 rounded-full text-base hover:bg-gray-800 transition-all duration-200",
                   isActive(item.path) 
                     ? "font-semibold bg-gray-800 text-white" 
                     : "text-gray-400 hover:text-white"
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                <span className="hidden xl:block ml-4">{item.label}</span>
+                <span className="ml-4">{item.label}</span>
               </Link>
             ))}
           </CollapsibleContent>
@@ -171,16 +173,15 @@ const LeftSidebar = () => {
       </nav>
       
       <Button 
-        className="mt-2 bg-crypto-blue hover:bg-crypto-blue/90 text-white rounded-full h-12 w-12 xl:h-auto xl:w-full p-0 xl:p-3 shadow-md hover:shadow-lg transition-all duration-300"
+        className="mt-2 bg-crypto-blue hover:bg-crypto-blue/90 text-white rounded-full h-12 w-full p-3 shadow-md hover:shadow-lg transition-all duration-300"
       >
-        <span className="hidden xl:block font-bold">Tweeta</span>
-        <MessageSquare className="xl:hidden h-5 w-5" />
+        <span className="font-bold">Tweet</span>
       </Button>
       
       <div className="mt-auto">
         {user && (
           <Card className="mx-2 mb-3 bg-gray-900/50 border-gray-800 hover:bg-gray-800/70 transition-colors duration-300">
-            <div className="flex items-center justify-center xl:justify-between p-2 xl:p-3 rounded-lg">
+            <div className="flex items-center justify-between p-3 rounded-lg">
               <div className="flex items-center">
                 <Avatar className="h-10 w-10 border-2 border-gray-800">
                   {profile?.avatar_url ? (
@@ -190,7 +191,7 @@ const LeftSidebar = () => {
                     {getInitials()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden xl:block ml-3">
+                <div className="ml-3">
                   <p className="font-bold text-sm leading-tight">
                     {profile?.display_name || user.email?.split('@')[0]}
                   </p>
@@ -199,7 +200,7 @@ const LeftSidebar = () => {
                   </p>
                 </div>
               </div>
-              <MoreHorizontal className="hidden xl:block h-5 w-5 text-gray-500" />
+              <MoreHorizontal className="h-5 w-5 text-gray-500" />
             </div>
           </Card>
         )}
@@ -224,7 +225,7 @@ const LeftSidebar = () => {
         ))}
         
         <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <DrawerTrigger asChild onClick={() => setMobileMenuOpen(true)}>
+          <DrawerTrigger asChild>
             <button className="p-2 rounded-full text-gray-400">
               <MoreHorizontal className="h-6 w-6" />
             </button>
@@ -283,7 +284,7 @@ const LeftSidebar = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <MessageSquare className="h-5 w-5 mr-2" />
-                <span className="font-bold">Tweeta</span>
+                <span className="font-bold">Tweet</span>
               </Button>
             </div>
           </DrawerContent>
