@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -549,5 +548,48 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
   } catch (error) {
     console.error('Failed to fetch user retweets:', error);
     return [];
+  }
+}
+
+export async function deleteTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to delete a tweet');
+    }
+    
+    // First check if the tweet belongs to the user
+    const { data: tweet, error: fetchError } = await supabase
+      .from('tweets')
+      .select('author_id')
+      .eq('id', tweetId)
+      .single();
+      
+    if (fetchError) {
+      console.error('Error fetching tweet:', fetchError);
+      throw fetchError;
+    }
+    
+    if (tweet.author_id !== user.id) {
+      throw new Error('You can only delete your own tweets');
+    }
+    
+    // Delete the tweet
+    const { error: deleteError } = await supabase
+      .from('tweets')
+      .delete()
+      .eq('id', tweetId);
+      
+    if (deleteError) {
+      console.error('Error deleting tweet:', deleteError);
+      throw deleteError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Tweet deletion failed:', error);
+    return false;
   }
 }

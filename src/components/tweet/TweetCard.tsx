@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, Bookmark } from 'lucide-react';
+import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, Bookmark, Trash2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,8 @@ import {
   likeTweet, 
   retweet, 
   checkIfUserLikedTweet, 
-  checkIfUserRetweetedTweet
+  checkIfUserRetweetedTweet,
+  deleteTweet
 } from '@/services/tweetService';
 import { 
   bookmarkTweet, 
@@ -21,6 +21,22 @@ import {
   getBookmarkCount 
 } from '@/services/bookmarkService';
 import { useToast } from '@/components/ui/use-toast';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -40,6 +56,8 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count);
   const [bookmarksCount, setBookmarksCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const isOwner = user && user.id === tweet.author_id;
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -212,6 +230,43 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
     // Share functionality would go here
   };
 
+  const handleDelete = async () => {
+    if (!user) {
+      redirectToLogin();
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      const success = await deleteTweet(tweet.id);
+      
+      if (success) {
+        toast({
+          title: "Tweet Deleted",
+          description: "Your tweet has been successfully deleted."
+        });
+        
+        if (onAction) onAction();
+      } else {
+        toast({
+          title: "Action Failed",
+          description: "Failed to delete the tweet. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting tweet:", error);
+      toast({
+        title: "Action Failed",
+        description: "Failed to delete the tweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name.substring(0, 2).toUpperCase();
   };
@@ -287,14 +342,28 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
               <span className="text-gray-500 text-xs">{timeAgo}</span>
             </div>
             
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-gray-500 hover:text-crypto-blue h-8 w-8 p-0 rounded-full"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-40 bg-gray-900 border-gray-800" onClick={(e) => e.stopPropagation()}>
+                {isOwner && (
+                  <DropdownMenuItem 
+                    className="text-red-500 focus:text-red-400 cursor-pointer"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           
           <div className="mt-1 text-sm text-gray-100">{tweet.content}</div>
@@ -355,6 +424,32 @@ const TweetCard = ({ tweet, onClick, onAction }: TweetCardProps) => {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-900 border-gray-800">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tweet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this tweet? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              className="bg-transparent border-gray-700 text-white hover:bg-gray-800"
+              onClick={(e) => e.stopPropagation()}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-red-600 hover:bg-red-700 text-white" 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
