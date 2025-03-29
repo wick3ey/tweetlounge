@@ -1,4 +1,3 @@
-
 import { Search, TrendingUp, MoreHorizontal, LineChart, Newspaper, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
 
-// Define the type for user suggestions
 type UserSuggestion = {
   id: string;
   username: string | null;
@@ -24,7 +22,6 @@ type UserSuggestion = {
   avatar_nft_chain: string | null;
 };
 
-// Define the type for search results
 type SearchResult = UserSuggestion & {
   similarity: number;
 };
@@ -41,7 +38,6 @@ const RightSidebar = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  // Fetch user suggestions when the component mounts and every 30 minutes
   useEffect(() => {
     const fetchUserSuggestions = async () => {
       try {
@@ -68,10 +64,8 @@ const RightSidebar = () => {
       }
     };
     
-    // Initial fetch
     fetchUserSuggestions();
     
-    // Set up interval to refresh every 30 minutes (1800000 milliseconds)
     const intervalId = setInterval(fetchUserSuggestions, 1800000);
     
     return () => {
@@ -79,7 +73,6 @@ const RightSidebar = () => {
     };
   }, [user, toast]);
 
-  // Search users based on search term
   useEffect(() => {
     const searchUsers = async () => {
       if (!searchTerm || searchTerm.length < 2) {
@@ -113,7 +106,6 @@ const RightSidebar = () => {
       }
     };
 
-    // Debounce search to prevent too many requests
     const timeoutId = setTimeout(() => {
       searchUsers();
     }, 300);
@@ -123,7 +115,6 @@ const RightSidebar = () => {
     };
   }, [searchTerm, toast]);
 
-  // Generate a placeholder for the avatar
   const generateAvatarPlaceholder = (name: string | null) => {
     if (!name) return "U";
     const parts = name.split(/\s+/);
@@ -133,11 +124,9 @@ const RightSidebar = () => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Handle navigation to user profile
   const navigateToProfile = (username: string | null) => {
     if (username) {
       navigate(`/profile/${username}`);
-      // Clear search after navigation
       clearSearch();
     } else {
       toast({
@@ -148,7 +137,6 @@ const RightSidebar = () => {
     }
   };
 
-  // Clear search and hide results
   const clearSearch = () => {
     setSearchTerm("");
     setSearchResults([]);
@@ -179,7 +167,6 @@ const RightSidebar = () => {
             </div>
           )}
 
-          {/* Search Results Dropdown */}
           {showSearchResults && (
             <div className="absolute mt-1 w-full bg-black border border-gray-800 rounded-lg shadow-lg py-2 z-20">
               {isSearching ? (
@@ -214,7 +201,6 @@ const RightSidebar = () => {
           )}
         </div>
         
-        {/* Tabbed Content */}
         <Tabs defaultValue="stats" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-4 mb-4 bg-gray-900/70 rounded-xl p-1">
             <TabsTrigger 
@@ -271,7 +257,6 @@ const RightSidebar = () => {
                   </div>
                   <div className="space-y-4">
                     {isLoading ? (
-                      // Show loading skeletons
                       Array(3).fill(0).map((_, index) => (
                         <div key={index} className="flex items-center justify-between">
                           <div className="flex items-center">
@@ -285,7 +270,6 @@ const RightSidebar = () => {
                         </div>
                       ))
                     ) : userSuggestions.length > 0 ? (
-                      // Show actual user suggestions
                       userSuggestions.map((profile) => (
                         <div key={profile.id} className="flex items-center justify-between">
                           <div 
@@ -312,7 +296,6 @@ const RightSidebar = () => {
                                 });
                                 return;
                               }
-                              // Follow user logic would go here
                               toast({
                                 title: "Follow request",
                                 description: "Follow functionality will be implemented soon",
@@ -324,7 +307,6 @@ const RightSidebar = () => {
                         </div>
                       ))
                     ) : (
-                      // Show message when no suggestions are available
                       <div className="text-center py-4 text-gray-500">
                         <p>No suggestions available</p>
                       </div>
@@ -334,7 +316,6 @@ const RightSidebar = () => {
                     variant="ghost" 
                     className="text-crypto-blue text-sm hover:bg-crypto-blue/10 mt-4 w-full justify-start px-3"
                     onClick={() => {
-                      // Refresh suggestions manually
                       setActiveTab("follow");
                       const fetchSuggestions = async () => {
                         try {
