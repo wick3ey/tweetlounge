@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { useEffect } from "react";
+import { fetchHotPools, fetchRecentTokens } from "@/services/marketService";
 
 // Pages
 import Login from "./pages/Login";
@@ -22,6 +24,26 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
+// Create a component that will preload our market data
+const MarketDataPreloader = () => {
+  useEffect(() => {
+    // Start fetching hot pools data as soon as the app loads
+    console.log("Preloading market data on app initialization");
+    
+    // Start fetching hot pools data immediately
+    fetchHotPools().catch(err => {
+      console.error("Failed to preload hot pools data:", err);
+    });
+    
+    // Also fetch recent tokens data
+    fetchRecentTokens().catch(err => {
+      console.error("Failed to preload recent tokens data:", err);
+    });
+  }, []);
+  
+  return null; // This component doesn't render anything
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} forcedTheme="dark">
@@ -30,6 +52,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <MarketDataPreloader />
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Navigate to="/home" replace />} />
