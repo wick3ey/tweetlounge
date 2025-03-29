@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 
@@ -71,26 +70,37 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
     }
     
     // Transform the data to match the TweetWithAuthor type
-    const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
-      id: item.id,
-      content: item.content,
-      author_id: item.author_id,
-      created_at: item.created_at,
-      likes_count: item.likes_count,
-      retweets_count: item.retweets_count,
-      replies_count: item.replies_count,
-      is_retweet: item.is_retweet,
-      original_tweet_id: item.original_tweet_id,
-      image_url: item.image_url,
-      author: {
-        id: item.author_id,
-        username: item.username,
-        display_name: item.display_name,
-        avatar_url: item.avatar_url,
-        avatar_nft_id: item.avatar_nft_id,
-        avatar_nft_chain: item.avatar_nft_chain
-      }
-    }));
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+      // Support both naming conventions 
+      // (direct fields and profile_ prefixed fields)
+      return {
+        id: item.id,
+        content: item.content,
+        author_id: item.author_id,
+        created_at: item.created_at,
+        likes_count: item.likes_count,
+        retweets_count: item.retweets_count,
+        replies_count: item.replies_count,
+        is_retweet: item.is_retweet,
+        original_tweet_id: item.original_tweet_id,
+        image_url: item.image_url,
+        // Keep profile_ prefixed fields for compatibility with the type
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+        // Create the author object from either naming convention
+        author: {
+          id: item.author_id,
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+        }
+      };
+    });
     
     return transformedData;
   } catch (error) {
@@ -114,26 +124,36 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
     }
     
     // Transform the data to match the TweetWithAuthor type
-    const transformedData: TweetWithAuthor[] = data.map((item: any) => ({
-      id: item.id,
-      content: item.content,
-      author_id: item.author_id,
-      created_at: item.created_at,
-      likes_count: item.likes_count,
-      retweets_count: item.retweets_count,
-      replies_count: item.replies_count,
-      is_retweet: item.is_retweet,
-      original_tweet_id: item.original_tweet_id,
-      image_url: item.image_url,
-      author: {
-        id: item.author_id,
-        username: item.username,
-        display_name: item.display_name,
-        avatar_url: item.avatar_url,
-        avatar_nft_id: item.avatar_nft_id,
-        avatar_nft_chain: item.avatar_nft_chain
-      }
-    }));
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+      // Support both naming conventions
+      return {
+        id: item.id,
+        content: item.content,
+        author_id: item.author_id,
+        created_at: item.created_at,
+        likes_count: item.likes_count,
+        retweets_count: item.retweets_count,
+        replies_count: item.replies_count,
+        is_retweet: item.is_retweet,
+        original_tweet_id: item.original_tweet_id,
+        image_url: item.image_url,
+        // Keep profile_ prefixed fields for compatibility with the type
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+        // Create the author object from either naming convention
+        author: {
+          id: item.author_id,
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+        }
+      };
+    });
     
     return transformedData;
   } catch (error) {

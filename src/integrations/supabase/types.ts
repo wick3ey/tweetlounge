@@ -73,6 +73,7 @@ export type Database = {
           following_count: number
           id: string
           location: string | null
+          replies_sort_order: string | null
           solana_address: string | null
           updated_at: string
           username: string | null
@@ -91,6 +92,7 @@ export type Database = {
           following_count?: number
           id: string
           location?: string | null
+          replies_sort_order?: string | null
           solana_address?: string | null
           updated_at?: string
           username?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           following_count?: number
           id?: string
           location?: string | null
+          replies_sort_order?: string | null
           solana_address?: string | null
           updated_at?: string
           username?: string | null
@@ -121,6 +124,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          image_url: string | null
+          parent_reply_id: string | null
           tweet_id: string
           user_id: string
         }
@@ -128,6 +133,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          image_url?: string | null
+          parent_reply_id?: string | null
           tweet_id: string
           user_id: string
         }
@@ -135,10 +142,19 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
+          parent_reply_id?: string | null
           tweet_id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "replies_parent_reply_id_fkey"
+            columns: ["parent_reply_id"]
+            isOneToOne: false
+            referencedRelation: "replies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "replies_tweet_id_fkey"
             columns: ["tweet_id"]
@@ -251,6 +267,28 @@ export type Database = {
           avatar_nft_chain: string
         }[]
       }
+      get_tweet_with_author_reliable: {
+        Args: {
+          tweet_id: string
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
       get_tweets_with_authors: {
         Args: {
           limit_count?: number
@@ -274,7 +312,102 @@ export type Database = {
           avatar_nft_chain: string
         }[]
       }
+      get_tweets_with_authors_reliable: {
+        Args: {
+          limit_count: number
+          offset_count: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          profile_username: string
+          profile_display_name: string
+          profile_avatar_url: string
+          profile_avatar_nft_id: string
+          profile_avatar_nft_chain: string
+        }[]
+      }
+      get_user_retweets: {
+        Args: {
+          user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
+      get_user_retweets_reliable: {
+        Args: {
+          user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
       get_user_tweets: {
+        Args: {
+          user_id: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          id: string
+          content: string
+          author_id: string
+          created_at: string
+          likes_count: number
+          retweets_count: number
+          replies_count: number
+          is_retweet: boolean
+          original_tweet_id: string
+          image_url: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+        }[]
+      }
+      get_user_tweets_reliable: {
         Args: {
           user_id: string
           limit_count?: number

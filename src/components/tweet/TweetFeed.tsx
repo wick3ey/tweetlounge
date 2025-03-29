@@ -26,6 +26,12 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
         setError(null);
         
         const fetchedTweets = await getTweets(limit, 0);
+        
+        // Log a sample tweet for debugging
+        if (fetchedTweets.length > 0) {
+          console.log('Sample tweet data:', fetchedTweets[0]);
+        }
+        
         setTweets(fetchedTweets);
       } catch (err) {
         console.error('Failed to fetch tweets:', err);

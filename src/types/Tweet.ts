@@ -21,4 +21,10 @@ export type TweetWithAuthor = Tweet & {
     avatar_nft_id?: string;
     avatar_nft_chain?: string;
   };
+  // Add profile_ prefixed properties to match the database function return
+  profile_username?: string;
+  profile_display_name?: string;
+  profile_avatar_url?: string;
+  profile_avatar_nft_id?: string;
+  profile_avatar_nft_chain?: string;
 };
