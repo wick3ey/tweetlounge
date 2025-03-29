@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import TweetCard from './TweetCard';
+import { createSafeDate } from '@/utils/dateUtils';
 
 interface RepliesSectionProps {
   tweetId: string;
@@ -54,45 +55,20 @@ const RepliesSection = ({
       if (Array.isArray(data)) {
         // Enhanced validation for each reply's created_at date
         const validatedReplies = data.map(reply => {
-          // First level check: ensure created_at exists and is a string
-          if (!reply.created_at || typeof reply.created_at !== 'string') {
-            console.warn("Missing or invalid created_at in reply, using current time:", reply.id);
-            return {
-              ...reply,
-              created_at: new Date().toISOString()
-            };
-          }
-          
-          // Second level check: ensure the date string can be parsed correctly
-          try {
-            const dateString = reply.created_at.trim();
-            const dateObj = new Date(dateString);
-            
-            // Check if date is valid
-            if (isNaN(dateObj.getTime()) || dateObj.toString() === "Invalid Date") {
-              throw new Error("Invalid date object");
-            }
-            
-            // Extra validation for reasonable date ranges
-            const now = new Date();
-            const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
-            if (dateObj > new Date(now.getTime() + oneYearInMs) || 
-                dateObj < new Date(now.getTime() - 10 * oneYearInMs)) {
-              throw new Error("Date out of reasonable range");
-            }
-            
-            return reply;
-          } catch (e) {
-            // If any validation fails, use current time
-            console.warn("Invalid date format in reply, using current time instead:", reply.id, e);
-            return {
-              ...reply,
-              created_at: new Date().toISOString()
-            };
-          }
+          // Return reply with safe date - if date is invalid, our utility will handle it
+          return {
+            ...reply,
+            created_at: reply.created_at || new Date().toISOString(),
+            safe_date: createSafeDate(reply.created_at)
+          };
         });
         
-        setReplies(validatedReplies);
+        // Sort by the safe date (newest first)
+        const sortedReplies = validatedReplies.sort((a, b) => 
+          b.safe_date.getTime() - a.safe_date.getTime()
+        );
+        
+        setReplies(sortedReplies);
       } else {
         console.error('Unexpected response format:', data);
         setReplies([]);

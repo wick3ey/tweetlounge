@@ -1,5 +1,3 @@
-
-import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { Check, MessageCircle, Heart, Repeat, Share2, MoreHorizontal } from 'lucide-react';
@@ -16,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { likeTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useToast } from '@/components/ui/use-toast';
+import { formatRelativeTime } from '@/utils/dateUtils';
 
 interface ReplyProps {
   reply: {
@@ -45,47 +44,7 @@ const Reply = ({ reply, expanded = false }: ReplyProps) => {
     return null;
   }
   
-  // Enhanced time formatting function with multiple fallback mechanisms
-  const getTimeAgo = (dateString: string) => {
-    // First validation: check if dateString exists and is a string
-    if (!dateString || typeof dateString !== 'string') {
-      console.warn("Missing or invalid date string type:", dateString);
-      return "recently";
-    }
-    
-    try {
-      // Replace any invalid formats that might cause issues
-      // Sometimes dates come in unexpected formats
-      const cleanedDateString = dateString.trim();
-      
-      // Create date object and verify it's valid
-      const date = new Date(cleanedDateString);
-      
-      // Thorough validation to catch any NaN dates
-      if (isNaN(date.getTime()) || date.toString() === "Invalid Date") {
-        console.warn("Invalid date object created from:", cleanedDateString);
-        return "recently";
-      }
-      
-      // Extra validation: check if date is unreasonably in the future or past
-      const now = new Date();
-      const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
-      if (date > new Date(now.getTime() + oneYearInMs) || 
-          date < new Date(now.getTime() - 10 * oneYearInMs)) {
-        console.warn("Date out of reasonable range:", cleanedDateString);
-        return "recently";
-      }
-      
-      // If we pass all checks, format the date
-      return formatDistanceToNow(date, { addSuffix: true });
-    } catch (error) {
-      console.warn("Error formatting date:", error, "for date string:", dateString);
-      return "recently";
-    }
-  };
-  
-  // Safely get the time ago value
-  const timeAgo = getTimeAgo(reply.created_at);
+  const timeAgo = formatRelativeTime(reply.created_at);
   const isNFTVerified = reply.profiles.avatar_nft_id && reply.profiles.avatar_nft_chain;
   const isMobile = useIsMobile();
   
