@@ -1,24 +1,14 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileEditForm from '@/components/profile/ProfileEditForm';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ProfileTabs from '@/components/profile/ProfileTabs';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Loader, 
-  Settings, 
-  Image, 
-  Reply, 
-  Coins, 
-  Wallet,
-  MessageSquare,
-  FileImage,
-  Sparkles
-} from 'lucide-react';
+import { Loader, Settings, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,8 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
-import WalletAssets from '@/components/profile/WalletAssets';
-import { CryptoButton } from '@/components/ui/crypto-button';
 
 // Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
@@ -44,7 +32,6 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
   const { username } = useParams<{ username: string }>();
-  const [activeTab, setActiveTab] = useState('posts');
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
@@ -135,12 +122,12 @@ const Profile = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
           <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
-          <CryptoButton 
+          <button 
             onClick={() => window.location.reload()}
-            className="w-full"
+            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
           >
             Try Again
-          </CryptoButton>
+          </button>
         </div>
       </div>
     );
@@ -151,10 +138,10 @@ const Profile = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
           <div className="text-crypto-lightgray mb-4">Profile not found or you're not logged in.</div>
-          <CryptoButton 
+          <button 
             onClick={() => window.location.reload()}
-            className="w-full"
-          >Try Again</CryptoButton>
+            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
+          >Try Again</button>
         </div>
       </div>
     );
@@ -189,111 +176,11 @@ const Profile = () => {
         onAvatarClick={handleOpenProfileImage}
       />
       
-      <div className="border-b border-crypto-gray">
-        <Tabs defaultValue="posts" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="w-full flex justify-between bg-transparent border-b border-crypto-gray px-0 h-auto">
-            <TabsTrigger 
-              value="posts" 
-              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
-            >
-              <MessageSquare className="mr-2 h-4 w-4 sm:hidden" />
-              <span className="hidden sm:inline">Posts</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="replies" 
-              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
-            >
-              <Reply className="mr-2 h-4 w-4 sm:hidden" />
-              <span className="hidden sm:inline">Replies</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="media" 
-              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
-            >
-              <FileImage className="mr-2 h-4 w-4 sm:hidden" />
-              <span className="hidden sm:inline">Media</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="assets" 
-              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
-            >
-              <Coins className="mr-2 h-4 w-4 sm:hidden" />
-              <span className="hidden sm:inline">Assets</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="posts" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              {activeTab === 'posts' && (
-                <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                  <div className="text-xl font-bold mb-2 text-crypto-text">No posts yet</div>
-                  <p className="text-crypto-lightgray text-center mb-6">When you post, your tweets will show up here</p>
-                  {isCurrentUser && (
-                    <CryptoButton className="px-6 py-2">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Create your first post
-                    </CryptoButton>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="replies" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                <Reply className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
-                <div className="text-xl font-bold mb-2 text-crypto-text">No replies yet</div>
-                <p className="text-crypto-lightgray text-center">When you reply to someone, it will show up here</p>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="media" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                <Image className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
-                <div className="text-xl font-bold mb-2 text-crypto-text">No media yet</div>
-                <p className="text-crypto-lightgray text-center">When you post photos or videos, they will show up here</p>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="assets" className="mt-0 pt-4">
-            {profile.solana_address ? (
-              <div className="px-4">
-                <div className="mb-4">
-                  <h2 className="font-bold text-lg text-crypto-blue">Wallet Assets</h2>
-                </div>
-                <WalletAssets 
-                  solanaAddress={profile.solana_address}
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 px-4">
-                <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                  <Coins className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
-                  <div className="text-xl font-bold mb-2 text-crypto-text">No wallet connected</div>
-                  <p className="text-crypto-lightgray text-center mb-4">Connect your Solana wallet to view your assets</p>
-                  {isCurrentUser && (
-                    <CryptoButton 
-                      variant="outline" 
-                      className="group border-crypto-gray hover:bg-crypto-gray/20 text-crypto-text"
-                      onClick={() => toast({
-                        title: "Connect Wallet",
-                        description: "Please connect your Solana wallet in the profile section above.",
-                      })}
-                    >
-                      <Wallet className="h-4 w-4 mr-2 group-hover:text-crypto-blue" />
-                      Connect Solana Wallet
-                    </CryptoButton>
-                  )}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+      <ProfileTabs 
+        userId={user?.id || ''} 
+        isCurrentUser={isCurrentUser}
+        solanaAddress={profile.solana_address}
+      />
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
@@ -330,8 +217,7 @@ const Profile = () => {
                 className="w-full h-auto"
               />
             )}
-            <Button 
-              variant="ghost" 
+            <button 
               className="absolute top-2 right-2 rounded-full p-2 bg-crypto-black/50 hover:bg-crypto-black/70"
               onClick={() => setShowProfileImage(false)}
             >
@@ -339,7 +225,7 @@ const Profile = () => {
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
