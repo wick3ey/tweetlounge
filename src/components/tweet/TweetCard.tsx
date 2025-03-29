@@ -26,7 +26,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import RepliesSection from './RepliesSection';
 import { safeFormatDistanceToNow } from '@/utils/dateUtils';
 
 interface TweetCardProps {
@@ -60,8 +59,6 @@ const TweetCard = ({
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
   const [isLoadingOriginalTweet, setIsLoadingOriginalTweet] = useState(false);
-  const [showReplies, setShowReplies] = useState(false);
-  const [showFullScreenReplies, setShowFullScreenReplies] = useState(false);
   
   if (!tweet || !tweet.id) {
     return null;
@@ -200,13 +197,13 @@ const TweetCard = ({
       return;
     }
     
-    if (expandedView) {
-      setShowReplies(!showReplies);
-    } else {
-      setShowFullScreenReplies(true);
-    }
-    
+    // Reply functionality has been removed
     if (onReply) onReply();
+    
+    toast({
+      title: "Information",
+      description: "Comments functionality has been removed",
+    });
   };
 
   const handleDelete = async () => {
@@ -286,14 +283,6 @@ const TweetCard = ({
     ) {
       return;
     }
-    
-    if (!expandedView) {
-      setShowFullScreenReplies(true);
-    }
-  };
-
-  const handleCloseFullScreenReplies = () => {
-    setShowFullScreenReplies(false);
   };
 
   const displayContent = tweet.is_retweet && originalTweet ? originalTweet.content : tweet.content;
@@ -456,7 +445,7 @@ const TweetCard = ({
                     e.stopPropagation();
                     handleReply();
                   }}
-                  className={`flex items-center transition-colors ${showReplies ? 'text-crypto-blue' : 'hover:text-crypto-blue'}`}
+                  className="flex items-center transition-colors hover:text-crypto-blue"
                   disabled={isSubmitting}
                 >
                   <MessageCircle className="h-4 w-4 mr-1" />
@@ -499,10 +488,6 @@ const TweetCard = ({
         </div>
       </div>
 
-      {expandedView && showReplies && (
-        <RepliesSection tweetId={tweet.id} isOpen={showReplies} />
-      )}
-
       <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
         <DialogContent className="bg-crypto-darkgray border-crypto-gray p-0 max-w-4xl max-h-[90vh] flex items-center justify-center overflow-hidden">
           <Button 
@@ -521,15 +506,6 @@ const TweetCard = ({
           </div>
         </DialogContent>
       </Dialog>
-
-      {showFullScreenReplies && (
-        <RepliesSection 
-          tweetId={tweet.id} 
-          isOpen={showFullScreenReplies} 
-          onClose={handleCloseFullScreenReplies}
-          showFullScreen={true}
-        />
-      )}
     </div>
   );
 };
