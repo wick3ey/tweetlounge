@@ -32,100 +32,62 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
-        let { data, error } = { data: null, error: null };
+        // First fetch tweets
+        let tweetsQuery = supabase.from('tweets').select('*');
         
-        if (feedType === 'all') {
-          // Fetch all tweets using direct query instead of RPC
-          const response = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles!tweets_author_id_fkey(
-                id, 
-                username, 
-                display_name, 
-                avatar_url,
-                avatar_nft_id,
-                avatar_nft_chain
-              )
-            `)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          data = response.data;
-          error = response.error;
-          
-          console.log('[TweetFeed] Direct query response:', data, error);
-        } else if (feedType === 'user' && userId) {
-          // Fetch user tweets using direct query
-          const response = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles!tweets_author_id_fkey(
-                id, 
-                username, 
-                display_name, 
-                avatar_url,
-                avatar_nft_id,
-                avatar_nft_chain
-              )
-            `)
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          data = response.data;
-          error = response.error;
-          
-          console.log('[TweetFeed] User tweets response:', data, error);
+        if (feedType === 'user' && userId) {
+          tweetsQuery = tweetsQuery.eq('author_id', userId);
         } else if (feedType === 'user-retweets' && userId) {
-          // Fetch user retweets using direct query
-          const response = await supabase
-            .from('tweets')
-            .select(`
-              *,
-              author:profiles!tweets_author_id_fkey(
-                id, 
-                username, 
-                display_name, 
-                avatar_url,
-                avatar_nft_id,
-                avatar_nft_chain
-              )
-            `)
-            .eq('author_id', userId)
-            .eq('is_retweet', true)
-            .order('created_at', { ascending: false })
-            .limit(limit);
-            
-          data = response.data;
-          error = response.error;
+          tweetsQuery = tweetsQuery.eq('author_id', userId).eq('is_retweet', true);
+        }
+        
+        const { data: tweetsData, error: tweetsError } = await tweetsQuery
+          .order('created_at', { ascending: false })
+          .limit(limit);
           
-          console.log('[TweetFeed] User retweets response:', data, error);
+        if (tweetsError) {
+          console.error('[TweetFeed] Error fetching tweets:', tweetsError);
+          throw tweetsError;
         }
         
-        if (error) {
-          console.error('[TweetFeed] Error fetching tweets:', error);
-          throw error;
-        }
-        
-        if (!data || data.length === 0) {
+        if (!tweetsData || tweetsData.length === 0) {
           console.log('[TweetFeed] No tweets found');
           setTweets([]);
           setLoading(false);
           return;
         }
         
-        console.log(`[TweetFeed] Fetched ${data.length} tweets`);
-        console.log(`[TweetFeed] Sample tweet:`, data[0]);
+        console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets`);
         
-        // Transform the data to match our TweetWithAuthor type
-        const tweetsWithAuthors: TweetWithAuthor[] = data.map((tweet: any) => {
-          // Access the author data from the nested author object
-          const authorData = tweet.author[0] || {};
+        // Now fetch author information for each tweet
+        const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
+        console.log('[TweetFeed] Fetching profiles for author IDs:', authorIds);
+        
+        const { data: authorsData, error: authorsError } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+          .in('id', authorIds);
           
-          console.log('[TweetFeed] Tweet author data:', authorData);
+        if (authorsError) {
+          console.error('[TweetFeed] Error fetching authors:', authorsError);
+          throw authorsError;
+        }
+        
+        // Create a map of author IDs to author data for easy lookup
+        const authorsMap = new Map();
+        authorsData?.forEach(author => {
+          authorsMap.set(author.id, author);
+        });
+        
+        console.log('[TweetFeed] Authors map created with', authorsMap.size, 'entries');
+        
+        // Combine tweet data with author data
+        const tweetsWithAuthors = tweetsData.map(tweet => {
+          const author = authorsMap.get(tweet.author_id);
+          
+          if (!author) {
+            console.warn(`[TweetFeed] No author found for tweet ${tweet.id} with author_id ${tweet.author_id}`);
+          }
           
           return {
             id: tweet.id,
@@ -139,12 +101,12 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
             original_tweet_id: tweet.original_tweet_id,
             image_url: tweet.image_url,
             author: {
-              id: authorData.id || tweet.author_id,
-              username: authorData.username || 'unknown',
-              display_name: authorData.display_name || authorData.username || 'Unknown User',
-              avatar_url: authorData.avatar_url || '',
-              avatar_nft_id: authorData.avatar_nft_id,
-              avatar_nft_chain: authorData.avatar_nft_chain
+              id: author?.id || tweet.author_id,
+              username: author?.username || 'unknown',
+              display_name: author?.display_name || 'Unknown User',
+              avatar_url: author?.avatar_url || '',
+              avatar_nft_id: author?.avatar_nft_id,
+              avatar_nft_chain: author?.avatar_nft_chain
             }
           };
         });
