@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
 // Interface for the cryptocurrency data
 export interface CryptoCurrency {
@@ -21,6 +22,12 @@ export interface MarketStats {
   fear_greed_value?: number;
   fear_greed_label?: string;
 }
+
+// Cache keys
+const CACHE_KEYS = {
+  CRYPTO_DATA: 'crypto_data',
+  MARKET_STATS: 'market_stats'
+};
 
 // Shared global cache objects - these will be shared across all component instances
 const globalCryptoCache = {
@@ -131,7 +138,16 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
   globalCryptoCache.lastError = null;
   
   try {
-    console.info('Fetching fresh crypto data');
+    // First check database cache
+    const cachedData = await getCachedData<CryptoCurrency[]>(CACHE_KEYS.CRYPTO_DATA);
+    if (cachedData) {
+      console.log('Using database cached crypto data');
+      globalCryptoCache.data = cachedData;
+      globalCryptoCache.timestamp = Date.now();
+      return cachedData;
+    }
+    
+    console.info('Fetching fresh crypto data from API');
     // CoinGecko free API endpoint for top cryptocurrencies
     const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h';
     
@@ -141,6 +157,14 @@ const fetchCryptoData = async (): Promise<CryptoCurrency[]> => {
     // Update the global cache
     globalCryptoCache.data = cryptoData;
     globalCryptoCache.timestamp = Date.now();
+    
+    // Store in database cache
+    await setCachedData(
+      CACHE_KEYS.CRYPTO_DATA, 
+      cryptoData, 
+      CACHE_DURATIONS.MEDIUM, 
+      'coingecko'
+    );
     
     return cryptoData;
   } catch (error) {
@@ -240,7 +264,16 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
   globalStatsCache.lastError = null;
   
   try {
-    console.info('Fetching fresh market stats data');
+    // First check database cache
+    const cachedData = await getCachedData<MarketStats>(CACHE_KEYS.MARKET_STATS);
+    if (cachedData) {
+      console.log('Using database cached market stats data');
+      globalStatsCache.data = cachedData;
+      globalStatsCache.timestamp = Date.now();
+      return cachedData;
+    }
+    
+    console.info('Fetching fresh market stats data from API');
     // Fetch global market data
     const url = 'https://api.coingecko.com/api/v3/global';
     
@@ -262,6 +295,14 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
     // Update global cache
     globalStatsCache.data = marketStats;
     globalStatsCache.timestamp = Date.now();
+    
+    // Store in database cache
+    await setCachedData(
+      CACHE_KEYS.MARKET_STATS, 
+      marketStats, 
+      CACHE_DURATIONS.MEDIUM, 
+      'coingecko'
+    );
     
     return marketStats;
   } catch (error) {
@@ -304,7 +345,7 @@ export const useCryptoData = (): {
       
       // Check if cache is valid (less than cache duration)
       if (globalCryptoCache.data.length > 0 && currentTime - globalCryptoCache.timestamp < CACHE_DURATION) {
-        console.log('Using cached crypto data');
+        console.log('Using in-memory cached crypto data');
         setCryptoData(globalCryptoCache.data);
       } else {
         // Fetch new data
@@ -376,7 +417,7 @@ export const useMarketStats = (): {
       
       // Check if cache is valid (less than cache duration)
       if (globalStatsCache.data && currentTime - globalStatsCache.timestamp < CACHE_DURATION) {
-        console.log('Using cached market stats data');
+        console.log('Using in-memory cached market stats data');
         setMarketStats(globalStatsCache.data);
       } else {
         // Fetch new data

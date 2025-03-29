@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
 export interface Token {
   name: string;
@@ -41,6 +42,9 @@ interface DexToolsTokenPrice {
   price24h: number;
 }
 
+// Cache key prefix for wallet tokens
+const WALLET_TOKENS_CACHE_KEY_PREFIX = 'wallet_tokens_';
+
 /**
  * Fetch tokens from a wallet address
  * @param address The wallet address
@@ -51,6 +55,15 @@ export const fetchWalletTokens = async (
 ): Promise<TokensResponse> => {
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
+    
+    // Check if we have cached data for this wallet
+    const cacheKey = `${WALLET_TOKENS_CACHE_KEY_PREFIX}${address}`;
+    const cachedData = await getCachedData<TokensResponse>(cacheKey);
+    
+    if (cachedData && cachedData.tokens.length > 0) {
+      console.log(`Using cached wallet tokens for address: ${address}`);
+      return cachedData;
+    }
     
     // Call our Supabase edge function to securely access token data
     const { data, error } = await supabase.functions.invoke('getWalletTokens', {
@@ -105,10 +118,20 @@ export const fetchWalletTokens = async (
     const processedTokens = await Promise.all(processedTokensPromises);
     console.log(`Successfully processed ${processedTokens.length} Solana tokens`);
     
-    return { 
+    const result = { 
       tokens: processedTokens,
       solPrice: data.solPrice 
     };
+    
+    // Cache the processed tokens data
+    await setCachedData(
+      cacheKey,
+      result,
+      CACHE_DURATIONS.MEDIUM,
+      'solana'
+    );
+    
+    return result;
     
   } catch (error) {
     console.error(`Error in fetchWalletTokens for Solana:`, error);

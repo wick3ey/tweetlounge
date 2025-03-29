@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { initCacheCleanupService } from './utils/cacheCleanupService';
+import { useEffect } from 'react';
 
 // Pages
 import Login from "./pages/Login";
@@ -64,5 +65,15 @@ const App = () => (
     </ThemeProvider>
   </QueryClientProvider>
 );
+
+useEffect(() => {
+  // Initialize cache cleanup service when the app starts
+  const cleanup = initCacheCleanupService();
+  
+  // Clean up when component unmounts
+  return () => {
+    if (cleanup) cleanup();
+  };
+}, []);
 
 export default App;

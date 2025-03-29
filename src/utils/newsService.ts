@@ -1,5 +1,7 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
+import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
 // News article interface
 export interface NewsArticle {
@@ -35,6 +37,9 @@ interface CryptoPanicResponse {
   previous: string | null;
   results: NewsArticle[];
 }
+
+// Cache key for news data
+const NEWS_CACHE_KEY = 'crypto_news';
 
 // API constants
 const API_BASE_URL = 'https://cryptopanic.com/api/v1';
@@ -85,7 +90,16 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
   newsCache.lastError = null;
   
   try {
-    console.info('Fetching fresh crypto news');
+    // First check database cache
+    const cachedData = await getCachedData<NewsArticle[]>(NEWS_CACHE_KEY);
+    if (cachedData && cachedData.length > 0) {
+      console.log('Using database cached news data');
+      newsCache.data = cachedData;
+      newsCache.timestamp = Date.now();
+      return cachedData;
+    }
+    
+    console.info('Fetching fresh crypto news from API');
     
     // Setting up API call to get the latest news, sorted by date (newer first)
     const targetUrl = `${API_BASE_URL}/posts/?auth_token=${AUTH_TOKEN}&currencies=BTC,ETH,SOL&public=true&kind=news&regions=en`;
@@ -141,6 +155,14 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
         newsCache.data = resultArticles;
         newsCache.timestamp = Date.now();
         newsCache.lastError = null;
+        
+        // Store in database cache
+        await setCachedData(
+          NEWS_CACHE_KEY, 
+          resultArticles, 
+          CACHE_DURATIONS.MEDIUM, 
+          'cryptopanic'
+        );
         
         return resultArticles;
       } catch (proxyError) {
