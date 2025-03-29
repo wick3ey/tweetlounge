@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -214,9 +215,9 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
       .select('id')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
-      .single();
+      .maybeSingle();
       
-    if (existingLikeError && existingLikeError.code !== 'PGRST116') {
+    if (existingLikeError) {
       console.error('Error checking existing like:', existingLikeError);
       return false;
     }
@@ -274,9 +275,9 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .select('id')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
-      .single();
+      .maybeSingle();
       
-    if (existingRetweetError && existingRetweetError.code !== 'PGRST116') {
+    if (existingRetweetError) {
       console.error('Error checking existing retweet:', existingRetweetError);
       return false;
     }
@@ -346,9 +347,9 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       .select('id')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
-      .single();
+      .maybeSingle();
       
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error checking like status:', error);
       return false;
     }
@@ -377,9 +378,9 @@ export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolea
       .select('id')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
-      .single();
+      .maybeSingle();
       
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error checking retweet status:', error);
       return false;
     }
