@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Repeat, Share2, Check, MoreHorizontal, X, Trash2 } from 'lucide-react';
@@ -262,7 +263,10 @@ const TweetCard = ({
 
   const timeAgo = safeFormatDistanceToNow(tweet.created_at, 'recently');
 
-  const isNFTVerified = tweet.author && tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
+  // Check if the author object has the avatar_nft_id and avatar_nft_chain properties
+  const isNFTVerified = tweet.author && 'avatar_nft_id' in tweet.author && 
+    tweet.author.avatar_nft_id && 'avatar_nft_chain' in tweet.author && 
+    tweet.author.avatar_nft_chain;
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
@@ -318,6 +322,9 @@ const TweetCard = ({
     );
   }
 
+  // Check if avatar_url exists in originalAuthor
+  const hasAvatarUrl = 'avatar_url' in originalAuthor && originalAuthor.avatar_url;
+
   return (
     <div className="border-b border-gray-800 bg-crypto-darkgray hover:bg-gray-900/30 transition-colors">
       <div className="p-4" onClick={handleTweetClick}>
@@ -330,7 +337,7 @@ const TweetCard = ({
         <div className="flex gap-3">
           <Link to={`/profile/${originalAuthor.username || 'unknown'}`} onClick={(e) => e.stopPropagation()}>
             <Avatar className="h-10 w-10">
-              {originalAuthor.avatar_url ? (
+              {hasAvatarUrl ? (
                 <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name || 'User'} />
               ) : null}
               <AvatarFallback className="bg-twitter-blue text-white">
