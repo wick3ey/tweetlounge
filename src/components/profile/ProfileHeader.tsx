@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, LinkIcon, MapPin, Wallet, Check, Users } from 'lucide-react';
+import { CalendarDays, LinkIcon, MapPin, Wallet, Check, Users, DollarSign } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistance } from 'date-fns';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -14,6 +14,7 @@ import { CryptoButton } from '@/components/ui/crypto-button';
 import { followUser, unfollowUser, isFollowing as checkIsFollowing, getFollowers, getFollowing } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import FollowersList from '@/components/profile/FollowersList';
+import { fetchWalletTokens } from '@/utils/tokenService';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -74,6 +75,8 @@ const ProfileHeader = ({
   const [followingUsers, setFollowingUsers] = useState<any[]>([]);
   const [isLoadingFollowers, setIsLoadingFollowers] = useState(false);
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -279,6 +282,34 @@ const ProfileHeader = ({
 
   const solscanLink = solanaAddress ? `https://solscan.io/address/${solanaAddress}` : null;
 
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!solanaAddress) return;
+      
+      try {
+        setIsLoadingBalance(true);
+        const result = await fetchWalletTokens(solanaAddress);
+        
+        if (result && result.tokens) {
+          let totalUsdValue = 0;
+          result.tokens.forEach(token => {
+            if (token.usdValue) {
+              totalUsdValue += parseFloat(token.usdValue);
+            }
+          });
+          
+          setWalletBalance(totalUsdValue.toFixed(2));
+        }
+      } catch (error) {
+        console.error("Error fetching wallet balance:", error);
+      } finally {
+        setIsLoadingBalance(false);
+      }
+    };
+    
+    fetchBalance();
+  }, [solanaAddress]);
+
   return (
     <div className="border-b border-crypto-gray pb-0">
       <AspectRatio ratio={3/1} className="bg-crypto-darkgray">
@@ -380,16 +411,32 @@ const ProfileHeader = ({
           {bio && <p className="mb-2">{bio}</p>}
           
           {solanaAddress && (
-            <div className="flex items-center text-sm text-crypto-blue">
-              <Wallet className="h-4 w-4 mr-1" />
-              <a 
-                href={solscanLink || "#"} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                View on Solscan
-              </a>
+            <div className="space-y-2 mb-3">
+              <div className="flex items-center text-sm">
+                <DollarSign className="h-4 w-4 mr-1 text-crypto-green" />
+                <span className="text-crypto-green font-semibold">
+                  {isLoadingBalance ? 'Loading balance...' : walletBalance ? `$${walletBalance} USD` : 'Balance unavailable'}
+                </span>
+              </div>
+              
+              <div className="inline-flex rounded-md px-2.5 py-1 text-xs bg-crypto-darkgray border border-crypto-gray">
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2 w-2 rounded-full bg-crypto-green"></div>
+                  <span className="text-crypto-lightgray">Connected Phantom wallet</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center text-sm text-crypto-blue">
+                <Wallet className="h-4 w-4 mr-1" />
+                <a 
+                  href={solscanLink || "#"} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  View on Solscan
+                </a>
+              </div>
             </div>
           )}
         </div>
