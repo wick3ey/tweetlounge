@@ -1,24 +1,20 @@
-
 import { useState, useRef, useEffect } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
 import { CryptoButton } from '@/components/ui/crypto-button';
-import { useAuth } from '@/contexts/AuthContext';
-import { useProfile } from '@/contexts/ProfileContext';
-import { Image, X, Smile } from 'lucide-react';
 import { replyToTweet } from '@/services/tweetService';
-import { useToast } from '@/components/ui/use-toast';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
 
 interface ReplyComposerProps {
   tweetId: string;
+  parentReplyId?: string;  // Optional: for threaded replies
   onReplySuccess: () => void;
   fullScreen?: boolean;
 }
 
-const ReplyComposer = ({ tweetId, onReplySuccess, fullScreen = false }: ReplyComposerProps) => {
+const ReplyComposer = ({ 
+  tweetId, 
+  parentReplyId, 
+  onReplySuccess, 
+  fullScreen = false 
+}: ReplyComposerProps) => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
@@ -28,7 +24,6 @@ const ReplyComposer = ({ tweetId, onReplySuccess, fullScreen = false }: ReplyCom
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Validate the tweetId when component mounts
   useEffect(() => {
     if (!tweetId || tweetId.trim() === '') {
       console.error('Invalid tweet ID provided to ReplyComposer:', tweetId);
@@ -104,7 +99,12 @@ const ReplyComposer = ({ tweetId, onReplySuccess, fullScreen = false }: ReplyCom
     
     try {
       setIsSubmitting(true);
-      const success = await replyToTweet(tweetId, content, imageFile || undefined);
+      const success = await replyToTweet(
+        tweetId, 
+        content, 
+        imageFile || undefined, 
+        parentReplyId  // Pass parent reply ID for threaded replies
+      );
       
       if (success) {
         resetForm();
@@ -135,7 +135,6 @@ const ReplyComposer = ({ tweetId, onReplySuccess, fullScreen = false }: ReplyCom
     return name.substring(0, 2).toUpperCase();
   };
 
-  // If no user is logged in, don't render the composer at all
   if (!user) return null;
 
   return (

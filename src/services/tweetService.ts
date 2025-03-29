@@ -447,7 +447,12 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
   }
 }
 
-export async function replyToTweet(tweetId: string, content: string, imageFile?: File): Promise<boolean> {
+export async function replyToTweet(
+  tweetId: string, 
+  content: string, 
+  imageFile?: File, 
+  parentReplyId?: string
+): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
       console.error('Invalid tweet ID provided for reply');
@@ -493,7 +498,8 @@ export async function replyToTweet(tweetId: string, content: string, imageFile?:
       content: content.trim(),
       user_id: userData.user.id,
       tweet_id: tweetId,
-      image_url: imageUrl
+      image_url: imageUrl,
+      parent_reply_id: parentReplyId  // Add optional parent reply reference
     };
     
     const { error } = await supabase
@@ -519,26 +525,6 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       return [];
     }
     
-    // Verify the tweet exists before fetching replies
-    try {
-      const { data: tweetExists, error: tweetCheckError } = await supabase
-        .from('tweets')
-        .select('id')
-        .eq('id', tweetId)
-        .single();
-      
-      if (tweetCheckError && tweetCheckError.code !== 'PGRST116') {
-        console.error('Error verifying tweet existence:', tweetCheckError);
-        // We'll still attempt to fetch replies in case it's a permissions issue
-      } else if (!tweetExists) {
-        console.warn('Tweet not found:', tweetId);
-      }
-    } catch (checkError) {
-      console.error('Error during tweet existence check:', checkError);
-      // Continue with reply fetch attempt anyway
-    }
-    
-    // Modified query to avoid the foreign key relationship issue
     const { data, error } = await supabase
       .from('replies')
       .select(`
@@ -560,7 +546,25 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       throw error;
     }
     
-    return data || [];
+    // Organize replies into a threaded structure
+    const repliesMap = new Map();
+    const rootReplies: any[] = [];
+
+    data?.forEach(reply => {
+      reply.children = [];
+      repliesMap.set(reply.id, reply);
+
+      if (!reply.parent_reply_id) {
+        rootReplies.push(reply);
+      } else {
+        const parentReply = repliesMap.get(reply.parent_reply_id);
+        if (parentReply) {
+          parentReply.children.push(reply);
+        }
+      }
+    });
+
+    return rootReplies;
   } catch (error) {
     console.error('Failed to fetch tweet replies:', error);
     return [];
