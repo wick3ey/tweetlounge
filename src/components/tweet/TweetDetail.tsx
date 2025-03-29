@@ -1,9 +1,9 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ interface TweetDetailProps {
 
 const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
@@ -41,7 +42,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   
   useEffect(() => {
-    // Check if user has liked/retweeted this tweet
     const checkInteractionStatus = async () => {
       if (!user) return;
       
@@ -52,7 +52,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
       setRetweeted(hasRetweeted);
     };
     
-    // Fetch comments
     const fetchComments = async () => {
       setLoadingComments(true);
       try {
@@ -169,7 +168,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
           description: "Your reply has been posted successfully!",
         });
         
-        // Refresh the comments
         const commentsData = await getTweetComments(tweet.id);
         setComments(commentsData);
         
@@ -194,7 +192,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
-  // Format numbers for engagement metrics
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
       return (num / 1000000).toFixed(1) + 'M';
@@ -206,7 +203,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-4 p-4 border-b border-gray-800 bg-crypto-black/95 backdrop-blur-sm">
         <Button 
           onClick={onClose} 
@@ -219,7 +215,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
         <h2 className="text-lg font-semibold">Tweet</h2>
       </div>
 
-      {/* Tweet Content */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex gap-3">
           <Link to={`/profile/${tweet.author.username}`}>
@@ -238,7 +233,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
                 {tweet.author.display_name}
               </Link>
               
-              {/* Verified Badge */}
               {isNFTVerified && (
                 <HoverCard openDelay={200} closeDelay={100}>
                   <HoverCardTrigger asChild>
@@ -331,16 +325,16 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
         </div>
       </div>
 
-      {/* Comment Input */}
       {user && (
         <div className="p-4 border-b border-gray-800">
           <div className="flex gap-3">
             <Avatar className="h-10 w-10">
-              {user.user_metadata?.avatar_url ? (
-                <AvatarImage src={user.user_metadata.avatar_url} />
+              {profile?.avatar_url ? (
+                <AvatarImage src={profile.avatar_url} />
               ) : null}
               <AvatarFallback className="bg-gray-700">
-                {user.email ? user.email.substring(0, 2).toUpperCase() : "U"}
+                {profile?.display_name ? profile.display_name.substring(0, 2).toUpperCase() : 
+                 (profile?.username ? profile.username.substring(0, 2).toUpperCase() : "U")}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
@@ -366,7 +360,6 @@ const TweetDetail = ({ tweet, onClose, onAction }: TweetDetailProps) => {
         </div>
       )}
 
-      {/* Comments */}
       <div className="flex-1 overflow-y-auto">
         {loadingComments ? (
           <div className="flex justify-center py-10">
