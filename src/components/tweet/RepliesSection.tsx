@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweetReplies } from '@/services/tweetService';
 import Reply from './Reply';
@@ -53,9 +52,9 @@ const RepliesSection = ({
       const data = await getTweetReplies(tweetId);
       
       if (Array.isArray(data)) {
-        // Validate the created_at date for each reply with stronger validation
+        // Enhanced validation for each reply's created_at date
         const validatedReplies = data.map(reply => {
-          // Check if created_at exists and is a string
+          // First level check: ensure created_at exists and is a string
           if (!reply.created_at || typeof reply.created_at !== 'string') {
             console.warn("Missing or invalid created_at in reply, using current time:", reply.id);
             return {
@@ -64,23 +63,35 @@ const RepliesSection = ({
             };
           }
           
+          // Second level check: ensure the date string can be parsed correctly
           try {
-            // Create a date object to test if it's valid
-            const dateObj = new Date(reply.created_at);
-            // Check if the date is valid by testing if it returns NaN when converted to a number
-            if (isNaN(dateObj.getTime())) {
-              throw new Error("Invalid date");
+            const dateString = reply.created_at.trim();
+            const dateObj = new Date(dateString);
+            
+            // Check if date is valid
+            if (isNaN(dateObj.getTime()) || dateObj.toString() === "Invalid Date") {
+              throw new Error("Invalid date object");
             }
+            
+            // Extra validation for reasonable date ranges
+            const now = new Date();
+            const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
+            if (dateObj > new Date(now.getTime() + oneYearInMs) || 
+                dateObj < new Date(now.getTime() - 10 * oneYearInMs)) {
+              throw new Error("Date out of reasonable range");
+            }
+            
             return reply;
           } catch (e) {
-            // If the date is invalid, set it to the current time
-            console.warn("Invalid date format in reply, using current time instead:", reply.id);
+            // If any validation fails, use current time
+            console.warn("Invalid date format in reply, using current time instead:", reply.id, e);
             return {
               ...reply,
               created_at: new Date().toISOString()
             };
           }
         });
+        
         setReplies(validatedReplies);
       } else {
         console.error('Unexpected response format:', data);
