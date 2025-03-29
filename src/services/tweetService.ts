@@ -291,7 +291,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     }
     
     const { error } = await supabase
-      .from('replies')
+      .from('comments')
       .insert({
         content,
         user_id: user.id,
@@ -373,7 +373,7 @@ export async function getTweetComments(tweetId: string, limit = 20, offset = 0):
         p_tweet_id: tweetId,
         limit_count: limit,
         offset_count: offset
-      } as any);
+      });
       
     if (error) {
       console.error('Error fetching tweet comments:', error);
