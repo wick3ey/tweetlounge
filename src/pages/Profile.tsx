@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
-import { getProfileById } from '@/services/profileService';
 
 // Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
@@ -25,14 +25,9 @@ const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-interface ProfileProps {
-  profileUsername?: string;
-  profileUserId?: string | null;
-}
-
-const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
+const Profile = () => {
   const { user } = useAuth();
-  const { profile: currentUserProfile, isLoading: currentProfileLoading, error: currentProfileError } = useProfile();
+  const { profile, isLoading, error } = useProfile();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [userCreatedAt, setUserCreatedAt] = useState<string | null>(null);
@@ -40,90 +35,54 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
   const [isNFTVerified, setIsNFTVerified] = useState(false);
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
   
-  // Determine if we're viewing the current user's profile
-  const effectiveUsername = profileUsername || username;
-  const isCurrentUser = !effectiveUsername || (currentUserProfile?.username === effectiveUsername);
+  const isCurrentUser = !username || (profile?.username === username);
   
   useEffect(() => {
-    const loadProfileData = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // If it's the current user's profile, use the profile from context
-        if (isCurrentUser && currentUserProfile) {
-          setProfileData(currentUserProfile);
-          
-          // Fetch creation date for current user
-          if (user) {
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('created_at')
-              .eq('id', user.id)
-              .single();
-              
-            if (!error && data) {
-              setUserCreatedAt(data.created_at);
-            }
-          }
-        } 
-        // Otherwise fetch the profile by username or ID
-        else {
-          let profileResult;
-          
-          if (profileUserId) {
-            profileResult = await getProfileById(profileUserId);
-          } else if (effectiveUsername) {
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('username', effectiveUsername)
-              .single();
-              
-            if (error) throw error;
-            profileResult = data;
+    const fetchUserCreationDate = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('created_at')
+            .eq('id', user.id)
+            .single();
+            
+          if (error) {
+            console.error("Error fetching user creation date:", error);
+            return;
           }
           
-          if (!profileResult) {
-            throw new Error('Profile not found');
+          if (data && 'created_at' in data) {
+            setUserCreatedAt(data.created_at);
           }
-          
-          setProfileData(profileResult);
-          setUserCreatedAt(profileResult.created_at);
+        } catch (error) {
+          console.error("Error in fetchUserCreationDate:", error);
         }
-      } catch (error) {
-        console.error("Error loading profile:", error);
-        setError(error.message || 'Failed to load profile');
-      } finally {
-        setIsLoading(false);
       }
     };
     
-    loadProfileData();
-  }, [isCurrentUser, currentUserProfile, effectiveUsername, profileUserId, user]);
+    fetchUserCreationDate();
+  }, [user]);
   
   useEffect(() => {
     const checkNFTVerification = async () => {
-      if (profileData && user) {
-        console.log("Checking NFT verification for profile:", profileData);
+      if (profile && user) {
+        console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
-          isCurrentUser ? user.id : profileData.id,
-          profileData.ethereum_address,
-          profileData.solana_address
+          user.id,
+          profile.ethereum_address,
+          profile.solana_address
         );
         console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
     
-    if (!isLoading && profileData) {
+    if (!isLoading && profile) {
       checkNFTVerification();
     }
-  }, [profileData, isLoading, user, isCurrentUser]);
+  }, [profile, isLoading, user]);
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -142,13 +101,12 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
   };
 
   const handleOpenProfileImage = () => {
-    if (profileData?.avatar_url) {
+    if (profile?.avatar_url) {
       setShowProfileImage(true);
     }
   };
   
-  // If still loading data or waiting for current user profile
-  if (isLoading || (isCurrentUser && currentProfileLoading)) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
@@ -159,13 +117,11 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
     );
   }
   
-  // If there was an error fetching the profile
-  if (error || (isCurrentUser && currentProfileError)) {
-    const errorMessage = error || currentProfileError;
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
-          <div className="text-crypto-red mb-4 text-center">Error loading profile: {errorMessage}</div>
+          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
@@ -177,12 +133,11 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
     );
   }
   
-  // If no profile data was found
-  if (!profileData) {
+  if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
-          <div className="text-crypto-lightgray mb-4">Profile not found.</div>
+          <div className="text-crypto-lightgray mb-4">Profile not found or you're not logged in.</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
@@ -201,19 +156,19 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
       <ProfileHeader
-        userId={profileData.id || ''}
-        username={profileData.username || 'username'}
-        displayName={profileData.display_name || 'Display Name'}
-        avatarUrl={profileData.avatar_url || undefined}
-        coverUrl={profileData.cover_url || undefined}
-        bio={profileData.bio || undefined}
-        location={profileData.location || undefined}
-        website={profileData.website ? formatWebsiteUrl(profileData.website) : undefined}
-        ethereumAddress={profileData.ethereum_address}
-        solanaAddress={profileData.solana_address}
+        userId={user?.id || ''}
+        username={profile.username || 'username'}
+        displayName={profile.display_name || 'Display Name'}
+        avatarUrl={profile.avatar_url || undefined}
+        coverUrl={profile.cover_url || undefined}
+        bio={profile.bio || undefined}
+        location={profile.location || undefined}
+        website={profile.website ? formatWebsiteUrl(profile.website) : undefined}
+        ethereumAddress={profile.ethereum_address}
+        solanaAddress={profile.solana_address}
         isCurrentUser={isCurrentUser}
-        followersCount={profileData.followers_count || 0}
-        followingCount={profileData.following_count || 0}
+        followersCount={0} // placeholder
+        followingCount={0} // placeholder
         joinedDate={userCreatedAt || new Date().toISOString()}
         onEditProfile={handleEditProfile}
         onOpenNFTBrowser={handleOpenNFTBrowser}
@@ -222,47 +177,43 @@ const Profile = ({ profileUsername, profileUserId }: ProfileProps) => {
       />
       
       <ProfileTabs 
-        userId={profileData.id || ''} 
+        userId={user?.id || ''} 
         isCurrentUser={isCurrentUser}
-        solanaAddress={profileData.solana_address}
+        solanaAddress={profile.solana_address}
       />
       
-      {isCurrentUser && (
-        <Dialog open={isEditing} onOpenChange={setIsEditing}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
-            <DialogHeader>
-              <DialogTitle className="text-crypto-blue">Edit profile</DialogTitle>
-            </DialogHeader>
-            <ProfileEditForm onClose={handleCloseEditForm} />
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
+          <DialogHeader>
+            <DialogTitle className="text-crypto-blue">Edit profile</DialogTitle>
+          </DialogHeader>
+          <ProfileEditForm onClose={handleCloseEditForm} />
+        </DialogContent>
+      </Dialog>
       
-      {isCurrentUser && (
-        <Dialog open={showNFTBrowser} onOpenChange={setShowNFTBrowser}>
-          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
-            <DialogHeader>
-              <DialogTitle className="text-crypto-blue">Choose NFT as Profile Picture</DialogTitle>
-            </DialogHeader>
-            {profileData && (
-              <NFTBrowser 
-                ethereumAddress={profileData.ethereum_address} 
-                solanaAddress={profileData.solana_address}
-                onNFTSelected={handleCloseNFTBrowser}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={showNFTBrowser} onOpenChange={setShowNFTBrowser}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
+          <DialogHeader>
+            <DialogTitle className="text-crypto-blue">Choose NFT as Profile Picture</DialogTitle>
+          </DialogHeader>
+          {profile && (
+            <NFTBrowser 
+              ethereumAddress={profile.ethereum_address} 
+              solanaAddress={profile.solana_address}
+              onNFTSelected={handleCloseNFTBrowser}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog for enlarged profile image */}
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">
-            {profileData?.avatar_url && (
+            {profile?.avatar_url && (
               <img 
-                src={profileData.avatar_url} 
-                alt={profileData.display_name || profileData.username || 'Profile'} 
+                src={profile.avatar_url} 
+                alt={profile.display_name || profile.username || 'Profile'} 
                 className="w-full h-auto"
               />
             )}
