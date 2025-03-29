@@ -1,5 +1,5 @@
 
-import { Search, TrendingUp, MoreHorizontal, LineChart, Newspaper, Users } from 'lucide-react';
+import { Search, TrendingUp, MoreHorizontal, LineChart, Newspaper, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,10 +24,19 @@ type UserSuggestion = {
   avatar_nft_chain: string | null;
 };
 
+// Define the type for search results
+type SearchResult = UserSuggestion & {
+  similarity: number;
+};
+
 const RightSidebar = () => {
   const [activeTab, setActiveTab] = useState("stats");
   const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -70,6 +79,50 @@ const RightSidebar = () => {
     };
   }, [user, toast]);
 
+  // Search users based on search term
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!searchTerm || searchTerm.length < 2) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      try {
+        setIsSearching(true);
+        const { data, error } = await supabase.rpc('search_users', {
+          search_term: searchTerm,
+          limit_count: 10
+        });
+        
+        if (error) {
+          console.error('Error searching users:', error);
+          throw error;
+        }
+        
+        setSearchResults(data || []);
+        setShowSearchResults(true);
+      } catch (error) {
+        toast({
+          title: "Search failed",
+          description: "Could not search for users. Please try again later.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    // Debounce search to prevent too many requests
+    const timeoutId = setTimeout(() => {
+      searchUsers();
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchTerm, toast]);
+
   // Generate a placeholder for the avatar
   const generateAvatarPlaceholder = (name: string | null) => {
     if (!name) return "U";
@@ -84,6 +137,8 @@ const RightSidebar = () => {
   const navigateToProfile = (username: string | null) => {
     if (username) {
       navigate(`/profile/${username}`);
+      // Clear search after navigation
+      clearSearch();
     } else {
       toast({
         title: "Profile not found",
@@ -91,6 +146,13 @@ const RightSidebar = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Clear search and hide results
+  const clearSearch = () => {
+    setSearchTerm("");
+    setSearchResults([]);
+    setShowSearchResults(false);
   };
   
   return (
@@ -101,9 +163,55 @@ const RightSidebar = () => {
             <Search className="h-4 w-4 text-gray-500" />
           </div>
           <Input 
-            className="pl-10 bg-gray-900 border-gray-800 rounded-full text-sm py-5"
-            placeholder="Search"
+            className="pl-10 pr-10 bg-gray-900 border-gray-800 rounded-full text-sm py-5"
+            placeholder="Search for users by @username"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
+          {searchTerm && (
+            <div className="absolute inset-y-0 right-3 flex items-center">
+              <button 
+                onClick={clearSearch}
+                className="text-gray-500 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && (
+            <div className="absolute mt-1 w-full bg-black border border-gray-800 rounded-lg shadow-lg py-2 z-20">
+              {isSearching ? (
+                <div className="p-4 text-center">
+                  <div className="animate-pulse text-gray-500">Searching...</div>
+                </div>
+              ) : searchResults.length > 0 ? (
+                searchResults.map((result) => (
+                  <div 
+                    key={result.id} 
+                    className="px-4 py-2 hover:bg-gray-900 cursor-pointer"
+                    onClick={() => navigateToProfile(result.username)}
+                  >
+                    <div className="flex items-center">
+                      <Avatar className="h-8 w-8 border border-gray-800">
+                        <AvatarImage src={result.avatar_url || ''} alt={result.display_name || 'User'} />
+                        <AvatarFallback>{generateAvatarPlaceholder(result.display_name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3">
+                        <p className="font-medium text-white text-sm">{result.display_name || 'Unnamed User'}</p>
+                        <p className="text-xs text-gray-500">@{result.username || 'user'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-gray-500 text-center">
+                  No users found matching "{searchTerm}"
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         {/* Tabbed Content */}

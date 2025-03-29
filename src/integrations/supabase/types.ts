@@ -519,6 +519,21 @@ export type Database = {
           avatar_nft_chain: string
         }[]
       }
+      search_users: {
+        Args: {
+          search_term: string
+          limit_count?: number
+        }
+        Returns: {
+          id: string
+          username: string
+          display_name: string
+          avatar_url: string
+          avatar_nft_id: string
+          avatar_nft_chain: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
