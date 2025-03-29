@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -224,11 +223,71 @@ const LeftSidebar = () => {
           </Link>
         ))}
         
-        <DrawerTrigger asChild onClick={() => setMobileMenuOpen(true)}>
-          <button className="p-2 rounded-full text-gray-400">
-            <MoreHorizontal className="h-6 w-6" />
-          </button>
-        </DrawerTrigger>
+        <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <DrawerTrigger asChild onClick={() => setMobileMenuOpen(true)}>
+            <button className="p-2 rounded-full text-gray-400">
+              <MoreHorizontal className="h-6 w-6" />
+            </button>
+          </DrawerTrigger>
+          <DrawerContent className="bg-black border-t border-gray-800 p-4">
+            <div className="flex flex-col space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center mb-2">
+                <div className="bg-crypto-blue rounded-full w-10 h-10 flex items-center justify-center">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xl font-bold ml-3">TweetLounge</span>
+              </div>
+              
+              {user && (
+                <div className="flex items-center p-3 rounded-lg bg-gray-900 mb-4">
+                  <Avatar className="h-12 w-12">
+                    {profile?.avatar_url ? (
+                      <AvatarImage src={profile.avatar_url} alt="Profile" />
+                    ) : null}
+                    <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="ml-3">
+                    <p className="font-bold">
+                      {profile?.display_name || user.email?.split('@')[0]}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      @{profile?.username || user.email?.split('@')[0]}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-2">
+                {[...primaryMenuItems, ...secondaryMenuItems].map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center p-3 rounded-lg",
+                      isActive(item.path) 
+                        ? "bg-gray-800 text-white" 
+                        : "text-gray-400 hover:bg-gray-900"
+                    )}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <item.icon className="h-5 w-5 mr-3" />
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+              
+              <Button 
+                className="mt-2 bg-crypto-blue hover:bg-crypto-blue/90 text-white rounded-full p-3 shadow-md"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <MessageSquare className="h-5 w-5 mr-2" />
+                <span className="font-bold">Tweeta</span>
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
     </div>
   );
@@ -237,67 +296,6 @@ const LeftSidebar = () => {
     <>
       <DesktopSidebar />
       <MobileSidebar />
-      
-      <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <DrawerContent className="bg-black border-t border-gray-800 p-4">
-          <div className="flex flex-col space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center mb-2">
-              <div className="bg-crypto-blue rounded-full w-10 h-10 flex items-center justify-center">
-                <Zap className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl font-bold ml-3">TweetLounge</span>
-            </div>
-            
-            {user && (
-              <div className="flex items-center p-3 rounded-lg bg-gray-900 mb-4">
-                <Avatar className="h-12 w-12">
-                  {profile?.avatar_url ? (
-                    <AvatarImage src={profile.avatar_url} alt="Profile" />
-                  ) : null}
-                  <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="ml-3">
-                  <p className="font-bold">
-                    {profile?.display_name || user.email?.split('@')[0]}
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    @{profile?.username || user.email?.split('@')[0]}
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-2 gap-2">
-              {[...primaryMenuItems, ...secondaryMenuItems].map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center p-3 rounded-lg",
-                    isActive(item.path) 
-                      ? "bg-gray-800 text-white" 
-                      : "text-gray-400 hover:bg-gray-900"
-                  )}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <item.icon className="h-5 w-5 mr-3" />
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </div>
-            
-            <Button 
-              className="mt-2 bg-crypto-blue hover:bg-crypto-blue/90 text-white rounded-full p-3 shadow-md"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <MessageSquare className="h-5 w-5 mr-2" />
-              <span className="font-bold">Tweeta</span>
-            </Button>
-          </div>
-        </DrawerContent>
-      </Drawer>
     </>
   );
 };
