@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const DEXTOOLS_API_KEY = "XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd";
@@ -11,7 +10,7 @@ const corsHeaders = {
   'Cache-Control': 'public, max-age=1800', // 30 minutes cache
 };
 
-// Fallback hot pools data
+// Fallback hot pools data (keep this as backup)
 const fallbackHotPools = [
   {
     address: "9XyQVZKLw2qMcvtaXGKTTeZaR2pKRfV6ts4zVk6ji5LC",
@@ -23,13 +22,13 @@ const fallbackHotPools = [
       address: "4TBi66vi32S7J8X1A6eWfaLHYmUXu7CStcEmsJQdpump",
       symbol: "PUMP",
       name: "Solana Pump",
-      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So1111111111111111111111111111111111111112/logo.png"
     },
     sideToken: {
-      address: "So11111111111111111111111111111111111111112",
+      address: "So1111111111111111111111111111111111111112",
       symbol: "SOL",
       name: "Wrapped SOL",
-      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So1111111111111111111111111111111111111112/logo.png"
     },
     fee: 0.3,
     rank: 1
@@ -65,7 +64,7 @@ const fallbackHotPools = [
       address: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
       symbol: "mSOL",
       name: "Marinade staked SOL",
-      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+      logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So1111111111111111111111111111111111111112/logo.png"
     },
     sideToken: {
       address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
@@ -100,7 +99,7 @@ serve(async (req) => {
 
     console.log("Fetching hot pools from DEXTools API");
 
-    // Fetch hot pools
+    // Fetch hot pools directly from DEXTools
     const response = await fetch(`${API_BASE_URL}/ranking/solana/hotpools`, {
       method: "GET",
       headers: {
@@ -109,81 +108,70 @@ serve(async (req) => {
       },
     });
 
-    let hotPools = fallbackHotPools;
+    let hotPools = [];
 
     if (response.ok) {
       try {
-        const data = await response.json();
+        const responseData = await response.json();
         console.log("Successfully fetched hot pools");
         
-        if (data && Array.isArray(data)) {
-          hotPools = data;
-          console.log("Successfully fetched hot pools, found", hotPools.length, "pools");
-        } else if (data && data.data && Array.isArray(data.data)) {
-          hotPools = data.data;
-          console.log("Successfully fetched hot pools from nested data, found", hotPools.length, "pools");
+        // Check if the response has the correct structure
+        if (responseData && responseData.statusCode === 200 && Array.isArray(responseData.data)) {
+          hotPools = responseData.data;
+          console.log("Successfully parsed hot pools data from API, found", hotPools.length, "pools");
         } else {
-          console.log("Hot pools data has unexpected format, using fallback");
+          console.log("Hot pools API response has unexpected format, using fallback");
+          hotPools = fallbackHotPools;
         }
       } catch (error) {
         console.error("Error parsing hot pools response:", error);
         console.log("Using fallback hot pools data due to parse error");
+        hotPools = fallbackHotPools;
       }
     } else {
       const errorText = await response.text();
       console.error(`Hot pools API error (${response.status}):`, errorText);
       console.log("Using fallback hot pools data due to API error");
+      hotPools = fallbackHotPools;
     }
 
-    // Normalize exchange names to ensure consistency
-    const normalizeExchangeName = (name) => {
-      if (!name) return "Unknown";
+    // Process the hot pools data to match the expected format in our frontend
+    const processedHotPools = hotPools.map(pool => {
+      // Extract exchange details
+      const exchangeName = pool.exchange?.name || "Unknown";
+      const exchangeFactory = pool.exchange?.factory || "";
       
-      // Map common variations to standard names
-      const standardNames = {
-        "raydium": "Raydium",
-        "orca": "Orca",
-        "jupiter": "Jupiter",
-        "openbook": "OpenBook",
-        "meteora": "Meteora",
-        "lifinity": "Lifinity"
+      // Format main token
+      const mainToken = {
+        address: pool.mainToken?.address || "",
+        name: pool.mainToken?.name || "Unknown Token",
+        symbol: pool.mainToken?.symbol || "???",
+        logo: pool.mainToken?.logo || `https://placehold.co/200x200?text=${pool.mainToken?.symbol?.substring(0, 2) || "??"}`
       };
       
-      // Check for exact match (case-insensitive)
-      const lowercaseName = name.toLowerCase();
-      if (standardNames[lowercaseName]) {
-        return standardNames[lowercaseName];
-      }
+      // Format side token
+      const sideToken = {
+        address: pool.sideToken?.address || "",
+        name: pool.sideToken?.name || "Unknown Token",
+        symbol: pool.sideToken?.symbol || "???",
+        logo: pool.sideToken?.logo || `https://placehold.co/200x200?text=${pool.sideToken?.symbol?.substring(0, 2) || "??"}`
+      };
       
-      // Check for partial match
-      for (const [key, value] of Object.entries(standardNames)) {
-        if (lowercaseName.includes(key)) {
-          return value;
-        }
+      // Try to get SOL logo for Wrapped SOL
+      if (sideToken.address === "So1111111111111111111111111111111111111112") {
+        sideToken.logo = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So1111111111111111111111111111111111111112/logo.png";
       }
-      
-      // Format name if no matches
-      return name.split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-    };
-
-    // Pre-process the hot pools to ensure all required properties exist
-    const processedHotPools = hotPools.map(pool => {
-      // Ensure exchangeName is always present and valid
-      const exchangeName = normalizeExchangeName(pool.exchangeName || "Unknown");
       
       return {
-        ...pool,
-        exchangeName: exchangeName, // Ensure exchangeName is explicitly set
-        mainToken: {
-          ...pool.mainToken,
-          logo: pool.mainToken?.logo || 'https://placehold.co/200x200?text=No+Logo'
-        },
-        sideToken: {
-          ...pool.sideToken,
-          logo: pool.sideToken?.logo || 'https://placehold.co/200x200?text=No+Logo'
-        }
+        address: pool.address || "",
+        exchangeName: exchangeName,
+        exchangeFactory: exchangeFactory,
+        creationTime: pool.creationTime || "",
+        creationBlock: pool.creationBlock || 0,
+        mainToken: mainToken,
+        sideToken: sideToken,
+        fee: 0.3, // Default fee
+        rank: pool.rank || 0
       };
     });
 

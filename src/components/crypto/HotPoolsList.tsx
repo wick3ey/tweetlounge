@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { PoolInfo, TokenInfo, preloadImages } from '@/services/marketService';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,13 +10,6 @@ import { Eye } from 'lucide-react';
 interface HotPoolsListProps {
   pools: PoolInfo[] | undefined;
 }
-
-type TokenMetadataCache = {
-  [key: string]: {
-    data: TokenInfo | null;
-    timestamp: number;
-  }
-};
 
 const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   const safePools = Array.isArray(pools) ? pools : [];
@@ -51,15 +44,19 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
     // Map of known DEX names to their proper display format
     const dexNames: {[key: string]: string} = {
       "raydium": "Raydium",
+      "raydium cpmm": "Raydium",
+      "raydium amm": "Raydium",
       "orca": "Orca",
       "jupiter": "Jupiter",
       "openbook": "OpenBook",
       "serum": "Serum",
       "meteora": "Meteora",
+      "meteora dlmm": "Meteora",
       "lifinity": "Lifinity",
       "cykura": "Cykura",
       "aldrin": "Aldrin",
       "atrix": "Atrix",
+      "step finance": "Step Finance",
       "step": "Step Finance",
       "solflare": "Solflare",
       "mango": "Mango Markets",
@@ -68,7 +65,8 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
       "saros": "Saros",
       "symmetry": "Symmetry",
       "cropper": "Cropper",
-      "tensor": "Tensor"
+      "tensor": "Tensor",
+      "pumpswap": "PumpSwap"
     };
     
     // First check if the exact name is in our map (case-insensitive)
@@ -167,12 +165,12 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
         </TableHeader>
         <TableBody>
           {safePools.map((pool, index) => {
-            // Format the DEX name properly from both server-normalized and client-normalized versions
+            // Format the DEX name properly
             const dexName = formatDexName(pool.exchangeName);
             
             return (
               <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
-                <TableCell className="font-medium">{index + 1}</TableCell>
+                <TableCell className="font-medium">{pool.rank || (index + 1)}</TableCell>
                 <TableCell>
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-2">
