@@ -29,6 +29,11 @@ const RecentTokensList: React.FC<RecentTokensListProps> = ({ tokens }) => {
           .catch(err => console.error('Error preloading recent token images:', err));
       }
     }
+    
+    // Reset the flag when tokens change
+    return () => {
+      imagesPreloadedRef.current = false;
+    };
   }, [safeTokens]);
   
   const formatDate = (dateString: string) => {

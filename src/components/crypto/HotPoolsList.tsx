@@ -20,8 +20,6 @@ type TokenMetadataCache = {
 
 const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
   const safePools = Array.isArray(pools) ? pools : [];
-  const [poolMetadata, setPoolMetadata] = useState<{[key: string]: TokenInfo | null}>({});
-  const metadataCacheRef = useRef<TokenMetadataCache>({});
   const imagesPreloadedRef = useRef<boolean>(false);
   
   useEffect(() => {
@@ -43,6 +41,11 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
           .catch(err => console.error('Error preloading token images:', err));
       }
     }
+    
+    // Reset preloaded flag when pools change completely
+    return () => {
+      imagesPreloadedRef.current = false;
+    };
   }, [safePools]);
   
   const formatDexName = (name?: string): string => {
@@ -167,7 +170,7 @@ const HotPoolsList: React.FC<HotPoolsListProps> = ({ pools }) => {
         </TableHeader>
         <TableBody>
           {safePools.map((pool, index) => {
-            // Format the DEX name properly
+            // Format the DEX name properly from both server-normalized and client-normalized versions
             const dexName = formatDexName(pool.exchangeName);
             
             return (

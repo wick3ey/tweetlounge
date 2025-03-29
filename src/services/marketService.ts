@@ -93,17 +93,22 @@ function getFromCache<T>(key: string, maxAge: number): { data: T | null, isFresh
     // Try localStorage cache next (persists across page refreshes)
     const cachedItem = localStorage.getItem(key);
     if (cachedItem) {
-      const { data, timestamp } = JSON.parse(cachedItem);
-      const isFresh = Date.now() - timestamp < maxAge;
-      
-      // Even if not fresh, we can still use it while fetching new data
-      if (data) {
-        console.log(`Using ${isFresh ? 'fresh' : 'stale'} localStorage data for ${key}`);
+      try {
+        const { data, timestamp } = JSON.parse(cachedItem);
+        const isFresh = Date.now() - timestamp < maxAge;
         
-        // Add to memory cache for quicker access
-        MEMORY_CACHE[key] = { data, timestamp };
-        
-        return { data: data as T, isFresh };
+        // Even if not fresh, we can still use it while fetching new data
+        if (data) {
+          console.log(`Using ${isFresh ? 'fresh' : 'stale'} localStorage data for ${key}`);
+          
+          // Add to memory cache for quicker access
+          MEMORY_CACHE[key] = { data, timestamp };
+          
+          return { data: data as T, isFresh };
+        }
+      } catch (parseError) {
+        console.error(`Error parsing cached data for ${key}:`, parseError);
+        localStorage.removeItem(key); // Remove invalid cache entry
       }
     }
     
@@ -117,6 +122,11 @@ function getFromCache<T>(key: string, maxAge: number): { data: T | null, isFresh
 // Helper function to store data in cache
 function updateCache(key: string, data: any): void {
   try {
+    if (!data) {
+      console.warn(`Attempted to cache null or undefined data for ${key}`);
+      return;
+    }
+    
     const cacheItem = {
       data,
       timestamp: Date.now()
@@ -140,6 +150,9 @@ function updateCache(key: string, data: any): void {
 export const preloadImages = async (urls: string[]): Promise<void> => {
   if (!urls || urls.length === 0) return;
   
+  const validUrls = urls.filter(url => !!url && typeof url === 'string');
+  if (validUrls.length === 0) return;
+  
   // Check cache first
   const { data: cachedData, isFresh } = getFromCache<{[url: string]: boolean}>(
     CACHE_KEYS.TOKEN_IMAGES, 
@@ -147,9 +160,9 @@ export const preloadImages = async (urls: string[]): Promise<void> => {
   );
   
   // Filter out already cached images
-  let imagesToLoad = urls;
+  let imagesToLoad = validUrls;
   if (cachedData && isFresh) {
-    imagesToLoad = urls.filter(url => !cachedData[url]);
+    imagesToLoad = validUrls.filter(url => !cachedData[url]);
     if (imagesToLoad.length === 0) {
       console.log('All images are already cached, no need to preload');
       return; // All images are already cached
@@ -173,6 +186,11 @@ export const preloadImages = async (urls: string[]): Promise<void> => {
     await Promise.all(
       batch.map(url => {
         return new Promise<void>((resolve) => {
+          if (!url || typeof url !== 'string') {
+            resolve();
+            return;
+          }
+          
           if (IMAGE_PRELOAD_STATUS[url] === 'loading' || IMAGE_PRELOAD_STATUS[url] === 'loaded') {
             resolve();
             return;
@@ -338,7 +356,7 @@ export const fetchHotPools = async (): Promise<HotPoolsData | null> => {
   );
   
   // Return cache data immediately if it exists
-  if (cachedData) {
+  if (cachedData && cachedData.hotPools && cachedData.hotPools.length > 0) {
     console.log(`Hot pools: using ${isFresh ? 'fresh' : 'stale'} cached data from ${cachedData.source || 'unknown'} source`);
     
     // If we have hot pools data, preload the images in the background
@@ -510,6 +528,11 @@ async function fetchAndUpdateTokenDetails(address: string): Promise<TokenInfo | 
 // Function to fetch token metadata with improved caching and error handling
 export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | null> => {
   try {
+    if (!address) {
+      console.error("Cannot fetch token metadata for empty address");
+      return null;
+    }
+    
     // Check if we recently failed to fetch this token and should wait before retrying
     const failedRequest = FAILED_REQUESTS[address];
     if (failedRequest) {
@@ -534,7 +557,9 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       
       // If we have cached data but it's stale, still return it but fetch new data in background
       setTimeout(() => {
-        fetchNewTokenMetadata(address).catch(console.error);
+        fetchNewTokenMetadata(address).catch(err => 
+          console.error(`Background refresh failed for token ${address}:`, err)
+        );
       }, 0);
       
       return cachedData;
@@ -560,7 +585,13 @@ export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | n
       return cachedData;
     }
     
-    return null;
+    // Create a fallback token if nothing else available
+    return {
+      address,
+      name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+      symbol: "???",
+      logo: `https://placehold.co/200x200/8B4513/ffffff?text=${address.substring(0, 2)}`,
+    };
   }
 };
 
@@ -584,7 +615,18 @@ async function fetchNewTokenMetadata(address: string): Promise<TokenInfo | null>
       FAILED_REQUESTS[address].count++;
       FAILED_REQUESTS[address].lastAttempt = Date.now();
       
-      return null;
+      // Create a fallback token for errors
+      const fallbackToken: TokenInfo = {
+        address,
+        name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+        symbol: "???",
+        logo: `https://placehold.co/200x200/8B4513/ffffff?text=${address.substring(0, 2)}`,
+      };
+      
+      // Cache fallback for a short time
+      updateCache(`${CACHE_KEYS.TOKEN_METADATA_PREFIX}${address}`, fallbackToken);
+      
+      return fallbackToken;
     }
     
     // Reset failure count on successful request
@@ -618,7 +660,13 @@ async function fetchNewTokenMetadata(address: string): Promise<TokenInfo | null>
     FAILED_REQUESTS[address].count++;
     FAILED_REQUESTS[address].lastAttempt = Date.now();
     
-    return null;
+    // Create a fallback token for errors
+    return {
+      address,
+      name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+      symbol: "???",
+      logo: `https://placehold.co/200x200/8B4513/ffffff?text=${address.substring(0, 2)}`,
+    };
   }
 }
 

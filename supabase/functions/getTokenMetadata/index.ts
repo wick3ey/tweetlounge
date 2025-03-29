@@ -8,6 +8,7 @@ const API_BASE_URL = "https://public-api.dextools.io/trial/v2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Cache-Control': 'public, max-age=86400', // 24 hours cache
 };
 
 // Implement a basic in-memory cache
@@ -17,7 +18,7 @@ interface CacheEntry {
 }
 
 const metadataCache: Map<string, CacheEntry> = new Map();
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 // Rate limiting variables
 let lastRequestTime = 0;
@@ -61,6 +62,34 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   }
 }
 
+// Fallback token data for common tokens
+const fallbackTokens = {
+  // SOL tokens
+  "So11111111111111111111111111111111111111112": {
+    address: "So11111111111111111111111111111111111111112",
+    name: "Wrapped SOL",
+    symbol: "SOL",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+    decimals: 9
+  },
+  // USDC token
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
+    address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    name: "USD Coin",
+    symbol: "USDC",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
+    decimals: 6
+  },
+  // BONK token
+  "BNTYkJdHdJzQzgJLHEquuCHAiX8VqePTjAmJi1GTh2XU": {
+    address: "BNTYkJdHdJzQzgJLHEquuCHAiX8VqePTjAmJi1GTh2XU",
+    name: "Bonk",
+    symbol: "BONK",
+    logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/logo.png",
+    decimals: 5
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -91,6 +120,21 @@ serve(async (req) => {
         }
       );
     }
+    
+    // Check for fallback data for known tokens first
+    if (fallbackTokens[address]) {
+      console.log(`Using fallback data for well-known token: ${address}`);
+      return new Response(
+        JSON.stringify(fallbackTokens[address]),
+        {
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-Source": "fallback"
+          },
+        }
+      );
+    }
 
     // Check cache first
     const cacheKey = `${chain}-${address}`;
@@ -101,7 +145,11 @@ serve(async (req) => {
       return new Response(
         JSON.stringify(cachedData.data),
         {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-Source": "cache"
+          },
         }
       );
     }
@@ -131,19 +179,43 @@ serve(async (req) => {
             _fromExpiredCache: true
           }),
           {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "X-Source": "expired-cache"
+            },
           }
         );
       }
       
+      // Generate a fallback token with minimal data
+      const fallbackToken = {
+        address: address,
+        name: `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+        symbol: "UNKNOWN",
+        logo: `https://placehold.co/200x200/8B4513/ffffff?text=${address.substring(0, 2)}`,
+        decimals: 9 // Default for Solana
+      };
+      
+      // Cache this fallback temporarily to avoid hitting rate limits again
+      metadataCache.set(cacheKey, {
+        data: fallbackToken,
+        timestamp: Date.now()
+      });
+      
       return new Response(
         JSON.stringify({
-          error: `Failed to fetch token metadata: ${response.status}`,
-          details: errorText
+          ...fallbackToken,
+          _fallbackGenerated: true
         }),
         {
-          status: response.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          // Return 200 with fallback data instead of an error
+          status: 200,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-Source": "generated-fallback"
+          },
         }
       );
     }
@@ -152,29 +224,67 @@ serve(async (req) => {
     const metadata = await response.json();
     console.log(`Successfully fetched metadata for token: ${address}`);
     
+    // Extract and format the token data from the response
+    let tokenData;
+    
+    // Handle different response formats
+    if (metadata.data) {
+      tokenData = metadata.data;
+    } else {
+      tokenData = metadata;
+    }
+    
+    // Ensure required fields are present
+    const formattedTokenData = {
+      address: tokenData.address || address,
+      name: tokenData.name || `Token ${address.substring(0, 4)}...${address.substring(address.length - 4)}`,
+      symbol: tokenData.symbol || "UNKNOWN",
+      logo: tokenData.logo || `https://placehold.co/200x200/8B4513/ffffff?text=${address.substring(0, 2)}`,
+      decimals: tokenData.decimals || 9,
+      creationTime: tokenData.creationTime || null,
+      creationBlock: tokenData.creationBlock || null,
+      socialInfo: tokenData.socialInfo || {}
+    };
+    
     // Update cache
     metadataCache.set(cacheKey, {
-      data: metadata,
+      data: formattedTokenData,
       timestamp: Date.now()
     });
 
     return new Response(
-      JSON.stringify(metadata),
+      JSON.stringify(formattedTokenData),
       {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-Source": "api"
+        },
       }
     );
   } catch (error) {
     console.error("Error fetching token metadata:", error);
     
+    // Return a generic placeholder token as fallback during errors
+    const fallbackToken = {
+      address: "unknown",
+      name: "Unknown Token",
+      symbol: "???",
+      logo: "https://placehold.co/200x200/FF0000/ffffff?text=Error",
+      decimals: 9,
+      _error: true,
+      errorMessage: error.message
+    };
+    
     return new Response(
-      JSON.stringify({
-        error: "Failed to fetch token metadata",
-        details: error.message
-      }),
+      JSON.stringify(fallbackToken),
       {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200, // Return 200 even on error to avoid breaking the UI
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-Source": "error-fallback"
+        },
       }
     );
   }
