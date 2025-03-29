@@ -39,63 +39,16 @@ const fallbackCryptoData: CryptoCurrency[] = [
   { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.70, change: -2.4 }
 ];
 
-// Cache keys for crypto ticker data
-const CRYPTO_CACHE_KEY = 'crypto_ticker_data';
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-
 const CryptoTicker: React.FC = () => {
   const { cryptoData, loading, error, refreshData } = useCryptoData()
   const [refreshing, setRefreshing] = React.useState(false);
   const [retryCount, setRetryCount] = React.useState(0);
   const [lastRefreshAttempt, setLastRefreshAttempt] = React.useState(0);
   const [isManualRefresh, setIsManualRefresh] = React.useState(false);
-  const [cachedData, setCachedData] = React.useState<CryptoCurrency[]>([]);
-  const [lastCacheCheck, setLastCacheCheck] = React.useState(0);
   
-  // On initial load, check for cached data
+  // Auto-retry once if initial load fails
   React.useEffect(() => {
-    const currentTime = Date.now();
-    
-    // Only do the cache check once
-    if (lastCacheCheck > 0) return;
-    
-    setLastCacheCheck(currentTime);
-    
-    try {
-      const cachedItem = localStorage.getItem(CRYPTO_CACHE_KEY);
-      
-      if (cachedItem) {
-        const { data, timestamp } = JSON.parse(cachedItem);
-        const isFresh = currentTime - timestamp < CACHE_DURATION;
-        
-        // If we have cached data, use it
-        if (data && Array.isArray(data) && data.length > 0) {
-          console.log(`Using ${isFresh ? 'fresh' : 'stale'} cached crypto data`);
-          setCachedData(data);
-          
-          // If the data is fresh, we don't need to fetch immediately
-          if (isFresh) {
-            console.log('Crypto data is fresh, not fetching new data yet');
-            // Schedule a refresh for when the cache expires
-            const timeUntilExpiry = Math.max(0, (timestamp + CACHE_DURATION) - currentTime);
-            setTimeout(() => {
-              console.log('Cache expiring, refreshing crypto data');
-              refreshData();
-            }, timeUntilExpiry);
-            return;
-          }
-        }
-      }
-      
-      // No cache or stale cache, proceed with normal data fetch
-    } catch (error) {
-      console.error('Error reading cached crypto data:', error);
-    }
-  }, [refreshData, lastCacheCheck]);
-  
-  // Auto-retry once if initial load fails and no cache is available
-  React.useEffect(() => {
-    if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000) && cachedData.length === 0) {
+    if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000)) {
       console.log("Auto-retrying crypto ticker fetch after error");
       const timer = setTimeout(() => {
         setRetryCount(count => count + 1);
@@ -105,24 +58,7 @@ const CryptoTicker: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [error, retryCount, lastRefreshAttempt, refreshData, cachedData]);
-  
-  // When crypto data changes, update the cache
-  React.useEffect(() => {
-    if (cryptoData.length > 0) {
-      try {
-        localStorage.setItem(CRYPTO_CACHE_KEY, JSON.stringify({
-          data: cryptoData,
-          timestamp: Date.now()
-        }));
-        
-        // Update our state with the new data
-        setCachedData(cryptoData);
-      } catch (error) {
-        console.error('Error caching crypto data:', error);
-      }
-    }
-  }, [cryptoData]);
+  }, [error, retryCount, lastRefreshAttempt, refreshData]);
   
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -167,20 +103,16 @@ const CryptoTicker: React.FC = () => {
     }
   }, [error, isManualRefresh]);
 
-  // Determine which data to display - prioritize newly fetched data, then cached data, then fallback
-  const displayData = cryptoData.length > 0 
-    ? cryptoData 
-    : cachedData.length > 0 
-      ? cachedData 
-      : fallbackCryptoData;
+  // Determine which data to display
+  const displayData = cryptoData.length > 0 ? cryptoData : fallbackCryptoData;
 
   return (
     <div className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3">
       <div className="flex items-center space-x-6 animate-marquee">
         <div className="font-display text-crypto-blue font-bold px-4 flex items-center gap-2">
-          {loading && cachedData.length === 0 ? (
+          {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
-          ) : error && cachedData.length === 0 ? (
+          ) : error ? (
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           ) : (
             <CryptoButton 

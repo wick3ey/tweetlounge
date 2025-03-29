@@ -7,8 +7,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { useEffect } from "react";
-import { fetchHotPools, fetchRecentTokens } from "@/services/marketService";
 
 // Pages
 import Login from "./pages/Login";
@@ -19,30 +17,9 @@ import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
 import NotFound from "./pages/NotFound";
-import MarketWatcher from "./pages/MarketWatcher";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
-
-// Create a component that will preload our market data
-const MarketDataPreloader = () => {
-  useEffect(() => {
-    // Start fetching hot pools data as soon as the app loads
-    console.log("Preloading market data on app initialization");
-    
-    // Start fetching hot pools data immediately
-    fetchHotPools().catch(err => {
-      console.error("Failed to preload hot pools data:", err);
-    });
-    
-    // Also fetch recent tokens data
-    fetchRecentTokens().catch(err => {
-      console.error("Failed to preload recent tokens data:", err);
-    });
-  }, []);
-  
-  return null; // This component doesn't render anything
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -52,7 +29,6 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <MarketDataPreloader />
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Navigate to="/home" replace />} />
@@ -71,7 +47,7 @@ const App = () => (
                 } />
                 <Route path="/profile" element={
                   <ProtectedRoute>
-                    <Profile />
+                    <ProfilePage />
                   </ProtectedRoute>
                 } />
                 <Route path="/profile/:username" element={
@@ -79,7 +55,6 @@ const App = () => (
                     <ProfilePage />
                   </ProtectedRoute>
                 } />
-                <Route path="/market" element={<MarketWatcher />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

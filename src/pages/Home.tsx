@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -15,20 +15,11 @@ import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
-import { fetchHotPools } from '@/services/marketService'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  // Trigger fetch of hot pools data when home page loads
-  useEffect(() => {
-    // This is a failsafe in case the App-level fetch hasn't completed
-    fetchHotPools().catch(err => {
-      console.log("Home page hot pools fetch error (this is ok if already loaded):", err);
-    });
-  }, []);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {

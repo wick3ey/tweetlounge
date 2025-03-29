@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Search, Bell, Mail, User, Hash, Settings, Compass, Bookmark, Shield, ChevronRight, LineChart } from 'lucide-react'
+import { Home, Search, Bell, Mail, User, Hash, Settings, BarChart2, Compass, Bookmark, Shield, ChevronRight } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CryptoButton } from '@/components/ui/crypto-button'
 
@@ -14,7 +14,7 @@ const Sidebar: React.FC = () => {
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Explore', path: '/explore' },
     { icon: Hash, label: 'Trends', path: '/trends' },
-    { icon: LineChart, label: 'Market Watcher', path: '/market' },
+    { icon: BarChart2, label: 'Markets', path: '/analytics' },
     { icon: Bell, label: 'Notifications', path: '/notifications' },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
