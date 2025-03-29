@@ -30,6 +30,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
         
+        // Step 1: Fetch tweets based on feed type
         let tweetsQuery = supabase
           .from('tweets')
           .select('*')
@@ -62,10 +63,12 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         
         console.log(`[TweetFeed] Fetched ${tweetsData.length} tweets`);
         
-        // Get all unique author IDs from tweets
+        // Step 2: Get all unique author IDs from tweets
         const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
         
-        // Fetch all authors in a single query
+        console.log(`[TweetFeed] Found ${authorIds.length} unique authors, IDs:`, authorIds);
+        
+        // Step 3: Fetch all authors in a single query
         const { data: authorsData, error: authorsError } = await supabase
           .from('profiles')
           .select('*')
@@ -76,17 +79,22 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
           throw authorsError;
         }
         
-        // Create a map of author IDs to author data for quick lookup
-        const authorsMap = authorsData.reduce((acc, author) => {
-          acc[author.id] = author;
-          return acc;
-        }, {});
+        console.log(`[TweetFeed] Fetched ${authorsData?.length || 0} authors`);
         
-        // Combine tweets with their authors
+        // Create a map of author IDs to author data for quick lookup
+        const authorsMap = {};
+        if (authorsData) {
+          authorsData.forEach(author => {
+            authorsMap[author.id] = author;
+          });
+        }
+        
+        // Step 4: Combine tweets with their authors
         const tweetsWithAuthors = tweetsData.map(tweet => {
           const author = authorsMap[tweet.author_id];
+          
           if (!author) {
-            console.warn(`[TweetFeed] Author not found for tweet ${tweet.id}`);
+            console.warn(`[TweetFeed] Author not found for tweet ${tweet.id}, author_id: ${tweet.author_id}`);
           }
           
           return {
