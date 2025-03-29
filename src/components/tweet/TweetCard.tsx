@@ -247,7 +247,6 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
 
   const timeAgo = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Ensure we have valid display values for author information
   const isNFTVerified = tweet.author.avatar_nft_id && tweet.author.avatar_nft_chain;
 
   const formatNumber = (num: number) => {
@@ -266,12 +265,10 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   const retweeter = tweet.author;
   const originalAuthor = isRetweet && originalTweet ? originalTweet.author : tweet.author;
 
-  // Additional debug for the actual author object being used in the render
   console.log("[TweetCard] Before render - originalAuthor:", originalAuthor);
   
-  // Ensure we have valid display values
-  const displayName = originalAuthor.display_name || originalAuthor.username || 'Unknown User';
-  const displayUsername = originalAuthor.username || 'unknown';
+  const displayName = originalAuthor.display_name;
+  const displayUsername = originalAuthor.username;
   console.log("[TweetCard] Actual values being rendered - displayName:", displayName);
   console.log("[TweetCard] Actual values being rendered - displayUsername:", displayUsername);
 
@@ -310,7 +307,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
                 <AvatarImage src={originalAuthor.avatar_url} alt={displayName} />
               ) : null}
               <AvatarFallback className="bg-twitter-blue text-white">
-                {getInitials(displayName)}
+                {getInitials(displayName || '')}
               </AvatarFallback>
             </Avatar>
           </Link>
