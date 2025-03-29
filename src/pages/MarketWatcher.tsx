@@ -19,6 +19,7 @@ import {
   fetchTopTokens, 
   fetchHotPools, 
   fetchRecentTokens,
+  fetchTokenMetadata,
   type SolanaMarketStats, 
   type PoolInfo,
   type TokenInfo
@@ -346,7 +347,34 @@ const RecentTokensList = ({ tokens }: { tokens: TokenInfo[] | undefined }) => {
 };
 
 const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
+  const { toast } = useToast();
   const safePools = Array.isArray(pools) ? pools : [];
+  const [poolMetadata, setPoolMetadata] = useState<{[key: string]: TokenInfo | null}>({});
+  
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      if (!safePools || safePools.length === 0) return;
+      
+      const metadataResults: {[key: string]: TokenInfo | null} = {};
+      
+      for (const pool of safePools) {
+        if (pool.mainToken?.address && !poolMetadata[pool.mainToken.address]) {
+          try {
+            const metadata = await fetchTokenMetadata(pool.mainToken.address);
+            if (metadata) {
+              metadataResults[pool.mainToken.address] = metadata;
+            }
+          } catch (error) {
+            console.error(`Error fetching metadata for ${pool.mainToken.address}:`, error);
+          }
+        }
+      }
+      
+      setPoolMetadata(prev => ({...prev, ...metadataResults}));
+    };
+    
+    fetchMetadata();
+  }, [safePools]);
   
   if (!pools) {
     return (
@@ -378,68 +406,77 @@ const HotPoolsList = ({ pools }: { pools: PoolInfo[] | undefined }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {safePools.map((pool, index) => (
-            <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
-              <TableCell className="font-medium">{index + 1}</TableCell>
-              <TableCell>
-                <div className="flex items-center">
-                  <div className="flex -space-x-2 mr-2">
-                    <Avatar className="h-6 w-6 border-2 border-black">
-                      <AvatarImage src={pool.mainToken?.logo} alt={pool.mainToken?.name} />
-                      <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                        {pool.mainToken?.symbol?.substring(0, 2) || "??"}
+          {safePools.map((pool, index) => {
+            const tokenMetadata = pool.mainToken?.address ? poolMetadata[pool.mainToken.address] : null;
+            
+            return (
+              <TableRow key={pool.address || index} className="border-gray-800 hover:bg-gray-900/50">
+                <TableCell className="font-medium">{index + 1}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <div className="flex -space-x-2 mr-2">
+                      <Avatar className="h-6 w-6 border-2 border-black">
+                        <AvatarImage src={pool.mainToken?.logo} alt={pool.mainToken?.name} />
+                        <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
+                          {pool.mainToken?.symbol?.substring(0, 2) || "??"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Avatar className="h-6 w-6 border-2 border-black">
+                        <AvatarImage src={pool.sideToken?.logo} alt={pool.sideToken?.name} />
+                        <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
+                          {pool.sideToken?.symbol?.substring(0, 2) || "??"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div>
+                      <span className="font-medium">{pool.mainToken?.symbol || 'Unknown'}/{pool.sideToken?.symbol || 'Unknown'}</span>
+                      <div className="text-xs text-gray-500">{shortenAddress(pool.address)}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="bg-blue-900/10 text-blue-400 border-blue-500/20">
+                    {pool.exchangeName || 'Unknown'}
+                  </Badge>
+                </TableCell>
+                <TableCell>{formatDate(pool.creationTime)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Avatar className="h-10 w-10 border border-gray-800">
+                      <AvatarImage 
+                        src={tokenMetadata?.logo || pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
+                        alt={tokenMetadata?.name || pool.mainToken?.name || "Pool metadata"} 
+                      />
+                      <AvatarFallback className="bg-gray-800 text-gray-400">
+                        <Image className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <Avatar className="h-6 w-6 border-2 border-black">
-                      <AvatarImage src={pool.sideToken?.logo} alt={pool.sideToken?.name} />
-                      <AvatarFallback className="text-xs bg-gray-800 text-gray-400">
-                        {pool.sideToken?.symbol?.substring(0, 2) || "??"}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="ml-2 text-xs text-gray-400">
+                      <div className="font-medium">
+                        {tokenMetadata?.name || pool.mainToken?.name?.substring(0, 12) || 'Metadata'}
+                      </div>
+                      {tokenMetadata?.socialInfo?.twitter && (
+                        <div className="text-blue-400">@{tokenMetadata.socialInfo.twitter}</div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium">{pool.mainToken?.symbol || 'Unknown'}/{pool.sideToken?.symbol || 'Unknown'}</span>
-                    <div className="text-xs text-gray-500">{shortenAddress(pool.address)}</div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 px-2 text-xs border-gray-800"
+                      onClick={() => window.open(`https://solscan.io/account/${pool.address}`, '_blank')}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      View
+                    </Button>
                   </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="bg-blue-900/10 text-blue-400 border-blue-500/20">
-                  {pool.exchangeName || 'Unknown'}
-                </Badge>
-              </TableCell>
-              <TableCell>{formatDate(pool.creationTime)}</TableCell>
-              <TableCell>
-                <div className="flex items-center">
-                  <Avatar className="h-10 w-10 border border-gray-800">
-                    <AvatarImage 
-                      src={pool.mainToken?.logo || 'https://images.unsplash.com/photo-1481487196290-c152efe083f5?w=100&h=100&fit=crop&crop=faces&q=80'} 
-                      alt="Pool metadata" 
-                    />
-                    <AvatarFallback className="bg-gray-800 text-gray-400">
-                      <Image className="h-4 w-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="ml-2 text-xs text-gray-400">
-                    {pool.mainToken?.name?.substring(0, 12) || 'Metadata'}
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 px-2 text-xs border-gray-800"
-                    onClick={() => window.open(`https://solscan.io/account/${pool.address}`, '_blank')}
-                  >
-                    <Eye className="h-3.5 w-3.5 mr-1" />
-                    View
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>

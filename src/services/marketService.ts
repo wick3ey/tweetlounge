@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Basic types
@@ -155,6 +154,31 @@ export const fetchTokenDetails = async (address: string): Promise<TokenInfo | nu
     return data as TokenInfo;
   } catch (error) {
     console.error(`Error in fetchTokenDetails for ${address}:`, error);
+    return null;
+  }
+};
+
+// Function to fetch token metadata
+export const fetchTokenMetadata = async (address: string): Promise<TokenInfo | null> => {
+  try {
+    // Call Supabase function to securely access the DEXTools API
+    const { data, error } = await supabase.functions.invoke('getTokenMetadata', {
+      body: { chain: 'solana', address }
+    });
+    
+    if (error) {
+      console.error(`Error fetching token metadata for ${address}:`, error);
+      return null;
+    }
+    
+    // Check if the data has a nested structure
+    if (data && data.data) {
+      return data.data as TokenInfo;
+    }
+    
+    return data as TokenInfo;
+  } catch (error) {
+    console.error(`Error in fetchTokenMetadata for ${address}:`, error);
     return null;
   }
 };
