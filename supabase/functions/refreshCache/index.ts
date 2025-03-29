@@ -126,13 +126,26 @@ async function refreshCacheItem(config: { cacheKey: string, endpoint: string, tt
     expiresAt.setSeconds(expiresAt.getSeconds() + config.ttl);
     console.log(`Setting cache expiration to ${expiresAt.toISOString()}`);
 
+    // Sanitize data to prevent unicode escape sequence issues
+    const sanitizedData = JSON.parse(JSON.stringify(processedData, (key, value) => {
+      // Convert strings with potential issues to safe strings
+      if (typeof value === 'string') {
+        return value
+          // Replace any potentially problematic characters
+          .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/g, '')
+          // Escape backslashes properly
+          .replace(/\\/g, '\\\\');
+      }
+      return value;
+    }));
+
     // Store in cache
     console.log(`Storing data in market_cache table with key ${config.cacheKey}`);
     const { error } = await supabaseAdmin
       .from('market_cache')
       .upsert({
         cache_key: config.cacheKey,
-        data: processedData,
+        data: sanitizedData,
         expires_at: expiresAt.toISOString(),
         source: "cron_job"
       });
