@@ -1,4 +1,3 @@
-
 import { 
   CardTitle, 
   CardDescription, 
@@ -37,10 +36,8 @@ interface TokenCardUIProps {
 export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  // Check if the token has a price/value
   const hasPrice = token.usdValue || (token.symbol === 'SOL' && solPrice);
   
-  // Calculate the USD value for display
   const calculateUsdValue = (): string => {
     if (token.usdValue) {
       return `$${parseFloat(token.usdValue).toFixed(2)}`;
@@ -54,7 +51,6 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
     return 'N/A';
   };
   
-  // Format token amount for display
   const formatAmount = (amount: string): string => {
     const num = parseFloat(amount);
     if (num === 0) return '0';
@@ -71,41 +67,34 @@ export const TokenCardUI = ({ token, solPrice, viewMode = "grid" }: TokenCardUIP
       return `${(num / 1000).toFixed(2)}K`;
     }
     
-    // For numbers with many decimal places, limit to 4 decimal places
     if (num < 1) {
       return num.toFixed(4);
     }
     
-    // For whole numbers or numbers with few decimal places
     return num.toFixed(2);
   };
   
-  // Generate explorer link for the token
   const getExplorerLink = (): string => {
     return token.explorerUrl || `https://solscan.io/token/${token.address}`;
   };
   
-  // Generate dexscreener link for the token
   const getDexScreenerLink = (): string => {
     return token.dexScreenerUrl || `https://dexscreener.com/solana/${token.address}`;
   };
   
-  // Generate a color gradient for the token
   const getTokenColor = (): string => {
     if (token.symbol === 'SOL') return 'bg-gradient-to-r from-purple-500 to-purple-800';
     if (token.symbol === 'USDC' || token.symbol === 'USDT') return 'bg-gradient-to-r from-green-500 to-green-700';
     if (token.symbol === 'BTC' || token.symbol === 'wBTC') return 'bg-gradient-to-r from-amber-500 to-amber-700';
     
-    // Generate a consistent color based on the token address
     const hash = token.address.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);
     }, 0);
     
-    const h = Math.abs(hash) % 360; // Hue between 0-359
+    const h = Math.abs(hash) % 360;
     return `bg-gradient-to-r from-[hsl(${h},70%,40%)] to-[hsl(${h},70%,30%)]`;
   };
   
-  // Apply different styling based on view mode
   const cardClass = viewMode === "list" 
     ? "interactive-card border-border/50 shadow-none mb-2" 
     : "overflow-hidden interactive-card border-border/50 shadow-none";
@@ -236,11 +225,10 @@ export const WalletAssetsUI = ({
 }: WalletAssetsUIProps) => {
   const [hideSmallBalances, setHideSmallBalances] = useState(false);
   
-  // Filter tokens based on settings
   const filteredTokens = hideSmallBalances 
     ? tokens.filter(token => {
         const value = token.usdValue ? parseFloat(token.usdValue) : 0;
-        return value > 1; // Hide tokens worth less than $1
+        return value > 1;
       })
     : tokens;
   

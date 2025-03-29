@@ -14,6 +14,7 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<string>("grid"); // Default to grid view
+  const [totalValue, setTotalValue] = useState<string>("$0.00");
   
   const fetchTokens = async () => {
     if (!solanaAddress) return;
@@ -44,8 +45,12 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
         if (response.solPrice) {
           setSolPrice(response.solPrice);
         }
+
+        // Calculate the total wallet value here
+        calculateTotalWalletValue(sortedTokens, response.solPrice);
       } else {
         setTokens([]);
+        setTotalValue("$0.00");
       }
       
       setLastUpdated(new Date());
@@ -66,19 +71,27 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   };
   
   // Calculate total wallet value in USD
-  const calculateTotalValue = (): string => {
-    if (!tokens.length) return '$0.00';
+  const calculateTotalWalletValue = (tokens: Token[], solPrice: number | undefined): void => {
+    if (!tokens.length) {
+      setTotalValue("$0.00");
+      return;
+    }
     
     const total = tokens.reduce((sum, token) => {
       // Add USD value if available
       if (token.usdValue) {
-        return sum + parseFloat(token.usdValue);
+        const tokenValue = parseFloat(token.usdValue);
+        if (!isNaN(tokenValue)) {
+          return sum + tokenValue;
+        }
       }
       
       // For SOL token, calculate value from SOL price
       if (token.symbol === 'SOL' && solPrice) {
         const solAmount = parseFloat(token.amount);
-        return sum + (solAmount * solPrice);
+        if (!isNaN(solAmount)) {
+          return sum + (solAmount * solPrice);
+        }
       }
       
       return sum;
@@ -86,11 +99,11 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
     
     // Format total with appropriate suffix
     if (total >= 1000000) {
-      return `$${(total / 1000000).toFixed(2)}M`;
+      setTotalValue(`$${(total / 1000000).toFixed(2)}M`);
     } else if (total >= 1000) {
-      return `$${(total / 1000).toFixed(2)}K`;
+      setTotalValue(`$${(total / 1000).toFixed(2)}K`);
     } else {
-      return `$${total.toFixed(2)}`;
+      setTotalValue(`$${total.toFixed(2)}`);
     }
   };
   
@@ -107,11 +120,11 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       loading={loading}
       error={error}
       lastUpdated={lastUpdated}
-      totalValue={calculateTotalValue()}
+      totalValue={totalValue}
       onRefresh={handleRefresh}
       solPrice={solPrice}
       viewMode={viewMode}
-      setViewMode={handleViewModeChange} // Pass the handler function
+      setViewMode={handleViewModeChange}
     />
   );
 };

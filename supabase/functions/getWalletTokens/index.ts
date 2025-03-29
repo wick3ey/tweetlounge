@@ -99,7 +99,7 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
       logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
       amount: solAmount,
-      usdValue: solPrice ? (parseFloat(solAmount) * solPrice).toString() : undefined,
+      usdValue: solPrice ? (parseFloat(solAmount) * solPrice).toFixed(2) : undefined,
       decimals: 9,
       address: "So11111111111111111111111111111111111111112",
       priceChange24h: 0 // Default value as we don't have historical data
@@ -173,8 +173,15 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
     
     // Filter out tokens with zero balance and sort by amount
     const filteredTokens = tokens
-      .filter(token => parseFloat(token.amount) > 0)
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+      .filter(token => {
+        const amount = parseFloat(token.amount);
+        return !isNaN(amount) && amount > 0;
+      })
+      .sort((a, b) => {
+        const aValue = a.usdValue ? parseFloat(a.usdValue) : 0;
+        const bValue = b.usdValue ? parseFloat(b.usdValue) : 0;
+        return bValue - aValue;
+      });
     
     console.log(`Returning ${filteredTokens.length} Solana tokens`);
     return { tokens: filteredTokens, solPrice };

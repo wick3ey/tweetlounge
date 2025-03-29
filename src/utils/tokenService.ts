@@ -156,7 +156,10 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
   let usdValue: string | undefined = token.usdValue;
   if (priceData && priceData.price) {
     const amount = parseFloat(token.amount);
-    usdValue = (amount * priceData.price).toString();
+    // Ensure we have a valid number for the calculation
+    if (!isNaN(amount)) {
+      usdValue = (amount * priceData.price).toFixed(2);
+    }
   }
   
   return {
