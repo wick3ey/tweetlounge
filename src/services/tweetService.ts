@@ -209,7 +209,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to like a tweet');
     }
     
-    // Check if user has already liked the tweet
+    // Check if user has already liked the tweet - using maybeSingle to fix 406 error
     const { data: existingLike, error: existingLikeError } = await supabase
       .from('likes')
       .select('id')
@@ -269,7 +269,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
-    // Check if user has already retweeted
+    // Check if user has already retweeted - using maybeSingle to fix 406 error
     const { data: existingRetweet, error: existingRetweetError } = await supabase
       .from('retweets')
       .select('id')
@@ -342,6 +342,7 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
+    // Using maybeSingle to fix 406 error
     const { data, error } = await supabase
       .from('likes')
       .select('id')
@@ -373,6 +374,7 @@ export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolea
       return false;
     }
     
+    // Using maybeSingle to fix 406 error
     const { data, error } = await supabase
       .from('retweets')
       .select('id')

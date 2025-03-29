@@ -66,7 +66,16 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         const authorIds = [...new Set(tweetsData.map(tweet => tweet.author_id))];
         console.log('[TweetFeed] Fetching profiles for author IDs:', authorIds);
         
-        // If we already have profiles, we'll create placeholder profiles for any missing ones
+        // Default profile creator function
+        const createDefaultProfile = (authorId: string) => ({
+          id: authorId,
+          username: `user-${authorId.substring(0, 6)}`,
+          display_name: `User ${authorId.substring(0, 6)}`,
+          avatar_url: '',
+          created_at: new Date().toISOString()
+        });
+        
+        // Create a map to hold all author profiles
         let authorsMap = new Map();
         
         if (authorIds.length > 0) {
@@ -78,13 +87,14 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
             
           if (authorsError) {
             console.error('[TweetFeed] Error fetching authors:', authorsError);
-            throw authorsError;
+            // Continue with default profiles instead of throwing
+            console.log('[TweetFeed] Will use default profiles due to fetch error');
           }
           
-          console.log('[TweetFeed] Fetched authors data:', authorsData);
-          
-          // Step 4: Create a map of author IDs to their profile data for easy lookup
-          if (authorsData) {
+          // Add any profiles we successfully fetched to the map
+          if (authorsData && authorsData.length > 0) {
+            console.log('[TweetFeed] Fetched authors data:', authorsData);
+            
             authorsData.forEach(author => {
               if (author) {
                 authorsMap.set(author.id, author);
@@ -92,38 +102,14 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
             });
           }
           
-          // Create placeholder profiles for any missing authors
+          // Ensure all author IDs have a profile (even if we couldn't fetch it)
           authorIds.forEach(authorId => {
             if (!authorsMap.has(authorId)) {
-              console.log(`[TweetFeed] Creating placeholder profile for missing author ID: ${authorId}`);
+              console.log(`[TweetFeed] Creating default profile for missing author ID: ${authorId}`);
+              const defaultProfile = createDefaultProfile(authorId);
+              authorsMap.set(authorId, defaultProfile);
               
-              // Create a placeholder profile for this missing author
-              const placeholderProfile = {
-                id: authorId,
-                username: `user-${authorId.substring(0, 6)}`,
-                display_name: `User ${authorId.substring(0, 6)}`,
-                avatar_url: '',
-                created_at: new Date().toISOString()
-              };
-              
-              // Insert the placeholder profile into Supabase to ensure it exists for future queries
-              supabase
-                .from('profiles')
-                .insert([{ 
-                  id: authorId,
-                  username: placeholderProfile.username,
-                  display_name: placeholderProfile.display_name
-                }])
-                .then(({ error }) => {
-                  if (error) {
-                    console.error('[TweetFeed] Error creating placeholder profile:', error);
-                  } else {
-                    console.log(`[TweetFeed] Created placeholder profile for ${authorId}`);
-                  }
-                });
-              
-              // Add to our map for immediate use
-              authorsMap.set(authorId, placeholderProfile);
+              // Don't try to insert into profiles table here, as we already know it's failing
             }
           });
         }
@@ -135,8 +121,11 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
           const author = authorsMap.get(tweet.author_id);
           
           if (!author) {
-            console.warn(`[TweetFeed] No author found for tweet ${tweet.id} with author_id ${tweet.author_id} after all attempts`);
+            console.warn(`[TweetFeed] No author found for tweet ${tweet.id} with author_id ${tweet.author_id}`);
           }
+          
+          // Always create a valid author object, even if we couldn't find the profile
+          const authorData = author || createDefaultProfile(tweet.author_id);
           
           return {
             id: tweet.id,
@@ -150,12 +139,12 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
             original_tweet_id: tweet.original_tweet_id,
             image_url: tweet.image_url,
             author: {
-              id: author?.id || tweet.author_id,
-              username: author?.username || `user-${tweet.author_id.substring(0, 6)}`,
-              display_name: author?.display_name || `User ${tweet.author_id.substring(0, 6)}`,
-              avatar_url: author?.avatar_url || '',
-              avatar_nft_id: author?.avatar_nft_id || null,
-              avatar_nft_chain: author?.avatar_nft_chain || null
+              id: authorData.id,
+              username: authorData.username || `user-${tweet.author_id.substring(0, 6)}`,
+              display_name: authorData.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+              avatar_url: authorData.avatar_url || '',
+              avatar_nft_id: authorData.avatar_nft_id || null,
+              avatar_nft_chain: authorData.avatar_nft_chain || null
             }
           };
         });
