@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
 import { createNotification, deleteNotification } from './notificationService';
@@ -256,28 +257,47 @@ export async function getFollowers(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Fetch followers directly with joined profile information
-    const { data: followersData, error: followersError } = await supabase
+    // First, get all follower IDs for the user
+    const { data: followerRelations, error: followerError } = await supabase
       .from('followers')
-      .select('follower_id, profiles(id, username, display_name, avatar_url)')
+      .select('follower_id')
       .eq('following_id', userId);
       
-    if (followersError) {
-      console.error('Error fetching followers:', followersError);
+    if (followerError) {
+      console.error('Error fetching follower relations:', followerError);
+      return [];
+    }
+    
+    // If no followers found, return empty array
+    if (!followerRelations || followerRelations.length === 0) {
+      return [];
+    }
+    
+    // Extract follower IDs
+    const followerIds = followerRelations.map(relation => relation.follower_id);
+    
+    // Fetch the profile information for these followers
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', followerIds);
+      
+    if (profilesError) {
+      console.error('Error fetching follower profiles:', profilesError);
       return [];
     }
     
     // Transform data to match expected format
-    const followers = followersData.map(follower => ({
-      id: follower.profiles?.id,
-      username: follower.profiles?.username,
-      display_name: follower.profiles?.display_name,
-      avatar_url: follower.profiles?.avatar_url,
+    const followers = profilesData.map(profile => ({
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
       is_following: false // We'll update this below
-    })).filter(profile => profile.id); // Remove any null profiles
+    }));
     
     // Check which of these followers the current user is following back
-    if (currentUser) {
+    if (currentUser && followers.length > 0) {
       const followIds = followers.map(f => f.id).filter(Boolean);
       
       if (followIds.length > 0) {
@@ -311,28 +331,47 @@ export async function getFollowing(userId: string): Promise<any[]> {
     const { data: currentUserData } = await supabase.auth.getUser();
     const currentUser = currentUserData?.user;
     
-    // Fetch following directly with joined profile information
-    const { data: followingData, error: followingError } = await supabase
+    // First, get all following IDs for the user
+    const { data: followingRelations, error: followingError } = await supabase
       .from('followers')
-      .select('following_id, profiles(id, username, display_name, avatar_url)')
+      .select('following_id')
       .eq('follower_id', userId);
       
     if (followingError) {
-      console.error('Error fetching following:', followingError);
+      console.error('Error fetching following relations:', followingError);
+      return [];
+    }
+    
+    // If not following anyone, return empty array
+    if (!followingRelations || followingRelations.length === 0) {
+      return [];
+    }
+    
+    // Extract following IDs
+    const followingIds = followingRelations.map(relation => relation.following_id);
+    
+    // Fetch the profile information for these followings
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', followingIds);
+      
+    if (profilesError) {
+      console.error('Error fetching following profiles:', profilesError);
       return [];
     }
     
     // Transform data to match expected format
-    const following = followingData.map(follow => ({
-      id: follow.profiles?.id,
-      username: follow.profiles?.username,
-      display_name: follow.profiles?.display_name,
-      avatar_url: follow.profiles?.avatar_url,
-      is_following: false // We'll update this below
-    })).filter(profile => profile.id); // Remove any null profiles
+    const following = profilesData.map(profile => ({
+      id: profile.id,
+      username: profile.username,
+      display_name: profile.display_name,
+      avatar_url: profile.avatar_url,
+      is_following: currentUser?.id === userId ? true : false // If viewing own profile, already following all
+    }));
     
-    // Check which of these users the current user is following
-    if (currentUser && currentUser.id !== userId) {
+    // Check which of these users the current user is following (if not viewing own profile)
+    if (currentUser && currentUser.id !== userId && following.length > 0) {
       const followIds = following.map(f => f.id).filter(Boolean);
       
       if (followIds.length > 0) {
