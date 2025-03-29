@@ -19,16 +19,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { Card } from '@/components/ui/card';
+import { useNotifications } from '@/hooks/useNotifications';
 
 const LeftSidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { profile } = useProfile();
+  const { unreadCount } = useNotifications();
   
   const menuItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Hash, label: 'Explore', path: '/explore' },
-    { icon: Bell, label: 'Notifications', path: '/notifications' },
+    { 
+      icon: Bell, 
+      label: 'Notifications', 
+      path: '/notifications',
+      badge: unreadCount > 0 ? unreadCount : null 
+    },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
     { icon: BarChart2, label: 'Analytics', path: '/analytics' },
@@ -86,8 +93,18 @@ const LeftSidebar = () => {
                     {active && (
                       <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-blue-400 to-purple-500 rounded-r-full" />
                     )}
+                    {item.badge && (
+                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </div>
+                    )}
                   </div>
                   <span className="text-sm">{item.label}</span>
+                  {item.badge && (
+                    <div className="ml-auto bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </div>
+                  )}
                 </Link>
               </li>
             );
@@ -143,7 +160,14 @@ const LeftSidebar = () => {
                 isActive(item.path) ? "text-blue-400" : "text-gray-400"
               )}
             >
-              <item.icon className="h-6 w-6" />
+              <div className="relative">
+                <item.icon className="h-6 w-6" />
+                {item.badge && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </div>
+                )}
+              </div>
               <span className="text-xs mt-1">{item.label}</span>
             </Link>
           ))}

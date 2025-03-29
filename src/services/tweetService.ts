@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
+import { createNotification, deleteNotification } from './notificationService';
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
@@ -166,37 +167,67 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to like a tweet');
     }
     
-    const { error } = await supabase
+    const { data: existingLike } = await supabase
       .from('likes')
-      .insert({
-        user_id: user.id,
-        tweet_id: tweetId
-      } as any);
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+    
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id')
+      .eq('id', tweetId)
+      .single();
+    
+    if (existingLike) {
+      const { error: deleteError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId);
       
-    if (error) {
-      if (error.code === '23505') {
-        const { error: unlikeError } = await supabase
-          .from('likes')
-          .delete()
-          .match({ 
-            user_id: user.id,
-            tweet_id: tweetId 
-          } as any);
-          
-        if (unlikeError) {
-          console.error('Error unliking tweet:', unlikeError);
-          return false;
-        }
-        return true;
+      if (deleteError) {
+        throw deleteError;
       }
       
-      console.error('Error liking tweet:', error);
-      return false;
+      const { error: updateError } = await supabase.rpc('decrement_likes_count', {
+        p_tweet_id: tweetId
+      });
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      await deleteNotification(tweet.author_id, user.id, 'like', tweetId);
+      
+      return true;
+    } else {
+      const { error: insertError } = await supabase
+        .from('likes')
+        .insert({
+          user_id: user.id,
+          tweet_id: tweetId
+        });
+      
+      if (insertError) {
+        throw insertError;
+      }
+      
+      const { error: updateError } = await supabase.rpc('increment_likes_count', {
+        p_tweet_id: tweetId
+      });
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      await createNotification(tweet.author_id, user.id, 'like', tweetId);
+      
+      return true;
     }
-    
-    return true;
   } catch (error) {
-    console.error('Like action failed:', error);
+    console.error('Error liking/unliking tweet:', error);
     return false;
   }
 }
@@ -210,73 +241,92 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
-    const { data: existingRetweet, error: checkError } = await supabase
+    const { data: existingRetweet } = await supabase
       .from('retweets')
-      .select()
-      .match({ 
-        user_id: user.id,
-        tweet_id: tweetId 
-      } as any);
-      
-    if (checkError) {
-      console.error('Error checking retweet status:', checkError);
-      return false;
-    }
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
     
-    if (existingRetweet && existingRetweet.length > 0) {
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id, content, image_url')
+      .eq('id', tweetId)
+      .single();
+    
+    if (existingRetweet) {
       const { error: deleteError } = await supabase
         .from('retweets')
         .delete()
-        .match({ 
-          user_id: user.id,
-          tweet_id: tweetId 
-        } as any);
-        
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId);
+      
       if (deleteError) {
-        console.error('Error removing retweet:', deleteError);
-        return false;
+        throw deleteError;
       }
+      
+      const { error: deleteTweetError } = await supabase
+        .from('tweets')
+        .delete()
+        .eq('author_id', user.id)
+        .eq('is_retweet', true)
+        .eq('original_tweet_id', tweetId);
+      
+      if (deleteTweetError) {
+        throw deleteTweetError;
+      }
+      
+      const { error: updateError } = await supabase.rpc('decrement_retweets_count', {
+        p_tweet_id: tweetId
+      });
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      await deleteNotification(tweet.author_id, user.id, 'retweet', tweetId);
+      
+      return true;
+    } else {
+      const { error: insertError } = await supabase
+        .from('retweets')
+        .insert({
+          user_id: user.id,
+          tweet_id: tweetId
+        });
+      
+      if (insertError) {
+        throw insertError;
+      }
+      
+      const { error: createTweetError } = await supabase
+        .from('tweets')
+        .insert({
+          author_id: user.id,
+          content: tweet.content,
+          is_retweet: true,
+          original_tweet_id: tweetId,
+          image_url: tweet.image_url
+        });
+      
+      if (createTweetError) {
+        throw createTweetError;
+      }
+      
+      const { error: updateError } = await supabase.rpc('increment_retweets_count', {
+        p_tweet_id: tweetId
+      });
+      
+      if (updateError) {
+        throw updateError;
+      }
+      
+      await createNotification(tweet.author_id, user.id, 'retweet', tweetId);
       
       return true;
     }
-    
-    const { error } = await supabase
-      .from('retweets')
-      .insert({
-        user_id: user.id,
-        tweet_id: tweetId
-      } as any);
-      
-    if (error) {
-      console.error('Error retweeting:', error);
-      return false;
-    }
-    
-    const { error: tweetError } = await supabase
-      .from('tweets')
-      .insert({
-        content: '',
-        author_id: user.id,
-        is_retweet: true,
-        original_tweet_id: tweetId
-      } as any);
-      
-    if (tweetError) {
-      console.error('Error creating retweet tweet:', tweetError);
-      await supabase
-        .from('retweets')
-        .delete()
-        .match({ 
-          user_id: user.id,
-          tweet_id: tweetId 
-        } as any);
-        
-      return false;
-    }
-    
-    return true;
   } catch (error) {
-    console.error('Retweet action failed:', error);
+    console.error('Error retweeting/unretweeting:', error);
     return false;
   }
 }
@@ -287,25 +337,44 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     const user = userData?.user;
     
     if (!user) {
-      throw new Error('User must be logged in to reply to a tweet');
+      throw new Error('User must be logged in to comment');
     }
     
-    const { error } = await supabase
+    if (!content || content.trim() === '') {
+      throw new Error('Comment content cannot be empty');
+    }
+    
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id')
+      .eq('id', tweetId)
+      .single();
+    
+    const { error: commentError } = await supabase
       .from('comments')
       .insert({
-        content,
         user_id: user.id,
-        tweet_id: tweetId
-      } as any);
-      
-    if (error) {
-      console.error('Error replying to tweet:', error);
-      return false;
+        tweet_id: tweetId,
+        content: content.trim()
+      });
+    
+    if (commentError) {
+      throw commentError;
     }
+    
+    const { error: updateError } = await supabase.rpc('increment_replies_count', {
+      p_tweet_id: tweetId
+    });
+    
+    if (updateError) {
+      throw updateError;
+    }
+    
+    await createNotification(tweet.author_id, user.id, 'comment', tweetId);
     
     return true;
   } catch (error) {
-    console.error('Reply action failed:', error);
+    console.error('Error commenting on tweet:', error);
     return false;
   }
 }

@@ -1,0 +1,224 @@
+
+import { supabase } from '@/integrations/supabase/client';
+import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
+import { createNotification, deleteNotification } from './notificationService';
+
+// Get a profile by ID
+export async function getProfileById(id: string): Promise<Profile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching profile by ID:', error);
+      return null;
+    }
+    
+    return data as Profile;
+  } catch (error) {
+    console.error('Failed to fetch profile by ID:', error);
+    return null;
+  }
+}
+
+// Get a profile by username
+export async function getProfileByUsername(username: string): Promise<Profile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username)
+      .single();
+      
+    if (error) {
+      console.error('Error fetching profile by username:', error);
+      return null;
+    }
+    
+    return data as Profile;
+  } catch (error) {
+    console.error('Failed to fetch profile by username:', error);
+    return null;
+  }
+}
+
+// Update a profile
+export async function updateProfile(id: string, profile: Partial<ProfileUpdatePayload>): Promise<Profile | null> {
+  try {
+    // Add updated_at field
+    const updatedProfile = {
+      ...profile,
+      updated_at: new Date().toISOString()
+    };
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updatedProfile)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error updating profile:', error);
+      return null;
+    }
+    
+    return data as Profile;
+  } catch (error) {
+    console.error('Failed to update profile:', error);
+    return null;
+  }
+}
+
+// Follow a user
+export async function followUser(followingId: string): Promise<boolean> {
+  try {
+    // Get the current user
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to follow another user');
+    }
+    
+    const followerId = user.id;
+    
+    // Check if already following
+    const { data: existingFollow } = await supabase
+      .from('followers')
+      .select('*')
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+      .maybeSingle();
+    
+    if (existingFollow) {
+      // Already following, do nothing
+      return true;
+    }
+    
+    // Create the follow relationship
+    const { error } = await supabase
+      .from('followers')
+      .insert({
+        follower_id: followerId,
+        following_id: followingId
+      });
+      
+    if (error) {
+      throw error;
+    }
+    
+    // Increment the followers_count in the target user's profile
+    const { error: updateError1 } = await supabase.rpc('increment_followers_count', {
+      p_user_id: followingId
+    });
+    
+    if (updateError1) {
+      throw updateError1;
+    }
+    
+    // Increment the following_count in the current user's profile
+    const { error: updateError2 } = await supabase.rpc('increment_following_count', {
+      p_user_id: followerId
+    });
+    
+    if (updateError2) {
+      throw updateError2;
+    }
+    
+    // Create a notification for the follow action
+    await createNotification(followingId, followerId, 'follow');
+    
+    return true;
+  } catch (error) {
+    console.error('Error following user:', error);
+    return false;
+  }
+}
+
+// Unfollow a user
+export async function unfollowUser(followingId: string): Promise<boolean> {
+  try {
+    // Get the current user
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to unfollow another user');
+    }
+    
+    const followerId = user.id;
+    
+    // Delete the follow relationship
+    const { error } = await supabase
+      .from('followers')
+      .delete()
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId);
+      
+    if (error) {
+      throw error;
+    }
+    
+    // Decrement the followers_count in the target user's profile
+    const { error: updateError1 } = await supabase.rpc('decrement_followers_count', {
+      p_user_id: followingId
+    });
+    
+    if (updateError1) {
+      throw updateError1;
+    }
+    
+    // Decrement the following_count in the current user's profile
+    const { error: updateError2 } = await supabase.rpc('decrement_following_count', {
+      p_user_id: followerId
+    });
+    
+    if (updateError2) {
+      throw updateError2;
+    }
+    
+    // Delete the notification for the unfollow action
+    await deleteNotification(followingId, followerId, 'follow');
+    
+    return true;
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    return false;
+  }
+}
+
+// Check if the current user is following another user
+export async function isFollowing(followingId: string): Promise<boolean> {
+  try {
+    // Get the current user
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      return false;
+    }
+    
+    const followerId = user.id;
+    
+    // Check the follow relationship
+    const { data, error } = await supabase
+      .from('followers')
+      .select('*')
+      .eq('follower_id', followerId)
+      .eq('following_id', followingId)
+      .maybeSingle();
+      
+    if (error) {
+      throw error;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Error checking follow status:', error);
+    return false;
+  }
+}

@@ -14,6 +14,7 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -33,6 +34,11 @@ const App = () => (
                 <Route path="/home" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <Notifications />
+                  </ProtectedRoute>
+                } />
                 <Route path="/profile" element={
                   <ProtectedRoute>
                     <ProfilePage />
