@@ -28,30 +28,38 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         setLoading(true);
         setError(null);
         
+        console.log(`[TweetFeed] Starting to fetch tweets - feedType=${feedType}, userId=${userId}, limit=${limit}`);
+        
         let fetchedTweets: TweetWithAuthor[] = [];
         
         if (feedType === 'all') {
           // Public feed - fetch all tweets without authentication
-          console.log('Fetching public feed of all tweets');
+          console.log('[TweetFeed] Fetching public feed of all tweets');
           fetchedTweets = await getTweets(limit, 0);
         } else if (feedType === 'user' && userId) {
           // Fetch user's posts only
-          console.log(`Fetching tweets for user: ${userId}`);
+          console.log(`[TweetFeed] Fetching tweets for user: ${userId}`);
           fetchedTweets = await getUserTweets(userId, limit, 0);
         } else if (feedType === 'user-retweets' && userId) {
           // Fetch user's retweets
-          console.log(`Fetching retweets for user: ${userId}`);
+          console.log(`[TweetFeed] Fetching retweets for user: ${userId}`);
           fetchedTweets = await getUserTweets(userId, limit, 0, true);
         } else {
           // Default to global feed
-          console.log('Defaulting to public feed');
+          console.log('[TweetFeed] Defaulting to public feed');
           fetchedTweets = await getTweets(limit, 0);
         }
         
-        console.log(`Fetched ${fetchedTweets.length} tweets for feed`);
+        console.log(`[TweetFeed] Fetched ${fetchedTweets.length} tweets for feed`);
+        if (fetchedTweets.length > 0) {
+          console.log('[TweetFeed] First tweet:', fetchedTweets[0]);
+        } else {
+          console.log('[TweetFeed] No tweets returned from the service');
+        }
+        
         setTweets(fetchedTweets);
       } catch (err) {
-        console.error('Failed to fetch tweets:', err);
+        console.error('[TweetFeed] Failed to fetch tweets:', err);
         setError('Failed to load tweets. Please try again later.');
         
         toast({
@@ -96,7 +104,7 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
         <p className="text-gray-400 text-xs sm:text-base">
           {feedType === 'user' ? 'No tweets yet. Post something to get started!' : 
            feedType === 'user-retweets' ? 'No retweets yet.' : 
-           'No tweets found. Loading might take a moment or there are no posts yet.'}
+           'No tweets found in the database. Please post something to get started!'}
         </p>
       </div>
     );

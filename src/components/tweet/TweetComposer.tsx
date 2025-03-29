@@ -75,8 +75,12 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
     }
 
     try {
+      console.log('[TweetComposer] Submitting tweet with content:', content.substring(0, 20) + (content.length > 20 ? '...' : ''));
       setIsSubmitting(true);
-      await onTweetSubmit(content, selectedImage || undefined);
+      
+      const result = await onTweetSubmit(content, selectedImage || undefined);
+      console.log('[TweetComposer] Tweet submission result:', result);
+      
       setContent('');
       clearImage();
       
@@ -85,7 +89,7 @@ const TweetComposer = ({ onTweetSubmit, placeholder = "What's happening?" }: Twe
         description: "Your tweet has been shared with the world."
       });
     } catch (error) {
-      console.error("Error posting tweet:", error);
+      console.error("[TweetComposer] Error posting tweet:", error);
       toast({
         variant: "destructive",
         title: "Failed to post tweet",

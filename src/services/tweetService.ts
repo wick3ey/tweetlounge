@@ -1,28 +1,34 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
 
 export async function createTweet(content: string, imageFile?: File): Promise<boolean> {
   try {
+    console.log('[tweetService] Creating new tweet with content length:', content.length);
+    
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
-      console.error('Authentication error:', userError);
+      console.error('[tweetService] Authentication error:', userError);
       throw new Error('User must be logged in to create a tweet');
     }
+    
+    console.log('[tweetService] Authenticated user ID:', userData.user.id);
     
     let imageUrl = null;
     
     if (imageFile) {
       try {
+        console.log('[tweetService] Uploading tweet image:', imageFile.name);
         imageUrl = await uploadFile(imageFile, 'tweet-images');
         
         if (!imageUrl) {
-          console.warn('Failed to upload image but continuing with text-only tweet');
+          console.warn('[tweetService] Failed to upload image but continuing with text-only tweet');
+        } else {
+          console.log('[tweetService] Image uploaded successfully:', imageUrl);
         }
       } catch (uploadError) {
-        console.error('Image upload failed:', uploadError);
+        console.error('[tweetService] Image upload failed:', uploadError);
       }
     }
     
@@ -32,7 +38,7 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
       image_url: imageUrl
     };
     
-    console.log('Creating tweet with data:', tweetData);
+    console.log('[tweetService] Creating tweet with data:', tweetData);
     
     const { error, data } = await supabase
       .from('tweets')
@@ -40,33 +46,41 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
       .select();
       
     if (error) {
-      console.error('Error creating tweet:', error);
+      console.error('[tweetService] Error creating tweet:', error);
       return false;
     }
     
-    console.log('Tweet successfully created with ID:', data?.[0]?.id);
-    console.log('Tweet successfully created and added to public feed');
+    console.log('[tweetService] Tweet successfully created with ID:', data?.[0]?.id);
+    console.log('[tweetService] Tweet data from response:', data?.[0]);
     return true;
   } catch (error) {
-    console.error('Tweet creation failed:', error);
+    console.error('[tweetService] Tweet creation failed:', error);
     return false;
   }
 }
 
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
-    console.log(`Fetching public feed: limit=${limit}, offset=${offset}`);
+    console.log(`[tweetService] Fetching public feed: limit=${limit}, offset=${offset}`);
     
     // First try to directly query the tweets table to debug
     const { data: rawTweets, error: rawError } = await supabase
       .from('tweets')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(20);
       
-    console.log('Raw tweets query result:', rawTweets, rawError);
+    console.log('[tweetService] Raw tweets query result:', rawTweets, rawError);
     
-    // Public feed - no authentication required
+    if (rawError) {
+      console.error('[tweetService] Error in raw tweets query:', rawError);
+    } else if (!rawTweets || rawTweets.length === 0) {
+      console.log('[tweetService] No tweets found in the database');
+    } else {
+      console.log(`[tweetService] Found ${rawTweets.length} tweets in raw query`);
+    }
+    
+    // Now try the RPC function approach
     const { data, error } = await supabase
       .rpc('get_tweets_with_authors', {
         limit_count: limit,
@@ -74,11 +88,15 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       });
       
     if (error) {
-      console.error('Error fetching tweets for public feed:', error);
+      console.error('[tweetService] Error fetching tweets for public feed:', error);
       throw error;
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} tweets for public feed`);
+    console.log(`[tweetService] Successfully fetched ${data?.length || 0} tweets using RPC function`);
+    
+    if (data && data.length > 0) {
+      console.log('[tweetService] First tweet from RPC:', data[0]);
+    }
     
     const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
       id: tweet.id,
@@ -103,7 +121,7 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
     
     return formattedTweets;
   } catch (error) {
-    console.error('Failed to fetch tweets for public feed:', error);
+    console.error('[tweetService] Failed to fetch tweets for public feed:', error);
     return [];
   }
 }
