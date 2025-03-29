@@ -11,7 +11,7 @@ import { connectEthereumWallet, connectSolanaWallet, updateWalletAddress } from 
 import { useToast } from '@/components/ui/use-toast';
 import { NFT, fetchEthereumNFTs, fetchSolanaNFTs, setNFTAsProfilePicture } from '@/utils/nftService';
 import { CryptoButton } from '@/components/ui/crypto-button';
-import { followUser, unfollowUser, isFollowing, getFollowers, getFollowing } from '@/services/profileService';
+import { followUser, unfollowUser, isFollowing as checkIsFollowing, getFollowers, getFollowing } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import FollowersList from '@/components/profile/FollowersList';
 
@@ -81,7 +81,8 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        const followStatus = await isFollowing(userId);
+        // Fixed: Using the renamed function checkIsFollowing instead of isFollowing
+        const followStatus = await checkIsFollowing(userId);
         setFollowing(!!followStatus);
       } catch (error) {
         console.error("Error checking follow status:", error);
