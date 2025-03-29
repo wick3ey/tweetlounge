@@ -6,12 +6,8 @@ import RightSidebar from '@/components/layout/RightSidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
 import { ZapIcon, RefreshCwIcon, Menu } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import TweetComposer from '@/components/tweet/TweetComposer'
-import TweetFeed from '@/components/tweet/TweetFeed'
-import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
-import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 const Home: React.FC = () => {
@@ -20,7 +16,6 @@ const Home: React.FC = () => {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mainContentLoaded, setMainContentLoaded] = useState(false);
-  const [refreshFeed, setRefreshFeed] = useState(0); // Counter to trigger feed refresh
 
   useEffect(() => {
     // Mark content as loaded after a small delay to ensure proper rendering
@@ -34,44 +29,11 @@ const Home: React.FC = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const handleTweetSubmit = async (content: string, imageFile?: File) => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to post a tweet",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const result = await createTweet(content, imageFile);
-      if (!result) {
-        throw new Error("Failed to create tweet");
-      }
-      
-      // Instead of forcing page reload, trigger feed refresh
-      setRefreshFeed(prev => prev + 1);
-      
-      toast({
-        title: "Success!",
-        description: "Your tweet has been posted",
-      });
-      
-      return Promise.resolve();
-    } catch (error) {
-      console.error("Error posting tweet:", error);
-      toast({
-        title: "Tweet Error",
-        description: "Failed to post your tweet. Please try again.",
-        variant: "destructive"
-      });
-      throw error;
-    }
-  };
-
   const handleRefresh = () => {
-    setRefreshFeed(prev => prev + 1);
+    toast({
+      title: "Refreshed",
+      description: "Content has been refreshed",
+    });
   };
 
   return (
@@ -111,7 +73,7 @@ const Home: React.FC = () => {
               <div className="rounded-lg bg-crypto-gray/20 p-1.5">
                 <ZapIcon className="text-crypto-blue h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <h1 className="text-lg sm:text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
+              <h1 className="text-lg sm:text-xl font-display font-semibold crypto-gradient-text">Home</h1>
               
               <CryptoButton 
                 variant="outline" 
@@ -124,15 +86,11 @@ const Home: React.FC = () => {
               </CryptoButton>
             </div>
             
-            {user && (
-              <div className="mb-3 sm:mb-4">
-                <TweetComposer onTweetSubmit={handleTweetSubmit} />
-              </div>
-            )}
-            
-            <div className="mb-4">
-              <TweetFeedTabs />
-              <TweetFeed key={refreshFeed} limit={10} />
+            <div className="p-4 rounded-lg bg-crypto-darkgray/80 border border-crypto-gray/30 text-center">
+              <h2 className="text-lg font-medium mb-2">Welcome to the Crypto Platform</h2>
+              <p className="text-crypto-lightgray">
+                The tweet and post functionality has been removed from this application.
+              </p>
             </div>
           </main>
         </div>
