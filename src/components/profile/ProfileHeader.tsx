@@ -73,7 +73,7 @@ const ProfileHeader = ({
       
       try {
         setIsCheckingFollowStatus(true);
-        // Fix: Here we're properly awaiting the isFollowing function call
+        // Fix: Get the follow status directly from the isFollowing function
         const followStatus = await isFollowing(userId);
         setFollowing(followStatus);
       } catch (error) {
