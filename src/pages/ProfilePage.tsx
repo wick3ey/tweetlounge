@@ -9,18 +9,23 @@ import { Loader } from "lucide-react";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import Navbar from "@/components/layout/Navbar";
+import { getProfileByUsername } from "@/services/profileService";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading } = useProfile();
+  const { profile, isLoading: profileLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkProfileExists = async () => {
+      setIsLoading(true);
+      
       if (!username) {
         if (profile?.username) {
           // Redirect to the user's own profile if no username provided
@@ -33,10 +38,28 @@ const ProfilePage = () => {
         return;
       }
 
-      // If viewing own profile (with username), just continue
+      // If viewing a profile with username, check if it exists
       try {
-        // In a real implementation, we would check if username exists in database
-        // For now, we assume all usernames exist
+        // Check if the username exists in the database
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .eq('username', username)
+          .single();
+        
+        if (error || !data) {
+          console.error("Error checking profile:", error);
+          toast({
+            title: "Profile not found",
+            description: "Could not find user profile with username: " + username,
+            variant: "destructive",
+          });
+          setProfileExists(false);
+          setIsLoading(false);
+          return;
+        }
+        
+        setProfileUserId(data.id);
         setProfileExists(true);
       } catch (error) {
         console.error("Error checking profile:", error);
@@ -88,7 +111,7 @@ const ProfilePage = () => {
       <div className="container mx-auto flex flex-col lg:flex-row">
         <LeftSidebar />
         <main className="flex-1 min-h-screen border-x border-crypto-gray/30">
-          <Profile />
+          <Profile profileUsername={username} profileUserId={profileUserId} />
         </main>
         <RightSidebar />
       </div>

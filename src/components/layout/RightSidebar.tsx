@@ -124,7 +124,7 @@ const RightSidebar = () => {
     return name.substring(0, 2).toUpperCase();
   };
 
-  const navigateToProfile = (username: string | null) => {
+  const navigateToProfile = (username: string | null, userId: string) => {
     if (username) {
       navigate(`/profile/${username}`);
       clearSearch();
@@ -178,7 +178,7 @@ const RightSidebar = () => {
                   <div 
                     key={result.id} 
                     className="px-4 py-2 hover:bg-gray-900 cursor-pointer"
-                    onClick={() => navigateToProfile(result.username)}
+                    onClick={() => navigateToProfile(result.username, result.id)}
                   >
                     <div className="flex items-center">
                       <Avatar className="h-8 w-8 border border-gray-800">
@@ -274,7 +274,7 @@ const RightSidebar = () => {
                         <div key={profile.id} className="flex items-center justify-between">
                           <div 
                             className="flex items-center cursor-pointer" 
-                            onClick={() => navigateToProfile(profile.username)}
+                            onClick={() => navigateToProfile(profile.username, profile.id)}
                           >
                             <Avatar className="h-10 w-10 border border-gray-800">
                               <AvatarImage src={profile.avatar_url || ''} alt={profile.display_name || 'User'} />
