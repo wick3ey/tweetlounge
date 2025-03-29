@@ -142,6 +142,8 @@ export async function followUser(followingId: string): Promise<boolean> {
     }
     
     // Create a notification for the follow action
+    // Important: We're passing followerId as actorId, which must match the current user's ID
+    // to satisfy the RLS policy requirement
     await createNotification(followingId, followerId, 'follow');
     
     return true;
@@ -207,6 +209,8 @@ export async function unfollowUser(followingId: string): Promise<boolean> {
     }
     
     // Delete the notification for the unfollow action
+    // Important: We're passing followerId as actorId, which must match the current user's ID
+    // to satisfy the RLS policy requirement
     await deleteNotification(followingId, followerId, 'follow');
     
     return true;
