@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Notification } from '@/types/Notification';
+import { Notification, NotificationType } from '@/types/Notification';
 import { markNotificationAsRead, markAllNotificationsAsRead as markAllRead } from '@/services/notificationService';
 
 export function useNotifications() {
@@ -63,7 +63,7 @@ export function useNotifications() {
           id: notification.id,
           userId: notification.user_id,
           actorId: notification.actor_id,
-          type: notification.type,
+          type: notification.type as NotificationType,
           tweetId: notification.tweet_id,
           commentId: notification.comment_id,
           createdAt: notification.created_at,
@@ -184,7 +184,7 @@ export function useNotifications() {
               id: payload.new.id,
               userId: payload.new.user_id,
               actorId: payload.new.actor_id,
-              type: payload.new.type,
+              type: payload.new.type as NotificationType,
               tweetId: payload.new.tweet_id,
               commentId: payload.new.comment_id,
               createdAt: payload.new.created_at,
@@ -235,6 +235,9 @@ export function useNotifications() {
         break;
       case 'follow':
         description = `${notification.actor.displayName} started following you`;
+        break;
+      case 'mention':
+        description = `${notification.actor.displayName} mentioned you`;
         break;
       default:
         description = 'You have a new notification';
