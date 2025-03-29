@@ -26,6 +26,12 @@ export type Profile = {
   updated_at: string | null;
   created_at: string;
   replies_sort_order: string | null;
+  ethereum_address: string | null;
+  solana_address: string | null;
+  avatar_nft_id: string | null;
+  avatar_nft_chain: string | null;
+  followers_count: number;
+  following_count: number;
 };
 
 export type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at' | 'updated_at'>;
