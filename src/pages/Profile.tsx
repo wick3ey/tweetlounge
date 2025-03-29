@@ -18,8 +18,7 @@ import {
   Wallet,
   MessageSquare,
   FileImage,
-  Sparkles,
-  Repeat
+  Sparkles
 } from 'lucide-react';
 import {
   Dialog,
@@ -32,6 +31,7 @@ import NFTBrowser from '@/components/profile/NFTBrowser';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { CryptoButton } from '@/components/ui/crypto-button';
 
+// Badge component
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
     {children}
@@ -215,13 +215,6 @@ const Profile = () => {
               <span className="hidden sm:inline">Media</span>
             </TabsTrigger>
             <TabsTrigger 
-              value="retweets" 
-              className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
-            >
-              <Repeat className="mr-2 h-4 w-4 sm:hidden" />
-              <span className="hidden sm:inline">Retweets</span>
-            </TabsTrigger>
-            <TabsTrigger 
               value="assets" 
               className="flex-1 py-4 font-semibold rounded-none border-b-2 border-transparent data-[state=active]:border-crypto-blue data-[state=active]:text-crypto-blue"
             >
@@ -232,11 +225,18 @@ const Profile = () => {
           
           <TabsContent value="posts" className="mt-0 pt-4">
             <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                <MessageSquare className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
-                <div className="text-xl font-bold mb-2 text-crypto-text">No posts yet</div>
-                <p className="text-crypto-lightgray text-center">Posts functionality has been removed</p>
-              </div>
+              {activeTab === 'posts' && (
+                <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
+                  <div className="text-xl font-bold mb-2 text-crypto-text">No posts yet</div>
+                  <p className="text-crypto-lightgray text-center mb-6">When you post, your tweets will show up here</p>
+                  {isCurrentUser && (
+                    <CryptoButton className="px-6 py-2">
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Create your first post
+                    </CryptoButton>
+                  )}
+                </div>
+              )}
             </div>
           </TabsContent>
           
@@ -256,16 +256,6 @@ const Profile = () => {
                 <Image className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
                 <div className="text-xl font-bold mb-2 text-crypto-text">No media yet</div>
                 <p className="text-crypto-lightgray text-center">When you post photos or videos, they will show up here</p>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="retweets" className="mt-0 pt-4">
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
-                <Repeat className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
-                <div className="text-xl font-bold mb-2 text-crypto-text">No reposts yet</div>
-                <p className="text-crypto-lightgray text-center">Repost functionality has been removed</p>
               </div>
             </div>
           </TabsContent>
@@ -330,6 +320,7 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog for enlarged profile image */}
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">
