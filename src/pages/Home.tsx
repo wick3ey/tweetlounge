@@ -1,9 +1,13 @@
 
 import React from 'react'
 import Header from '@/components/layout/Header'
+import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
+import MarketStats from '@/components/crypto/MarketStats'
+import NewsSection from '@/components/crypto/NewsSection'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
+import { Separator } from '@/components/ui/separator'
 import TweetComposer from '@/components/tweet/TweetComposer'
 import TweetFeed from '@/components/tweet/TweetFeed'
 import { createTweet } from '@/services/tweetService'
