@@ -14,4 +14,5 @@ export interface Comment {
     avatar_nft_id?: string;
     avatar_nft_chain?: string;
   };
+  replies?: Comment[];
 }

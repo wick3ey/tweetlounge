@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
+import TweetDetail from '@/components/tweet/TweetDetail';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface TweetFeedProps {
   userId?: string;
@@ -16,6 +18,8 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedTweet, setSelectedTweet] = useState<TweetWithAuthor | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -50,6 +54,34 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
     fetchTweets();
   }, [limit, toast]);
 
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      const freshTweets = await getTweets(limit, 0);
+      setTweets(freshTweets);
+    } catch (err) {
+      console.error('Failed to refresh tweets:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh tweets.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTweetClick = (tweet: TweetWithAuthor) => {
+    setSelectedTweet(tweet);
+    setIsDetailOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    // Refresh the feed when closing the detail view to show updated likes/comments
+    handleRefresh();
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -82,17 +114,30 @@ const TweetFeed = ({ userId, limit = 20 }: TweetFeedProps) => {
   }
 
   return (
-    <div className="tweet-feed rounded-lg overflow-hidden bg-gray-900/20 border border-gray-800">
-      {tweets.map((tweet) => (
-        <TweetCard
-          key={tweet.id}
-          tweet={tweet}
-          onLike={() => {}}
-          onRetweet={() => {}}
-          onReply={() => {}}
-        />
-      ))}
-    </div>
+    <>
+      <div className="tweet-feed rounded-lg overflow-hidden bg-gray-900/20 border border-gray-800">
+        {tweets.map((tweet) => (
+          <TweetCard
+            key={tweet.id}
+            tweet={tweet}
+            onClick={() => handleTweetClick(tweet)}
+            onAction={handleRefresh}
+          />
+        ))}
+      </div>
+
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-2xl bg-crypto-black border-crypto-gray/40 p-0 max-h-[90vh] overflow-auto">
+          {selectedTweet && (
+            <TweetDetail 
+              tweet={selectedTweet} 
+              onClose={handleCloseDetail}
+              onAction={handleRefresh}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
