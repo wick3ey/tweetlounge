@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -51,6 +52,9 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   const [showReplies, setShowReplies] = useState(false);
   
   const isAuthor = user && tweet.author_id === user.id;
+
+  // Log the tweet author to help with debugging
+  console.log("[TweetCard] Tweet author data:", tweet.author);
 
   useEffect(() => {
     const checkLikeStatus = async () => {

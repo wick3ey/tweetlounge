@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { uploadFile } from '@/services/storageService';
 import { TweetWithAuthor } from '@/types/Tweet';
@@ -101,8 +102,8 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       image_url: tweet.image_url,
       author: {
         id: tweet.author_id,
-        username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
-        display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+        username: tweet.username,
+        display_name: tweet.display_name,
         avatar_url: tweet.avatar_url || '',
         avatar_nft_id: tweet.avatar_nft_id,
         avatar_nft_chain: tweet.avatar_nft_chain
@@ -169,8 +170,8 @@ export async function getUserTweets(
       image_url: tweet.image_url,
       author: {
         id: tweet.author_id,
-        username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
-        display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+        username: tweet.username,
+        display_name: tweet.display_name,
         avatar_url: tweet.avatar_url || '',
         avatar_nft_id: tweet.avatar_nft_id,
         avatar_nft_chain: tweet.avatar_nft_chain
@@ -412,8 +413,8 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
         image_url: tweet.image_url,
         author: {
           id: tweet.author_id,
-          username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
-          display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+          username: tweet.username,
+          display_name: tweet.display_name,
           avatar_url: tweet.avatar_url || '',
           avatar_nft_id: tweet.avatar_nft_id,
           avatar_nft_chain: tweet.avatar_nft_chain

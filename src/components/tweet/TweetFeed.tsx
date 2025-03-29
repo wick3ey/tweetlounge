@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getTweets, getUserTweets } from '@/services/tweetService';
-import { useProfile } from '@/contexts/ProfileContext';
 
 interface TweetFeedProps {
   userId?: string;
@@ -20,7 +19,6 @@ const TweetFeed = ({ userId, limit = 20, feedType = 'all' }: TweetFeedProps) => 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const { profile } = useProfile();
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
