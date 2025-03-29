@@ -236,6 +236,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
   };
 
   const getInitials = (name: string) => {
+    if (!name) return "??";
     return name.substring(0, 2).toUpperCase();
   };
 
@@ -264,7 +265,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
       <div className="p-4 border-b border-gray-800 animate-pulse">
         <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
           <Repeat className="h-3 w-3 mr-2" />
-          <span>{retweeter.display_name} retweeted</span>
+          <span>{retweeter.display_name || retweeter.username} retweeted</span>
         </div>
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-full bg-gray-700"></div>
@@ -284,17 +285,17 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
         {isRetweet && (
           <div className="flex items-center text-gray-500 text-xs mb-2 ml-6">
             <Repeat className="h-3 w-3 mr-2" />
-            <span>{retweeter.display_name} retweeted</span>
+            <span>{retweeter.display_name || retweeter.username} retweeted</span>
           </div>
         )}
         <div className="flex gap-3">
           <Link to={`/profile/${originalAuthor.username}`}>
             <Avatar className="h-10 w-10">
               {originalAuthor.avatar_url ? (
-                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name} />
+                <AvatarImage src={originalAuthor.avatar_url} alt={originalAuthor.display_name || originalAuthor.username || 'User'} />
               ) : null}
               <AvatarFallback className="bg-twitter-blue text-white">
-                {getInitials(originalAuthor.display_name || originalAuthor.username)}
+                {getInitials(originalAuthor.display_name || originalAuthor.username || 'User')}
               </AvatarFallback>
             </Avatar>
           </Link>
@@ -302,7 +303,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <Link to={`/profile/${originalAuthor.username}`} className="font-bold hover:underline text-sm">
-                  {originalAuthor.display_name}
+                  {originalAuthor.display_name || originalAuthor.username || 'Unknown User'}
                 </Link>
                 
                 {isNFTVerified && (
@@ -324,7 +325,7 @@ const TweetCard = ({ tweet, onLike, onRetweet, onReply, onDelete }: TweetCardPro
                 )}
                 
                 <span className="text-gray-500 ml-1 text-sm">
-                  @{originalAuthor.username}
+                  @{originalAuthor.username || 'unknown'}
                 </span>
                 <span className="text-gray-500 mx-1 text-xs">·</span>
                 <span className="text-gray-500 text-xs">{timeAgo}</span>

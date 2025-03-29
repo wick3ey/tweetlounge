@@ -64,26 +64,8 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
   try {
     console.log(`[tweetService] Fetching public feed: limit=${limit}, offset=${offset}`);
     
-    // First try to directly query the tweets table to debug
-    const { data: rawTweets, error: rawError } = await supabase
-      .from('tweets')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-      
-    console.log('[tweetService] Raw tweets query result:', rawTweets, rawError);
-    
-    if (rawError) {
-      console.error('[tweetService] Error in raw tweets query:', rawError);
-    } else if (!rawTweets || rawTweets.length === 0) {
-      console.log('[tweetService] No tweets found in the database');
-    } else {
-      console.log(`[tweetService] Found ${rawTweets.length} tweets in raw query`);
-    }
-    
-    // Now try the RPC function approach
     const { data, error } = await supabase
-      .rpc('get_tweets_with_authors', {
+      .rpc('get_tweets_with_authors_reliable', {
         limit_count: limit,
         offset_count: offset
       });
@@ -93,10 +75,10 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       throw error;
     }
     
-    console.log(`[tweetService] Successfully fetched ${data?.length || 0} tweets using RPC function`);
+    console.log(`[tweetService] Successfully fetched ${data?.length || 0} tweets using reliable RPC function`);
     
     if (data && data.length > 0) {
-      console.log('[tweetService] First tweet from RPC:', data[0]);
+      console.log('[tweetService] First tweet from reliable RPC:', data[0]);
     }
     
     const formattedTweets: TweetWithAuthor[] = data.map((tweet: any) => ({
@@ -112,9 +94,9 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       image_url: tweet.image_url,
       author: {
         id: tweet.author_id,
-        username: tweet.username,
-        display_name: tweet.display_name,
-        avatar_url: tweet.avatar_url,
+        username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
+        display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+        avatar_url: tweet.avatar_url || '',
         avatar_nft_id: tweet.avatar_nft_id,
         avatar_nft_chain: tweet.avatar_nft_chain
       }
@@ -135,7 +117,7 @@ export async function getUserTweets(
 ): Promise<TweetWithAuthor[]> {
   try {
     if (!userId || !userId.trim()) {
-      console.error('Invalid user ID provided');
+      console.error('[tweetService] Invalid user ID provided');
       return [];
     }
     
@@ -144,7 +126,7 @@ export async function getUserTweets(
     
     if (retweetsOnly) {
       const response = await supabase
-        .rpc('get_user_retweets', {
+        .rpc('get_user_retweets_reliable', {
           user_id: userId,
           limit_count: limit,
           offset_count: offset
@@ -153,7 +135,7 @@ export async function getUserTweets(
       error = response.error;
     } else {
       const response = await supabase
-        .rpc('get_user_tweets', {
+        .rpc('get_user_tweets_reliable', {
           user_id: userId,
           limit_count: limit,
           offset_count: offset
@@ -163,7 +145,7 @@ export async function getUserTweets(
     }
       
     if (error) {
-      console.error('Error fetching user tweets:', error);
+      console.error('[tweetService] Error fetching user tweets:', error);
       throw error;
     }
     
@@ -180,9 +162,9 @@ export async function getUserTweets(
       image_url: tweet.image_url,
       author: {
         id: tweet.author_id,
-        username: tweet.username,
-        display_name: tweet.display_name,
-        avatar_url: tweet.avatar_url,
+        username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
+        display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+        avatar_url: tweet.avatar_url || '',
         avatar_nft_id: tweet.avatar_nft_id,
         avatar_nft_chain: tweet.avatar_nft_chain
       }
@@ -190,7 +172,7 @@ export async function getUserTweets(
     
     return formattedTweets;
   } catch (error) {
-    console.error('Failed to fetch user tweets:', error);
+    console.error('[tweetService] Failed to fetch user tweets:', error);
     return [];
   }
 }
@@ -198,27 +180,27 @@ export async function getUserTweets(
 export async function likeTweet(tweetId: string): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
-      console.error('Invalid tweet ID provided for like action');
+      console.error('[tweetService] Invalid tweet ID provided for like action');
       return false;
     }
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
-      console.error('Authentication error:', userError);
+      console.error('[tweetService] Authentication error:', userError);
       throw new Error('User must be logged in to like a tweet');
     }
     
-    // Check if user has already liked the tweet - using maybeSingle to fix 406 error
+    // Check if user has already liked the tweet
     const { data: existingLike, error: existingLikeError } = await supabase
       .from('likes')
-      .select('id')
+      .select('*')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
       .maybeSingle();
       
     if (existingLikeError) {
-      console.error('Error checking existing like:', existingLikeError);
+      console.error('[tweetService] Error checking existing like:', existingLikeError);
       return false;
     }
     
@@ -230,7 +212,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         .eq('id', existingLike.id);
         
       if (error) {
-        console.error('Error unliking tweet:', error);
+        console.error('[tweetService] Error unliking tweet:', error);
         return false;
       }
     } else {
@@ -243,14 +225,14 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         });
         
       if (error) {
-        console.error('Error liking tweet:', error);
+        console.error('[tweetService] Error liking tweet:', error);
         return false;
       }
     }
     
     return true;
   } catch (error) {
-    console.error('Like action failed:', error);
+    console.error('[tweetService] Like action failed:', error);
     return false;
   }
 }
@@ -258,27 +240,27 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
 export async function retweet(tweetId: string): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
-      console.error('Invalid tweet ID provided for retweet');
+      console.error('[tweetService] Invalid tweet ID provided for retweet');
       return false;
     }
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
-      console.error('Authentication error:', userError);
+      console.error('[tweetService] Authentication error:', userError);
       throw new Error('User must be logged in to retweet');
     }
     
-    // Check if user has already retweeted - using maybeSingle to fix 406 error
+    // Check if user has already retweeted
     const { data: existingRetweet, error: existingRetweetError } = await supabase
       .from('retweets')
-      .select('id')
+      .select('*')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
       .maybeSingle();
       
     if (existingRetweetError) {
-      console.error('Error checking existing retweet:', existingRetweetError);
+      console.error('[tweetService] Error checking existing retweet:', existingRetweetError);
       return false;
     }
     
@@ -290,7 +272,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .eq('id', existingRetweet.id);
         
       if (error) {
-        console.error('Error undoing retweet:', error);
+        console.error('[tweetService] Error undoing retweet:', error);
         return false;
       }
     } else {
@@ -303,7 +285,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         });
         
       if (retweetEntryError) {
-        console.error('Error creating retweet entry:', retweetEntryError);
+        console.error('[tweetService] Error creating retweet entry:', retweetEntryError);
         return false;
       }
       
@@ -318,14 +300,14 @@ export async function retweet(tweetId: string): Promise<boolean> {
         });
         
       if (retweetTweetError) {
-        console.error('Error creating retweet tweet:', retweetTweetError);
+        console.error('[tweetService] Error creating retweet tweet:', retweetTweetError);
         return false;
       }
     }
     
     return true;
   } catch (error) {
-    console.error('Retweet action failed:', error);
+    console.error('[tweetService] Retweet action failed:', error);
     return false;
   }
 }
@@ -342,22 +324,21 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
       return false;
     }
     
-    // Using maybeSingle to fix 406 error
     const { data, error } = await supabase
       .from('likes')
-      .select('id')
+      .select('*')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
       .maybeSingle();
       
     if (error) {
-      console.error('Error checking like status:', error);
+      console.error('[tweetService] Error checking like status:', error);
       return false;
     }
     
     return !!data;
   } catch (error) {
-    console.error('Failed to check like status:', error);
+    console.error('[tweetService] Failed to check like status:', error);
     return false;
   }
 }
@@ -374,22 +355,21 @@ export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolea
       return false;
     }
     
-    // Using maybeSingle to fix 406 error
     const { data, error } = await supabase
       .from('retweets')
-      .select('id')
+      .select('*')
       .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId)
       .maybeSingle();
       
     if (error) {
-      console.error('Error checking retweet status:', error);
+      console.error('[tweetService] Error checking retweet status:', error);
       return false;
     }
     
     return !!data;
   } catch (error) {
-    console.error('Failed to check retweet status:', error);
+    console.error('[tweetService] Failed to check retweet status:', error);
     return false;
   }
 }
@@ -401,12 +381,12 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
     }
     
     const { data, error } = await supabase
-      .rpc('get_tweet_with_author', {
+      .rpc('get_tweet_with_author_reliable', {
         tweet_id: originalTweetId
       });
       
     if (error) {
-      console.error('Error fetching original tweet:', error);
+      console.error('[tweetService] Error fetching original tweet:', error);
       return null;
     }
     
@@ -425,9 +405,9 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
         image_url: tweet.image_url,
         author: {
           id: tweet.author_id,
-          username: tweet.username,
-          display_name: tweet.display_name,
-          avatar_url: tweet.avatar_url,
+          username: tweet.username || `user-${tweet.author_id.substring(0, 6)}`,
+          display_name: tweet.display_name || `User ${tweet.author_id.substring(0, 6)}`,
+          avatar_url: tweet.avatar_url || '',
           avatar_nft_id: tweet.avatar_nft_id,
           avatar_nft_chain: tweet.avatar_nft_chain
         }
@@ -436,7 +416,7 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
     
     return null;
   } catch (error) {
-    console.error('Failed to fetch original tweet:', error);
+    console.error('[tweetService] Failed to fetch original tweet:', error);
     return null;
   }
 }
@@ -444,14 +424,14 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
 export async function deleteTweet(tweetId: string): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
-      console.error('Invalid tweet ID provided for deletion');
+      console.error('[tweetService] Invalid tweet ID provided for deletion');
       return false;
     }
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
-      console.error('Authentication error:', userError);
+      console.error('[tweetService] Authentication error:', userError);
       throw new Error('User must be logged in to delete a tweet');
     }
     
@@ -463,12 +443,12 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       .single();
       
     if (tweetError) {
-      console.error('Error verifying tweet ownership:', tweetError);
+      console.error('[tweetService] Error verifying tweet ownership:', tweetError);
       return false;
     }
     
     if (tweetData.author_id !== userData.user.id) {
-      console.error('Cannot delete tweet: user is not the author');
+      console.error('[tweetService] Cannot delete tweet: user is not the author');
       return false;
     }
     
@@ -479,13 +459,13 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       .eq('id', tweetId);
       
     if (error) {
-      console.error('Error deleting tweet:', error);
+      console.error('[tweetService] Error deleting tweet:', error);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Delete action failed:', error);
+    console.error('[tweetService] Delete action failed:', error);
     return false;
   }
 }
@@ -493,14 +473,14 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
 export async function replyToTweet(tweetId: string, content: string, parentReplyId?: string, imageFile?: File): Promise<boolean> {
   try {
     if (!tweetId || !tweetId.trim()) {
-      console.error('Invalid tweet ID provided for reply');
+      console.error('[tweetService] Invalid tweet ID provided for reply');
       return false;
     }
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     
     if (userError || !userData.user) {
-      console.error('Authentication error:', userError);
+      console.error('[tweetService] Authentication error:', userError);
       throw new Error('User must be logged in to reply to a tweet');
     }
     
@@ -512,7 +492,7 @@ export async function replyToTweet(tweetId: string, content: string, parentReply
       .single();
       
     if (tweetCheckError || !tweetExists) {
-      console.error('Tweet does not exist or cannot be accessed:', tweetCheckError);
+      console.error('[tweetService] Tweet does not exist or cannot be accessed:', tweetCheckError);
       return false;
     }
     
@@ -525,7 +505,7 @@ export async function replyToTweet(tweetId: string, content: string, parentReply
         .single();
         
       if (parentReplyCheckError || !parentReplyExists) {
-        console.error('Parent reply does not exist or cannot be accessed:', parentReplyCheckError);
+        console.error('[tweetService] Parent reply does not exist or cannot be accessed:', parentReplyCheckError);
         return false;
       }
     }
@@ -537,10 +517,10 @@ export async function replyToTweet(tweetId: string, content: string, parentReply
         imageUrl = await uploadFile(imageFile, 'tweet-replies');
         
         if (!imageUrl) {
-          console.warn('Failed to upload image but continuing with text-only reply');
+          console.warn('[tweetService] Failed to upload image but continuing with text-only reply');
         }
       } catch (uploadError) {
-        console.error('Image upload failed:', uploadError);
+        console.error('[tweetService] Image upload failed:', uploadError);
       }
     }
     
@@ -557,13 +537,13 @@ export async function replyToTweet(tweetId: string, content: string, parentReply
       .insert(replyData);
       
     if (error) {
-      console.error('Error replying to tweet:', error);
+      console.error('[tweetService] Error replying to tweet:', error);
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('Reply action failed:', error);
+    console.error('[tweetService] Reply action failed:', error);
     return false;
   }
 }
@@ -571,7 +551,7 @@ export async function replyToTweet(tweetId: string, content: string, parentReply
 export async function getTweetReplies(tweetId: string): Promise<any[]> {
   try {
     if (!tweetId || !tweetId.trim()) {
-      console.error('Invalid tweet ID provided');
+      console.error('[tweetService] Invalid tweet ID provided');
       return [];
     }
     
@@ -583,7 +563,7 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       .single();
       
     if (tweetCheckError) {
-      console.error('Error verifying tweet existence:', tweetCheckError);
+      console.error('[tweetService] Error verifying tweet existence:', tweetCheckError);
       // We'll still attempt to fetch replies in case it's a permissions issue
     }
     
@@ -604,13 +584,13 @@ export async function getTweetReplies(tweetId: string): Promise<any[]> {
       .order('created_at', { ascending: true });
       
     if (error) {
-      console.error('Error fetching tweet replies:', error);
+      console.error('[tweetService] Error fetching tweet replies:', error);
       throw error;
     }
     
     return data || [];
   } catch (error) {
-    console.error('Failed to fetch tweet replies:', error);
+    console.error('[tweetService] Failed to fetch tweet replies:', error);
     return [];
   }
 }
