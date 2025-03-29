@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +31,6 @@ import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { CryptoButton } from '@/components/ui/crypto-button';
-import TweetFeed from '@/components/tweet/TweetFeed';
 
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
@@ -231,10 +231,12 @@ const Profile = () => {
           </TabsList>
           
           <TabsContent value="posts" className="mt-0 pt-4">
-            <div className="px-4">
-              {profile && profile.id && (
-                <TweetFeed userId={profile.id} limit={10} feedType="user" />
-              )}
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
+                <MessageSquare className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
+                <div className="text-xl font-bold mb-2 text-crypto-text">No posts yet</div>
+                <p className="text-crypto-lightgray text-center">Posts functionality has been removed</p>
+              </div>
             </div>
           </TabsContent>
           
@@ -259,10 +261,12 @@ const Profile = () => {
           </TabsContent>
           
           <TabsContent value="retweets" className="mt-0 pt-4">
-            <div className="px-4">
-              {profile && profile.id && (
-                <TweetFeed userId={profile.id} limit={10} feedType="user-retweets" />
-              )}
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl text-center max-w-md mx-auto">
+                <Repeat className="h-12 w-12 text-crypto-blue mb-4 mx-auto" />
+                <div className="text-xl font-bold mb-2 text-crypto-text">No reposts yet</div>
+                <p className="text-crypto-lightgray text-center">Repost functionality has been removed</p>
+              </div>
             </div>
           </TabsContent>
           
