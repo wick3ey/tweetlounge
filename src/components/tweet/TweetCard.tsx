@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
-import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
+import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -27,15 +28,19 @@ interface TweetCardProps {
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   React.useEffect(() => {
     const checkStatuses = async () => {
-      if (tweet?.id) {
+      if (tweet?.id && user) {
         const liked = await checkIfUserLikedTweet(tweet.id);
         setIsLiked(liked);
+        
+        const retweeted = await checkIfUserRetweetedTweet(tweet.id);
+        setIsRetweeted(retweeted);
         
         const bookmarked = await checkIfTweetBookmarked(tweet.id);
         setIsBookmarked(bookmarked);
@@ -43,7 +48,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     };
     
     checkStatuses();
-  }, [tweet?.id]);
+  }, [tweet?.id, user]);
 
   const handleTweetClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) {
@@ -67,6 +72,34 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     if (success) {
       setIsLiked(!isLiked);
       if (onAction) onAction();
+    }
+  };
+
+  const toggleRetweet = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "You must be logged in to retweet posts.",
+      });
+      return;
+    }
+
+    const success = await retweet(tweet.id);
+    if (success) {
+      setIsRetweeted(!isRetweeted);
+      if (onAction) onAction();
+      
+      toast({
+        title: isRetweeted ? "Repost removed" : "Reposted",
+        description: isRetweeted ? "You removed your repost" : "You reposted this post",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to repost/unrepost the tweet.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -173,10 +206,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             </button>
             
             <button 
-              className="flex items-center space-x-1 hover:text-crypto-green"
-              onClick={(e) => e.stopPropagation()}
+              className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
+              onClick={toggleRetweet}
             >
-              <Repeat className="h-4 w-4" />
+              <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
               <span>{tweet.retweets_count || 0}</span>
             </button>
             

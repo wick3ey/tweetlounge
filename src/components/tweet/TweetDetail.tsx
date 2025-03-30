@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
-import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
+import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import CommentList from '@/components/comment/CommentList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -35,6 +36,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const commentListRef = useRef<HTMLDivElement>(null);
@@ -44,23 +46,31 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
   useEffect(() => {
     const checkLikeStatus = async () => {
-      if (tweet?.id) {
+      if (tweet?.id && user) {
         const liked = await checkIfUserLikedTweet(tweet.id);
         setIsLiked(liked);
       }
     };
 
+    const checkRetweetStatus = async () => {
+      if (tweet?.id && user) {
+        const retweeted = await checkIfUserRetweetedTweet(tweet.id);
+        setIsRetweeted(retweeted);
+      }
+    };
+
     const checkBookmarkStatus = async () => {
-      if (tweet?.id) {
+      if (tweet?.id && user) {
         const bookmarked = await checkIfTweetBookmarked(tweet.id);
         setIsBookmarked(bookmarked);
       }
     };
 
     checkLikeStatus();
+    checkRetweetStatus();
     checkBookmarkStatus();
     setRepliesCount(tweet?.replies_count || 0);
-  }, [tweet?.id, user?.id, tweet?.replies_count]);
+  }, [tweet?.id, user, tweet?.replies_count]);
 
   const toggleLike = async () => {
     if (!user) {
@@ -80,6 +90,34 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         toast({
           title: "Error",
           description: "Failed to like/unlike tweet.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const toggleRetweet = async () => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "You must be logged in to retweet this post.",
+      });
+      return;
+    }
+
+    if (tweet?.id) {
+      const success = await retweet(tweet.id);
+      if (success) {
+        setIsRetweeted(!isRetweeted);
+        onAction(); // Refresh the tweet feed
+        toast({
+          title: isRetweeted ? "Repost Removed" : "Reposted",
+          description: isRetweeted ? "You removed your repost" : "You reposted this post",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to repost/unrepost.",
           variant: "destructive",
         });
       }
@@ -223,11 +261,11 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           <button className="hover:text-crypto-blue focus:outline-none">
             <MessageSquare className="inline-block h-5 w-5 mr-1" />
           </button>
+          <button onClick={toggleRetweet} className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''}`}>
+            <Repeat className={`inline-block h-5 w-5 mr-1 ${isRetweeted ? 'fill-current' : ''}`} />
+          </button>
           <button onClick={toggleLike} className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}>
             <Heart className={`inline-block h-5 w-5 mr-1 ${isLiked ? 'fill-current' : ''}`} />
-          </button>
-          <button className="hover:text-crypto-green focus:outline-none">
-            <Repeat className="inline-block h-5 w-5 mr-1" />
           </button>
           <button onClick={toggleBookmark} className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''}`}>
             <Bookmark className={`inline-block h-5 w-5 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />

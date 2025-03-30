@@ -257,6 +257,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .single();
     
     if (existingRetweet) {
+      // If retweet exists, remove it
       const { error: deleteError } = await supabase
         .from('retweets')
         .delete()
@@ -264,9 +265,11 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .eq('tweet_id', tweetId);
       
       if (deleteError) {
+        console.error('Error deleting retweet:', deleteError);
         throw deleteError;
       }
       
+      // Delete the retweet tweet
       const { error: deleteTweetError } = await supabase
         .from('tweets')
         .delete()
@@ -275,6 +278,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .eq('original_tweet_id', tweetId);
       
       if (deleteTweetError) {
+        console.error('Error deleting retweet tweet:', deleteTweetError);
         throw deleteTweetError;
       }
       
@@ -291,6 +295,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       
       return true;
     } else {
+      // Create new retweet
       const { error: insertError } = await supabase
         .from('retweets')
         .insert({
@@ -299,9 +304,11 @@ export async function retweet(tweetId: string): Promise<boolean> {
         });
       
       if (insertError) {
+        console.error('Error inserting retweet:', insertError);
         throw insertError;
       }
       
+      // Create retweet tweet
       const { error: createTweetError } = await supabase
         .from('tweets')
         .insert({
@@ -313,6 +320,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         });
       
       if (createTweetError) {
+        console.error('Error creating retweet tweet:', createTweetError);
         throw createTweetError;
       }
       
