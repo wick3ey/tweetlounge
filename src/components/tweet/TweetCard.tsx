@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
@@ -17,7 +17,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
-import { getOriginalTweet } from '@/services/tweetService';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -31,7 +30,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -51,17 +49,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     
     checkStatuses();
   }, [tweet?.id, user]);
-
-  useEffect(() => {
-    const fetchOriginalTweet = async () => {
-      if (tweet.is_retweet && tweet.original_tweet_id) {
-        const fetchedOriginalTweet = await getOriginalTweet(tweet.original_tweet_id);
-        setOriginalTweet(fetchedOriginalTweet);
-      }
-    };
-
-    fetchOriginalTweet();
-  }, [tweet.is_retweet, tweet.original_tweet_id]);
 
   const handleTweetClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) {
@@ -153,102 +140,29 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   
   const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
 
-  const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
-  const isCurrentUserRetweet = user?.id === tweet.author_id && isRetweet;
-
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
-      {/* Repost header - only show for retweets */}
-      {tweet.is_retweet && (
-        <div className="flex items-center text-gray-500 text-sm mb-2">
-          <Repeat className="h-4 w-4 mr-2" />
-          {user?.id === tweet.author_id ? (
-            <span>You reposted</span>
-          ) : (
-            <span>{tweet.author?.display_name} reposted</span>
-          )}
-        </div>
-      )}
-      
-      {/* Original tweet content for retweets */}
-      {isRetweet && originalTweet && (
-        <div className="border border-gray-800 rounded-lg p-3 mb-3">
-          <div className="flex space-x-3 mb-2">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={originalTweet.author.avatar_url} alt={originalTweet.author.username} />
-              <AvatarFallback>{originalTweet.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="font-medium text-white flex items-center">
-                  {originalTweet.author.display_name}
-                </span>
-                <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{originalTweet.author.username}</span>
-              </div>
-            </div>
-          </div>
-          
-          <p className="text-white">{originalTweet.content}</p>
-          
-          {originalTweet.image_url && (
-            <div className="mt-3">
-              <img 
-                src={originalTweet.image_url} 
-                alt="Original tweet image" 
-                className="rounded-md max-h-80 object-cover"
-              />
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Regular tweet or retweet container */}
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
-            {isRetweet && originalTweet ? (
-              <>
-                <AvatarImage src={originalTweet.author.avatar_url} alt={originalTweet.author.username} />
-                <AvatarFallback>{originalTweet.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
-              </>
-            ) : (
-              <>
-                <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-                <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-              </>
-            )}
+            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </div>
         
         <div className="flex-1 min-w-0">
-          {/* Author info and action buttons */}
           <div className="flex justify-between">
             <div>
               <div className="flex items-center gap-1">
-                {isRetweet && originalTweet ? (
-                  <>
-                    <span className="font-medium text-white flex items-center">
-                      {originalTweet.author.display_name}
-                      {originalTweet.author.avatar_nft_id && originalTweet.author.avatar_nft_chain && <VerifiedBadge className="ml-1" />}
-                    </span>
-                    <span className="text-gray-500 mx-1">·</span>
-                    <span className="text-gray-500">@{originalTweet.author.username}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium text-white flex items-center">
-                      {tweet.author?.display_name}
-                      {isNFTVerified && <VerifiedBadge className="ml-1" />}
-                    </span>
-                    <span className="text-gray-500 mx-1">·</span>
-                    <span className="text-gray-500">@{tweet.author?.username}</span>
-                  </>
-                )}
+                <span className="font-medium text-white flex items-center">
+                  {tweet.author?.display_name}
+                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                </span>
+                <span className="text-gray-500 mx-1">·</span>
+                <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
@@ -272,21 +186,18 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             )}
           </div>
           
-          {/* Tweet content */}
-          <p className="mt-1 text-white">{isRetweet && originalTweet ? originalTweet.content : tweet.content}</p>
+          <p className="mt-1 text-white">{tweet.content}</p>
           
-          {/* Tweet image */}
-          {((isRetweet && originalTweet && originalTweet.image_url) || (!isRetweet && tweet.image_url)) && (
+          {tweet.image_url && (
             <div className="mt-3">
               <img 
-                src={isRetweet && originalTweet ? originalTweet.image_url : tweet.image_url} 
+                src={tweet.image_url} 
                 alt="Tweet image" 
                 className="rounded-md max-h-80 object-cover"
               />
             </div>
           )}
           
-          {/* Action buttons */}
           <div className="mt-3 flex justify-between text-gray-500">
             <button 
               className="flex items-center space-x-1 hover:text-crypto-blue"
