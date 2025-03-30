@@ -5,14 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, ArrowLeft, Calendar, Share } from 'lucide-react';
+import { Loader2, ArrowLeft, Calendar, Share2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { formatDistanceToNow, format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
+import { formatDistanceToNow, format } from 'date-fns';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -160,10 +158,10 @@ const TweetPage = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen flex justify-center items-center">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-crypto-blue mx-auto mb-4" />
-            <p className="text-crypto-lightgray">Loading tweet...</p>
+        <div className="flex justify-center items-center min-h-[calc(100vh-60px)]">
+          <div className="flex flex-col items-center p-6">
+            <Loader2 className="h-10 w-10 animate-spin text-crypto-blue mb-4" />
+            <p className="text-crypto-lightgray text-sm">Loading tweet...</p>
           </div>
         </div>
       </Layout>
@@ -173,14 +171,14 @@ const TweetPage = () => {
   if (error || !tweet) {
     return (
       <Layout>
-        <div className="min-h-[50vh] flex flex-col items-center justify-center p-6">
-          <div className="glass-card p-8 max-w-md w-full text-center">
-            <div className="text-red-500 text-6xl mb-4">😕</div>
+        <div className="flex flex-col items-center justify-center p-6 min-h-[50vh]">
+          <div className="bg-crypto-darkgray p-8 rounded-xl border border-gray-800 max-w-md w-full text-center">
+            <div className="text-5xl mb-4">😕</div>
             <h2 className="text-xl font-bold mb-4">{error || 'Tweet not found'}</h2>
             <p className="text-crypto-lightgray mb-6">The tweet you're looking for doesn't exist or has been deleted.</p>
             <Button 
               onClick={handleBack}
-              className="bg-crypto-blue text-white hover:bg-crypto-blue/80 transition-all"
+              className="bg-crypto-blue text-white hover:bg-crypto-blue/80"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
@@ -192,15 +190,16 @@ const TweetPage = () => {
   }
 
   return (
-    <Layout>
-      {/* Header */}
+    <Layout hideRightSidebar>
+      {/* Header - Fixed at top */}
       <div className="sticky top-0 z-10 backdrop-blur-md bg-black/90 border-b border-gray-800">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center">
+        <div className="max-w-[600px] mx-auto px-4 py-3 flex items-center">
           <Button 
             variant="ghost" 
             size="icon" 
             onClick={handleBack}
             className="rounded-full hover:bg-gray-800 mr-4"
+            aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -208,40 +207,59 @@ const TweetPage = () => {
         </div>
       </div>
       
-      <div className="max-w-3xl mx-auto">
-        {/* Tweet Card */}
-        <div className="border-b border-gray-800">
+      <div className="max-w-[600px] mx-auto">
+        {/* Tweet Card - Main content */}
+        <article className="border-b border-gray-800">
           {/* Author Info */}
           <div className="p-4">
             <div className="flex items-start mb-3">
-              <Link to={`/profile/${tweet.author.username}`} className="mr-3">
+              <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
                 <Avatar className="h-12 w-12 rounded-full border border-gray-700 hover:border-crypto-blue transition-colors">
-                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.username} />
+                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
                   <AvatarFallback className="bg-crypto-darkgray text-crypto-blue">
                     {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </Link>
-              <div className="flex-1">
-                <Link to={`/profile/${tweet.author.username}`} className="block hover:underline">
-                  <h2 className="font-bold text-white">{tweet.author.display_name}</h2>
-                  <p className="text-gray-500">@{tweet.author.username}</p>
-                </Link>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col">
+                  <Link to={`/profile/${tweet.author.username}`} className="group">
+                    <span className="font-bold text-white hover:underline group-hover:text-white/90 transition-colors">
+                      {tweet.author.display_name}
+                    </span>
+                    <span className="text-gray-500 text-sm block">@{tweet.author.username}</span>
+                  </Link>
+                </div>
               </div>
               
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleShareTweet}
-                className="rounded-full hover:bg-gray-800/60"
-              >
-                <Share className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleShareTweet}
+                  className="rounded-full hover:bg-gray-800/60"
+                  aria-label="Share tweet"
+                >
+                  <Share2 className="h-5 w-5" />
+                </Button>
+                
+                {tweet.author_id === (supabase.auth.getUser() || {}).data?.user?.id && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full hover:bg-gray-800/60 ml-1"
+                    aria-label="More options"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
             </div>
             
             {/* Tweet Content */}
             <div className="mb-4">
-              <p className="text-xl whitespace-pre-wrap mb-4">{tweet.content}</p>
+              <p className="text-xl whitespace-pre-wrap mb-4 leading-relaxed">{tweet.content}</p>
               
               {tweet.image_url && (
                 <div className="mt-3 mb-4">
@@ -260,25 +278,35 @@ const TweetPage = () => {
             </div>
             
             {/* Tweet Stats */}
-            <div className="flex py-3 border-y border-gray-800 my-3">
-              <div className="flex-1 text-center">
-                <span className="text-white font-bold">{tweet.retweets_count || 0}</span>
-                <span className="text-gray-500 ml-1">Retweets</span>
+            {tweet.retweets_count > 0 || tweet.likes_count > 0 || tweet.replies_count > 0 ? (
+              <div className="flex py-3 border-y border-gray-800 my-3">
+                {tweet.retweets_count > 0 && (
+                  <div className="flex items-baseline mr-5">
+                    <span className="text-white font-bold mr-1">{tweet.retweets_count}</span>
+                    <span className="text-gray-500 text-sm">{tweet.retweets_count === 1 ? 'Retweet' : 'Retweets'}</span>
+                  </div>
+                )}
+                
+                {tweet.likes_count > 0 && (
+                  <div className="flex items-baseline mr-5">
+                    <span className="text-white font-bold mr-1">{tweet.likes_count}</span>
+                    <span className="text-gray-500 text-sm">{tweet.likes_count === 1 ? 'Like' : 'Likes'}</span>
+                  </div>
+                )}
+                
+                {tweet.replies_count > 0 && (
+                  <div className="flex items-baseline">
+                    <span className="text-white font-bold mr-1">{tweet.replies_count}</span>
+                    <span className="text-gray-500 text-sm">{tweet.replies_count === 1 ? 'Comment' : 'Comments'}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex-1 text-center">
-                <span className="text-white font-bold">{tweet.likes_count || 0}</span>
-                <span className="text-gray-500 ml-1">Likes</span>
-              </div>
-              <div className="flex-1 text-center">
-                <span className="text-white font-bold">{tweet.replies_count || 0}</span>
-                <span className="text-gray-500 ml-1">Comments</span>
-              </div>
-            </div>
+            ) : null}
           </div>
-        </div>
+        </article>
         
-        {/* Tweet Detail Section with Comments */}
-        <div className="bg-black rounded-b-lg">
+        {/* Tweet Interaction Section with Comments */}
+        <div className="bg-black">
           <TweetDetail 
             tweet={tweet} 
             onClose={() => {}} // No-op since we're on the dedicated page
