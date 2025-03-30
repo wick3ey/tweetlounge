@@ -73,26 +73,29 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
     if (!data) return [];
     
     const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
-      const isRetweet = !!item.is_retweet;
-      
       return {
         id: item.id,
         content: item.content,
         author_id: item.author_id,
         created_at: item.created_at,
-        likes_count: item.likes_count || 0,
-        retweets_count: item.retweets_count || 0,
-        replies_count: item.replies_count || 0,
-        is_retweet: isRetweet,
+        likes_count: item.likes_count,
+        retweets_count: item.retweets_count,
+        replies_count: item.replies_count,
+        is_retweet: item.is_retweet,
         original_tweet_id: item.original_tweet_id,
         image_url: item.image_url,
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
         author: {
           id: item.author_id,
-          username: item.username,
-          display_name: item.display_name,
-          avatar_url: item.avatar_url || '',
-          avatar_nft_id: item.avatar_nft_id,
-          avatar_nft_chain: item.avatar_nft_chain
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
         }
       };
     });
@@ -188,6 +191,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw deleteError;
       }
       
+      // Manually update the likes count
       if (tweet && tweet.likes_count > 0) {
         const newCount = tweet.likes_count - 1;
         await supabase
@@ -211,6 +215,7 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw insertError;
       }
       
+      // Manually update the likes count
       if (tweet) {
         const newCount = (tweet.likes_count || 0) + 1;
         await supabase
@@ -252,6 +257,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .single();
     
     if (existingRetweet) {
+      // If retweet exists, remove it
       const { error: deleteError } = await supabase
         .from('retweets')
         .delete()
@@ -263,6 +269,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw deleteError;
       }
       
+      // Delete the retweet tweet
       const { error: deleteTweetError } = await supabase
         .from('tweets')
         .delete()
@@ -275,6 +282,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw deleteTweetError;
       }
       
+      // Manually update the retweets count
       if (tweet && tweet.retweets_count > 0) {
         const newCount = tweet.retweets_count - 1;
         await supabase
@@ -287,6 +295,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       
       return true;
     } else {
+      // Create new retweet
       const { error: insertError } = await supabase
         .from('retweets')
         .insert({
@@ -299,6 +308,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw insertError;
       }
       
+      // Create retweet tweet
       const { error: createTweetError } = await supabase
         .from('tweets')
         .insert({
@@ -314,6 +324,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw createTweetError;
       }
       
+      // Manually update the retweets count
       if (tweet) {
         const newCount = (tweet.retweets_count || 0) + 1;
         await supabase
@@ -363,6 +374,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
       throw commentError;
     }
     
+    // Manually update the replies count
     if (tweet) {
       const newCount = (tweet.replies_count || 0) + 1;
       await supabase
@@ -556,6 +568,7 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to delete a tweet');
     }
     
+    // First check if the tweet belongs to the user
     const { data: tweet, error: fetchError } = await supabase
       .from('tweets')
       .select('author_id')
@@ -569,13 +582,14 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
     
     if (!tweet) {
       console.error('Tweet not found or already deleted');
-      return true;
+      return true; // Consider it a success if tweet is already gone
     }
     
     if (tweet.author_id !== user.id) {
       throw new Error('You can only delete your own tweets');
     }
     
+    // Delete related bookmarks first to avoid foreign key constraints
     const { error: bookmarksDeleteError } = await supabase
       .from('bookmarks')
       .delete()
@@ -583,8 +597,10 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       
     if (bookmarksDeleteError) {
       console.error('Error deleting related bookmarks:', bookmarksDeleteError);
+      // Continue with deletion anyway
     }
     
+    // Delete related likes
     const { error: likesDeleteError } = await supabase
       .from('likes')
       .delete()
@@ -592,8 +608,10 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       
     if (likesDeleteError) {
       console.error('Error deleting related likes:', likesDeleteError);
+      // Continue with deletion anyway
     }
     
+    // Delete related retweets
     const { error: retweetsDeleteError } = await supabase
       .from('retweets')
       .delete()
@@ -601,8 +619,10 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       
     if (retweetsDeleteError) {
       console.error('Error deleting related retweets:', retweetsDeleteError);
+      // Continue with deletion anyway
     }
     
+    // Delete the tweet
     const { error: deleteError } = await supabase
       .from('tweets')
       .delete()

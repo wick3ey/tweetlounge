@@ -189,10 +189,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   // Show who reposted if this is a retweet
   const retweetedBy = tweet.is_retweet ? tweet.author : null;
   
-  // Display content is always the original content
-  let displayContent = tweet.content;
-  let displayImageUrl = tweet.image_url;
-  
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       <Button
@@ -242,9 +238,9 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
               <div className="text-gray-500">@{tweet.author?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
             </div>
-            <div className="mt-2 text-base">{displayContent}</div>
-            {displayImageUrl && (
-              <img src={displayImageUrl} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
+            <div className="mt-2 text-base">{tweet?.content}</div>
+            {tweet?.image_url && (
+              <img src={tweet?.image_url} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
             )}
           </div>
           {user?.id === tweet?.author_id && (

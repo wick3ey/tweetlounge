@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -138,16 +137,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  // Check if the author object has valid data
-  console.log("Tweet author data:", tweet.author);
-
-  // Get the retweeter's info if this is a retweet
   const retweetedBy = tweet.is_retweet ? tweet.author : null;
-  
-  // For display purposes
-  const authorUsername = tweet.author?.username || 'unknown';
-  const authorDisplayName = tweet.author?.display_name || 'Unknown User';
-  const authorAvatar = tweet.author?.avatar_url || '';
   
   return (
     <div 
@@ -157,7 +147,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       {tweet.is_retweet && retweetedBy && (
         <div className="flex items-center text-gray-500 text-sm mb-3">
           <Repeat className="h-4 w-4 mr-2" />
-          <span>{retweetedBy.display_name || retweetedBy.username || 'Someone'} reposted</span>
+          <span>{retweetedBy.display_name} reposted</span>
         </div>
       )}
       
@@ -165,11 +155,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
             <AvatarImage 
-              src={authorAvatar} 
-              alt={authorUsername} 
+              src={tweet.author?.avatar_url} 
+              alt={tweet.author?.username || ''} 
             />
             <AvatarFallback>
-              {authorDisplayName.charAt(0).toUpperCase() || '?'}
+              {tweet.author?.username?.charAt(0).toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -179,12 +169,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {authorDisplayName}
+                  {tweet.author?.display_name}
                   {tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain && (
                     <VerifiedBadge className="ml-1" />
                   )}
                 </span>
-                <span className="text-gray-500">@{authorUsername}</span>
+                <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
