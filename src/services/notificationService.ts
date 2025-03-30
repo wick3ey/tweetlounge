@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationType } from '@/types/Notification';
 
@@ -47,7 +46,8 @@ export async function createNotification(
   }
 }
 
-// Delete a notification (e.g., when unliking a tweet or unfollowing a user)
+// Delete functionality is preserved but should only be used in exceptional cases
+// like unliking a tweet or unfollowing a user
 export async function deleteNotification(
   userId: string,
   actorId: string,
@@ -155,6 +155,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<bo
       return false;
     }
     
+    // Only update the read status, never delete
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -185,6 +186,7 @@ export async function markAllNotificationsAsRead(userId: string): Promise<boolea
       return false;
     }
     
+    // Only update the read status, don't remove any notifications
     const { error } = await supabase
       .from('notifications')
       .update({ read: true })

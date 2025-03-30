@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,20 +12,20 @@ export function useNotifications() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch notifications
+  // Fetch notifications with no limit on how many we retrieve
   const fetchNotifications = async () => {
     if (!user) return;
     
     try {
       setLoading(true);
       
-      // First, fetch notifications
+      // First, fetch notifications - no deletion filter, we want ALL historical notifications
       const { data: notificationsData, error: notificationsError } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100); // Increased from 50 to show more history
 
       if (notificationsError) {
         console.error('Error fetching notifications:', notificationsError);

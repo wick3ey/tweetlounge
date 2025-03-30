@@ -1,4 +1,3 @@
-
 export type NotificationType = 'like' | 'comment' | 'retweet' | 'follow' | 'mention';
 
 export interface NotificationActor {
@@ -26,4 +25,5 @@ export interface Notification {
   actor: NotificationActor;
   tweet?: NotificationTweet;
   referencedTweet?: NotificationTweet;
+  // We won't add any deletion flag since we want to keep all notifications
 }

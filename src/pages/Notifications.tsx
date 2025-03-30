@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Layout from '@/components/layout/Layout';
 import { VerifiedBadge } from '@/components/ui/badge';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -141,74 +142,80 @@ const Notifications = () => {
               </p>
             </div>
           ) : (
-            filteredNotifications.map(notification => (
-              <div 
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`p-4 flex items-start gap-3 cursor-pointer transition-colors ${
-                  notification.read ? 'bg-black' : 'bg-gray-900/50'
-                } hover:bg-gray-800/30`}
-              >
-                <div className="flex items-center justify-center w-8 h-8 mt-1 rounded-full bg-gray-800/50">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 mr-3">
-                      <Avatar className="h-10 w-10">
-                        {notification.actor.avatarUrl ? (
-                          <AvatarImage src={notification.actor.avatarUrl} />
-                        ) : null}
-                        <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
-                          {notification.actor.displayName.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <p className="text-white text-sm font-medium">
-                            {getNotificationText(notification)}
-                          </p>
-                          
-                          {!notification.read && (
-                            <div className="h-2 w-2 rounded-full bg-blue-500 ml-2"></div>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center text-gray-500">
-                          <span className="text-xs ml-1">
-                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                          </span>
-                          <button className="ml-2 p-1 rounded-full hover:bg-gray-800">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </div>
+            <>
+              <VisuallyHidden asChild>
+                <h2>All Notifications</h2>
+              </VisuallyHidden>
+              {filteredNotifications.map(notification => (
+                <div 
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-4 flex items-start gap-3 cursor-pointer transition-colors ${
+                    notification.read ? 'bg-black' : 'bg-gray-900/50'
+                  } hover:bg-gray-800/30`}
+                  aria-live={notification.read ? 'off' : 'polite'}
+                >
+                  <div className="flex items-center justify-center w-8 h-8 mt-1 rounded-full bg-gray-800/50">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 mr-3">
+                        <Avatar className="h-10 w-10">
+                          {notification.actor.avatarUrl ? (
+                            <AvatarImage src={notification.actor.avatarUrl} />
+                          ) : null}
+                          <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
+                            {notification.actor.displayName.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
                       
-                      {notification.type !== 'follow' && (
-                        <div className="text-gray-500 text-sm mt-1">
-                          <span className="text-gray-400">@{notification.actor.username}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <p className="text-white text-sm font-medium">
+                              {getNotificationText(notification)}
+                            </p>
+                            
+                            {!notification.read && (
+                              <div className="h-2 w-2 rounded-full bg-blue-500 ml-2"></div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center text-gray-500">
+                            <span className="text-xs ml-1">
+                              {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                            </span>
+                            <button className="ml-2 p-1 rounded-full hover:bg-gray-800">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
-                      )}
-                      
-                      {renderTweetPreview(notification)}
-                      
-                      {notification.type === 'like' && notification.tweet && (
-                        <div className="mt-3 flex items-center text-gray-500 text-xs">
-                          <MessageSquare className="h-3.5 w-3.5 mr-2" />
-                          <Repeat className="h-3.5 w-3.5 mx-2" />
-                          <Heart className="h-3.5 w-3.5 mx-2 text-red-500 fill-current" />
-                          <span className="text-red-500">1</span>
-                        </div>
-                      )}
+                        
+                        {notification.type !== 'follow' && (
+                          <div className="text-gray-500 text-sm mt-1">
+                            <span className="text-gray-400">@{notification.actor.username}</span>
+                          </div>
+                        )}
+                        
+                        {renderTweetPreview(notification)}
+                        
+                        {notification.type === 'like' && notification.tweet && (
+                          <div className="mt-3 flex items-center text-gray-500 text-xs">
+                            <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                            <Repeat className="h-3.5 w-3.5 mx-2" />
+                            <Heart className="h-3.5 w-3.5 mx-2 text-red-500 fill-current" />
+                            <span className="text-red-500">1</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       </div>
