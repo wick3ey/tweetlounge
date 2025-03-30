@@ -1,22 +1,40 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Search, PlusCircle } from 'lucide-react';
+import { MessageSquare, Search, PlusCircle, Settings, Calendar } from 'lucide-react';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 const ConversationList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { conversations, loading, error } = useRealtimeConversations();
   const { user } = useAuth();
+  const { conversationId: activeConversationId } = useParams<{ conversationId?: string }>();
   
-  const truncateMessage = (message: string, length = 50) => 
+  const truncateMessage = (message: string, length = 30) => 
     message.length > length ? message.substring(0, length) + '...' : message;
+
+  const getDateDisplay = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    
+    if (date.toDateString() === now.toDateString()) {
+      // Today, show time
+      return format(date, 'h:mm a');
+    } else if (date.getFullYear() === now.getFullYear()) {
+      // This year, show month and day
+      return format(date, 'MMM d');
+    } else {
+      // Different year, show month and year
+      return format(date, 'MMM yyyy');
+    }
+  };
 
   const filteredConversations = conversations.filter(conv => {
     const otherUser = conv.participants?.[0];
@@ -28,7 +46,35 @@ const ConversationList: React.FC = () => {
   });
 
   if (loading) {
-    return <div className="text-center py-4">Loading conversations...</div>;
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 flex justify-between items-center border-b border-crypto-gray">
+          <h1 className="text-xl font-bold">Messages</h1>
+          <div className="flex space-x-2">
+            <Button variant="ghost" size="icon" className="text-crypto-lightgray">
+              <Settings className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="text-crypto-lightgray">
+              <Calendar className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex-grow flex items-center justify-center p-8">
+          <div className="animate-pulse flex flex-col w-full space-y-4">
+            <div className="h-10 bg-crypto-darkgray rounded w-full"></div>
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="flex space-x-4 p-4">
+                <div className="rounded-full bg-crypto-darkgray h-12 w-12"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-crypto-darkgray rounded w-3/4"></div>
+                  <div className="h-3 bg-crypto-darkgray rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -37,17 +83,27 @@ const ConversationList: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-crypto-gray">
-        <div className="flex items-center space-x-2">
+      <div className="p-4 flex justify-between items-center border-b border-crypto-gray">
+        <h1 className="text-xl font-bold">Messages</h1>
+        <div className="flex space-x-2">
+          <Button variant="ghost" size="icon" className="text-crypto-lightgray hover:text-crypto-text hover:bg-crypto-darkgray">
+            <Settings className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-crypto-lightgray hover:text-crypto-text hover:bg-crypto-darkgray">
+            <Calendar className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-crypto-lightgray h-4 w-4" />
           <Input
-            placeholder="Search conversations..."
+            placeholder="Search Direct Messages"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-grow"
+            className="pl-9 bg-crypto-darkgray border-none"
           />
-          <Button variant="ghost" size="icon">
-            <Search className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 
@@ -72,45 +128,50 @@ const ConversationList: React.FC = () => {
           {filteredConversations.map(conv => {
             const otherUser = conv.participants?.[0];
             const isRead = true; // We'll add unread indicator later
+            const isActive = conv.id === activeConversationId;
             
             return (
               <Link 
                 key={conv.id} 
                 to={`/messages/${conv.id}`} 
-                className="block hover:bg-crypto-darkgray p-4 transition-colors"
+                className={`block p-4 transition-colors ${
+                  isActive 
+                    ? 'bg-crypto-blue/10' 
+                    : 'hover:bg-crypto-darkgray'
+                }`}
               >
-                <div className="flex items-center space-x-4">
-                  <Avatar>
+                <div className="flex items-start space-x-3">
+                  <Avatar className="h-12 w-12 rounded-full">
                     <AvatarImage src={otherUser?.avatar_url || ''} />
-                    <AvatarFallback>
-                      {otherUser?.username?.charAt(0).toUpperCase()}
+                    <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                      {otherUser?.display_name?.[0] || otherUser?.username?.[0] || '?'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center">
-                        <h3 className={`font-bold ${!isRead ? 'text-crypto-blue' : 'text-crypto-text'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center max-w-[70%]">
+                        <h3 className={`font-medium truncate ${!isRead ? 'text-crypto-blue' : ''}`}>
                           {otherUser?.display_name || otherUser?.username}
                         </h3>
                         {otherUser?.ethereum_address && (
-                          <VerifiedBadge className="ml-1" />
+                          <VerifiedBadge className="ml-1 flex-shrink-0" />
                         )}
                       </div>
-                      <span className="text-xs text-crypto-lightgray">
-                        {new Date(conv.updated_at).toLocaleDateString()}
+                      <span className="text-xs text-crypto-lightgray flex-shrink-0">
+                        {conv.updated_at && getDateDisplay(conv.updated_at)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      {conv.lastMessage && (
-                        <p className={`text-sm ${!isRead ? 'text-crypto-text font-semibold' : 'text-crypto-lightgray'}`}>
-                          {conv.lastMessage.is_deleted 
+                      <p className={`text-sm truncate text-crypto-lightgray ${!isRead ? 'text-crypto-text font-medium' : ''}`}>
+                        {conv.lastMessage 
+                          ? conv.lastMessage.is_deleted 
                             ? <span className="italic">Message was deleted</span>
                             : truncateMessage(conv.lastMessage.content)
-                          }
-                        </p>
-                      )}
+                          : 'Start a conversation'
+                        }
+                      </p>
                       {!isRead && (
-                        <Badge variant="success" className="h-2 w-2 rounded-full p-0" />
+                        <Badge variant="default" className="bg-crypto-blue h-2 w-2 rounded-full p-0 flex-shrink-0" />
                       )}
                     </div>
                   </div>

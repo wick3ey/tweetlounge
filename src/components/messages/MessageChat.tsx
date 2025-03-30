@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { 
   createMessage, 
   searchMessages, 
@@ -18,7 +17,9 @@ import {
   X, 
   Trash2, 
   MoreVertical,
-  Smile
+  Smile,
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import MessageReactions from './MessageReactions';
@@ -33,6 +34,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
+import { VerifiedBadge } from '@/components/ui/badge';
+import { useProfile } from '@/contexts/ProfileContext';
+import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 
 const MessageChat: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -44,9 +50,66 @@ const MessageChat: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const navigate = useNavigate();
   
   // Use our custom hook for real-time messages
   const { messages, loading, error } = useRealtimeMessages(conversationId || '');
+
+  // Get conversation data from the messages
+  const otherUser = messages.length > 0 && messages[0].sender_id !== user?.id
+    ? { id: messages[0].sender_id }
+    : messages.length > 0 
+      ? { id: messages.find(m => m.sender_id !== user?.id)?.sender_id }
+      : null;
+
+  // Format message timestamp
+  const formatMessageTime = (timestamp: string) => {
+    return format(new Date(timestamp), 'h:mm a');
+  };
+
+  // Format message date for groups
+  const formatMessageDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    
+    // If today, show "Today"
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    }
+    
+    // If yesterday, show "Yesterday"
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    }
+    
+    // Otherwise, show the date
+    return format(date, 'MMMM d, yyyy');
+  };
+
+  // Group messages by date
+  const groupMessagesByDate = () => {
+    const groups: {[key: string]: typeof messages} = {};
+    
+    messages.forEach(message => {
+      const date = new Date(message.created_at).toDateString();
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+    
+    // Sort groups by date
+    return Object.entries(groups)
+      .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+      .map(([date, messages]) => ({
+        date,
+        messages
+      }));
+  };
+
+  const messageGroups = groupMessagesByDate();
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -70,6 +133,7 @@ const MessageChat: React.FC = () => {
     try {
       await createMessage(conversationId, newMessage);
       setNewMessage('');
+      scrollToBottom();
     } catch (error) {
       console.error('Failed to send message', error);
       toast({
@@ -117,7 +181,35 @@ const MessageChat: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center">Loading messages...</div>;
+    return (
+      <div className="flex flex-col h-full">
+        <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="h-10 w-10 rounded-full bg-crypto-darkgray animate-pulse"></div>
+            <div className="ml-3">
+              <div className="h-5 w-32 bg-crypto-darkgray animate-pulse rounded"></div>
+              <div className="h-4 w-24 bg-crypto-darkgray animate-pulse rounded mt-1"></div>
+            </div>
+          </div>
+        </div>
+        <div className="flex-grow p-4">
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                <div className="flex items-start max-w-[70%]">
+                  {i % 2 !== 0 && <div className="h-8 w-8 rounded-full bg-crypto-darkgray animate-pulse mr-2"></div>}
+                  <div className={`p-3 rounded-lg ${i % 2 === 0 ? 'bg-crypto-darkgray' : 'bg-crypto-darkgray'} animate-pulse h-16 w-48`}></div>
+                  {i % 2 === 0 && <div className="h-8 w-8 rounded-full bg-crypto-darkgray animate-pulse ml-2"></div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-crypto-gray p-4">
+          <div className="h-10 bg-crypto-darkgray animate-pulse rounded-full"></div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -125,7 +217,58 @@ const MessageChat: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
+      {/* Header with user info */}
+      <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigate('/messages')}
+            className="mr-2 md:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {otherUser && (
+            <Link to={`/profile/${otherUser.id}`} className="flex items-center hover:opacity-80 transition-opacity">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={messages[0]?.sender_id !== user?.id 
+                  ? messages[0]?.sender_avatar || ''
+                  : messages.find(m => m.sender_id !== user?.id)?.sender_avatar || ''
+                } />
+                <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                  {messages[0]?.sender_id !== user?.id 
+                    ? messages[0]?.sender_name?.[0] || '?'
+                    : messages.find(m => m.sender_id !== user?.id)?.sender_name?.[0] || '?'
+                  }
+                </AvatarFallback>
+              </Avatar>
+              <div className="ml-3">
+                <div className="flex items-center">
+                  <h2 className="font-bold text-lg">
+                    {messages[0]?.sender_id !== user?.id 
+                      ? messages[0]?.sender_name
+                      : messages.find(m => m.sender_id !== user?.id)?.sender_name
+                    }
+                  </h2>
+                  <VerifiedBadge className="ml-1" />
+                </div>
+                <div className="text-sm text-crypto-lightgray">
+                  @{messages[0]?.sender_id !== user?.id 
+                    ? messages[0]?.sender_username
+                    : messages.find(m => m.sender_id !== user?.id)?.sender_username
+                  }
+                </div>
+              </div>
+            </Link>
+          )}
+        </div>
+        <Button variant="ghost" size="icon">
+          <Info className="h-5 w-5" />
+        </Button>
+      </div>
+
       {/* Search bar (conditionally rendered) */}
       {showSearch && (
         <div className="border-b border-crypto-gray p-2 flex items-center">
@@ -181,7 +324,7 @@ const MessageChat: React.FC = () => {
               >
                 <p className="text-sm">{message.content}</p>
                 <p className="text-xs text-crypto-lightgray">
-                  {new Date(message.created_at).toLocaleString()}
+                  {formatMessageTime(message.created_at)}
                 </p>
               </div>
             ))}
@@ -198,73 +341,100 @@ const MessageChat: React.FC = () => {
       )}
 
       {/* Messages container */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
-        {messages.map(message => (
-          <div 
-            key={message.id} 
-            id={`message-${message.id}`}
-            className={`flex transition-colors duration-300 ${
-              message.sender_id === user?.id ? 'justify-end' : 'justify-start'
-            }`}
-          >
-            <div className="max-w-[70%]">
-              <div className="flex items-start gap-2">
-                {message.sender_id !== user?.id && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )}
-                
-                <div className="flex flex-col">
-                  <div className="flex items-start">
-                    <div 
-                      className={`p-3 rounded-lg ${
-                        message.is_deleted 
-                          ? 'bg-crypto-darkgray text-crypto-lightgray italic' 
-                          : message.sender_id === user?.id 
-                            ? 'bg-crypto-blue text-white' 
-                            : 'bg-crypto-darkgray text-crypto-text'
-                      }`}
-                    >
-                      {message.is_deleted 
-                        ? 'This message was deleted' 
-                        : message.content
-                      }
-                    </div>
-
-                    {!message.is_deleted && message.sender_id === user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 ml-1"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleDeleteMessage(message.id)}>
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                  
-                  {!message.is_deleted && (
-                    <MessageReactions messageId={message.id} compact />
-                  )}
-                </div>
-                
-                {message.sender_id === user?.id && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )}
+      <div className="flex-grow overflow-y-auto p-4 space-y-6">
+        {messageGroups.map(group => (
+          <div key={group.date} className="space-y-4">
+            <div className="flex justify-center">
+              <div className="bg-crypto-darkgray px-4 py-1 rounded-full text-xs text-crypto-lightgray">
+                {formatMessageDate(group.date)}
               </div>
             </div>
+            
+            {group.messages.map((message, index) => {
+              const showAvatar = index === 0 || 
+                group.messages[index - 1].sender_id !== message.sender_id ||
+                new Date(message.created_at).getTime() - new Date(group.messages[index - 1].created_at).getTime() > 5 * 60 * 1000;
+              
+              const isCurrentUser = message.sender_id === user?.id;
+              
+              return (
+                <div 
+                  key={message.id} 
+                  id={`message-${message.id}`}
+                  className={`flex transition-colors duration-300 ${
+                    isCurrentUser ? 'justify-end' : 'justify-start'
+                  } ${
+                    !showAvatar && !isCurrentUser ? 'pl-12' : ''
+                  }`}
+                >
+                  <div className={`max-w-[70%] ${showAvatar ? '' : 'mt-1'}`}>
+                    <div className="flex items-start gap-2">
+                      {!isCurrentUser && showAvatar && (
+                        <Avatar className="h-10 w-10 mt-1">
+                          <AvatarImage src={message.sender_avatar || ''} />
+                          <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                            {message.sender_name?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                      
+                      <div className="flex flex-col">
+                        {!isCurrentUser && showAvatar && (
+                          <span className="text-xs text-crypto-lightgray mb-1">
+                            {message.sender_name}
+                          </span>
+                        )}
+                        <div className="flex items-start">
+                          <div 
+                            className={`p-3 ${
+                              message.is_deleted 
+                                ? 'bg-crypto-darkgray text-crypto-lightgray italic' 
+                                : isCurrentUser 
+                                  ? 'bg-crypto-blue text-white rounded-2xl rounded-tr-sm' 
+                                  : 'bg-crypto-darkgray text-crypto-text rounded-2xl rounded-tl-sm'
+                            }`}
+                          >
+                            {message.is_deleted 
+                              ? 'This message was deleted' 
+                              : message.content
+                            }
+                          </div>
+
+                          {!message.is_deleted && isCurrentUser && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 ml-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100"
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleDeleteMessage(message.id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                        
+                        {!message.is_deleted && (
+                          <div className="flex items-center mt-1">
+                            <span className="text-xs text-crypto-lightgray">
+                              {formatMessageTime(message.created_at)}
+                            </span>
+                            <MessageReactions messageId={message.id} compact />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ))}
         <div ref={messagesEndRef} />
@@ -283,11 +453,11 @@ const MessageChat: React.FC = () => {
           </Button>
           
           <Input 
-            placeholder="Type a message..." 
+            placeholder="Start a new message" 
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-grow"
+            className="flex-grow rounded-full bg-crypto-darkgray border-none"
           />
           
           <Popover>
@@ -317,7 +487,7 @@ const MessageChat: React.FC = () => {
           <Button 
             onClick={handleSendMessage} 
             disabled={!newMessage.trim()}
-            className="bg-crypto-blue hover:bg-crypto-darkblue flex-shrink-0"
+            className="bg-crypto-blue hover:bg-crypto-darkblue flex-shrink-0 rounded-full aspect-square p-0 w-10 h-10"
           >
             <Send className="h-5 w-5" />
           </Button>
