@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Tweet, TweetWithAuthor } from '@/types/Tweet';
+import { Tweet, TweetWithAuthor, Author } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
 
@@ -74,6 +73,15 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
     if (!data) return [];
     
     const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+      const author: Author = {
+        id: item.author_id,
+        username: item.profile_username || item.username || '',
+        display_name: item.profile_display_name || item.display_name || '',
+        avatar_url: item.profile_avatar_url || item.avatar_url || '',
+        avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+      };
+
       return {
         id: item.id,
         content: item.content,
@@ -90,14 +98,7 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: {
-          id: item.author_id,
-          username: item.profile_username || item.username,
-          display_name: item.profile_display_name || item.display_name,
-          avatar_url: item.profile_avatar_url || item.avatar_url || '',
-          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        }
+        author
       };
     });
     
@@ -125,6 +126,15 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
     if (!data) return [];
     
     const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+      const author: Author = {
+        id: item.author_id,
+        username: item.username || '',
+        display_name: item.display_name || '',
+        avatar_url: item.avatar_url || '',
+        avatar_nft_id: item.avatar_nft_id,
+        avatar_nft_chain: item.avatar_nft_chain
+      };
+
       return {
         id: item.id,
         content: item.content,
@@ -141,14 +151,7 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: {
-          id: item.author_id,
-          username: item.profile_username || item.username,
-          display_name: item.profile_display_name || item.display_name,
-          avatar_url: item.profile_avatar_url || item.avatar_url || '',
-          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        }
+        author
       };
     });
     
@@ -527,6 +530,41 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
     
     const transformedData: TweetWithAuthor[] = data.map((item: any) => {
       const tweet = item.tweets;
+      const originalAuthor: Author = {
+        id: tweet.author_id,
+        username: tweet.profiles?.username || '',
+        display_name: tweet.profiles?.display_name || '',
+        avatar_url: tweet.profiles?.avatar_url || '',
+        avatar_nft_id: tweet.profiles?.avatar_nft_id || null,
+        avatar_nft_chain: tweet.profiles?.avatar_nft_chain || null
+      };
+
+      // Get the retweeter profile
+      const retweeterProfile = async () => {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+          .eq('id', userId)
+          .single();
+          
+        return profileData;
+      };
+
+      // Create Author object for the retweeter
+      const getRetweeterAuthor = async (): Promise<Author> => {
+        const profile = await retweeterProfile();
+        return {
+          id: userId,
+          username: profile?.username || '',
+          display_name: profile?.display_name || '',
+          avatar_url: profile?.avatar_url || '',
+          avatar_nft_id: profile?.avatar_nft_id || null,
+          avatar_nft_chain: profile?.avatar_nft_chain || null
+        };
+      };
+
+      // We'll set retweeted_by later if needed
+
       return {
         id: tweet.id,
         content: tweet.content,
@@ -535,22 +573,16 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
         likes_count: tweet.likes_count,
         retweets_count: tweet.retweets_count,
         replies_count: tweet.replies_count,
-        is_retweet: tweet.is_retweet,
+        is_retweet: true,
         original_tweet_id: tweet.original_tweet_id,
         image_url: tweet.image_url,
-        profile_username: tweet.profiles.username,
-        profile_display_name: tweet.profiles.display_name,
-        profile_avatar_url: tweet.profiles.avatar_url,
-        profile_avatar_nft_id: tweet.profiles.avatar_nft_id,
-        profile_avatar_nft_chain: tweet.profiles.avatar_nft_chain,
-        author: {
-          id: tweet.author_id,
-          username: tweet.profiles.username,
-          display_name: tweet.profiles.display_name,
-          avatar_url: tweet.profiles.avatar_url || '',
-          avatar_nft_id: tweet.profiles.avatar_nft_id,
-          avatar_nft_chain: tweet.profiles.avatar_nft_chain
-        }
+        profile_username: tweet.profiles?.username,
+        profile_display_name: tweet.profiles?.display_name,
+        profile_avatar_url: tweet.profiles?.avatar_url,
+        profile_avatar_nft_id: tweet.profiles?.avatar_nft_id,
+        profile_avatar_nft_chain: tweet.profiles?.avatar_nft_chain,
+        author: originalAuthor,
+        original_author: originalAuthor
       };
     });
     

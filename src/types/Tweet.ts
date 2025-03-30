@@ -13,16 +13,22 @@ export type Tweet = {
   bookmarks_count?: number;
 };
 
+export type Author = {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  avatar_nft_id?: string;
+  avatar_nft_chain?: string;
+  replies_sort_order?: string;
+};
+
 export type TweetWithAuthor = Tweet & {
-  author: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-    avatar_nft_id?: string;
-    avatar_nft_chain?: string;
-    replies_sort_order?: string;
-  };
+  author: Author;
+  // Original author for retweets
+  original_author?: Author;
+  // User who retweeted this tweet
+  retweeted_by?: Author;
   // Add profile_ prefixed properties to match the database function return
   profile_username?: string;
   profile_display_name?: string;

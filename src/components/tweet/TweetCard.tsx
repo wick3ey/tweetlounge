@@ -67,7 +67,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       });
       return;
     }
-
     const success = await likeTweet(tweet.id);
     if (success) {
       setIsLiked(!isLiked);
@@ -84,7 +83,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       });
       return;
     }
-
     const success = await retweet(tweet.id);
     if (success) {
       setIsRetweeted(!isRetweeted);
@@ -112,14 +110,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       });
       return;
     }
-
     let success;
     if (isBookmarked) {
       success = await unbookmarkTweet(tweet.id);
     } else {
       success = await bookmarkTweet(tweet.id);
     }
-
     if (success) {
       setIsBookmarked(!isBookmarked);
       if (onAction) onAction();
@@ -138,7 +134,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
+  // Determine which author data to display (original author for retweets, or the tweet author)
+  const displayAuthor = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
+  
+  // Check if the displayed author has an NFT verification
+  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
 
   return (
     <div 
@@ -146,7 +146,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       onClick={handleTweetClick}
     >
       {/* If this is a retweet, show who retweeted it */}
-      {tweet.is_retweet && (
+      {tweet.is_retweet && tweet.retweeted_by && (
+        <div className="flex items-center mb-2 text-gray-500 text-sm">
+          <Repeat className="h-4 w-4 mr-1" />
+          <span>Reposted by {tweet.retweeted_by.display_name || tweet.retweeted_by.username}</span>
+        </div>
+      )}
+      {/* If retweeted_by is not available but is_retweet is true, use author info */}
+      {tweet.is_retweet && !tweet.retweeted_by && (
         <div className="flex items-center mb-2 text-gray-500 text-sm">
           <Repeat className="h-4 w-4 mr-1" />
           <span>Reposted by {tweet.author?.display_name || tweet.author?.username}</span>
@@ -156,8 +163,8 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.username} />
+            <AvatarFallback>{displayAuthor?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </div>
         
@@ -166,11 +173,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {tweet.author?.display_name}
+                  {displayAuthor?.display_name}
                   {isNFTVerified && <VerifiedBadge className="ml-1" />}
                 </span>
                 <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{tweet.author?.username}</span>
+                <span className="text-gray-500">@{displayAuthor?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
