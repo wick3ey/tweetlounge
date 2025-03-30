@@ -155,6 +155,17 @@ const TweetPage = () => {
     }
   };
 
+  // Fix: Correctly handle the async nature of getUser() by using async/await
+  const getCurrentUserId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -244,16 +255,26 @@ const TweetPage = () => {
                   <Share2 className="h-5 w-5" />
                 </Button>
                 
-                {tweet.author_id === (supabase.auth.getUser() || {}).data?.user?.id && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full hover:bg-gray-800/60 ml-1"
-                    aria-label="More options"
-                  >
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                )}
+                {/* Use the getCurrentUserId function in an async IIFE to determine if the tweet belongs to the current user */}
+                {React.useMemo(() => {
+                  const [isAuthor, setIsAuthor] = useState(false);
+                  
+                  (async () => {
+                    const currentUserId = await getCurrentUserId();
+                    setIsAuthor(currentUserId === tweet.author_id);
+                  })();
+                  
+                  return isAuthor && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="rounded-full hover:bg-gray-800/60 ml-1"
+                      aria-label="More options"
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  );
+                }, [tweet.author_id])}
               </div>
             </div>
             
