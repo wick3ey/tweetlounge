@@ -57,8 +57,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
-      // Filter out any invalid retweets (those with is_retweet=true but missing original_tweet_id)
+      // First, filter out any tweets with corrupted data
       const validTweets = fetchedTweets.filter(tweet => {
+        // If it's a retweet but missing original_tweet_id, it's invalid
         if (tweet.is_retweet && !tweet.original_tweet_id) {
           console.error('Filtered out invalid retweet with null original_tweet_id:', tweet.id);
           return false;
@@ -76,38 +77,35 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             
             if (originalTweetError) {
               console.error('Error fetching original tweet:', originalTweetError);
-              return {
-                ...tweet,
-                // Keep original information intact but mark that we failed to get original
-                error_fetching_original: true
-              };
-            }
-            
-            if (originalTweetData && originalTweetData.length > 0) {
-              const originalTweet = originalTweetData[0];
-              
-              // IMPORTANT: Copy both the original author AND the content
-              return {
-                ...tweet,
-                // Use the original tweet's content
-                content: originalTweet.content,
-                image_url: originalTweet.image_url,
-                // Add the original author information
-                original_author: {
-                  id: originalTweet.author_id,
-                  username: originalTweet.username,
-                  display_name: originalTweet.display_name,
-                  avatar_url: originalTweet.avatar_url || '',
-                  avatar_nft_id: originalTweet.avatar_nft_id,
-                  avatar_nft_chain: originalTweet.avatar_nft_chain,
-                  replies_sort_order: originalTweet.replies_sort_order
-                }
-              };
-            } else {
-              console.error('Original tweet not found for tweet:', tweet.id, 'original_id:', tweet.original_tweet_id);
-              // Skip rendering this retweet as the original was likely deleted
+              // Skip this retweet
               return null;
             }
+            
+            if (!originalTweetData || originalTweetData.length === 0) {
+              console.error('Original tweet not found for retweet:', tweet.id, 'original_id:', tweet.original_tweet_id);
+              // Skip this retweet since the original was likely deleted
+              return null;
+            }
+            
+            const originalTweet = originalTweetData[0];
+            
+            // IMPORTANT: Copy both the original author AND the content
+            return {
+              ...tweet,
+              // Use the original tweet's content
+              content: originalTweet.content,
+              image_url: originalTweet.image_url,
+              // Add the original author information
+              original_author: {
+                id: originalTweet.author_id,
+                username: originalTweet.username,
+                display_name: originalTweet.display_name,
+                avatar_url: originalTweet.avatar_url || '',
+                avatar_nft_id: originalTweet.avatar_nft_id,
+                avatar_nft_chain: originalTweet.avatar_nft_chain,
+                replies_sort_order: originalTweet.replies_sort_order
+              }
+            };
           } catch (err) {
             console.error('Error processing retweet:', err);
             return null;
@@ -118,14 +116,28 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       }));
       
       // Filter out any null entries (retweets with missing originals)
-      const filteredTweets = processedTweets.filter(tweet => tweet !== null) as TweetWithAuthor[];
+      // Also double-check for any retweets that still have missing original_tweet_id
+      const filteredTweets = processedTweets
+        .filter(tweet => tweet !== null) as TweetWithAuthor[];
+      
+      // One more validation pass to ensure no invalid retweets
+      const finalTweets = filteredTweets.filter(tweet => {
+        if (tweet.is_retweet) {
+          // Ensure both original_tweet_id and original_author exist
+          if (!tweet.original_tweet_id || !tweet.original_author) {
+            console.error('Removing invalid retweet after processing:', tweet.id);
+            return false;
+          }
+        }
+        return true;
+      });
       
       // Log a sample tweet for debugging
-      if (filteredTweets.length > 0) {
-        console.log('Sample tweet data:', filteredTweets[0]);
+      if (finalTweets.length > 0) {
+        console.log('Sample tweet data:', finalTweets[0]);
       }
       
-      setTweets(filteredTweets);
+      setTweets(finalTweets);
     } catch (err) {
       console.error('Failed to fetch tweets:', err);
       setError('Failed to load tweets. Please try again later.');
