@@ -381,13 +381,16 @@ const TweetPage = () => {
           </Button>
         </div>
         
-        {/* Tweet Replies Section */}
-        <div className="bg-black">
-          <TweetDetail 
-            tweet={tweet} 
-            onClose={() => {}} // No-op since we're on the dedicated page
+        {/* Tweet Comments Section - Only include CommentList to avoid duplication */}
+        <div className="bg-black p-4">
+          <CommentList 
+            tweetId={tweet.id} 
+            onCommentCountUpdated={(count) => {
+              if (tweet) {
+                setTweet(prev => prev ? { ...prev, replies_count: count } : null);
+              }
+            }}
             onAction={handleTweetAction}
-            onDelete={handleTweetDeleted}
           />
         </div>
       </div>
