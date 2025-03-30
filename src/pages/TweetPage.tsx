@@ -412,7 +412,7 @@ const TweetPage = () => {
   }
 
   return (
-    <Layout hideRightSidebar>
+    <Layout>
       <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
         <div className="max-w-[600px] mx-auto px-4 py-3 flex items-center">
           <Button 
