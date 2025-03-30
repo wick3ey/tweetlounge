@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
@@ -34,22 +33,18 @@ const TokenCardSkeleton = () => (
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
   
-  // For very small numbers (less than 0.01)
   if (price < 0.01 && price > 0) {
     return price.toFixed(6);
   }
   
-  // For small numbers (less than 1)
   if (price < 1) {
     return price.toFixed(3);
   }
   
-  // For medium numbers (less than 1000)
   if (price < 1000) {
     return price.toFixed(2);
   }
   
-  // For large numbers
   return price.toLocaleString('en-US', { maximumFractionDigits: 2 });
 };
 
@@ -193,7 +188,7 @@ const Market: React.FC = () => {
 
   return (
     <Layout>
-      <div className="h-screen p-6">
+      <div className="h-screen p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <motion.h1

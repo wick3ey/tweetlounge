@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';

@@ -236,10 +236,13 @@ const RightSidebar = () => {
           <div className="sidebar-content-container">
             <TabsContent value="stats" className="mt-0">
               <MarketStats />
+              <div className="mt-4">
+                <NewsSection compact={true} />
+              </div>
             </TabsContent>
             
             <TabsContent value="news" className="mt-0">
-              <NewsSection />
+              <NewsSection compact={false} />
             </TabsContent>
             
             <TabsContent value="trends" className="mt-0">
