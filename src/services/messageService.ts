@@ -11,12 +11,25 @@ export interface Message {
   is_deleted: boolean;
 }
 
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  reaction_type: string;
+  created_at: string;
+}
+
 export interface Conversation {
   id: string;
   created_at: string;
   updated_at: string;
   participants?: Profile[];
   lastMessage?: Message;
+}
+
+export interface MessageSearchResult {
+  messages: Message[];
+  total: number;
 }
 
 export async function createMessage(conversationId: string, content: string): Promise<Message | null> {
@@ -186,4 +199,178 @@ export async function startConversation(recipientId: string): Promise<string | n
   }
 
   return data;
+}
+
+export async function addMessageReaction(messageId: string, reactionType: string): Promise<MessageReaction | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to react to messages');
+  }
+
+  try {
+    // Delete any existing reaction of this type from this user on this message
+    await supabase
+      .from('message_reactions')
+      .delete()
+      .match({ 
+        message_id: messageId, 
+        user_id: userData.user.id,
+        reaction_type: reactionType
+      });
+
+    // Add the new reaction
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .insert({
+        message_id: messageId,
+        user_id: userData.user.id,
+        reaction_type: reactionType
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding reaction:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error managing reaction:', error);
+    return null;
+  }
+}
+
+export async function removeMessageReaction(messageId: string, reactionType: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to manage message reactions');
+  }
+
+  const { error } = await supabase
+    .from('message_reactions')
+    .delete()
+    .match({ 
+      message_id: messageId, 
+      user_id: userData.user.id,
+      reaction_type: reactionType
+    });
+
+  if (error) {
+    console.error('Error removing reaction:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getMessageReactions(messageId: string): Promise<MessageReaction[]> {
+  const { data, error } = await supabase
+    .from('message_reactions')
+    .select('*')
+    .eq('message_id', messageId);
+
+  if (error) {
+    console.error('Error fetching message reactions:', error);
+    return [];
+  }
+
+  return data;
+}
+
+export async function searchMessages(
+  conversationId: string, 
+  searchTerm: string, 
+  limit = 20, 
+  offset = 0
+): Promise<MessageSearchResult> {
+  // Get the current user
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to search messages');
+  }
+
+  // First, verify user is part of this conversation
+  const { data: participantData } = await supabase
+    .from('conversation_participants')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userData.user.id)
+    .single();
+
+  if (!participantData) {
+    throw new Error('You do not have access to this conversation');
+  }
+
+  // Search for messages
+  const { data, error, count } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact' })
+    .eq('conversation_id', conversationId)
+    .ilike('content', `%${searchTerm}%`)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Error searching messages:', error);
+    return { messages: [], total: 0 };
+  }
+
+  return {
+    messages: data || [],
+    total: count || 0
+  };
+}
+
+export async function markConversationAsRead(conversationId: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to mark conversations as read');
+  }
+
+  const { error } = await supabase
+    .from('conversation_participants')
+    .update({ 
+      is_read: true,
+      last_read_at: new Date().toISOString()
+    })
+    .match({ 
+      conversation_id: conversationId, 
+      user_id: userData.user.id 
+    });
+
+  if (error) {
+    console.error('Error marking conversation as read:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteMessage(messageId: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to delete messages');
+  }
+
+  // Instead of actually deleting, we mark as deleted
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_deleted: true })
+    .match({ 
+      id: messageId,
+      sender_id: userData.user.id 
+    });
+
+  if (error) {
+    console.error('Error deleting message:', error);
+    return false;
+  }
+
+  return true;
 }
