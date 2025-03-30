@@ -321,6 +321,19 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .single();
     
     if (existingRetweet) {
+      // If retweet exists, get the retweet tweet ID first
+      const { data: retweetTweet, error: retweetTweetError } = await supabase
+        .from('tweets')
+        .select('id')
+        .eq('author_id', user.id)
+        .eq('is_retweet', true)
+        .eq('original_tweet_id', tweetId)
+        .maybeSingle();
+        
+      if (retweetTweetError) {
+        console.error('Error finding retweet tweet:', retweetTweetError);
+      }
+      
       // If retweet exists, remove it
       const { error: deleteError } = await supabase
         .from('retweets')
@@ -333,17 +346,42 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw deleteError;
       }
       
-      // Delete the retweet tweet
-      const { error: deleteTweetError } = await supabase
-        .from('tweets')
-        .delete()
-        .eq('author_id', user.id)
-        .eq('is_retweet', true)
-        .eq('original_tweet_id', tweetId);
-      
-      if (deleteTweetError) {
-        console.error('Error deleting retweet tweet:', deleteTweetError);
-        throw deleteTweetError;
+      // Delete the retweet tweet with more specific conditions
+      if (retweetTweet?.id) {
+        // Delete by specific ID for more reliability
+        const { error: deleteTweetError } = await supabase
+          .from('tweets')
+          .delete()
+          .eq('id', retweetTweet.id);
+        
+        if (deleteTweetError) {
+          console.error('Error deleting retweet tweet by ID:', deleteTweetError);
+          // Try fallback method if specific ID delete fails
+          const { error: fallbackDeleteError } = await supabase
+            .from('tweets')
+            .delete()
+            .eq('author_id', user.id)
+            .eq('is_retweet', true)
+            .eq('original_tweet_id', tweetId);
+          
+          if (fallbackDeleteError) {
+            console.error('Error with fallback delete of retweet tweet:', fallbackDeleteError);
+            throw fallbackDeleteError;
+          }
+        }
+      } else {
+        // Fallback if we couldn't find the specific retweet
+        const { error: deleteTweetError } = await supabase
+          .from('tweets')
+          .delete()
+          .eq('author_id', user.id)
+          .eq('is_retweet', true)
+          .eq('original_tweet_id', tweetId);
+        
+        if (deleteTweetError) {
+          console.error('Error deleting retweet tweet:', deleteTweetError);
+          throw deleteTweetError;
+        }
       }
       
       // Manually update the retweets count

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -23,8 +22,9 @@ interface TweetDetailProps {
   tweet: TweetWithAuthor;
   onClose: () => void;
   onAction: () => void;
-  onDelete: (tweetId: string) => void;
-  onCommentAdded?: (tweetId: string) => void; 
+  onDelete?: (tweetId: string) => void;
+  onCommentAdded?: (tweetId: string) => void;
+  onRetweetRemoved?: (originalTweetId: string) => void;
 }
 
 const TweetDetail: React.FC<TweetDetailProps> = ({ 
@@ -32,7 +32,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   onClose, 
   onAction, 
   onDelete, 
-  onCommentAdded 
+  onCommentAdded,
+  onRetweetRemoved
 }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
@@ -49,7 +50,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [showComments, setShowComments] = useState(true);
 
   useEffect(() => {
-    // Update local counts when tweet data changes
     setLikesCount(tweet?.likes_count || 0);
     setRetweetsCount(tweet?.retweets_count || 0);
     setRepliesCount(tweet?.replies_count || 0);
@@ -89,7 +89,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       return;
     }
 
-    // Prevent multiple clicks
     if (isLiking) return;
     setIsLiking(true);
 
@@ -101,12 +100,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       if (tweetIdToLike) {
         const success = await likeTweet(tweetIdToLike);
         if (success) {
-          // Update UI immediately
           const newLikedState = !isLiked;
           setIsLiked(newLikedState);
           setLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
           
-          // Show toast for better UX
           if (newLikedState) {
             toast({
               title: "Liked",
@@ -114,7 +111,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
             });
           }
           
-          // Still trigger action to refresh data
           setTimeout(() => {
             onAction();
           }, 500);
@@ -138,16 +134,16 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     }
   };
 
-  const toggleRetweet = async () => {
+  const handleRetweetToggle = async () => {
     if (!user) {
       toast({
-        title: "Not logged in",
-        description: "You must be logged in to retweet this post.",
+        title: "Authentication Required",
+        description: "You need to be logged in to repost",
+        variant: "destructive",
       });
       return;
     }
 
-    // Prevent multiple retweet clicks
     if (isRetweeting) return;
     setIsRetweeting(true);
 
@@ -155,37 +151,42 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
-
-      if (tweetIdToRetweet) {
-        const success = await retweet(tweetIdToRetweet);
-        if (success) {
-          // Update UI immediately
-          const newRetweetedState = !isRetweeted;
-          setIsRetweeted(newRetweetedState);
-          setRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-          
-          toast({
-            title: newRetweetedState ? "Reposted" : "Repost Removed",
-            description: newRetweetedState ? "You reposted this post" : "You removed your repost",
-          });
-          
-          // Still trigger action to refresh data after a small delay
-          setTimeout(() => {
-            onAction();
-          }, 500);
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to repost/unrepost.",
-            variant: "destructive",
-          });
+      
+      if (!tweetIdToRetweet) {
+        throw new Error("Invalid tweet ID for retweet operation");
+      }
+      
+      const success = await retweet(tweetIdToRetweet);
+      
+      if (success) {
+        const newRetweetedState = !isRetweeted;
+        setIsRetweeted(newRetweetedState);
+        setRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+        
+        toast({
+          title: newRetweetedState ? "Reposted" : "Repost Removed",
+          description: newRetweetedState ? "You reposted this post" : "You removed your repost",
+        });
+        
+        if (!newRetweetedState && onRetweetRemoved) {
+          onRetweetRemoved(tweetIdToRetweet);
         }
+        
+        setTimeout(() => {
+          onAction();
+        }, 500);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to repost",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error retweeting:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred during the repost operation.",
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -347,7 +348,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
               <MessageSquare className="inline-block h-5 w-5 mr-1" />
             </button>
             <button 
-              onClick={toggleRetweet} 
+              onClick={handleRetweetToggle} 
               className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''}`}
               disabled={isRetweeting}
             >
@@ -462,7 +463,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
             <MessageSquare className="inline-block h-5 w-5 mr-1" />
           </button>
           <button 
-            onClick={toggleRetweet} 
+            onClick={handleRetweetToggle} 
             className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''}`}
             disabled={isRetweeting}
           >

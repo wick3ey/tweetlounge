@@ -35,8 +35,17 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
+      // Filter out any invalid retweets (those with is_retweet=true but missing original_tweet_id)
+      const validTweets = fetchedTweets.filter(tweet => {
+        if (tweet.is_retweet && !tweet.original_tweet_id) {
+          console.error('Filtered out invalid retweet with null original_tweet_id:', tweet.id);
+          return false;
+        }
+        return true;
+      });
+      
       // Process tweets to get original tweet information for retweets
-      const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+      const processedTweets = await Promise.all(validTweets.map(async (tweet) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
             // Get the original tweet with author information
@@ -74,34 +83,27 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
               };
             } else {
               console.error('Original tweet not found for tweet:', tweet.id, 'original_id:', tweet.original_tweet_id);
-              // Return the tweet with a flag indicating the original was not found
-              return {
-                ...tweet,
-                original_tweet_not_found: true
-              };
+              // Skip rendering this retweet as the original was likely deleted
+              return null;
             }
           } catch (err) {
             console.error('Error processing retweet:', err);
-            return tweet;
+            return null;
           }
-        } else if (tweet.is_retweet && !tweet.original_tweet_id) {
-          // Handle case where is_retweet is true but original_tweet_id is null
-          console.error('Found retweet with null original_tweet_id:', tweet.id);
-          return {
-            ...tweet,
-            invalid_retweet: true
-          };
         }
         
         return tweet;
       }));
       
+      // Filter out any null entries (retweets with missing originals)
+      const filteredTweets = processedTweets.filter(tweet => tweet !== null) as TweetWithAuthor[];
+      
       // Log a sample tweet for debugging
-      if (processedTweets.length > 0) {
-        console.log('Sample tweet data:', processedTweets[0]);
+      if (filteredTweets.length > 0) {
+        console.log('Sample tweet data:', filteredTweets[0]);
       }
       
-      setTweets(processedTweets);
+      setTweets(filteredTweets);
     } catch (err) {
       console.error('Failed to fetch tweets:', err);
       setError('Failed to load tweets. Please try again later.');
@@ -204,6 +206,11 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     // Remove the deleted tweet from the state without needing a full refresh
     setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
     
+    // Also filter out any retweets of the deleted tweet
+    setTweets(prevTweets => prevTweets.filter(tweet => 
+      !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId)
+    ));
+    
     // Close the detail dialog if the deleted tweet was being viewed
     if (selectedTweet && selectedTweet.id === deletedTweetId) {
       setIsDetailOpen(false);
@@ -214,6 +221,17 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       title: "Tweet Deleted",
       description: "Your tweet has been successfully deleted."
     });
+  };
+
+  const handleRetweetRemoved = (originalTweetId: string) => {
+    // Remove any retweets of this original tweet made by the current user
+    if (user) {
+      setTweets(prevTweets => prevTweets.filter(tweet => 
+        !(tweet.is_retweet && 
+          tweet.original_tweet_id === originalTweetId && 
+          tweet.author_id === user.id)
+      ));
+    }
   };
 
   if (loading) {
@@ -257,6 +275,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             onClick={() => handleTweetClick(tweet)}
             onAction={handleRefresh}
             onDelete={handleTweetDeleted}
+            onRetweetRemoved={handleRetweetRemoved}
           />
         ))}
       </div>
@@ -270,6 +289,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
               onAction={handleRefresh}
               onDelete={handleTweetDeleted}
               onCommentAdded={handleCommentAdded}
+              onRetweetRemoved={handleRetweetRemoved}
             />
           )}
         </DialogContent>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -23,10 +22,10 @@ interface TweetCardProps {
   onClick?: () => void;
   onAction?: () => void;
   onDelete?: (tweetId: string) => void;
+  onRetweetRemoved?: (originalTweetId: string) => void;
 }
 
-const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete }) => {
-  // Add these debug logs to help track the issue
+const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete, onRetweetRemoved }) => {
   console.log('Rendering tweet:', tweet.id);
   console.log('Is retweet:', tweet.is_retweet);
   console.log('Original tweet ID:', tweet.original_tweet_id);
@@ -36,8 +35,8 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isRetweeting, setIsRetweeting] = useState(false); // Track retweet action in progress
-  const [isLiking, setIsLiking] = useState(false); // Track like action in progress
+  const [isRetweeting, setIsRetweeting] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const [localLikesCount, setLocalLikesCount] = useState(tweet?.likes_count || 0);
   const [localRetweetsCount, setLocalRetweetsCount] = useState(tweet?.retweets_count || 0);
   const navigate = useNavigate();
@@ -52,12 +51,9 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     const checkStatuses = async () => {
       if (tweet?.id && user) {
         try {
-          // Check if the user liked this tweet
           const liked = await checkIfUserLikedTweet(tweet.id);
           setIsLiked(liked);
           
-          // For retweets, check against the original tweet ID if this is a retweet
-          // Make sure original_tweet_id is not null before checking
           const tweetIdToCheck = tweet.is_retweet && tweet.original_tweet_id 
             ? tweet.original_tweet_id 
             : tweet.id;
@@ -65,7 +61,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           const retweeted = await checkIfUserRetweetedTweet(tweetIdToCheck);
           setIsRetweeted(retweeted);
           
-          // Check if the tweet is bookmarked
           const bookmarked = await checkIfTweetBookmarked(tweet.id);
           setIsBookmarked(bookmarked);
         } catch (error) {
@@ -101,27 +96,22 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    // Prevent multiple clicks
     if (isLiking) return;
     setIsLiking(true);
 
     try {
-      // Make sure we're liking the correct tweet - if this is a retweet, like the original
       const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
-
+      
       const success = await likeTweet(tweetIdToLike);
       
       if (success) {
-        // Immediately update UI
         const newLikedState = !isLiked;
         setIsLiked(newLikedState);
         
-        // Update the local like count for immediate feedback
         setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
         
-        // Show toast for better UX
         if (newLikedState) {
           toast({
             title: "Liked",
@@ -129,11 +119,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           });
         }
         
-        // Still trigger the refresh for accurate data
         if (onAction) {
           setTimeout(() => {
             onAction();
-          }, 500); // Small delay to ensure backend has updated
+          }, 500);
         }
       } else {
         toast({
@@ -159,12 +148,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     if (!user) {
       toast({
         title: "Not logged in",
-        description: "You must be logged in to retweet posts.",
+        description: "You must be logged in to repost posts.",
       });
       return;
     }
 
-    // Prevent multiple retweet clicks
     if (isRetweeting) {
       return;
     }
@@ -172,7 +160,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     try {
       setIsRetweeting(true);
       
-      // Ensure we have a valid tweet ID to retweet
       const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
@@ -184,11 +171,9 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       const success = await retweet(tweetIdToRetweet);
       
       if (success) {
-        // Immediately update UI
         const newRetweetedState = !isRetweeted;
         setIsRetweeted(newRetweetedState);
         
-        // Update the local retweet count for immediate feedback
         setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
         
         toast({
@@ -196,11 +181,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           description: newRetweetedState ? "You reposted this post" : "You removed your repost",
         });
         
-        // After a successful retweet, trigger a full refresh to get fresh data
+        if (!newRetweetedState && onRetweetRemoved) {
+          onRetweetRemoved(tweetIdToRetweet);
+        }
+        
         if (onAction) {
           setTimeout(() => {
             onAction();
-          }, 500); // Small delay to ensure backend has updated
+          }, 500);
         }
       } else {
         toast({
@@ -256,10 +244,8 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  // Check if this is a broken retweet (is_retweet is true, but original_tweet_id is null)
   if (tweet.is_retweet && !tweet.original_tweet_id) {
     console.error('Retweet with null original_tweet_id:', tweet);
-    // Handle broken retweet by displaying a simplified tweet card
     return (
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
@@ -271,9 +257,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     );
   }
   
-  // Handle retweets with original tweet data
   if (tweet.is_retweet && tweet.original_tweet_id) {
-    // Check if original_author exists
     if (!tweet.original_author) {
       console.error('Retweet missing original_author data:', tweet);
       return (
@@ -321,9 +305,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
                     )}
                   </span>
                   <span className="text-gray-500 mx-1">·</span>
-                  <span className="text-gray-500">
-                    @{tweet.original_author.username}
-                  </span>
+                  <span className="text-gray-500">@{tweet.original_author.username}</span>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">{formattedDate}</span>
                 </div>
@@ -406,7 +388,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     );
   }
   
-  // Regular tweet (not a retweet)
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
