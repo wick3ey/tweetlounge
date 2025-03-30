@@ -22,6 +22,7 @@ const ProfileHoverCard = ({ username, children, direction = 'right' }: ProfileHo
   const [loading, setLoading] = useState(false);
   const [isFollowingUser, setIsFollowingUser] = useState(false);
   const [isUpdatingFollow, setIsUpdatingFollow] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -32,6 +33,7 @@ const ProfileHoverCard = ({ username, children, direction = 'right' }: ProfileHo
       setLoading(true);
       const profileData = await getProfileByUsername(username);
       setProfile(profileData);
+      setHasAttemptedFetch(true);
       
       if (user && profileData) {
         const followStatus = await isFollowing(profileData.id);
@@ -39,6 +41,7 @@ const ProfileHoverCard = ({ username, children, direction = 'right' }: ProfileHo
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      setHasAttemptedFetch(true);
     } finally {
       setLoading(false);
     }
@@ -81,7 +84,11 @@ const ProfileHoverCard = ({ username, children, direction = 'right' }: ProfileHo
   
   return (
     <HoverCard>
-      <HoverCardTrigger asChild>
+      <HoverCardTrigger asChild onMouseEnter={() => {
+        if (!profile && !loading && !hasAttemptedFetch) {
+          fetchProfile();
+        }
+      }}>
         {children}
       </HoverCardTrigger>
       <HoverCardContent 
@@ -193,7 +200,7 @@ const ProfileHoverCard = ({ username, children, direction = 'right' }: ProfileHo
         ) : (
           <div className="flex flex-col items-center justify-center p-4">
             <User2 className="h-8 w-8 text-crypto-gray mb-2" />
-            <p className="text-crypto-lightgray">User not found</p>
+            <p className="text-crypto-lightgray">{username ? `Could not find @${username}` : "User not found"}</p>
           </div>
         )}
       </HoverCardContent>
