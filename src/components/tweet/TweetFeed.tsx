@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -10,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
+import { updateTweetCommentCount } from '@/services/commentService';
 
 interface TweetFeedProps {
   userId?: string;
@@ -32,7 +34,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   useEffect(() => {
     fetchTweets();
     
-    const channel = supabase
+    // Improved realtime subscriptions with specific event handling
+    const tweetsChannel = supabase
       .channel('public:tweets')
       .on('postgres_changes', {
         event: '*',
@@ -42,23 +45,60 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         console.log('Realtime update on tweets:', payload);
         fetchTweets(false);
       })
+      .subscribe();
+      
+    const commentsChannel = supabase
+      .channel('public:comments')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'comments'
       }, (payload) => {
         console.log('Realtime update on comments:', payload);
-        if (payload.eventType === 'INSERT' && payload.new) {
+        if (payload.new) {
           const commentedTweetId = payload.new.tweet_id;
-          updateTweetCommentCount(commentedTweetId);
+          updateTweetCommentCount(commentedTweetId).then(() => {
+            // After updating the database, refresh the tweet UI
+            updateTweetCommentCountInUI(commentedTweetId);
+          });
         }
       })
       .subscribe();
       
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(commentsChannel);
     };
   }, [limit, userId]);
+
+  // New function to update a single tweet's comment count in the UI
+  const updateTweetCommentCountInUI = async (tweetId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('replies_count')
+        .eq('id', tweetId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching updated tweet count:', error);
+        return;
+      }
+      
+      console.log(`Updating tweet ${tweetId} comment count in UI to ${data.replies_count}`);
+      
+      // Update the tweet in our state array
+      setTweets(prevTweets => 
+        prevTweets.map(tweet => 
+          tweet.id === tweetId 
+            ? { ...tweet, replies_count: data.replies_count } 
+            : tweet
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update tweet comment count in UI:', err);
+    }
+  };
 
   const updateTweetCommentCount = async (tweetId: string) => {
     try {
@@ -72,8 +112,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         return;
       }
       
+      // Ensure count is always a number
       const commentCount = typeof count === 'number' ? count : 0;
-      console.log(`Updating tweet ${tweetId} comment count to ${commentCount} in UI`);
+      console.log(`Updating tweet ${tweetId} comment count to ${commentCount} in UI and database`);
       
       setTweets(prevTweets => 
         prevTweets.map(tweet => 
@@ -83,6 +124,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         )
       );
       
+      // Always update the database to ensure consistency
       await supabase
         .from('tweets')
         .update({ replies_count: commentCount })
@@ -251,16 +293,18 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
-    setSelectedTweet(null);
     
     if (selectedTweet) {
+      // Force update the tweet's comment count before closing the detail
       updateTweetCommentCount(selectedTweet.id);
     }
     
+    setSelectedTweet(null);
     handleRefresh();
   };
 
   const handleCommentAdded = (tweetId: string) => {
+    // Always update comment count in UI and database when a comment is added
     updateTweetCommentCount(tweetId);
     
     if (onCommentAdded) {

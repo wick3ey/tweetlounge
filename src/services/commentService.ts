@@ -100,31 +100,8 @@ export async function createComment(tweetId: string, content: string, parentComm
       throw error;
     }
 
-    // Force update the tweet's replies_count
-    try {
-      // Get current count first - fixed the type error here
-      const { count, error: countError } = await supabase
-        .from('comments')
-        .select('id', { count: 'exact', head: true })
-        .eq('tweet_id', tweetId);
-        
-      // Ensure count is a number
-      const commentCount = typeof count === 'number' ? count : 0;
-      console.log(`Tweet ${tweetId} has ${commentCount} comments after adding a new one`);
-        
-      // Update the tweet with the new count
-      const { error: updateError } = await supabase
-        .from('tweets')
-        .update({ replies_count: commentCount })
-        .eq('id', tweetId);
-        
-      if (updateError) {
-        console.error('Error updating tweet replies count:', updateError);
-      }
-    } catch (countError) {
-      console.error('Error updating comment count:', countError);
-      // Continue anyway
-    }
+    // Force update the tweet's replies_count accurately
+    await updateTweetCommentCount(tweetId);
 
     if (!parentCommentId) {
       const { data: tweetData, error: tweetError } = await supabase
@@ -181,6 +158,37 @@ export async function createComment(tweetId: string, content: string, parentComm
   } catch (error) {
     console.error('Comment creation failed:', error);
     return null;
+  }
+}
+
+// New separate function to update tweet comment count
+export async function updateTweetCommentCount(tweetId: string): Promise<boolean> {
+  try {
+    // Get accurate count using count query
+    const { count, error: countError } = await supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('tweet_id', tweetId);
+    
+    // Ensure count is a number
+    const commentCount = typeof count === 'number' ? count : 0;
+    console.log(`Tweet ${tweetId} has ${commentCount} comments - updating in database`);
+      
+    // Update the tweet with the new count
+    const { error: updateError } = await supabase
+      .from('tweets')
+      .update({ replies_count: commentCount })
+      .eq('id', tweetId);
+      
+    if (updateError) {
+      console.error('Error updating tweet replies count:', updateError);
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Failed to update tweet comment count:', err);
+    return false;
   }
 }
 

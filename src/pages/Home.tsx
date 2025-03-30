@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+
+import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -14,12 +15,33 @@ import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/integrations/supabase/client'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
+
+  // Listen for realtime comment updates to refresh the feed
+  useEffect(() => {
+    // Setup realtime subscription for comments
+    const channel = supabase
+      .channel('public:comments')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments'
+      }, (payload) => {
+        console.log('Home page detected comment change:', payload);
+        handleRefresh();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
