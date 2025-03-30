@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -6,18 +5,18 @@ import { useToast } from '@/components/ui/use-toast';
 type AuthContextType = {
   user: any | null;
   signUp: (email: string, password: string, metadata?: object) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: any }>;
-  isLoading: boolean;
+  loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-      setIsLoading(false);
+      setLoading(false);
     };
 
     fetchUser();
@@ -34,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change event:', event);
       setUser(session?.user || null);
-      setIsLoading(false);
+      setLoading(false);
       
       // Show toasts for auth events
       if (event === 'SIGNED_IN') {
@@ -79,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signInWithEmail = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -142,11 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     signUp,
-    signIn,
+    signInWithEmail,
     signOut,
     signInWithGoogle,
     resetPassword,
-    isLoading,
+    loading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
