@@ -17,6 +17,7 @@ const TweetPage = () => {
   const [tweet, setTweet] = useState<TweetWithAuthor | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthor, setIsAuthor] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -64,6 +65,9 @@ const TweetPage = () => {
         };
 
         setTweet(formattedTweet);
+        
+        // Check if the current user is the author
+        checkIfUserIsAuthor(tweetData.author_id);
       } catch (err) {
         console.error('Failed to fetch tweet:', err);
         setError('Failed to load tweet. Please try again later.');
@@ -81,6 +85,18 @@ const TweetPage = () => {
       fetchTweet();
     }
   }, [tweetId, toast]);
+
+  // Check if the current user is the author of the tweet
+  const checkIfUserIsAuthor = async (authorId: string) => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const currentUserId = data?.user?.id;
+      setIsAuthor(currentUserId === authorId);
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      setIsAuthor(false);
+    }
+  };
 
   const handleTweetAction = () => {
     // Refresh the tweet data when actions are performed
@@ -152,17 +168,6 @@ const TweetPage = () => {
         title: "Link Copied",
         description: "Tweet link copied to clipboard",
       });
-    }
-  };
-
-  // Fix: Correctly handle the async nature of getUser() by using async/await
-  const getCurrentUserId = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      return user?.id;
-    } catch (error) {
-      console.error('Error getting current user:', error);
-      return null;
     }
   };
 
@@ -255,26 +260,16 @@ const TweetPage = () => {
                   <Share2 className="h-5 w-5" />
                 </Button>
                 
-                {/* Use the getCurrentUserId function in an async IIFE to determine if the tweet belongs to the current user */}
-                {React.useMemo(() => {
-                  const [isAuthor, setIsAuthor] = useState(false);
-                  
-                  (async () => {
-                    const currentUserId = await getCurrentUserId();
-                    setIsAuthor(currentUserId === tweet.author_id);
-                  })();
-                  
-                  return isAuthor && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="rounded-full hover:bg-gray-800/60 ml-1"
-                      aria-label="More options"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  );
-                }, [tweet.author_id])}
+                {isAuthor && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full hover:bg-gray-800/60 ml-1"
+                    aria-label="More options"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
             </div>
             
