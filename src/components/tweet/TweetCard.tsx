@@ -139,17 +139,36 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
   const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
+  const isOriginalAuthorNFTVerified = tweet.original_author?.avatar_nft_id && tweet.original_author?.avatar_nft_chain;
 
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
+      {tweet.is_retweet && tweet.original_author && (
+        <div className="flex items-center text-gray-500 text-sm mb-3">
+          <Repeat className="h-4 w-4 mr-2" />
+          <span>{tweet.author.display_name} reposted</span>
+        </div>
+      )}
+      
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage 
+              src={tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.avatar_url 
+                : tweet.author.avatar_url} 
+              alt={tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.username 
+                : tweet.author.username} 
+            />
+            <AvatarFallback>
+              {(tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.username 
+                : tweet.author.username)?.charAt(0).toUpperCase() || '?'}
+            </AvatarFallback>
           </Avatar>
         </div>
         
@@ -158,17 +177,27 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {tweet.author?.display_name}
-                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                  {tweet.is_retweet && tweet.original_author 
+                    ? tweet.original_author.display_name 
+                    : tweet.author.display_name}
+                  {tweet.is_retweet && isOriginalAuthorNFTVerified 
+                    ? <VerifiedBadge className="ml-1" />
+                    : !tweet.is_retweet && isNFTVerified 
+                      ? <VerifiedBadge className="ml-1" /> 
+                      : null}
                 </span>
                 <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{tweet.author?.username}</span>
+                <span className="text-gray-500">
+                  @{tweet.is_retweet && tweet.original_author 
+                    ? tweet.original_author.username 
+                    : tweet.author.username}
+                </span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
             </div>
             
-            {user?.id === tweet.author_id && (
+            {user?.id === (tweet.is_retweet ? tweet.author.id : tweet.author.id) && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">

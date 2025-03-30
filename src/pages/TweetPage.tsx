@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,6 +75,45 @@ const TweetPage = () => {
             avatar_nft_chain: tweetData.avatar_nft_chain
           }
         };
+
+        // If this is a retweet, get original tweet author info
+        if (tweetData.is_retweet && tweetData.original_tweet_id) {
+          try {
+            const { data: originalTweetData, error: originalTweetError } = await supabase
+              .from('tweets')
+              .select(`
+                id,
+                author_id,
+                profiles:author_id (
+                  username,
+                  display_name,
+                  avatar_url,
+                  avatar_nft_id,
+                  avatar_nft_chain
+                )
+              `)
+              .eq('id', tweetData.original_tweet_id)
+              .single();
+
+            if (!originalTweetError && originalTweetData && originalTweetData.profiles) {
+              // If profiles is an array, take the first item
+              const profileData = Array.isArray(originalTweetData.profiles) 
+                ? originalTweetData.profiles[0]
+                : originalTweetData.profiles;
+                
+              formattedTweet.original_author = {
+                id: originalTweetData.author_id,
+                username: profileData.username,
+                display_name: profileData.display_name,
+                avatar_url: profileData.avatar_url || '',
+                avatar_nft_id: profileData.avatar_nft_id,
+                avatar_nft_chain: profileData.avatar_nft_chain
+              };
+            }
+          } catch (originalTweetError) {
+            console.error('Error fetching original tweet:', originalTweetError);
+          }
+        }
 
         setTweet(formattedTweet);
         
@@ -376,6 +416,7 @@ const TweetPage = () => {
   };
 
   const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+  const isOriginalAuthorNFTVerified = tweet?.original_author?.avatar_nft_id && tweet?.original_author?.avatar_nft_chain;
 
   if (loading) {
     return (
@@ -431,12 +472,27 @@ const TweetPage = () => {
       <div className="max-w-[600px] mx-auto">
         <article className="border-b border-gray-800">
           <div className="p-4">
+            {tweet.is_retweet && tweet.original_author && (
+              <div className="flex items-center text-gray-500 text-sm mb-3">
+                <Repeat className="h-4 w-4 mr-2" />
+                <span>{tweet.author.display_name} reposted</span>
+              </div>
+            )}
+            
             <div className="flex items-start mb-2">
-              <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
+              <Link 
+                to={`/profile/${tweet.is_retweet && tweet.original_author ? tweet.original_author.username : tweet.author.username}`} 
+                className="mr-3 flex-shrink-0"
+              >
                 <Avatar className="h-12 w-12 rounded-full">
-                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
+                  <AvatarImage 
+                    src={tweet.is_retweet && tweet.original_author ? tweet.original_author.avatar_url : tweet.author.avatar_url} 
+                    alt={tweet.is_retweet && tweet.original_author ? tweet.original_author.display_name : tweet.author.display_name} 
+                  />
                   <AvatarFallback className="bg-gray-800 text-white">
-                    {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
+                    {(tweet.is_retweet && tweet.original_author 
+                        ? tweet.original_author.display_name 
+                        : tweet.author.display_name)?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
               </Link>
@@ -445,11 +501,24 @@ const TweetPage = () => {
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex flex-col">
-                      <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
-                        {tweet.author.display_name}
-                        {isNFTVerified && <VerifiedBadge />}
+                      <Link 
+                        to={`/profile/${tweet.is_retweet && tweet.original_author ? tweet.original_author.username : tweet.author.username}`} 
+                        className="font-bold text-white hover:underline flex items-center"
+                      >
+                        {tweet.is_retweet && tweet.original_author 
+                          ? tweet.original_author.display_name 
+                          : tweet.author.display_name}
+                        {tweet.is_retweet && isOriginalAuthorNFTVerified 
+                          ? <VerifiedBadge />
+                          : !tweet.is_retweet && isNFTVerified 
+                            ? <VerifiedBadge /> 
+                            : null}
                       </Link>
-                      <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
+                      <span className="text-gray-500 text-sm">
+                        @{tweet.is_retweet && tweet.original_author 
+                          ? tweet.original_author.username 
+                          : tweet.author.username}
+                      </span>
                     </div>
                     
                     <div className="flex items-center">
