@@ -1,3 +1,4 @@
+
 export type Tweet = {
   id: string;
   content: string;
@@ -162,7 +163,8 @@ export function enhanceTweetData(tweet: any): TweetWithAuthor | null {
       display_name: tweet.profile_display_name || 'User',
       avatar_url: tweet.profile_avatar_url || '',
       avatar_nft_id: tweet.profile_avatar_nft_id,
-      avatar_nft_chain: tweet.profile_avatar_nft_chain
+      avatar_nft_chain: tweet.profile_avatar_nft_chain,
+      replies_sort_order: tweet.profile_replies_sort_order
     }
   };
   

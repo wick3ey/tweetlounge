@@ -10,7 +10,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
-import { UserPlus, MapPin, Link as LinkIcon, CheckCheck } from 'lucide-react';
+import { UserPlus, MapPin, Link as LinkIcon, CheckCheck, Loader } from 'lucide-react';
 import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
 import { toast } from '@/components/ui/use-toast';
 import { Profile } from '@/lib/supabase';
@@ -118,10 +118,10 @@ export const ProfileHoverCard: React.FC<ProfileHoverCardProps> = ({
               <Avatar className="h-14 w-14 border-2 border-crypto-gray hover:border-crypto-blue transition-colors">
                 <AvatarImage 
                   src={profile.avatar_url || ''} 
-                  alt={profile.display_name}
+                  alt={profile.display_name || ''}
                 />
                 <AvatarFallback className="bg-crypto-darkblue text-white text-lg">
-                  {profile.display_name?.charAt(0).toUpperCase()}
+                  {profile.display_name?.charAt(0).toUpperCase() || ''}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -134,7 +134,9 @@ export const ProfileHoverCard: React.FC<ProfileHoverCardProps> = ({
                 onClick={handleFollowAction}
                 disabled={isFollowLoading}
               >
-                {isUserFollowing ? (
+                {isFollowLoading ? (
+                  <Loader className="h-4 w-4 animate-spin" />
+                ) : isUserFollowing ? (
                   <>
                     <CheckCheck className="h-4 w-4 mr-1" />
                     Following
