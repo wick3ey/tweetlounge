@@ -113,10 +113,14 @@ export async function createComment(tweetId: string, content: string, parentComm
       console.log(`Tweet ${tweetId} has ${commentCount} comments after adding a new one`);
         
       // Update the tweet with the new count
-      await supabase
+      const { error: updateError } = await supabase
         .from('tweets')
         .update({ replies_count: commentCount })
         .eq('id', tweetId);
+        
+      if (updateError) {
+        console.error('Error updating tweet replies count:', updateError);
+      }
     } catch (countError) {
       console.error('Error updating comment count:', countError);
       // Continue anyway

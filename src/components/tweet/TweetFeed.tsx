@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -33,7 +32,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   useEffect(() => {
     fetchTweets();
     
-    // Setup realtime subscription for new tweets
     const channel = supabase
       .channel('public:tweets')
       .on('postgres_changes', {
@@ -41,9 +39,19 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         schema: 'public',
         table: 'tweets'
       }, (payload) => {
-        console.log('Realtime update:', payload);
-        // Refresh tweets when we get a notification about changes
-        fetchTweets(false); // Don't show loading indicator for realtime updates
+        console.log('Realtime update on tweets:', payload);
+        fetchTweets(false);
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments'
+      }, (payload) => {
+        console.log('Realtime update on comments:', payload);
+        if (payload.eventType === 'INSERT' && payload.new) {
+          const commentedTweetId = payload.new.tweet_id;
+          updateTweetCommentCount(commentedTweetId);
+        }
       })
       .subscribe();
       
@@ -51,6 +59,38 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       supabase.removeChannel(channel);
     };
   }, [limit, userId]);
+
+  const updateTweetCommentCount = async (tweetId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+      
+      if (error) {
+        console.error('Error counting comments for tweet update:', error);
+        return;
+      }
+      
+      const commentCount = typeof count === 'number' ? count : 0;
+      console.log(`Updating tweet ${tweetId} comment count to ${commentCount} in UI`);
+      
+      setTweets(prevTweets => 
+        prevTweets.map(tweet => 
+          tweet.id === tweetId 
+            ? { ...tweet, replies_count: commentCount } 
+            : tweet
+        )
+      );
+      
+      await supabase
+        .from('tweets')
+        .update({ replies_count: commentCount })
+        .eq('id', tweetId);
+    } catch (err) {
+      console.error('Failed to update tweet comment count:', err);
+    }
+  };
 
   const fetchTweets = async (showLoading = true) => {
     try {
@@ -61,65 +101,51 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
-      // First, filter out any tweets with corrupted data using our type guard
       const validTweets = fetchedTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          // Get safe tweet ID for logging
           const tweetId = getSafeTweetId(tweet);
           console.error('Filtered out invalid tweet:', tweetId);
           return false;
         }
         
-        // Special validation for retweets
         if (tweet.is_retweet && !isValidRetweet(tweet)) {
           const tweetId = getSafeTweetId(tweet);
           console.error('Filtered out invalid retweet with null original_tweet_id:', tweetId);
-          // Log details to help debug
           console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
           return false;
         }
         return true;
       });
       
-      // Process tweets to get original tweet information for retweets (only for valid retweets)
       const processedTweets = await Promise.all(validTweets.map(async (tweet) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
-            // Get the original tweet with author information
             const { data: originalTweetData, error: originalTweetError } = await supabase
               .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
             
             if (originalTweetError) {
               console.error('Error fetching original tweet:', originalTweetError);
-              // Skip this retweet
               return null;
             }
             
-            if (!originalTweetData || originalTweetData.length === 0) {
-              console.error('Original tweet not found for retweet:', tweet.id, 'original_id:', tweet.original_tweet_id);
-              // Skip this retweet since the original was likely deleted
-              return null;
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              return {
+                ...tweet,
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                original_author: {
+                  id: originalTweet.author_id,
+                  username: originalTweet.username,
+                  display_name: originalTweet.display_name,
+                  avatar_url: originalTweet.avatar_url || '',
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain,
+                  replies_sort_order: originalTweet.replies_sort_order
+                }
+              };
             }
-            
-            const originalTweet = originalTweetData[0];
-            
-            // IMPORTANT: Copy both the original author AND the content
-            return {
-              ...tweet,
-              // Use the original tweet's content
-              content: originalTweet.content,
-              image_url: originalTweet.image_url,
-              // Add the original author information
-              original_author: {
-                id: originalTweet.author_id,
-                username: originalTweet.username,
-                display_name: originalTweet.display_name,
-                avatar_url: originalTweet.avatar_url || '',
-                avatar_nft_id: originalTweet.avatar_nft_id,
-                avatar_nft_chain: originalTweet.avatar_nft_chain,
-                replies_sort_order: originalTweet.replies_sort_order
-              }
-            };
           } catch (err) {
             console.error('Error processing retweet:', err);
             return null;
@@ -129,26 +155,17 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         return tweet;
       }));
       
-      // Filter out any null entries (retweets with missing originals)
-      // Use type predicate for proper TypeScript narrowing
       const filteredTweets = processedTweets
         .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
       
-      // One more validation pass to ensure no invalid retweets
       const finalTweets = filteredTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          // Get safe tweet ID for logging
           const tweetId = getSafeTweetId(tweet);
           console.error('Removing invalid tweet after processing:', tweetId);
           return false;
         }
         return true;
       });
-      
-      // Log a sample tweet for debugging
-      if (finalTweets.length > 0) {
-        console.log('Sample tweet data:', finalTweets[0]);
-      }
       
       setTweets(finalTweets);
     } catch (err) {
@@ -172,7 +189,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     try {
       const freshTweets = await getTweets(limit, 0);
       
-      // Process the tweets just like in fetchTweets
       const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
@@ -210,7 +226,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         return tweet;
       }));
       
-      // Filter out null and invalid tweets
       const validTweets = processedTweets
         .filter((tweet): tweet is TweetWithAuthor => 
           tweet !== null && isValidTweet(tweet)
@@ -236,37 +251,30 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
-    setSelectedTweet(null); // Clear selected tweet to prevent stale references
-    // Refresh the feed when closing the detail view to show updated likes/comments
+    setSelectedTweet(null);
+    
+    if (selectedTweet) {
+      updateTweetCommentCount(selectedTweet.id);
+    }
+    
     handleRefresh();
   };
 
   const handleCommentAdded = (tweetId: string) => {
-    // Update the comment count for a specific tweet in the state
-    setTweets(prevTweets => 
-      prevTweets.map(tweet => 
-        tweet.id === tweetId 
-          ? { ...tweet, replies_count: (tweet.replies_count || 0) + 1 } 
-          : tweet
-      )
-    );
+    updateTweetCommentCount(tweetId);
     
-    // Also trigger parent callback if provided
     if (onCommentAdded) {
       onCommentAdded();
     }
   };
 
   const handleTweetDeleted = (deletedTweetId: string) => {
-    // Remove the deleted tweet from the state without needing a full refresh
     setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
     
-    // Also filter out any retweets of the deleted tweet
     setTweets(prevTweets => prevTweets.filter(tweet => 
       !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId)
     ));
     
-    // Close the detail dialog if the deleted tweet was being viewed
     if (selectedTweet && selectedTweet.id === deletedTweetId) {
       setIsDetailOpen(false);
       setSelectedTweet(null);
@@ -279,7 +287,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   };
 
   const handleRetweetRemoved = (originalTweetId: string) => {
-    // Remove any retweets of this original tweet made by the current user
     if (user) {
       setTweets(prevTweets => prevTweets.filter(tweet => 
         !(tweet.is_retweet && 
@@ -343,7 +350,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-hidden">
-          {/* Add hidden DialogTitle for accessibility */}
           <VisuallyHidden asChild>
             <DialogTitle>Tweet Detail</DialogTitle>
           </VisuallyHidden>

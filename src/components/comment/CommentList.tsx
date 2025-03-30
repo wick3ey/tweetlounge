@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
@@ -19,6 +18,24 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
   useEffect(() => {
     if (tweetId) {
       fetchComments();
+      
+      // Setup realtime subscription for comments
+      const channel = supabase
+        .channel(`comments_for_tweet_${tweetId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+          filter: `tweet_id=eq.${tweetId}`
+        }, (payload) => {
+          console.log('Realtime comment update:', payload);
+          fetchComments();
+        })
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [tweetId]);
 
@@ -64,7 +81,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       if (countError) {
         console.error('Error counting comments:', countError);
       } else {
-        const commentCount = count || 0;
+        const commentCount = typeof count === 'number' ? count : 0;
         console.log(`Tweet ${tweetId} has ${commentCount} total comments`);
         setTotalComments(commentCount);
         

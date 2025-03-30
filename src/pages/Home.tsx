@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -56,6 +55,7 @@ const Home: React.FC = () => {
 
   const handleRefresh = () => {
     // Update feed by incrementing key
+    console.log('Manually refreshing feed');
     setFeedKey(prevKey => prevKey + 1);
   };
 
@@ -100,7 +100,11 @@ const Home: React.FC = () => {
               <div className="border-b border-gray-800">
                 <TweetFeedTabs />
               </div>
-              <TweetFeed key={feedKey} limit={10} onCommentAdded={handleRefresh} />
+              <TweetFeed 
+                key={feedKey} 
+                limit={10} 
+                onCommentAdded={handleRefresh} 
+              />
             </div>
           </main>
         </div>
