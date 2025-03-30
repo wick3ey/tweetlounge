@@ -39,9 +39,9 @@ function Badge({ className, variant, ...props }: BadgeProps) {
   )
 }
 
-function VerifiedBadge() {
+function VerifiedBadge({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <Badge variant="verified" className="ml-1">
+    <Badge variant="verified" className={cn("ml-1", className)} {...props}>
       <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
     </Badge>
   )

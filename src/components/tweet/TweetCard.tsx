@@ -125,7 +125,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <span className="font-medium text-white flex items-center">
                 {tweet.author?.display_name}
-                {isNFTVerified && <VerifiedBadge />}
+                {isNFTVerified && <VerifiedBadge className="ml-1" />}
               </span>
               <span className="text-gray-500 mx-1">·</span>
               <span className="text-gray-500">@{tweet.author?.username}</span>

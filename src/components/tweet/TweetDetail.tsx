@@ -185,7 +185,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
             <div className="flex items-center space-x-2">
               <div className="font-medium flex items-center">
                 {tweet?.author?.display_name}
-                {isNFTVerified && <VerifiedBadge />}
+                {isNFTVerified && <VerifiedBadge className="ml-1" />}
               </div>
               <div className="text-gray-500">@{tweet?.author?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>

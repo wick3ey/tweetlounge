@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Comment } from '@/types/Comment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,7 +23,6 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
   const { toast } = useToast();
   
   useEffect(() => {
-    // Check if the current user has liked this comment
     const checkLikedStatus = async () => {
       if (comment.id && user) {
         const liked = await checkIfUserLikedComment(comment.id);
@@ -84,7 +82,6 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
     }
   };
   
-  // Check if user is NFT verified
   const isNFTVerified = comment.author.avatar_nft_id && comment.author.avatar_nft_chain;
   
   return (
@@ -101,9 +98,12 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <Link to={`/profile/${comment.author.username}`} className="font-semibold hover:text-crypto-blue truncate">
-              {comment.author.display_name || comment.author.username}
-              {isNFTVerified && <VerifiedBadge />}
+            <Link 
+              to={`/profile/${comment.author.username}`} 
+              className="font-semibold hover:text-crypto-blue truncate flex items-center"
+            >
+              {comment.author.display_name}
+              {isNFTVerified && <VerifiedBadge className="ml-1" />}
             </Link>
             
             <span className="text-crypto-lightgray text-sm">
