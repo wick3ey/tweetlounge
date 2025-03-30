@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +20,7 @@ import { useMessageReactions } from '@/hooks/useMessageReactions';
 import MessageReactions from './MessageReactions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/lib/supabase';
+import { Message } from '@/types/Message';
 
 interface MessageProps {
   id: string;
@@ -161,7 +161,20 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
       if (!groupedMessages[date]) {
         groupedMessages[date] = [];
       }
-      groupedMessages[date].push(message);
+      
+      // Create a proper MessageProps object from the message
+      const messageProps: MessageProps = {
+        id: message.id,
+        content: message.content,
+        sender_id: message.sender_id,
+        sender_name: message.sender_name,
+        sender_username: message.sender_username,
+        sender_avatar: message.sender_avatar,
+        created_at: message.created_at,
+        is_deleted: message.is_deleted
+      };
+      
+      groupedMessages[date].push(messageProps);
     });
 
     return groupedMessages;

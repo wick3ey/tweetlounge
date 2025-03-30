@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Message, getMessages } from '@/services/messageService';
+import { Message } from '@/types/Message';
+import { getMessages } from '@/services/messageService';
 
 interface EnhancedMessage extends Message {
   sender_name?: string;
