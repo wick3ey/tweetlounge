@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -411,6 +412,211 @@ const TweetPage = () => {
     );
   }
 
+  // If this is a retweet, show retweet info at the top
+  if (tweet.is_retweet && tweet.original_tweet_id) {
+    return (
+      <Layout>
+        <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
+          <div className="max-w-[600px] mx-auto px-4 py-3 flex items-center">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleBack}
+              className="rounded-full hover:bg-gray-800 mr-4"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="h-5 w-5 text-white" />
+            </Button>
+            <h1 className="text-xl font-bold text-white">Post</h1>
+          </div>
+        </div>
+        
+        <div className="max-w-[600px] mx-auto">
+          <article className="border-b border-gray-800">
+            <div className="p-4">
+              {/* Retweet indicator */}
+              <div className="flex items-center gap-1 text-gray-500 text-sm mb-3">
+                <Repeat className="h-4 w-4 mr-1" />
+                <span>{tweet.author?.display_name} reposted</span>
+              </div>
+              
+              <div className="flex items-start mb-2">
+                <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
+                  <Avatar className="h-12 w-12 rounded-full">
+                    <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
+                    <AvatarFallback className="bg-gray-800 text-white">
+                      {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex flex-col">
+                        <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
+                          {tweet.author.display_name}
+                          {isNFTVerified && <VerifiedBadge />}
+                        </Link>
+                        <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
+                      </div>
+                      
+                      <div className="flex items-center">
+                        {user && !isAuthor && !isFollowingAuthor && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={handleFollowToggle}
+                            className="rounded-full text-sm font-medium hover:bg-blue-500/10 border-none hover:text-white ml-2"
+                          >
+                            Follow
+                          </Button>
+                        )}
+                        {user && !isAuthor && isFollowingAuthor && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={handleFollowToggle}
+                            className="rounded-full text-sm font-medium bg-gray-800 text-white hover:bg-red-500/10 hover:text-red-500 ml-2"
+                          >
+                            Following
+                          </Button>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={handleShareTweet}
+                          className="rounded-full hover:bg-gray-800 ml-1"
+                          aria-label="Share tweet"
+                        >
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-1">
+                <p className="text-[17px] text-white whitespace-pre-wrap mb-4 leading-normal">{tweet.content}</p>
+                
+                {tweet.image_url && (
+                  <div className="mt-3 mb-3">
+                    <img 
+                      src={tweet.image_url} 
+                      alt="Tweet attachment" 
+                      className="rounded-2xl max-h-[500px] w-full object-cover border border-gray-800" 
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
+                  <span>{getFormattedDate(tweet.created_at)}</span>
+                  <span className="mx-1">·</span>
+                  <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center py-1">
+                <button 
+                  className={`flex items-center space-x-1 hover:text-crypto-blue transition-colors`}
+                  onClick={() => setShowReplyForm(!showReplyForm)}
+                >
+                  <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
+                  <span>{tweet.replies_count || 0}</span>
+                </button>
+                
+                <button 
+                  className={`flex items-center space-x-1 transition-colors ${isRetweeted ? 'text-crypto-green' : 'hover:text-crypto-green'}`}
+                  onClick={handleRetweetToggle}
+                >
+                  <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
+                  <span>{tweet.retweets_count || 0}</span>
+                </button>
+                
+                <button 
+                  className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-crypto-red' : 'hover:text-crypto-red'}`}
+                  onClick={handleLikeToggle}
+                >
+                  <Heart 
+                    className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
+                    strokeWidth={isLiked ? 0 : 1.5}
+                  />
+                  <span>{tweet.likes_count || 0}</span>
+                </button>
+                
+                <button 
+                  className={`flex items-center space-x-1 transition-colors ${isBookmarked ? 'text-crypto-purple' : 'hover:text-crypto-purple'}`} 
+                  onClick={handleBookmarkToggle}
+                >
+                  <Bookmark className={`h-5 w-5 ${isBookmarked ? 'fill-current text-crypto-purple' : ''}`} />
+                </button>
+                
+                <button 
+                  className="flex items-center space-x-1 hover:text-crypto-blue transition-colors" 
+                  onClick={handleShareTweet}
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </article>
+          
+          {showReplyForm && (
+            <div className="p-4 border-b border-gray-800">
+              <CommentForm 
+                tweetId={tweet.id} 
+                onSubmit={handleCommentSubmit} 
+              />
+            </div>
+          )}
+          
+          {!showReplyForm && (
+            <div className="flex gap-3 p-3 border-b border-gray-800">
+              <Avatar className="h-10 w-10 rounded-full">
+                <AvatarImage 
+                  src={profile?.avatar_url || ""} 
+                  alt="Your avatar" 
+                />
+                <AvatarFallback className="bg-gray-800 text-white">
+                  {profile?.display_name?.charAt(0).toUpperCase() || 
+                   user?.email?.charAt(0).toUpperCase() || 
+                   "U"}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 flex items-center">
+                <span className="text-gray-500">Post your reply</span>
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReplyForm(true)}
+                className="rounded-full bg-transparent text-gray-500 hover:bg-crypto-blue/10 border border-gray-700 text-sm"
+              >
+                Reply
+              </Button>
+            </div>
+          )}
+          
+          <div className="bg-black p-4">
+            <CommentList 
+              tweetId={tweet.id} 
+              onCommentCountUpdated={(count) => {
+                if (tweet) {
+                  setTweet(prev => prev ? { ...prev, replies_count: count } : null);
+                }
+              }}
+              onAction={handleTweetAction}
+            />
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Regular tweet display
   return (
     <Layout>
       <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
