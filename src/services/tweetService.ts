@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -117,8 +118,7 @@ export const getTweets = async (limit = 10, offset = 0, userId?: string): Promis
           .single();
 
         if (!originalTweetError && originalTweetData) {
-          // Fix: use correct property access for originalTweetData.profiles
-          // Store original tweet author information
+          // Fixed: access properties correctly from the single object returned by .single()
           transformedTweet.original_author = {
             id: originalTweetData.profiles.id,
             username: originalTweetData.profiles.username,
@@ -311,7 +311,7 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
       // Decrement likes_count in tweets table - fix number type error
       const { error: decrementError } = await supabase
         .from('tweets')
-        .update({ likes_count: supabase.sql`likes_count - 1` })
+        .update({ likes_count: supabase.rpc('decrement_counter', { row_id: tweetId }) })
         .eq('id', tweetId);
 
       if (decrementError) {
@@ -336,7 +336,7 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
       // Increment likes_count in tweets table - fix number type error
       const { error: incrementError } = await supabase
         .from('tweets')
-        .update({ likes_count: supabase.sql`likes_count + 1` })
+        .update({ likes_count: supabase.rpc('increment_counter', { row_id: tweetId }) })
         .eq('id', tweetId);
 
       if (incrementError) {
@@ -435,10 +435,10 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Decrement retweets_count in the original tweet - fix number type error
+      // Decrement retweets_count in the original tweet - fixed using rpc instead of sql
       const { error: decrementError } = await supabase
         .from('tweets')
-        .update({ retweets_count: supabase.sql`retweets_count - 1` })
+        .update({ retweets_count: supabase.rpc('decrement_counter', { row_id: tweetId }) })
         .eq('id', tweetId);
 
       if (decrementError) {
@@ -476,10 +476,10 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Increment retweets_count in the original tweet - fix number type error
+      // Increment retweets_count in the original tweet - fixed using rpc instead of sql
       const { error: incrementError } = await supabase
         .from('tweets')
-        .update({ retweets_count: supabase.sql`retweets_count + 1` })
+        .update({ retweets_count: supabase.rpc('increment_counter', { row_id: tweetId }) })
         .eq('id', tweetId);
 
       if (incrementError) {
