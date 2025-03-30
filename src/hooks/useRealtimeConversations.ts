@@ -51,10 +51,7 @@ export const useRealtimeConversations = () => {
           console.error('Error fetching conversations:', error);
           console.error('Error details:', error.message, error.details, error.hint);
           
-          // Fall back to a direct query if the RPC fails
-          console.log('Falling back to direct query for conversations');
-          
-          // Get conversations the user is part of
+          // Fallback query to fetch conversations manually
           const { data: participantsData, error: participantsError } = await supabase
             .from('conversation_participants')
             .select('conversation_id')
@@ -66,18 +63,27 @@ export const useRealtimeConversations = () => {
           }
 
           if (!participantsData || participantsData.length === 0) {
-            console.log('No conversations found via participants table');
+            console.log('No conversations found');
             setConversations([]);
-            setLoading(false);
             return;
           }
 
           const conversationIds = participantsData.map(p => p.conversation_id);
 
-          // Get all conversations data
+          // Fetch conversation details
           const { data: conversationsData, error: conversationsError } = await supabase
             .from('conversations')
-            .select('*')
+            .select(`
+              id, 
+              created_at, 
+              updated_at,
+              conversation_participants (user_id),
+              messages (
+                content, 
+                created_at, 
+                sender_id
+              )
+            `)
             .in('id', conversationIds)
             .order('updated_at', { ascending: false });
 
@@ -88,46 +94,38 @@ export const useRealtimeConversations = () => {
 
           console.log('Fetched conversations data:', conversationsData);
           
-          // Create a basic conversations array as fallback
-          const fallbackConversations: Conversation[] = [];
+          // Process conversations data
+          const processedConversations: Conversation[] = [];
           
           for (const conv of conversationsData) {
-            // For each conversation, get the other participant
-            const { data: otherParticipant } = await supabase
-              .from('conversation_participants')
-              .select('user_id')
-              .eq('conversation_id', conv.id)
-              .neq('user_id', user.id)
-              .single();
-              
+            // Find the other participant
+            const otherParticipant = conv.conversation_participants.find(
+              (p: { user_id: string }) => p.user_id !== user.id
+            );
+
             if (!otherParticipant) continue;
-            
-            // Get profile info for the other user
+
+            // Fetch other user's profile
             const { data: profile } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', otherParticipant.user_id)
               .single();
-              
+
             if (!profile) continue;
-            
+
             // Get the latest message
-            const { data: latestMessage } = await supabase
-              .from('messages')
-              .select('*')
-              .eq('conversation_id', conv.id)
-              .eq('is_deleted', false)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-              
-            fallbackConversations.push({
+            const latestMessage = conv.messages.length > 0 
+              ? conv.messages[conv.messages.length - 1]
+              : null;
+
+            processedConversations.push({
               id: conv.id,
               created_at: conv.created_at,
               updated_at: conv.updated_at,
               last_message: latestMessage?.content || null,
               last_message_time: latestMessage?.created_at || null,
-              unread_count: 0, // Simplified for fallback
+              unread_count: 0, // TODO: Implement unread count logic
               sender_id: latestMessage?.sender_id || null,
               other_user_id: profile.id,
               other_user_username: profile.username,
@@ -139,12 +137,11 @@ export const useRealtimeConversations = () => {
             });
           }
           
-          setConversations(fallbackConversations);
-          return;
+          setConversations(processedConversations);
+        } else {
+          console.log('Successfully fetched conversations:', data);
+          setConversations(data || []);
         }
-        
-        console.log('Successfully fetched conversations:', data);
-        setConversations(data || []);
       } catch (error) {
         console.error('Error in fetchConversations:', error);
         toast({
@@ -185,50 +182,7 @@ export const useRealtimeConversations = () => {
         },
         async (payload) => {
           console.log('New message received:', payload);
-          
-          // Get conversation ID from the new message
-          const newMessage = payload.new as Message;
-          const conversationId = newMessage.conversation_id;
-          
-          // Optimistically update the conversation list
-          const updatedConversations = [...conversations];
-          const conversationIndex = updatedConversations.findIndex(c => c.id === conversationId);
-          
-          if (conversationIndex !== -1) {
-            // Only update if the conversation already exists in the list
-            const conversation = {...updatedConversations[conversationIndex]};
-            
-            // Update last_message and unread_count
-            conversation.last_message = newMessage.content;
-            conversation.last_message_time = newMessage.created_at;
-            conversation.sender_id = newMessage.sender_id;
-            
-            if (newMessage.sender_id !== user.id) {
-              conversation.unread_count = (conversation.unread_count || 0) + 1;
-            }
-            
-            // Remove the old conversation from the list
-            updatedConversations.splice(conversationIndex, 1);
-            
-            // Add the updated conversation first in the list
-            setConversations([conversation, ...updatedConversations]);
-          } else {
-            // If the conversation isn't in the list, fetch all conversations
-            fetchConversations();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'conversation_participants',
-          filter: user ? `user_id=eq.${user.id}` : undefined
-        },
-        (payload) => {
-          console.log('Conversation participant updated:', payload);
-          fetchConversations();
+          fetchConversations(); // Refresh conversations when a new message is received
         }
       )
       .subscribe((status) => {
