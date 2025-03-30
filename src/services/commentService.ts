@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
@@ -255,12 +254,22 @@ export async function likeComment(commentId: string): Promise<boolean> {
         return false;
       }
       
-      // Fixed the increment_counter and decrement_counter usage
-      const { data: updatedComment, error: updateError } = await supabase
+      const { data: commentLikesData, error: getLikesError } = await supabase
         .from('comments')
-        .update({ 
-          likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) 
-        })
+        .select('likes_count')
+        .eq('id', commentId)
+        .single();
+        
+      if (getLikesError) {
+        console.error('Error getting current likes count:', getLikesError);
+        return false;
+      }
+      
+      const newLikesCount = Math.max(0, (commentLikesData.likes_count || 0) - 1);
+      
+      const { error: updateError } = await supabase
+        .from('comments')
+        .update({ likes_count: newLikesCount })
         .eq('id', commentId);
       
       if (updateError) {
@@ -291,12 +300,22 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return false;
     }
     
-    // Fixed the increment_counter and decrement_counter usage
-    const { data: updatedComment, error: updateError } = await supabase
+    const { data: commentLikesData, error: getLikesError } = await supabase
       .from('comments')
-      .update({ 
-        likes_count: supabase.rpc('increment_counter', { row_id: commentId }) 
-      })
+      .select('likes_count')
+      .eq('id', commentId)
+      .single();
+      
+    if (getLikesError) {
+      console.error('Error getting current likes count:', getLikesError);
+      return false;
+    }
+    
+    const newLikesCount = (commentLikesData.likes_count || 0) + 1;
+    
+    const { error: updateError } = await supabase
+      .from('comments')
+      .update({ likes_count: newLikesCount })
       .eq('id', commentId);
     
     if (updateError) {
