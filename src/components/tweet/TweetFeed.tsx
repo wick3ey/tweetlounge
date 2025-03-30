@@ -62,6 +62,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         // If it's a retweet but missing original_tweet_id, it's invalid
         if (tweet.is_retweet && !tweet.original_tweet_id) {
           console.error('Filtered out invalid retweet with null original_tweet_id:', tweet.id);
+          // Log details to help debug
+          console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
           return false;
         }
         return true;
@@ -143,9 +145,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       setError('Failed to load tweets. Please try again later.');
       
       toast({
-        title: 'Error',
-        description: 'Failed to load tweets. Please try again later.',
-        variant: 'destructive'
+        title: "Error",
+        description: "Failed to load tweets. Please try again later.",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);

@@ -43,3 +43,18 @@ export type TweetWithAuthor = Tweet & {
   // Add bookmark-related field
   bookmarked_at?: string;
 };
+
+// Add a more specific retweet type
+export type RetweetWithAuthor = TweetWithAuthor & {
+  is_retweet: true;
+  original_tweet_id: string; // Make this required for retweets
+  original_author: {  // Make this required for retweets
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+    avatar_nft_id?: string;
+    avatar_nft_chain?: string;
+    replies_sort_order?: string;
+  };
+};

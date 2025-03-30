@@ -290,6 +290,18 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
+    // First check if the original tweet actually exists
+    const { data: originalTweet, error: originalTweetCheckError } = await supabase
+      .from('tweets')
+      .select('id, content, image_url, author_id')
+      .eq('id', tweetId)
+      .single();
+    
+    if (originalTweetCheckError || !originalTweet) {
+      console.error('Original tweet does not exist for retweeting:', originalTweetCheckError);
+      throw new Error('Cannot retweet - original tweet not found');
+    }
+    
     const { data: existingRetweet } = await supabase
       .from('retweets')
       .select('*')
@@ -311,7 +323,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('Original tweet not found');
     }
     
-    const originalTweet = originalTweetData[0];
+    const originalTweetInfo = originalTweetData[0];
     
     // Use .single() with caution, only when sure the result exists
     const { data: tweet } = await supabase
@@ -397,6 +409,12 @@ export async function retweet(tweetId: string): Promise<boolean> {
       
       return true;
     } else {
+      // Verify again that the original tweet exists before creating the retweet
+      if (!originalTweetInfo || !originalTweetInfo.content) {
+        console.error('Cannot create retweet: missing original tweet data');
+        throw new Error('Original tweet data is missing or invalid');
+      }
+      
       // Create new retweet
       const { error: insertError } = await supabase
         .from('retweets')
@@ -410,15 +428,20 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw insertError;
       }
       
-      // Create retweet tweet
+      // Create retweet tweet with crucial validation to prevent null original_tweet_id
+      if (!tweetId) {
+        console.error('Cannot create retweet tweet: missing original tweet ID');
+        throw new Error('Original tweet ID is required for retweet');
+      }
+      
       const { error: createTweetError } = await supabase
         .from('tweets')
         .insert({
           author_id: user.id,
-          content: originalTweet.content, // Use the content directly from the reliable original tweet data
+          content: originalTweetInfo.content, // Use the content directly from the reliable original tweet data
           is_retweet: true,
-          original_tweet_id: tweetId,
-          image_url: originalTweet.image_url // Use the image URL from the reliable original tweet data
+          original_tweet_id: tweetId, // Ensure this is not null
+          image_url: originalTweetInfo.image_url // Use the image URL from the reliable original tweet data
         });
       
       if (createTweetError) {
@@ -435,7 +458,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
           .eq('id', tweetId);
       }
       
-      await createNotification(originalTweet.author_id, user.id, 'retweet', tweetId);
+      await createNotification(originalTweetInfo.author_id, user.id, 'retweet', tweetId);
       
       return true;
     }

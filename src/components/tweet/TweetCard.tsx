@@ -26,6 +26,11 @@ interface TweetCardProps {
 }
 
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete, onRetweetRemoved }) => {
+  if (!tweet || (tweet.is_retweet && !tweet.original_tweet_id)) {
+    console.error('Invalid tweet data received:', tweet);
+    return null; // Don't render invalid tweets
+  }
+  
   console.log('Rendering tweet:', tweet.id);
   console.log('Is retweet:', tweet.is_retweet);
   console.log('Original tweet ID:', tweet.original_tweet_id);
@@ -276,7 +281,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
           <Repeat className="h-4 w-4 mr-1" />
-          <span>{tweet.author?.display_name} reposted</span>
+          <span>{tweet.author?.display_name || 'User'} reposted</span>
         </div>
         <div className="text-white">Content could not be loaded</div>
       </div>
@@ -290,7 +295,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
             <Repeat className="h-4 w-4 mr-1" />
-            <span>{tweet.author?.display_name} reposted</span>
+            <span>{tweet.author?.display_name || 'User'} reposted</span>
           </div>
           <div className="text-white">Original content could not be loaded</div>
         </div>
@@ -304,7 +309,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       >
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
           <Repeat className="h-4 w-4 mr-1" />
-          <span>{tweet.author?.display_name} reposted</span>
+          <span>{tweet.author?.display_name || 'User'} reposted</span>
         </div>
 
         <div className="flex space-x-3">
