@@ -41,44 +41,120 @@ export const useRealtimeConversations = () => {
         
         console.log('Fetching conversations for user:', user.id);
         
-        // Use the new database function to get conversations
-        const { data, error } = await supabase
-          .rpc('get_user_conversations', { user_uuid: user.id });
+        // Fall back to simpler query if RPC function fails
+        let data;
+        let error;
+
+        try {
+          // First try to use the RPC function
+          const result = await supabase
+            .rpc('get_user_conversations', { user_uuid: user.id });
           
-        if (error) {
-          console.error('Error fetching conversations:', error);
-          throw error;
+          data = result.data;
+          error = result.error;
+          
+          // If we get an error, log it for debugging but don't throw yet
+          if (error) {
+            console.error('Error with RPC get_user_conversations:', error);
+          }
+        } catch (rpcError) {
+          console.error('Exception calling get_user_conversations RPC:', rpcError);
+          error = rpcError;
+        }
+
+        // If RPC failed or returned no data, use a fallback query
+        if (error || !data || data.length === 0) {
+          console.log('Falling back to direct query for conversations');
+          
+          // Get conversations the user is part of
+          const { data: participantsData, error: participantsError } = await supabase
+            .from('conversation_participants')
+            .select('conversation_id')
+            .eq('user_id', user.id);
+
+          if (participantsError) {
+            console.error('Error fetching participants:', participantsError);
+            throw participantsError;
+          }
+
+          if (!participantsData || participantsData.length === 0) {
+            console.log('No conversations found via participants table');
+            setConversations([]);
+            setLoading(false);
+            return;
+          }
+
+          const conversationIds = participantsData.map(p => p.conversation_id);
+
+          // Get all conversations data
+          const { data: conversationsData, error: conversationsError } = await supabase
+            .from('conversations')
+            .select('*')
+            .in('id', conversationIds)
+            .order('updated_at', { ascending: false });
+
+          if (conversationsError) {
+            console.error('Error fetching conversations:', conversationsError);
+            throw conversationsError;
+          }
+
+          console.log('Fetched conversations data:', conversationsData);
+          
+          // Map to simplified model for now (losing some info but will be functional)
+          const basicConversations = [];
+          
+          for (const conv of conversationsData) {
+            // For each conversation, get the other participant
+            const { data: otherParticipant } = await supabase
+              .from('conversation_participants')
+              .select('user_id')
+              .eq('conversation_id', conv.id)
+              .neq('user_id', user.id)
+              .single();
+              
+            if (!otherParticipant) continue;
+            
+            // Get profile info for the other user
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', otherParticipant.user_id)
+              .single();
+              
+            if (!profile) continue;
+            
+            // Get the latest message
+            const { data: latestMessage } = await supabase
+              .from('messages')
+              .select('*')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+              
+            basicConversations.push({
+              id: conv.id,
+              created_at: conv.created_at,
+              updated_at: conv.updated_at,
+              last_message: latestMessage?.content || null,
+              last_message_time: latestMessage?.created_at || null,
+              unread_count: 0, // Would need a more complex query to get this
+              sender_id: latestMessage?.sender_id || null,
+              other_user_id: profile.id,
+              other_user_username: profile.username,
+              other_user_display_name: profile.display_name,
+              other_user_avatar: profile.avatar_url,
+              other_user_avatar_nft_id: profile.avatar_nft_id,
+              other_user_avatar_nft_chain: profile.avatar_nft_chain,
+              other_user_bio: profile.bio
+            });
+          }
+          
+          data = basicConversations;
         }
         
-        console.log('Received conversations:', data);
-        
-        if (!data || data.length === 0) {
-          console.log('No conversations found');
-          setConversations([]);
-          setLoading(false);
-          return;
-        }
-        
-        // Map the data to our Conversation interface
-        const formattedConversations = data.map(conv => ({
-          id: conv.id,
-          created_at: conv.created_at,
-          updated_at: conv.updated_at,
-          last_message: conv.last_message,
-          last_message_time: conv.last_message_time,
-          unread_count: conv.unread_count,
-          sender_id: conv.sender_id,
-          other_user_id: conv.other_user_id,
-          other_user_username: conv.other_user_username,
-          other_user_display_name: conv.other_user_display_name,
-          other_user_avatar: conv.other_user_avatar,
-          other_user_avatar_nft_id: conv.other_user_avatar_nft_id,
-          other_user_avatar_nft_chain: conv.other_user_avatar_nft_chain,
-          other_user_bio: conv.other_user_bio
-        }));
-        
-        console.log('Formatted conversations:', formattedConversations);
-        setConversations(formattedConversations);
+        console.log('Final conversations data:', data);
+        setConversations(data || []);
       } catch (error) {
         console.error('Error fetching conversations:', error);
         toast({
