@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -170,7 +171,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 </div>
                 
                 <div className="text-xs text-crypto-lightgray whitespace-nowrap ml-2">
-                  {conversation.updated_at ? formatTime(conversation.updated_at) : ''}
+                  {conversation.last_message_time ? formatTime(conversation.last_message_time) : 
+                   conversation.updated_at ? formatTime(conversation.updated_at) : ''}
                 </div>
               </div>
             </div>

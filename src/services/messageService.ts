@@ -268,6 +268,8 @@ export async function markConversationAsRead(conversationId: string): Promise<bo
     throw new Error('User must be logged in to mark conversations as read');
   }
 
+  console.log(`Marking conversation ${conversationId} as read for user ${userData.user.id}`);
+
   const { error } = await supabase
     .from('conversation_participants')
     .update({ 
@@ -284,6 +286,7 @@ export async function markConversationAsRead(conversationId: string): Promise<bo
     return false;
   }
 
+  console.log(`Successfully marked conversation ${conversationId} as read`);
   return true;
 }
 
