@@ -522,23 +522,7 @@ const TweetPage = () => {
               </div>
             </div>
             
-            {/* Tweet Stats Border */}
-            <div className="flex py-3 border-y border-gray-800 my-2">
-              <div className="flex items-center mr-5">
-                <span className="text-white font-bold mr-1">{tweet.replies_count || 0}</span>
-                <span className="text-gray-500 text-sm">{tweet.replies_count === 1 ? 'Reply' : 'Replies'}</span>
-              </div>
-              
-              <div className="flex items-center mr-5">
-                <span className="text-white font-bold mr-1">{tweet.retweets_count || 0}</span>
-                <span className="text-gray-500 text-sm">{tweet.retweets_count === 1 ? 'Repost' : 'Reposts'}</span>
-              </div>
-              
-              <div className="flex items-center mr-5">
-                <span className="text-white font-bold mr-1">{tweet.likes_count || 0}</span>
-                <span className="text-gray-500 text-sm">{tweet.likes_count === 1 ? 'Like' : 'Likes'}</span>
-              </div>
-            </div>
+            {/* Remove the text stats row */}
             
             {/* Tweet Actions */}
             <div className="flex justify-between items-center py-1">
