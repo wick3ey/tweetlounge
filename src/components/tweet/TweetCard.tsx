@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -155,6 +156,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   const isCurrentUserRetweet = user?.id === tweet.author_id && isRetweet;
 
+  // Don't render the main tweet content if this is a retweet and we have the original tweet
+  // Only render the header with repost indication and the original tweet
+  const showOnlyOriginalContent = isRetweet && originalTweet;
+
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
@@ -171,7 +176,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         </div>
       )}
       
-      {tweet.is_retweet && originalTweet && (
+      {isRetweet && originalTweet && (
         <div className="border border-gray-800 rounded-lg p-3 mb-3">
           <div className="flex space-x-3 mb-2">
             <Avatar className="h-10 w-10">
@@ -204,100 +209,102 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         </div>
       )}
       
-      <div className="flex space-x-3">
-        <div className="flex-shrink-0">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
-            <div>
-              <div className="flex items-center gap-1">
-                <span className="font-medium text-white flex items-center">
-                  {tweet.author?.display_name}
-                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
-                </span>
-                <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{tweet.author?.username}</span>
-                <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">{formattedDate}</span>
+      {!showOnlyOriginalContent && (
+        <div className="flex space-x-3">
+          <div className="flex-shrink-0">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+              <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between">
+              <div>
+                <div className="flex items-center gap-1">
+                  <span className="font-medium text-white flex items-center">
+                    {tweet.author?.display_name}
+                    {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                  </span>
+                  <span className="text-gray-500 mx-1">·</span>
+                  <span className="text-gray-500">@{tweet.author?.username}</span>
+                  <span className="text-gray-500 mx-1">·</span>
+                  <span className="text-gray-500">{formattedDate}</span>
+                </div>
               </div>
+              
+              {user?.id === tweet.author_id && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-black border-gray-800">
+                    <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             
-            {user?.id === tweet.author_id && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-black border-gray-800">
-                  <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <p className="mt-1 text-white">{tweet.content}</p>
+            
+            {tweet.image_url && (
+              <div className="mt-3">
+                <img 
+                  src={tweet.image_url} 
+                  alt="Tweet image" 
+                  className="rounded-md max-h-80 object-cover"
+                />
+              </div>
             )}
-          </div>
-          
-          <p className="mt-1 text-white">{tweet.content}</p>
-          
-          {tweet.image_url && (
-            <div className="mt-3">
-              <img 
-                src={tweet.image_url} 
-                alt="Tweet image" 
-                className="rounded-md max-h-80 object-cover"
-              />
+            
+            <div className="mt-3 flex justify-between text-gray-500">
+              <button 
+                className="flex items-center space-x-1 hover:text-crypto-blue"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>{tweet.replies_count || 0}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
+                onClick={toggleRetweet}
+              >
+                <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
+                <span>{tweet.retweets_count || 0}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
+                onClick={toggleLike}
+              >
+                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span>{tweet.likes_count || 0}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple`}
+                onClick={toggleBookmark}
+              >
+                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+              </button>
+              
+              <button 
+                className="flex items-center space-x-1 hover:text-crypto-blue"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
             </div>
-          )}
-          
-          <div className="mt-3 flex justify-between text-gray-500">
-            <button 
-              className="flex items-center space-x-1 hover:text-crypto-blue"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>{tweet.replies_count || 0}</span>
-            </button>
-            
-            <button 
-              className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
-              onClick={toggleRetweet}
-            >
-              <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
-              <span>{tweet.retweets_count || 0}</span>
-            </button>
-            
-            <button 
-              className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
-              onClick={toggleLike}
-            >
-              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{tweet.likes_count || 0}</span>
-            </button>
-            
-            <button 
-              className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple`}
-              onClick={toggleBookmark}
-            >
-              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-            </button>
-            
-            <button 
-              className="flex items-center space-x-1 hover:text-crypto-blue"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
