@@ -1,38 +1,118 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 const SignupForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  
+  const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | 'checking' | 'initial'>('initial');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
+  // Check if username is available
+  const checkUsernameAvailability = async (username: string) => {
+    if (!username) {
+      setUsernameStatus('initial');
+      return;
+    }
+
+    try {
+      setIsCheckingUsername(true);
+      setUsernameStatus('checking');
+      
+      // Look for other profiles with this username
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      // If data exists, username is taken
+      setUsernameStatus(data ? 'taken' : 'available');
+    } catch (err) {
+      console.error('Error checking username:', err);
+      // Set status back to initial on error
+      setUsernameStatus('initial');
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
+  // Debounce the username check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (username) {
+        checkUsernameAvailability(username);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [username]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage(null);
     
-    const { error } = await signUp(email, password);
-    
-    if (error) {
-      console.error('Signup error:', error);
-      setErrorMessage(error.message || 'An error occurred during signup');
-    } else {
-      // Show success message since email verification might be required
-      setErrorMessage('Signup successful! Please check your email for verification instructions.');
+    // Prevent submission if username is taken
+    if (usernameStatus === 'taken') {
+      setErrorMessage('Username is already taken. Please choose another.');
+      setIsLoading(false);
+      return;
     }
     
-    setIsLoading(false);
+    // Prevent submission while checking username
+    if (usernameStatus === 'checking') {
+      setErrorMessage('Please wait while we check if the username is available.');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Check if username is valid
+    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
+      setErrorMessage('Username can only contain letters, numbers, and underscores.');
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      // Create user account
+      const { error } = await signUp(email, password, { username });
+      
+      if (error) {
+        console.error('Signup error:', error);
+        setErrorMessage(error.message || 'An error occurred during signup');
+      } else {
+        // Show success message since email verification might be required
+        setErrorMessage('Signup successful! Please check your email for verification instructions.');
+      }
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      
+      // Handle the constraint violation error specifically
+      if (error.message && error.message.includes('profiles_username_unique')) {
+        setErrorMessage('This username is already taken by another user. Please choose a different username.');
+      } else {
+        setErrorMessage(error.message || 'An error occurred during signup');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -90,6 +170,44 @@ const SignupForm = () => {
         
         <form onSubmit={handleSignup} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <div className="relative">
+              <Input
+                id="username"
+                type="text"
+                placeholder="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className={`${
+                  usernameStatus === 'taken' ? 'border-red-500' : 
+                  usernameStatus === 'available' && username ? 'border-green-500' : ''
+                } pr-10`}
+              />
+              {isCheckingUsername && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader className="h-4 w-4 animate-spin" />
+                </div>
+              )}
+              {!isCheckingUsername && username && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {usernameStatus === 'taken' ? (
+                    <XCircle className="h-4 w-4 text-red-500" />
+                  ) : usernameStatus === 'available' ? (
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                  ) : null}
+                </div>
+              )}
+            </div>
+            {usernameStatus === 'taken' && (
+              <p className="text-xs text-red-500 mt-1">This username is already taken</p>
+            )}
+            {usernameStatus === 'available' && username && (
+              <p className="text-xs text-green-500 mt-1">Username is available</p>
+            )}
+            <p className="text-xs text-gray-500">Username can only contain letters, numbers, and underscores</p>
+          </div>
+          
+          <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -113,7 +231,11 @@ const SignupForm = () => {
             <p className="text-xs text-gray-500">Must be at least 6 characters</p>
           </div>
           
-          <Button type="submit" className="w-full btn-twitter" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            className="w-full btn-twitter" 
+            disabled={isLoading || usernameStatus === 'taken' || usernameStatus === 'checking'}
+          >
             {isLoading ? 'Creating Account...' : 'Create Account with Email'}
           </Button>
         </form>

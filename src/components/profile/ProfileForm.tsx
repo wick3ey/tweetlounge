@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CryptoButton } from '@/components/ui/crypto-button';
 
@@ -22,6 +22,8 @@ const ProfileForm = () => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | 'checking' | 'initial'>('initial');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   
   const [localProfile, setLocalProfile] = useState({
     username: '',
@@ -40,10 +42,71 @@ const ProfileForm = () => {
     }
   }, [profile]);
 
+  // Check if username is available
+  const checkUsernameAvailability = async (username: string) => {
+    if (!username) {
+      setUsernameStatus('initial');
+      return;
+    }
+
+    // Don't check if the username hasn't changed from the current profile
+    if (profile?.username === username) {
+      setUsernameStatus('available');
+      return;
+    }
+
+    try {
+      setIsCheckingUsername(true);
+      setUsernameStatus('checking');
+      
+      // Look for other profiles with this username
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .neq('id', user?.id || '')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      // If data exists, username is taken
+      setUsernameStatus(data ? 'taken' : 'available');
+    } catch (err) {
+      console.error('Error checking username:', err);
+      // Set status back to initial on error
+      setUsernameStatus('initial');
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
+  // Debounce the username check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localProfile.username) {
+        checkUsernameAvailability(localProfile.username);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [localProfile.username]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) return;
+    
+    // Prevent submission if username is taken
+    if (usernameStatus === 'taken') {
+      setError('Username is already taken. Please choose another.');
+      return;
+    }
+    
+    // Prevent submission while checking username
+    if (usernameStatus === 'checking') {
+      setError('Please wait while we check if the username is available.');
+      return;
+    }
     
     try {
       setSaving(true);
@@ -61,9 +124,16 @@ const ProfileForm = () => {
         title: 'Profile updated',
         description: 'Your profile has been successfully updated.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      setError('Error updating profile: ' + error.message);
+      
+      // Handle the constraint violation error specifically
+      if (error.message && error.message.includes('profiles_username_unique')) {
+        setError('This username is already taken by another user. Please choose a different username.');
+      } else {
+        setError('Error updating profile: ' + error.message);
+      }
+      
       toast({
         title: 'Error updating profile',
         description: error.message,
@@ -212,13 +282,38 @@ const ProfileForm = () => {
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-crypto-text">Username</Label>
-                <Input
-                  id="username"
-                  value={localProfile.username}
-                  onChange={(e) => setLocalProfile({ ...localProfile, username: e.target.value })}
-                  placeholder="@username"
-                  className="bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue"
-                />
+                <div className="relative">
+                  <Input
+                    id="username"
+                    value={localProfile.username}
+                    onChange={(e) => setLocalProfile({ ...localProfile, username: e.target.value })}
+                    placeholder="@username"
+                    className={`bg-crypto-black border-crypto-gray text-crypto-text focus:border-crypto-blue pr-10 ${
+                      usernameStatus === 'taken' ? 'border-crypto-red' : 
+                      usernameStatus === 'available' && localProfile.username ? 'border-crypto-green' : ''
+                    }`}
+                  />
+                  {isCheckingUsername && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader className="h-4 w-4 animate-spin text-crypto-blue" />
+                    </div>
+                  )}
+                  {!isCheckingUsername && localProfile.username && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {usernameStatus === 'taken' ? (
+                        <XCircle className="h-4 w-4 text-crypto-red" />
+                      ) : usernameStatus === 'available' ? (
+                        <CheckCircle className="h-4 w-4 text-crypto-green" />
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                {usernameStatus === 'taken' && (
+                  <p className="text-xs text-crypto-red mt-1">This username is already taken</p>
+                )}
+                {usernameStatus === 'available' && localProfile.username && (
+                  <p className="text-xs text-crypto-green mt-1">Username is available</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="displayName" className="text-crypto-text">Display Name</Label>
@@ -244,7 +339,10 @@ const ProfileForm = () => {
             />
           </div>
           
-          <CryptoButton type="submit" disabled={saving}>
+          <CryptoButton 
+            type="submit" 
+            disabled={saving || usernameStatus === 'taken' || usernameStatus === 'checking'}
+          >
             {saving ? 'Saving...' : 'Save Profile'}
           </CryptoButton>
         </form>
