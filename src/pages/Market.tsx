@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const TokenCardSkeleton = () => (
   <div className="p-4">
@@ -62,21 +63,22 @@ const formatTime = (dateString: string) => {
 const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser' | 'hot', index: number }) => {
   const isHot = type === 'hot';
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
+  const isMobile = useIsMobile();
   
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      className={`flex items-center justify-between py-3 px-2 sm:px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
         type === 'gainer' ? 'hover:bg-green-950/20' : 
         type === 'loser' ? 'hover:bg-red-950/20' : 
         'hover:bg-blue-950/20'
       }`}
     >
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Avatar className="h-10 w-10 border-2" style={{ 
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="relative flex-shrink-0">
+          <Avatar className="h-8 w-8 border-2" style={{ 
             borderColor: type === 'gainer' 
               ? 'rgba(34, 197, 94, 0.4)' 
               : type === 'loser' 
@@ -103,27 +105,29 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             {token.rank}
           </Badge>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold text-base flex items-center truncate">
-            <span className="truncate">{token.symbol || '???'}</span>
-            <span className="text-sm text-muted-foreground ml-2 truncate">{token.name ? (token.name.length > 15 ? token.name.substring(0, 15) + '...' : token.name) : '???'}</span>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="font-semibold text-sm flex items-center overflow-hidden">
+            <span className="truncate max-w-[80px] inline-block">{token.symbol || '???'}</span>
+            <span className="text-xs text-muted-foreground ml-1 truncate inline-block max-w-[80px]">
+              {token.name ? (token.name.length > 12 ? token.name.substring(0, 10) + '...' : token.name) : '???'}
+            </span>
           </div>
-          <div className="text-xs text-muted-foreground mt-1 truncate">{token.exchange || 'Unknown'}</div>
+          <div className="text-xs text-muted-foreground truncate">{token.exchange || 'Unknown'}</div>
         </div>
       </div>
       
-      <div className="text-right flex-shrink-0 ml-2">
+      <div className="text-right flex-shrink-0 ml-1">
         {!isHot ? (
           <>
-            <div className="font-medium text-base">${formatPrice(token.price)}</div>
-            <div className={`text-sm ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium mt-1 flex items-center justify-end`}>
-              {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-              {formatPercentage(token.variation24h)}
+            <div className="font-medium text-sm whitespace-nowrap">${formatPrice(token.price)}</div>
+            <div className={`text-xs ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium flex items-center justify-end`}>
+              {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />}
+              <span className="whitespace-nowrap">{formatPercentage(token.variation24h)}</span>
             </div>
           </>
         ) : (
-          <div className="text-sm text-blue-400 font-medium whitespace-nowrap">
-            Created: {new Date(token.creationTime).toLocaleDateString()}
+          <div className="text-xs text-blue-400 font-medium whitespace-nowrap">
+            {isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}
           </div>
         )}
       </div>
@@ -191,14 +195,14 @@ const Market: React.FC = () => {
 
   return (
     <Layout>
-      <div className="p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
+      <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <motion.h1
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
+              className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
             >
               Crypto Market Dashboard
             </motion.h1>
@@ -206,7 +210,7 @@ const Market: React.FC = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-muted-foreground text-lg"
+              className="text-muted-foreground text-base sm:text-lg"
             >
               Latest movements, gainers, losers, and hot new tokens
             </motion.p>
@@ -240,7 +244,7 @@ const Market: React.FC = () => {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 flex-grow min-h-0">
           <MarketSection
             title="Top Gainers"
             icon={TrendingUp}
