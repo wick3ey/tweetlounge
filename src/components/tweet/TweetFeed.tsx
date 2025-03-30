@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -46,7 +45,11 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             
             if (originalTweetError) {
               console.error('Error fetching original tweet:', originalTweetError);
-              return tweet;
+              return {
+                ...tweet,
+                // Keep original information intact but mark that we failed to get original
+                error_fetching_original: true
+              };
             }
             
             if (originalTweetData && originalTweetData.length > 0) {
@@ -65,13 +68,29 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
                   display_name: originalTweet.display_name,
                   avatar_url: originalTweet.avatar_url || '',
                   avatar_nft_id: originalTweet.avatar_nft_id,
-                  avatar_nft_chain: originalTweet.avatar_nft_chain
+                  avatar_nft_chain: originalTweet.avatar_nft_chain,
+                  replies_sort_order: originalTweet.replies_sort_order
                 }
+              };
+            } else {
+              console.error('Original tweet not found for tweet:', tweet.id, 'original_id:', tweet.original_tweet_id);
+              // Return the tweet with a flag indicating the original was not found
+              return {
+                ...tweet,
+                original_tweet_not_found: true
               };
             }
           } catch (err) {
-            console.error('Error fetching original tweet:', err);
+            console.error('Error processing retweet:', err);
+            return tweet;
           }
+        } else if (tweet.is_retweet && !tweet.original_tweet_id) {
+          // Handle case where is_retweet is true but original_tweet_id is null
+          console.error('Found retweet with null original_tweet_id:', tweet.id);
+          return {
+            ...tweet,
+            invalid_retweet: true
+          };
         }
         
         return tweet;
@@ -101,7 +120,46 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     try {
       setLoading(true);
       const freshTweets = await getTweets(limit, 0);
-      setTweets(freshTweets);
+      
+      // Process the tweets just like in fetchTweets
+      const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          try {
+            const { data: originalTweetData, error: originalTweetError } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+            
+            if (originalTweetError) {
+              console.error('Error fetching original tweet during refresh:', originalTweetError);
+              return tweet;
+            }
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              return {
+                ...tweet,
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                original_author: {
+                  id: originalTweet.author_id,
+                  username: originalTweet.username,
+                  display_name: originalTweet.display_name,
+                  avatar_url: originalTweet.avatar_url || '',
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain,
+                  replies_sort_order: originalTweet.replies_sort_order
+                }
+              };
+            }
+          } catch (err) {
+            console.error('Error refreshing retweet:', err);
+          }
+        }
+        
+        return tweet;
+      }));
+      
+      setTweets(processedTweets);
     } catch (err) {
       console.error('Failed to refresh tweets:', err);
       toast({

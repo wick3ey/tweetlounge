@@ -57,6 +57,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           setIsLiked(liked);
           
           // For retweets, check against the original tweet ID if this is a retweet
+          // Make sure original_tweet_id is not null before checking
           const tweetIdToCheck = tweet.is_retweet && tweet.original_tweet_id 
             ? tweet.original_tweet_id 
             : tweet.id;
@@ -105,6 +106,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     setIsLiking(true);
 
     try {
+      // Make sure we're liking the correct tweet - if this is a retweet, like the original
       const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
@@ -170,9 +172,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     try {
       setIsRetweeting(true);
       
+      // Ensure we have a valid tweet ID to retweet
       const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
+      
+      if (!tweetIdToRetweet) {
+        throw new Error("Invalid tweet ID for retweet operation");
+      }
 
       const success = await retweet(tweetIdToRetweet);
       
@@ -249,7 +256,23 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  if (tweet.is_retweet) {
+  // Check if this is a broken retweet (is_retweet is true, but original_tweet_id is null)
+  if (tweet.is_retweet && !tweet.original_tweet_id) {
+    console.error('Retweet with null original_tweet_id:', tweet);
+    // Handle broken retweet by displaying a simplified tweet card
+    return (
+      <div className="p-4 border-b border-gray-800">
+        <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
+          <Repeat className="h-4 w-4 mr-1" />
+          <span>{tweet.author?.display_name} reposted</span>
+        </div>
+        <div className="text-white">Content could not be loaded</div>
+      </div>
+    );
+  }
+  
+  // Handle retweets with original tweet data
+  if (tweet.is_retweet && tweet.original_tweet_id) {
     // Check if original_author exists
     if (!tweet.original_author) {
       console.error('Retweet missing original_author data:', tweet);
@@ -383,6 +406,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     );
   }
   
+  // Regular tweet (not a retweet)
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
