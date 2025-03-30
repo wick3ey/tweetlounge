@@ -45,7 +45,7 @@ export function useNotifications() {
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username, display_name, avatar_url')
+        .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
         .in('id', actorIds);
 
       if (profilesError) {
@@ -59,13 +59,38 @@ export function useNotifications() {
         return map;
       }, {});
 
-      // Combine notification data with actor profile data
+      // Get all tweet IDs to fetch their content
+      const tweetIds = notificationsData
+        .filter(n => n.tweet_id)
+        .map(n => n.tweet_id);
+      
+      let tweetsMap = {};
+      
+      if (tweetIds.length > 0) {
+        const { data: tweetsData, error: tweetsError } = await supabase
+          .from('tweets')
+          .select('id, content, created_at')
+          .in('id', tweetIds);
+          
+        if (tweetsError) {
+          console.error('Error fetching tweets:', tweetsError);
+        } else if (tweetsData) {
+          tweetsMap = tweetsData.reduce((map, tweet) => {
+            map[tweet.id] = tweet;
+            return map;
+          }, {});
+        }
+      }
+
+      // Combine notification data with actor profile data and tweet data
       const formattedNotifications: Notification[] = notificationsData.map((notification) => {
         const actorProfile = profilesMap[notification.actor_id] || {
           username: 'unknown',
           display_name: 'Unknown User',
           avatar_url: null
         };
+        
+        const tweetData = notification.tweet_id ? tweetsMap[notification.tweet_id] : null;
 
         return {
           id: notification.id,
@@ -79,8 +104,14 @@ export function useNotifications() {
           actor: {
             username: actorProfile.username,
             displayName: actorProfile.display_name,
-            avatarUrl: actorProfile.avatar_url
-          }
+            avatarUrl: actorProfile.avatar_url,
+            isVerified: !!(actorProfile.avatar_nft_id && actorProfile.avatar_nft_chain)
+          },
+          tweet: tweetData ? {
+            id: tweetData.id,
+            content: tweetData.content,
+            createdAt: tweetData.created_at
+          } : undefined
         };
       });
 
@@ -179,13 +210,27 @@ export function useNotifications() {
           try {
             const { data: actorData, error: actorError } = await supabase
               .from('profiles')
-              .select('username, display_name, avatar_url')
+              .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
               .eq('id', payload.new.actor_id)
               .single();
 
             if (actorError) {
               console.error('Error fetching actor details:', actorError);
               return;
+            }
+            
+            // If notification has a tweet_id, fetch tweet details
+            let tweetData = null;
+            if (payload.new.tweet_id) {
+              const { data, error } = await supabase
+                .from('tweets')
+                .select('id, content, created_at')
+                .eq('id', payload.new.tweet_id)
+                .single();
+                
+              if (!error) {
+                tweetData = data;
+              }
             }
 
             const newNotification: Notification = {
@@ -200,8 +245,14 @@ export function useNotifications() {
               actor: {
                 username: actorData.username,
                 displayName: actorData.display_name,
-                avatarUrl: actorData.avatar_url
-              }
+                avatarUrl: actorData.avatar_url,
+                isVerified: !!(actorData.avatar_nft_id && actorData.avatar_nft_chain)
+              },
+              tweet: tweetData ? {
+                id: tweetData.id,
+                content: tweetData.content,
+                createdAt: tweetData.created_at
+              } : undefined
             };
 
             // Add to notifications

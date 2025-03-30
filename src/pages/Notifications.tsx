@@ -12,11 +12,13 @@ import {
   AtSign,
   CheckCircle,
   Loader2,
-  Bell 
+  Bell,
+  MoreHorizontal
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Layout from '@/components/layout/Layout';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -69,20 +71,43 @@ const Notifications = () => {
     switch (type) {
       case 'like':
         if (commentId) {
-          return <><span className="font-semibold">{actor.displayName}</span> liked your comment</>;
+          return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} liked your reply</>;
         }
-        return <><span className="font-semibold">{actor.displayName}</span> liked your tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} liked your tweet</>;
       case 'comment':
-        return <><span className="font-semibold">{actor.displayName}</span> commented on your tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} replied to your tweet</>;
       case 'retweet':
-        return <><span className="font-semibold">{actor.displayName}</span> retweeted your tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} reposted your tweet</>;
       case 'follow':
-        return <><span className="font-semibold">{actor.displayName}</span> started following you</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} followed you</>;
       case 'mention':
-        return <><span className="font-semibold">{actor.displayName}</span> mentioned you in a tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} mentioned you in a tweet</>;
       default:
         return 'New notification';
     }
+  };
+
+  const renderTweetPreview = (notification: Notification) => {
+    if (!notification.tweet && !notification.referencedTweet) return null;
+    
+    const tweet = notification.referencedTweet || notification.tweet;
+    if (!tweet) return null;
+
+    return (
+      <div className="mt-2 pl-12">
+        <div className="text-gray-500 text-sm">
+          {notification.type === 'comment' && (
+            <div className="flex items-center space-x-1 mb-1 text-xs">
+              <span>Replying to</span>
+              <span className="text-blue-400">@{notification.actor.username}</span>
+            </div>
+          )}
+          <div className="text-white text-sm border-l-0 pl-0">
+            {tweet.content}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -133,28 +158,57 @@ const Notifications = () => {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center">
-                    <Avatar className="h-10 w-10 mr-3">
-                      {notification.actor.avatarUrl ? (
-                        <AvatarImage src={notification.actor.avatarUrl} />
-                      ) : null}
-                      <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
-                        {notification.actor.displayName.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm leading-tight mb-1">
-                        {getNotificationText(notification)}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                      </p>
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 mr-3">
+                      <Avatar className="h-10 w-10">
+                        {notification.actor.avatarUrl ? (
+                          <AvatarImage src={notification.actor.avatarUrl} />
+                        ) : null}
+                        <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
+                          {notification.actor.displayName.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                     </div>
                     
-                    {!notification.read && (
-                      <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <p className="text-white text-sm font-medium">
+                            {getNotificationText(notification)}
+                          </p>
+                          
+                          {!notification.read && (
+                            <div className="h-2 w-2 rounded-full bg-blue-500 ml-2"></div>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center text-gray-500">
+                          <span className="text-xs ml-1">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </span>
+                          <button className="ml-2 p-1 rounded-full hover:bg-gray-800">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {notification.type !== 'follow' && (
+                        <div className="text-gray-500 text-sm mt-1">
+                          <span className="text-gray-400">@{notification.actor.username}</span>
+                        </div>
+                      )}
+                      
+                      {renderTweetPreview(notification)}
+                      
+                      {notification.type === 'like' && notification.tweet && (
+                        <div className="mt-3 flex items-center text-gray-500 text-xs">
+                          <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                          <Repeat className="h-3.5 w-3.5 mx-2" />
+                          <Heart className="h-3.5 w-3.5 mx-2 text-red-500 fill-current" />
+                          <span className="text-red-500">1</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

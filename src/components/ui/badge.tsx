@@ -20,7 +20,7 @@ const badgeVariants = cva(
           "border-transparent bg-green-500 text-white hover:bg-green-500/80",
         outline: "text-foreground",
         verified:
-          "inline-flex items-center justify-center ml-1 p-0 bg-crypto-blue rounded-full w-4 h-4 flex-shrink-0",
+          "inline-flex items-center justify-center p-0 bg-crypto-blue rounded-full w-4 h-4 flex-shrink-0",
       },
     },
     defaultVariants: {
