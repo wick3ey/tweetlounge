@@ -38,7 +38,6 @@ export async function createMessage(conversationId: string, content: string): Pr
     throw new Error('User must be logged in to send messages');
   }
 
-  // First mark the conversation as read
   await markConversationAsRead(conversationId);
 
   const { data, error } = await supabase
@@ -66,7 +65,6 @@ export async function getConversations(): Promise<Conversation[]> {
     throw new Error('User must be logged in to view conversations');
   }
 
-  // First, get the user's conversations
   const { data: participantsData, error: participantsError } = await supabase
     .from('conversation_participants')
     .select('conversation_id')
@@ -77,15 +75,12 @@ export async function getConversations(): Promise<Conversation[]> {
     return [];
   }
 
-  // If no conversations, return empty array
   if (participantsData.length === 0) {
     return [];
   }
 
-  // Get all conversation IDs
   const conversationIds = participantsData.map(p => p.conversation_id);
 
-  // Get conversation details
   const { data: conversationsData, error: conversationsError } = await supabase
     .from('conversations')
     .select('id, created_at, updated_at')
@@ -97,7 +92,6 @@ export async function getConversations(): Promise<Conversation[]> {
     return [];
   }
 
-  // Create a map to store the conversations with their data
   const conversationsMap: { [key: string]: Conversation } = {};
   
   for (const conv of conversationsData) {
@@ -110,7 +104,6 @@ export async function getConversations(): Promise<Conversation[]> {
     };
   }
 
-  // Get the other participants for each conversation
   const { data: otherParticipantsData, error: otherParticipantsError } = await supabase
     .from('conversation_participants')
     .select('conversation_id, user_id')
@@ -118,7 +111,6 @@ export async function getConversations(): Promise<Conversation[]> {
     .neq('user_id', userData.user.id);
 
   if (!otherParticipantsError && otherParticipantsData) {
-    // Get profiles for the other participants
     const otherUserIds = otherParticipantsData.map(p => p.user_id);
     
     const { data: profilesData, error: profilesError } = await supabase
@@ -127,13 +119,11 @@ export async function getConversations(): Promise<Conversation[]> {
       .in('id', otherUserIds);
 
     if (!profilesError && profilesData) {
-      // Create a map of user IDs to profiles
       const profilesMap: { [key: string]: Profile } = {};
       for (const profile of profilesData) {
         profilesMap[profile.id] = profile as Profile;
       }
 
-      // Add participants to conversations
       for (const participant of otherParticipantsData) {
         const profile = profilesMap[participant.user_id];
         if (profile && conversationsMap[participant.conversation_id]) {
@@ -146,7 +136,6 @@ export async function getConversations(): Promise<Conversation[]> {
     }
   }
 
-  // Get last message for each conversation
   for (const conversationId of conversationIds) {
     const { data: messagesData, error: messagesError } = await supabase
       .from('messages')
@@ -162,7 +151,6 @@ export async function getConversations(): Promise<Conversation[]> {
     }
   }
 
-  // Convert the map to an array and sort by updated_at
   return Object.values(conversationsMap).sort((a, b) => 
     new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
   );
@@ -191,7 +179,6 @@ export async function addMessageReaction(messageId: string, reactionType: string
   }
 
   try {
-    // Delete any existing reaction of this type from this user on this message
     await supabase
       .from('message_reactions')
       .delete()
@@ -201,7 +188,6 @@ export async function addMessageReaction(messageId: string, reactionType: string
         reaction_type: reactionType
       });
 
-    // Add the new reaction
     const { data, error } = await supabase
       .from('message_reactions')
       .insert({
@@ -268,14 +254,12 @@ export async function searchMessages(
   limit = 20, 
   offset = 0
 ): Promise<MessageSearchResult> {
-  // Get the current user
   const { data: userData } = await supabase.auth.getUser();
   
   if (!userData?.user) {
     throw new Error('User must be logged in to search messages');
   }
 
-  // First, verify user is part of this conversation
   const { data: participantData } = await supabase
     .from('conversation_participants')
     .select('id')
@@ -287,7 +271,6 @@ export async function searchMessages(
     throw new Error('You do not have access to this conversation');
   }
 
-  // Search for messages
   const { data, error, count } = await supabase
     .from('messages')
     .select('*', { count: 'exact' })
@@ -340,7 +323,6 @@ export async function deleteMessage(messageId: string): Promise<boolean> {
     throw new Error('User must be logged in to delete messages');
   }
 
-  // Instead of actually deleting, we mark as deleted
   const { error } = await supabase
     .from('messages')
     .update({ is_deleted: true })
@@ -355,4 +337,35 @@ export async function deleteMessage(messageId: string): Promise<boolean> {
   }
 
   return true;
+}
+
+/**
+ * Starts or retrieves an existing conversation with another user
+ * @param otherUserId The ID of the user to start a conversation with
+ * @returns The conversation ID
+ */
+export async function startConversation(otherUserId: string): Promise<string | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to start conversations');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .rpc('get_or_create_conversation', {
+        user1_id: userData.user.id,
+        user2_id: otherUserId
+      });
+
+    if (error) {
+      console.error('Error starting conversation:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in startConversation:', error);
+    return null;
+  }
 }
