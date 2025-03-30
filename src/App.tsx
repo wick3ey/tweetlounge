@@ -19,6 +19,7 @@ import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
 import Market from "./pages/Market";
+import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -74,6 +75,7 @@ const App = () => {
                     </ProtectedRoute>
                   } />
                   <Route path="/market" element={<Market />} />
+                  <Route path="/tweet/:tweetId" element={<TweetPage />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <ProfilePage />

@@ -1,20 +1,21 @@
 
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { MoreHorizontal, Heart, MessageCircle, Repeat, Share, Trash2 } from 'lucide-react';
+import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
+import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
+import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth } from '@/contexts/AuthContext';
-import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
-import { useToast } from '@/components/ui/use-toast';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -25,237 +26,178 @@ interface TweetCardProps {
 
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete }) => {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const navigate = useNavigate();
-  const [isLiked, setIsLiked] = React.useState(false);
-  const [likeCount, setLikeCount] = React.useState(tweet.likes_count || 0);
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [commentsCount, setCommentsCount] = React.useState(tweet.replies_count || 0);
-  
-  // Check if user liked the tweet on component mount
+  const { toast } = useToast();
+
   React.useEffect(() => {
-    const checkLikeStatus = async () => {
-      if (user) {
+    // Check if the tweet is liked or bookmarked when component mounts
+    const checkStatuses = async () => {
+      if (tweet?.id) {
         const liked = await checkIfUserLikedTweet(tweet.id);
         setIsLiked(liked);
-      }
-    };
-    
-    checkLikeStatus();
-  }, [tweet.id, user]);
-
-  // Fetch actual comments count on mount
-  React.useEffect(() => {
-    const fetchCommentsCount = async () => {
-      try {
-        const { count, error } = await supabase
-          .from('comments')
-          .select('id', { count: 'exact', head: true })
-          .eq('tweet_id', tweet.id);
-          
-        if (error) {
-          console.error('Error fetching comments count:', error);
-          return;
-        }
         
-        // Update local state with the actual count
-        if (count !== null) {
-          setCommentsCount(count);
-        }
-      } catch (err) {
-        console.error('Failed to fetch comments count:', err);
+        const bookmarked = await checkIfTweetBookmarked(tweet.id);
+        setIsBookmarked(bookmarked);
       }
     };
     
-    fetchCommentsCount();
-    // Also set initial state from the tweet object
-    setCommentsCount(tweet.replies_count || 0);
-  }, [tweet.id, tweet.replies_count]);
-  
-  // Format the date to a human-readable format
-  const formattedDate = React.useMemo(() => {
-    try {
-      return formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'some time ago';
+    checkStatuses();
+  }, [tweet?.id]);
+
+  const handleTweetClick = (e: React.MouseEvent) => {
+    // Check if we're clicking on a button inside the tweet
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
     }
-  }, [tweet.created_at]);
-  
-  // Handle like/unlike
-  const handleLike = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent tweet detail from opening
     
+    // Navigate to the tweet detail page
+    navigate(`/tweet/${tweet.id}`);
+  };
+
+  const toggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!user) {
       toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to like tweets',
-        variant: 'destructive',
+        title: "Not logged in",
+        description: "You must be logged in to like tweets.",
       });
       return;
     }
-    
-    try {
-      // The likeTweet function already handles both liking and unliking
-      const success = await likeTweet(tweet.id);
-      
-      if (success) {
-        if (isLiked) {
-          // If it was already liked, we're unliking it now
-          setLikeCount(prev => Math.max(0, prev - 1));
-        } else {
-          // If it wasn't liked, we're liking it now
-          setLikeCount(prev => prev + 1);
-        }
-        
-        setIsLiked(!isLiked);
-        
-        if (onAction) onAction();
-      }
-    } catch (error) {
-      console.error('Like action failed:', error);
-      toast({
-        title: 'Action Failed',
-        description: 'Could not process your like',
-        variant: 'destructive',
-      });
+
+    const success = await likeTweet(tweet.id);
+    if (success) {
+      setIsLiked(!isLiked);
+      if (onAction) onAction();
     }
   };
-  
-  // Handle delete tweet
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent tweet detail from opening
-    
-    if (!user || user.id !== tweet.author_id) {
+
+  const toggleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "You must be logged in to bookmark tweets.",
+      });
       return;
     }
-    
-    try {
-      setIsDeleting(true);
-      await deleteTweet(tweet.id);
-      toast({
-        title: 'Tweet Deleted',
-        description: 'Your tweet has been successfully deleted',
-      });
-      
-      if (onDelete) {
+
+    let success;
+    if (isBookmarked) {
+      success = await unbookmarkTweet(tweet.id);
+    } else {
+      success = await bookmarkTweet(tweet.id);
+    }
+
+    if (success) {
+      setIsBookmarked(!isBookmarked);
+      if (onAction) onAction();
+    }
+  };
+
+  const handleDeleteTweet = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tweet?.id) {
+      const success = await deleteTweet(tweet.id);
+      if (success && onDelete) {
         onDelete(tweet.id);
       }
-    } catch (error) {
-      console.error('Delete failed:', error);
-      toast({
-        title: 'Delete Failed',
-        description: 'Could not delete your tweet',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
     }
   };
-  
-  const handleProfileClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent tweet detail from opening
-    if (tweet.author?.username) {
-      navigate(`/profile/${tweet.author.username}`);
-    }
-  };
-  
-  // Format the count to display in a human-readable format
-  const formatCount = (count: number): string => {
-    if (count === 0) return '0';
-    if (count < 1000) return count.toString();
-    if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
-    return `${(count / 1000000).toFixed(1)}M`;
-  };
-  
+
+  const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
+
   return (
-    <div
-      className="p-4 border-b border-gray-800 hover:bg-crypto-darkgray/20 cursor-pointer transition-colors"
-      onClick={onClick}
+    <div 
+      className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
+      onClick={handleTweetClick}
     >
-      <div className="flex">
-        <div onClick={handleProfileClick} className="mr-3 cursor-pointer">
-          <Avatar className="h-10 w-10 rounded-full">
-            <AvatarImage src={tweet.author?.avatar_url || ''} alt={tweet.author?.display_name || 'User'} />
-            <AvatarFallback className="bg-crypto-gray text-gray-200">
-              {tweet.author?.display_name?.substring(0, 2).toUpperCase() || 'U'}
-            </AvatarFallback>
+      <div className="flex space-x-3">
+        <div className="flex-shrink-0">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </div>
         
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <div 
-              className="flex items-center truncate pr-2"
-              onClick={handleProfileClick}
-            >
-              <span className="font-bold text-white hover:underline mr-1">
-                {tweet.author?.display_name || 'Unknown User'}
-              </span>
-              {tweet.author?.avatar_nft_id && (
-                <span className="text-crypto-blue ml-1">✓</span>
-              )}
-              <span className="text-gray-500 mx-1">@{tweet.author?.username || 'user'}</span>
-              <span className="text-gray-500 hidden sm:inline mx-1">·</span>
-              <span className="text-gray-500 hidden sm:inline text-sm truncate">{formattedDate}</span>
+          <div className="flex justify-between">
+            <div>
+              <span className="font-medium text-white">{tweet.author?.display_name}</span>
+              <span className="text-gray-500 mx-1">·</span>
+              <span className="text-gray-500">@{tweet.author?.username}</span>
+              <span className="text-gray-500 mx-1">·</span>
+              <span className="text-gray-500">{formattedDate}</span>
             </div>
             
-            {user && (
+            {user?.id === tweet.author_id && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button onClick={(e) => e.stopPropagation()} className="text-gray-500 hover:text-crypto-blue p-1 rounded-full hover:bg-crypto-blue/10">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </button>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-crypto-darkgray border-crypto-gray">
-                  {user.id === tweet.author_id && (
-                    <DropdownMenuItem 
-                      className="text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer" 
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {isDeleting ? 'Deleting...' : 'Delete'}
-                    </DropdownMenuItem>
-                  )}
+                <DropdownMenuContent align="end" className="bg-black border-gray-800">
+                  <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
           </div>
           
-          <div className="mt-1 mb-2 text-white whitespace-pre-wrap">{tweet.content}</div>
+          <p className="mt-1 text-white">{tweet.content}</p>
           
           {tweet.image_url && (
-            <div className="mt-2 mb-3 rounded-xl overflow-hidden">
+            <div className="mt-3">
               <img 
                 src={tweet.image_url} 
-                alt="Tweet attachment" 
-                className="w-full h-auto max-h-96 object-cover"
+                alt="Tweet image" 
+                className="rounded-md max-h-80 object-cover"
               />
             </div>
           )}
           
-          <div className="flex mt-3 text-gray-500 justify-between max-w-md">
-            <button
-              className={`flex items-center hover:text-crypto-blue ${isLiked ? 'text-crypto-pink' : ''}`}
-              onClick={handleLike}
+          <div className="mt-3 flex justify-between text-gray-500">
+            <button 
+              className="flex items-center space-x-1 hover:text-crypto-blue"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Heart className={`h-4 w-4 mr-1 ${isLiked ? 'fill-crypto-pink' : ''}`} />
-              <span className="text-xs">{formatCount(likeCount)}</span>
+              <MessageSquare className="h-4 w-4" />
+              <span>{tweet.replies_count || 0}</span>
             </button>
             
-            <button className="flex items-center hover:text-crypto-blue">
-              <MessageCircle className="h-4 w-4 mr-1" />
-              <span className="text-xs">{formatCount(commentsCount)}</span>
+            <button 
+              className="flex items-center space-x-1 hover:text-crypto-green"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Repeat className="h-4 w-4" />
+              <span>{tweet.retweets_count || 0}</span>
             </button>
             
-            <button className="flex items-center hover:text-crypto-green">
-              <Repeat className="h-4 w-4 mr-1" />
-              <span className="text-xs">{formatCount(tweet.retweets_count || 0)}</span>
+            <button 
+              className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
+              onClick={toggleLike}
+            >
+              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+              <span>{tweet.likes_count || 0}</span>
             </button>
             
-            <button className="flex items-center hover:text-crypto-blue">
-              <Share className="h-4 w-4" />
+            <button 
+              className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple`}
+              onClick={toggleBookmark}
+            >
+              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+            </button>
+            
+            <button 
+              className="flex items-center space-x-1 hover:text-crypto-blue"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Share2 className="h-4 w-4" />
             </button>
           </div>
         </div>
