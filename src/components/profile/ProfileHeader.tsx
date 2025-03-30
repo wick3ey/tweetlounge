@@ -15,6 +15,9 @@ import { followUser, unfollowUser, isFollowing as checkIsFollowing, getFollowers
 import { useAuth } from '@/contexts/AuthContext';
 import FollowersList from '@/components/profile/FollowersList';
 import { fetchWalletTokens } from '@/utils/tokenService';
+import { useNavigate } from 'react-router-dom';
+import { createOrGetConversation } from '@/services/messageService';
+import { MessageSquare } from 'lucide-react';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -77,7 +80,8 @@ const ProfileHeader = ({
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
   const [walletBalance, setWalletBalance] = useState<string | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-  
+  const navigate = useNavigate();
+
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (!userId || !user || isCurrentUser) return;
@@ -149,6 +153,30 @@ const ProfileHeader = ({
       });
     } finally {
       setIsUpdatingFollow(false);
+    }
+  };
+
+  const handleMessageClick = async () => {
+    if (isCurrentUser) return;
+    
+    try {
+      const conversationId = await createOrGetConversation(userId);
+      if (conversationId) {
+        navigate(`/messages/${conversationId}`);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create conversation",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      });
     }
   };
 
@@ -369,16 +397,27 @@ const ProfileHeader = ({
             </CryptoButton>
           </div>
         ) : (
-          <CryptoButton 
-            variant={following ? "outline" : "default"}
-            className={`rounded-full font-semibold ${following ? 'hover:bg-crypto-red/10 hover:text-crypto-red hover:border-crypto-red/20 border-crypto-gray text-crypto-text' : 'bg-crypto-blue hover:bg-crypto-darkblue text-white'}`}
-            onClick={handleFollowClick}
-            disabled={isCheckingFollowStatus || isUpdatingFollow}
-          >
-            {isUpdatingFollow ? 
-              (following ? 'Unfollowing...' : 'Following...') : 
-              (following ? 'Following' : 'Follow')}
-          </CryptoButton>
+          <div className="flex space-x-3">
+            <CryptoButton 
+              variant={following ? "outline" : "default"}
+              className={`rounded-full font-semibold ${following ? 'hover:bg-crypto-red/10 hover:text-crypto-red hover:border-crypto-red/20 border-crypto-gray text-crypto-text' : 'bg-crypto-blue hover:bg-crypto-darkblue text-white'}`}
+              onClick={handleFollowClick}
+              disabled={isCheckingFollowStatus || isUpdatingFollow}
+            >
+              {isUpdatingFollow ? 
+                (following ? 'Unfollowing...' : 'Following...') : 
+                (following ? 'Following' : 'Follow')}
+            </CryptoButton>
+            
+            <CryptoButton
+              variant="outline"
+              className="rounded-full font-semibold border-crypto-gray hover:bg-crypto-gray/20 text-crypto-text"
+              onClick={handleMessageClick}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Message
+            </CryptoButton>
+          </div>
         )}
       </div>
       
