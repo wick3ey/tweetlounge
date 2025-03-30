@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -143,14 +144,28 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
+      // Pre-process tweets to catch any obvious issues before proceeding
+      const preprocessedTweets = fetchedTweets.map(tweet => {
+        // Important: Fix retweets that have is_retweet = true but null original_tweet_id
+        if (tweet.is_retweet && !tweet.original_tweet_id) {
+          console.log(`Fixing invalid retweet data for tweet ${tweet.id}. Setting is_retweet to false.`);
+          return { ...tweet, is_retweet: false };
+        }
+        return tweet;
+      });
+      
       // Ensure all tweets have the correct replies_count by fetching fresh data from database
-      const updatedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+      const updatedTweets = await Promise.all(preprocessedTweets.map(async (tweet) => {
         try {
+          // Apply the enhanceTweetData function to fix common issues
+          const enhancedTweet = enhanceTweetData(tweet);
+          if (!enhancedTweet) return null;
+          
           // Get the accurate comment count for each tweet
           const { count, error } = await supabase
             .from('comments')
             .select('id', { count: 'exact', head: true })
-            .eq('tweet_id', tweet.id);
+            .eq('tweet_id', enhancedTweet.id);
           
           // Update the tweet's replies_count with the accurate count
           const commentCount = typeof count === 'number' ? count : 0;
@@ -159,31 +174,40 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
           await supabase
             .from('tweets')
             .update({ replies_count: commentCount })
-            .eq('id', tweet.id);
+            .eq('id', enhancedTweet.id);
           
           // Return the tweet with updated replies_count
           return {
-            ...tweet,
+            ...enhancedTweet,
             replies_count: commentCount
           };
         } catch (err) {
           console.error(`Error updating count for tweet ${tweet.id}:`, err);
-          return tweet;
+          return enhanceTweetData(tweet); // Still return enhanced tweet even if count update fails
         }
       }));
       
-      const validTweets = updatedTweets.filter(tweet => {
+      // Filter out any nulls that might have resulted from processing
+      const validPreTweets = updatedTweets.filter((tweet): tweet is TweetWithAuthor => 
+        tweet !== null
+      );
+      
+      // Now apply our strict validation function
+      const validTweets = validPreTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
           const tweetId = getSafeTweetId(tweet);
           console.error('Filtered out invalid tweet:', tweetId);
           return false;
         }
         
-        if (tweet.is_retweet && !isValidRetweet(tweet)) {
-          const tweetId = getSafeTweetId(tweet);
-          console.error('Filtered out invalid retweet with null original_tweet_id:', tweetId);
-          console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
-          return false;
+        // Special validation for retweets
+        if (tweet.is_retweet) {
+          if (!isValidRetweet(tweet)) {
+            const tweetId = getSafeTweetId(tweet);
+            console.error('Filtered out invalid retweet with null original_tweet_id:', tweetId);
+            console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
+            return false;
+          }
         }
         return true;
       });
@@ -196,7 +220,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             
             if (originalTweetError) {
               console.error('Error fetching original tweet:', originalTweetError);
-              return null;
+              // Still return the tweet with placeholder data rather than dropping it
+              return tweet;
             }
             
             if (originalTweetData && originalTweetData.length > 0) {
@@ -208,8 +233,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
                 image_url: originalTweet.image_url,
                 original_author: {
                   id: originalTweet.author_id,
-                  username: originalTweet.username,
-                  display_name: originalTweet.display_name,
+                  username: originalTweet.username || 'user',
+                  display_name: originalTweet.display_name || 'User',
                   avatar_url: originalTweet.avatar_url || '',
                   avatar_nft_id: originalTweet.avatar_nft_id,
                   avatar_nft_chain: originalTweet.avatar_nft_chain,
@@ -219,24 +244,18 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             }
           } catch (err) {
             console.error('Error processing retweet:', err);
-            return null;
+            // Return the tweet anyway rather than filtering it out
+            return tweet;
           }
         }
         
         return tweet;
       }));
       
-      const filteredTweets = processedTweets
-        .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
-      
-      const finalTweets = filteredTweets.filter(tweet => {
-        if (!isValidTweet(tweet)) {
-          const tweetId = getSafeTweetId(tweet);
-          console.error('Removing invalid tweet after processing:', tweetId);
-          return false;
-        }
-        return true;
-      });
+      // Final validation step to ensure all tweets are valid
+      const finalTweets = processedTweets
+        .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+        .filter(tweet => isValidTweet(tweet));
       
       // Log the final tweets with their comment counts for debugging
       console.log('Final tweets with comment counts:', finalTweets.map(t => ({ id: t.id, replies: t.replies_count })));

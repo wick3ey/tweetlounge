@@ -1,6 +1,5 @@
-
 import { supabase } from '@/lib/supabase';
-import { Tweet, TweetWithAuthor } from '@/types/Tweet';
+import { Tweet, TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
 
@@ -79,10 +78,10 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
         content: item.content,
         author_id: item.author_id,
         created_at: item.created_at,
-        likes_count: item.likes_count,
-        retweets_count: item.retweets_count,
-        replies_count: item.replies_count,
-        is_retweet: item.is_retweet,
+        likes_count: item.likes_count || 0,
+        retweets_count: item.retweets_count || 0,
+        replies_count: item.replies_count || 0,
+        is_retweet: item.is_retweet === true,
         original_tweet_id: item.original_tweet_id,
         image_url: item.image_url,
         profile_username: item.profile_username || item.username,
@@ -93,7 +92,7 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
         author: {
           id: item.author_id,
           username: item.profile_username || item.username,
-          display_name: item.profile_display_name || item.display_name,
+          display_name: item.profile_display_name || item.display_name || item.username,
           avatar_url: item.profile_avatar_url || item.avatar_url || '',
           avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
           avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
@@ -101,48 +100,47 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
       };
     });
     
-    // Process tweets to get original tweet information for retweets
-    const processedTweets = await Promise.all(transformedData.map(async (tweet) => {
+    const enhancedTweets = transformedData.map(tweet => enhanceTweetData(tweet)).filter((tweet): tweet is TweetWithAuthor => tweet !== null);
+    
+    const processedTweets = await Promise.all(enhancedTweets.map(async (tweet) => {
       if (tweet.is_retweet && tweet.original_tweet_id) {
         try {
-          // Get the original tweet with author information
           const { data: originalTweetData, error: originalTweetError } = await supabase
             .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
           
           if (originalTweetError) {
             console.error('Error fetching original tweet:', originalTweetError);
-            return tweet;
+            return { ...tweet, is_retweet: false };
           }
           
           if (originalTweetData && originalTweetData.length > 0) {
             const originalTweet = originalTweetData[0];
             
-            // IMPORTANT: Copy both the original author AND the content
             return {
               ...tweet,
-              // Use the original tweet's content
               content: originalTweet.content,
               image_url: originalTweet.image_url,
-              // Add the original author information
               original_author: {
                 id: originalTweet.author_id,
-                username: originalTweet.username,
-                display_name: originalTweet.display_name,
+                username: originalTweet.username || 'user',
+                display_name: originalTweet.display_name || originalTweet.username || 'User',
                 avatar_url: originalTweet.avatar_url || '',
                 avatar_nft_id: originalTweet.avatar_nft_id,
                 avatar_nft_chain: originalTweet.avatar_nft_chain
               }
             };
+          } else {
+            return { ...tweet, is_retweet: false };
           }
         } catch (err) {
           console.error('Error fetching original tweet:', err);
+          return { ...tweet, is_retweet: false };
         }
       }
       
       return tweet;
     }));
     
-    // Log a sample tweet for debugging
     if (processedTweets.length > 0) {
       console.log('Sample tweet data:', processedTweets[0]);
     }
@@ -238,7 +236,6 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw deleteError;
       }
       
-      // Manually update the likes count
       if (tweet && tweet.likes_count > 0) {
         const newCount = tweet.likes_count - 1;
         await supabase
@@ -262,7 +259,6 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
         throw insertError;
       }
       
-      // Manually update the likes count
       if (tweet) {
         const newCount = (tweet.likes_count || 0) + 1;
         await supabase
@@ -445,15 +441,17 @@ export async function retweet(tweetId: string): Promise<boolean> {
         throw new Error('Original tweet ID is required for retweet');
       }
       
+      const retweetData = {
+        author_id: user.id,
+        content: originalTweetInfo.content || 'Retweet',
+        is_retweet: true,
+        original_tweet_id: tweetId,
+        image_url: originalTweetInfo.image_url
+      };
+      
       const { error: createTweetError } = await supabase
         .from('tweets')
-        .insert({
-          author_id: user.id,
-          content: originalTweetInfo.content, // Use the content directly from the reliable original tweet data
-          is_retweet: true,
-          original_tweet_id: tweetId, // Ensure this is not null
-          image_url: originalTweetInfo.image_url // Use the image URL from the reliable original tweet data
-        });
+        .insert(retweetData);
       
       if (createTweetError) {
         console.error('Error creating retweet tweet:', createTweetError);
@@ -521,10 +519,8 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
     if (countError) {
       console.error('Error counting comments:', countError);
     } else {
-      // Use the actual count from the database instead of incremental updates
       const newCount = count || 0;
       
-      // Update the tweet with the accurate count
       const { error: updateError } = await supabase
         .from('tweets')
         .update({ replies_count: newCount })

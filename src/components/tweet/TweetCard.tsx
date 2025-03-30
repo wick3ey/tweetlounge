@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
-import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,7 +18,6 @@ import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
 import ProfileHoverCard from '@/components/profile/ProfileHoverCard';
-import { enhanceTweetData } from '@/types/Tweet';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -39,7 +39,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   // Process the tweet data to ensure it has all required fields
   const processedTweet = enhanceTweetData(tweet);
   
-  if (!isValidTweet(processedTweet)) {
+  if (!processedTweet || !isValidTweet(processedTweet)) {
     console.error('Invalid tweet data received:', tweet);
     return (
       <div className="p-4 border-b border-gray-800 bg-gray-900/20">
@@ -307,6 +307,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
+  // Special handling for retweets
   if (tweet.is_retweet && tweet.original_tweet_id) {
     if (!tweet.original_author) {
       return (
@@ -454,6 +455,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
     );
   }
   
+  // Regular tweets (non-retweets)
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
