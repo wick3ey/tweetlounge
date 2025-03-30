@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/supabase';
 
@@ -38,6 +37,9 @@ export async function createMessage(conversationId: string, content: string): Pr
   if (!userData?.user) {
     throw new Error('User must be logged in to send messages');
   }
+
+  // First mark the conversation as read
+  await markConversationAsRead(conversationId);
 
   const { data, error } = await supabase
     .from('messages')
@@ -176,26 +178,6 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
   if (error) {
     console.error('Error fetching messages:', error);
     return [];
-  }
-
-  return data;
-}
-
-export async function startConversation(recipientId: string): Promise<string | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  if (!userData?.user) {
-    throw new Error('User must be logged in to start a conversation');
-  }
-
-  const { data, error } = await supabase.rpc('get_or_create_conversation', {
-    user1_id: userData.user.id,
-    user2_id: recipientId
-  });
-
-  if (error) {
-    console.error('Error starting conversation:', error);
-    return null;
   }
 
   return data;

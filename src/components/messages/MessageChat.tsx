@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useAuth } from '@/contexts/AuthContext';
-import { createMessage, deleteMessage } from '@/services/messageService';
+import { createMessage, deleteMessage, markConversationAsRead } from '@/services/messageService';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Check, Trash2 } from 'lucide-react';
+import { Send, Loader2, Check, Trash2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +20,7 @@ import { format, isSameDay } from 'date-fns';
 import { useMessageReactions } from '@/hooks/useMessageReactions';
 import MessageReactions from './MessageReactions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/lib/supabase';
 
 interface MessageProps {
   id: string;
@@ -39,14 +42,74 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [otherUser, setOtherUser] = useState<any>(null);
+  const [loadingOtherUser, setLoadingOtherUser] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Function to scroll to the bottom of the chat
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  // Mark conversation as read when entering
+  useEffect(() => {
+    if (conversationId && user) {
+      markConversationAsRead(conversationId)
+        .catch(err => console.error('Error marking conversation as read:', err));
+    }
+  }, [conversationId, user]);
+
+  // Fetch the other user's profile
+  useEffect(() => {
+    const fetchOtherUser = async () => {
+      if (!conversationId || !user) return;
+      
+      try {
+        setLoadingOtherUser(true);
+        
+        // First get the other participant's ID
+        const { data: participantData, error: participantError } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', user.id)
+          .single();
+          
+        if (participantError) {
+          console.error('Error fetching other participant:', participantError);
+          return;
+        }
+        
+        if (!participantData) {
+          console.error('No other participant found');
+          return;
+        }
+        
+        // Then get their profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', participantData.user_id)
+          .single();
+          
+        if (profileError) {
+          console.error('Error fetching other user profile:', profileError);
+          return;
+        }
+        
+        setOtherUser(profileData);
+      } catch (error) {
+        console.error('Error fetching other user:', error);
+      } finally {
+        setLoadingOtherUser(false);
+      }
+    };
+    
+    fetchOtherUser();
+  }, [conversationId, user]);
 
   // Scroll to bottom on initial load and when new messages are added
   useEffect(() => {
@@ -106,9 +169,28 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
 
   const groupedMessages = groupMessagesByDate();
 
-  if (loading) {
+  const handleBackToList = () => {
+    navigate('/messages');
+  };
+
+  // Loading state for the chat
+  if (loading || loadingOtherUser) {
     return (
       <div className="flex flex-col h-full p-4">
+        {/* User header skeleton */}
+        <div className="flex items-center border-b border-crypto-gray pb-3 mb-4">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="mr-2" onClick={handleBackToList}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <Skeleton className="h-10 w-10 rounded-full mr-3" />
+          <div>
+            <Skeleton className="h-4 w-32 mb-2" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+        
         <div className="flex-grow overflow-y-auto">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="flex items-start mb-4">
@@ -121,6 +203,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
           ))}
           <div ref={bottomRef} />
         </div>
+        
         <div className="mt-4">
           <div className="relative">
             <Skeleton className="h-10 w-full rounded-full" />
@@ -139,8 +222,32 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   }
 
   return (
-    <div className="flex flex-col h-full p-4">
-      <div className="flex-grow overflow-y-auto">
+    <div className="flex flex-col h-full">
+      {/* User profile header */}
+      {otherUser && (
+        <div className="flex items-center p-4 border-b border-crypto-gray">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="mr-2" onClick={handleBackToList}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <Avatar className="h-10 w-10 mr-3">
+            <AvatarImage src={otherUser.avatar_url || ''} />
+            <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+              {otherUser.display_name?.[0]?.toUpperCase() || 
+               otherUser.username?.[0]?.toUpperCase() || '?'}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-semibold">{otherUser.display_name || otherUser.username}</p>
+            <p className="text-sm text-crypto-lightgray truncate max-w-[250px]">
+              {otherUser.bio || `@${otherUser.username}`}
+            </p>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex-grow overflow-y-auto p-4">
         {Object.entries(groupedMessages).map(([date, messagesForDate]) => (
           <div key={date}>
             <div className="text-center text-crypto-lightgray py-2">
@@ -191,7 +298,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         <div ref={bottomRef} />
       </div>
 
-      <div className="mt-4">
+      <div className="p-4">
         <div className="relative">
           <Input
             type="text"

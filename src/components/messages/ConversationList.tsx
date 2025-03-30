@@ -4,26 +4,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { PlusCircle, Search, Check } from 'lucide-react';
+import { Search, Check } from 'lucide-react';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
-import { startConversation } from '@/services/messageService';
 import { useToast } from '@/components/ui/use-toast';
 
 interface ConversationListProps {
@@ -39,9 +25,6 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
   
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -61,54 +44,6 @@ const ConversationList: React.FC<ConversationListProps> = ({
     // Otherwise show the date
     return format(date, 'MM/dd/yy');
   };
-  
-  const searchUsers = async (term: string) => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    
-    setSearching(true);
-    
-    try {
-      const { data, error } = await supabase
-        .rpc('search_users', { search_term: term, limit_count: 5 });
-      
-      if (error) throw error;
-      
-      // Filter out the current user
-      const filteredResults = data.filter(profile => profile.id !== user?.id);
-      setSearchResults(filteredResults);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not search for users',
-        variant: 'destructive'
-      });
-    } finally {
-      setSearching(false);
-    }
-  };
-  
-  const handleNewConversation = async (userId: string) => {
-    try {
-      const conversationId = await startConversation(userId);
-      setShowNewMessageDialog(false);
-      setSearchTerm('');
-      setSearchResults([]);
-      
-      // Select the new conversation
-      onSelectConversation(conversationId);
-    } catch (error) {
-      console.error('Error starting conversation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to start conversation',
-        variant: 'destructive'
-      });
-    }
-  };
 
   const filteredConversations = searchTerm
     ? conversations.filter(conv => 
@@ -122,11 +57,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
   if (loading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-4 flex justify-between items-center">
+        <div className="p-4">
           <h2 className="text-xl font-bold">Messages</h2>
-          <Button variant="ghost" size="icon">
-            <PlusCircle className="h-5 w-5" />
-          </Button>
         </div>
         <div className="px-4 pb-2">
           <div className="relative">
@@ -154,78 +86,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 flex justify-between items-center">
+      <div className="p-4">
         <h2 className="text-xl font-bold">Messages</h2>
-        <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
-          <DialogTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-crypto-blue hover:text-crypto-blue/80 hover:bg-crypto-darkgray"
-            >
-              <PlusCircle className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-crypto-darkgray border-crypto-gray">
-            <DialogHeader>
-              <DialogTitle>New Message</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-crypto-lightgray" />
-                <Input
-                  placeholder="Search people"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    searchUsers(e.target.value);
-                  }}
-                  className="pl-9 bg-crypto-black border-crypto-gray"
-                />
-              </div>
-              
-              {searching && (
-                <div className="py-3 text-center text-crypto-lightgray">
-                  Searching...
-                </div>
-              )}
-              
-              {!searching && searchResults.length === 0 && searchTerm.trim() !== '' && (
-                <div className="py-3 text-center text-crypto-lightgray">
-                  No users found
-                </div>
-              )}
-              
-              {!searching && searchResults.length > 0 && (
-                <div className="space-y-2">
-                  {searchResults.map(user => (
-                    <div 
-                      key={user.id}
-                      className="flex items-center p-2 rounded hover:bg-crypto-black cursor-pointer"
-                      onClick={() => handleNewConversation(user.id)}
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatar_url || ''} />
-                        <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                          {user.display_name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="ml-3">
-                        <div className="flex items-center">
-                          <p className="font-semibold">{user.display_name || user.username}</p>
-                          {user.avatar_nft_id && (
-                            <VerifiedBadge className="ml-1" />
-                          )}
-                        </div>
-                        <p className="text-sm text-crypto-lightgray">@{user.username}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
       
       <div className="px-4 pb-2">
@@ -244,15 +106,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
       
       {conversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">
-          <PlusCircle className="h-12 w-12 mb-4 opacity-50" />
           <p className="text-center">No conversations yet</p>
-          <Button 
-            variant="outline" 
-            className="mt-4 border-crypto-gray text-crypto-blue hover:bg-crypto-gray/20"
-            onClick={() => setShowNewMessageDialog(true)}
-          >
-            Start a new message
-          </Button>
+          <p className="text-center text-sm mt-2">
+            Visit someone's profile and click the message button to start chatting
+          </p>
         </div>
       ) : filteredConversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">

@@ -100,9 +100,9 @@ export const useRealtimeConversations = () => {
                 return null;
               }
               
-              // Make sure we have a valid participant before proceeding
+              // If no other participant found, skip this conversation
               if (!otherParticipants || otherParticipants.length === 0) {
-                console.error('No other participant found for conversation:', conversation.id);
+                console.log('No other participant found for conversation:', conversation.id);
                 return null;
               }
               

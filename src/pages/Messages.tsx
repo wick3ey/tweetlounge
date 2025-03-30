@@ -90,7 +90,7 @@ const Messages: React.FC = () => {
                 <div className="text-center p-8">
                   <MessageSquareText className="h-16 w-16 mx-auto mb-4 opacity-30" />
                   <h2 className="text-2xl font-bold mb-4">Select a Conversation</h2>
-                  <p>Choose a conversation from the list or start a new one</p>
+                  <p>Choose a conversation from the list to start chatting</p>
                 </div>
               </div>
             )}
