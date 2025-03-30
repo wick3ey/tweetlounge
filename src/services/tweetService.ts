@@ -35,12 +35,31 @@ export const getTweets = async (limit = 10, offset = 0, userId?: string): Promis
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
     } else {
-      // Get all tweets
+      // Get all tweets - using from instead of rpc since the function doesn't exist
       query = supabase
-        .rpc('get_tweets_with_author', { 
-          limit_val: limit, 
-          offset_val: offset 
-        });
+        .from('tweets')
+        .select(`
+          id,
+          content,
+          created_at,
+          author_id,
+          likes_count,
+          retweets_count,
+          replies_count,
+          is_retweet,
+          original_tweet_id,
+          image_url,
+          profiles!tweets_author_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
     }
 
     const { data, error } = await query;
@@ -98,6 +117,7 @@ export const getTweets = async (limit = 10, offset = 0, userId?: string): Promis
           .single();
 
         if (!originalTweetError && originalTweetData) {
+          // Fix: use correct property access for originalTweetData.profiles
           // Store original tweet author information
           transformedTweet.original_author = {
             id: originalTweetData.profiles.id,
@@ -197,7 +217,7 @@ export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | n
   }
 };
 
-export const createTweet = async (content: string, image_url?: string): Promise<Tweet | null> => {
+export const createTweet = async (content: string, imageFile?: File): Promise<Tweet | null> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData.user?.id;
@@ -207,10 +227,35 @@ export const createTweet = async (content: string, image_url?: string): Promise<
       return null;
     }
 
+    let image_url = null;
+    
+    // If we have an image file, upload it first
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('tweet_images')
+        .upload(`${userId}/${fileName}`, imageFile);
+      
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+      } else if (uploadData) {
+        // Get the public URL for the uploaded image
+        const { data: publicUrlData } = supabase
+          .storage
+          .from('tweet_images')
+          .getPublicUrl(uploadData.path);
+          
+        image_url = publicUrlData.publicUrl;
+      }
+    }
+
     const { data, error } = await supabase
       .from('tweets')
       .insert([
-        { content, author_id: userId, image_url: image_url || null }
+        { content, author_id: userId, image_url }
       ])
       .select()
       .single();
@@ -263,10 +308,10 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Decrement likes_count in tweets table
+      // Decrement likes_count in tweets table - fix number type error
       const { error: decrementError } = await supabase
         .from('tweets')
-        .update({ likes_count: () => 'likes_count - 1' })
+        .update({ likes_count: supabase.sql`likes_count - 1` })
         .eq('id', tweetId);
 
       if (decrementError) {
@@ -288,10 +333,10 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Increment likes_count in tweets table
+      // Increment likes_count in tweets table - fix number type error
       const { error: incrementError } = await supabase
         .from('tweets')
-        .update({ likes_count: () => 'likes_count + 1' })
+        .update({ likes_count: supabase.sql`likes_count + 1` })
         .eq('id', tweetId);
 
       if (incrementError) {
@@ -390,10 +435,10 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Decrement retweets_count in the original tweet
+      // Decrement retweets_count in the original tweet - fix number type error
       const { error: decrementError } = await supabase
         .from('tweets')
-        .update({ retweets_count: () => 'retweets_count - 1' })
+        .update({ retweets_count: supabase.sql`retweets_count - 1` })
         .eq('id', tweetId);
 
       if (decrementError) {
@@ -431,10 +476,10 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Increment retweets_count in the original tweet
+      // Increment retweets_count in the original tweet - fix number type error
       const { error: incrementError } = await supabase
         .from('tweets')
-        .update({ retweets_count: () => 'retweets_count + 1' })
+        .update({ retweets_count: supabase.sql`retweets_count + 1` })
         .eq('id', tweetId);
 
       if (incrementError) {
@@ -546,5 +591,122 @@ export const updateTweetCounts = async (tweetId: string, likesCount: number, ret
   } catch (error) {
     console.error('Error in updateTweetCounts:', error);
     return false;
+  }
+};
+
+export const getUserTweets = async (userId: string): Promise<TweetWithAuthor[]> => {
+  return getTweets(20, 0, userId);
+};
+
+export const getUserRetweets = async (userId: string): Promise<TweetWithAuthor[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('tweets')
+      .select(`
+        id,
+        content,
+        created_at,
+        author_id,
+        likes_count,
+        retweets_count,
+        replies_count,
+        is_retweet,
+        original_tweet_id,
+        image_url,
+        profiles!tweets_author_id_fkey (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          avatar_nft_id,
+          avatar_nft_chain
+        )
+      `)
+      .eq('author_id', userId)
+      .eq('is_retweet', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user retweets:', error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Process the retweets the same way as in getTweets
+    const transformedTweets: TweetWithAuthor[] = await Promise.all(data.map(async (tweet: any) => {
+      // ... same processing logic as in getTweets
+      let transformedTweet: TweetWithAuthor = {
+        id: tweet.id,
+        content: tweet.content,
+        author_id: tweet.author_id,
+        created_at: tweet.created_at,
+        likes_count: tweet.likes_count || 0,
+        retweets_count: tweet.retweets_count || 0,
+        replies_count: tweet.replies_count || 0,
+        is_retweet: tweet.is_retweet || false,
+        original_tweet_id: tweet.original_tweet_id,
+        image_url: tweet.image_url,
+        author: {
+          id: tweet.profiles?.id || tweet.author_id,
+          username: tweet.profiles?.username || '',
+          display_name: tweet.profiles?.display_name || '',
+          avatar_url: tweet.profiles?.avatar_url || '',
+          avatar_nft_id: tweet.profiles?.avatar_nft_id,
+          avatar_nft_chain: tweet.profiles?.avatar_nft_chain
+        }
+      };
+
+      // If this is a retweet, fetch original tweet information
+      if (tweet.is_retweet && tweet.original_tweet_id) {
+        const { data: originalTweetData, error: originalTweetError } = await supabase
+          .from('tweets')
+          .select(`
+            id, 
+            content, 
+            image_url,
+            profiles!tweets_author_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              avatar_nft_id,
+              avatar_nft_chain
+            )
+          `)
+          .eq('id', tweet.original_tweet_id)
+          .single();
+
+        if (!originalTweetError && originalTweetData) {
+          transformedTweet.original_author = {
+            id: originalTweetData.profiles.id,
+            username: originalTweetData.profiles.username,
+            display_name: originalTweetData.profiles.display_name,
+            avatar_url: originalTweetData.profiles.avatar_url,
+            avatar_nft_id: originalTweetData.profiles.avatar_nft_id,
+            avatar_nft_chain: originalTweetData.profiles.avatar_nft_chain
+          };
+          
+          transformedTweet.content = originalTweetData.content;
+          transformedTweet.image_url = originalTweetData.image_url;
+          
+          transformedTweet.retweeted_by = {
+            id: transformedTweet.author.id,
+            username: transformedTweet.author.username || '',
+            display_name: transformedTweet.author.display_name || '',
+            avatar_url: transformedTweet.author.avatar_url || ''
+          };
+        }
+      }
+
+      return transformedTweet;
+    }));
+
+    return transformedTweets;
+  } catch (error) {
+    console.error('Error in getUserRetweets:', error);
+    return [];
   }
 };
