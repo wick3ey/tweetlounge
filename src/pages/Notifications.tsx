@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -65,9 +64,12 @@ const Notifications = () => {
   };
 
   const getNotificationText = (notification: Notification) => {
-    const { type, actor } = notification;
+    const { type, actor, commentId } = notification;
     switch (type) {
       case 'like':
+        if (commentId) {
+          return <><span className="font-semibold">{actor.displayName}</span> liked your comment</>;
+        }
         return <><span className="font-semibold">{actor.displayName}</span> liked your tweet</>;
       case 'comment':
         return <><span className="font-semibold">{actor.displayName}</span> commented on your tweet</>;

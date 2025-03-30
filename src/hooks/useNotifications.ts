@@ -225,7 +225,11 @@ export function useNotifications() {
     
     switch (notification.type) {
       case 'like':
-        description = `${notification.actor.displayName} liked your tweet`;
+        if (notification.commentId) {
+          description = `${notification.actor.displayName} liked your comment`;
+        } else {
+          description = `${notification.actor.displayName} liked your tweet`;
+        }
         break;
       case 'comment':
         description = `${notification.actor.displayName} commented on your tweet`;

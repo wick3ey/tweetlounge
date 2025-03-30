@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
+import { createNotification, deleteNotification } from './notificationService';
 
 export async function getUserComments(userId: string, limit = 20, offset = 0): Promise<Comment[]> {
   try {
@@ -98,6 +98,40 @@ export async function createComment(tweetId: string, content: string, parentComm
       console.error('Error creating comment:', error);
       throw error;
     }
+
+    if (!parentCommentId) {
+      const { data: tweetData, error: tweetError } = await supabase
+        .from('tweets')
+        .select('author_id')
+        .eq('id', tweetId)
+        .single();
+        
+      if (!tweetError && tweetData) {
+        await createNotification(
+          tweetData.author_id,
+          user.id,
+          'comment',
+          tweetId,
+          data.id
+        );
+      }
+    } else {
+      const { data: commentData, error: commentError } = await supabase
+        .from('comments')
+        .select('user_id')
+        .eq('id', parentCommentId)
+        .single();
+        
+      if (!commentError && commentData) {
+        await createNotification(
+          commentData.user_id,
+          user.id,
+          'comment',
+          tweetId,
+          data.id
+        );
+      }
+    }
     
     const comment: Comment = {
       id: data.id,
@@ -186,7 +220,6 @@ export async function likeComment(commentId: string): Promise<boolean> {
       throw new Error('User must be logged in to like a comment');
     }
     
-    // Check if the user has already liked this comment
     const { data: existingLike, error: checkError } = await supabase
       .from('comment_likes')
       .select('id')
@@ -199,8 +232,18 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return false;
     }
     
+    const { data: commentData, error: commentError } = await supabase
+      .from('comments')
+      .select('user_id, tweet_id')
+      .eq('id', commentId)
+      .single();
+      
+    if (commentError) {
+      console.error('Error fetching comment data:', commentError);
+      return false;
+    }
+    
     if (existingLike) {
-      // User already liked this comment, so remove the like
       const { error: deleteError } = await supabase
         .from('comment_likes')
         .delete()
@@ -211,7 +254,6 @@ export async function likeComment(commentId: string): Promise<boolean> {
         return false;
       }
       
-      // Decrement likes count in the comments table
       const { error: updateError } = await supabase
         .from('comments')
         .update({ 
@@ -224,10 +266,17 @@ export async function likeComment(commentId: string): Promise<boolean> {
         return false;
       }
       
+      await deleteNotification(
+        commentData.user_id,
+        user.id,
+        'like',
+        commentData.tweet_id,
+        commentId
+      );
+      
       return true;
     }
     
-    // User hasn't liked this comment yet, so add the like
     const { error: insertError } = await supabase
       .from('comment_likes')
       .insert({
@@ -240,7 +289,6 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return false;
     }
     
-    // Increment likes count in the comments table
     const { error: updateError } = await supabase
       .from('comments')
       .update({ 
@@ -252,6 +300,14 @@ export async function likeComment(commentId: string): Promise<boolean> {
       console.error('Error updating comment likes count:', updateError);
       return false;
     }
+    
+    await createNotification(
+      commentData.user_id,
+      user.id,
+      'like',
+      commentData.tweet_id,
+      commentId
+    );
     
     return true;
   } catch (error) {

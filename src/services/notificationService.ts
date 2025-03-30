@@ -26,6 +26,28 @@ export async function createNotification(
       return null;
     }
     
+    // Check if a similar notification already exists to prevent duplicates
+    // For example, if a user likes and unlikes a post multiple times
+    const { data: existingNotification, error: checkError } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('actor_id', actorId)
+      .eq('type', type)
+      .is('tweet_id', tweetId ? tweetId : null)
+      .is('comment_id', commentId ? commentId : null)
+      .maybeSingle();
+      
+    if (checkError && checkError.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
+      console.error('Error checking for existing notification:', checkError);
+    }
+    
+    // If a similar notification exists, return that instead of creating a new one
+    if (existingNotification) {
+      console.log('Similar notification already exists, skipping creation');
+      return existingNotification;
+    }
+    
     const notification = {
       user_id: userId,
       actor_id: actorId,
