@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -17,7 +16,6 @@ import {
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import { getProfileByUsername, isFollowing } from '@/services/profileService';
-import { Profile as ProfileType } from '@/lib/supabase';
 
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
@@ -41,31 +39,14 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
   
-  const [viewedProfile, setViewedProfile] = useState<ProfileType | null>(null);
+  const [viewedProfile, setViewedProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isUserFollowing, setIsUserFollowing] = useState(false);
   
-  // Create full profile object for own profile or use viewed profile
-  const fullProfileData: ProfileType | null = isOwnProfile && currentUserProfile ? {
-    id: user?.id || '',
-    username: currentUserProfile.username,
-    display_name: currentUserProfile.display_name,
-    bio: currentUserProfile.bio,
-    avatar_url: currentUserProfile.avatar_url,
-    cover_url: currentUserProfile.cover_url,
-    location: currentUserProfile.location,
-    website: currentUserProfile.website,
-    updated_at: currentUserProfile.updated_at || new Date().toISOString(),
-    created_at: userCreatedAt || new Date().toISOString(),
-    ethereum_address: currentUserProfile.ethereum_address,
-    solana_address: currentUserProfile.solana_address,
-    avatar_nft_id: currentUserProfile.avatar_nft_id,
-    avatar_nft_chain: currentUserProfile.avatar_nft_chain,
-    followers_count: currentUserProfile.followers_count || 0,
-    following_count: currentUserProfile.following_count || 0,
-    replies_sort_order: currentUserProfile.replies_sort_order
-  } : viewedProfile;
+  const profile = isOwnProfile ? currentUserProfile : viewedProfile;
+  const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
+  const error = isOwnProfile ? currentProfileError : profileError;
   
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -150,22 +131,22 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   
   useEffect(() => {
     const checkNFTVerification = async () => {
-      if (fullProfileData && user) {
-        console.log("Checking NFT verification for profile:", fullProfileData);
+      if (profile && user) {
+        console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
-          isOwnProfile ? user.id : fullProfileData.id,
-          fullProfileData.ethereum_address,
-          fullProfileData.solana_address
+          isOwnProfile ? user.id : profile.id,
+          profile.ethereum_address,
+          profile.solana_address
         );
         console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
     
-    if (!isLoadingProfile && !currentProfileLoading && fullProfileData) {
+    if (!isLoading && profile) {
       checkNFTVerification();
     }
-  }, [fullProfileData, isLoadingProfile, currentProfileLoading, user, isOwnProfile]);
+  }, [profile, isLoading, user, isOwnProfile]);
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -184,16 +165,16 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   };
 
   const handleOpenProfileImage = () => {
-    if (fullProfileData?.avatar_url) {
+    if (profile?.avatar_url) {
       setShowProfileImage(true);
     }
   };
   
-  const handleFollowAction = (newFollowState: boolean) => {
-    setIsUserFollowing(newFollowState);
+  const handleFollowAction = () => {
+    setIsUserFollowing(!isUserFollowing);
   };
   
-  if (isLoadingProfile || currentProfileLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
@@ -204,11 +185,11 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  if (profileError || currentProfileError) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
-          <div className="text-crypto-red mb-4 text-center">Error loading profile: {profileError || currentProfileError}</div>
+          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
@@ -220,7 +201,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  if (!fullProfileData) {
+  if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
@@ -234,21 +215,41 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
+  const formatWebsiteUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    
+    return url.startsWith('http') ? url : `https://${url}`;
+  };
+  
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
-      {fullProfileData && (
-        <ProfileHeader
-          profile={fullProfileData}
-          isCurrentUser={isOwnProfile}
-          isFollowing={isUserFollowing}
-          onFollowChange={handleFollowAction}
-        />
-      )}
+      <ProfileHeader
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+        username={profile?.username || 'username'}
+        displayName={profile?.display_name || 'Display Name'}
+        avatarUrl={profile?.avatar_url || undefined}
+        coverUrl={profile?.cover_url || undefined}
+        bio={profile?.bio || undefined}
+        location={profile?.location || undefined}
+        website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
+        ethereumAddress={profile?.ethereum_address}
+        solanaAddress={profile?.solana_address}
+        isCurrentUser={isOwnProfile}
+        followersCount={profile?.followers_count || 0}
+        followingCount={profile?.following_count || 0}
+        joinedDate={userCreatedAt || new Date().toISOString()}
+        onEditProfile={handleEditProfile}
+        onOpenNFTBrowser={handleOpenNFTBrowser}
+        isFollowing={isUserFollowing}
+        onFollow={handleFollowAction}
+        isNFTVerified={isNFTVerified}
+        onAvatarClick={handleOpenProfileImage}
+      />
       
       <ProfileTabs 
-        userId={isOwnProfile ? (user?.id || '') : (fullProfileData?.id || '')}
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
         isCurrentUser={isOwnProfile}
-        solanaAddress={fullProfileData?.solana_address}
+        solanaAddress={profile?.solana_address}
       />
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
@@ -265,10 +266,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           <DialogHeader>
             <DialogTitle className="text-crypto-blue">Choose NFT as Profile Picture</DialogTitle>
           </DialogHeader>
-          {fullProfileData && (
+          {profile && (
             <NFTBrowser 
-              ethereumAddress={fullProfileData.ethereum_address} 
-              solanaAddress={fullProfileData.solana_address}
+              ethereumAddress={profile.ethereum_address} 
+              solanaAddress={profile.solana_address}
               onNFTSelected={handleCloseNFTBrowser}
             />
           )}
@@ -278,10 +279,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">
-            {fullProfileData?.avatar_url && (
+            {profile?.avatar_url && (
               <img 
-                src={fullProfileData.avatar_url} 
-                alt={fullProfileData.display_name || fullProfileData.username || 'Profile'} 
+                src={profile.avatar_url} 
+                alt={profile.display_name || profile.username || 'Profile'} 
                 className="w-full h-auto"
               />
             )}

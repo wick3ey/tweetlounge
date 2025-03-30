@@ -22,8 +22,6 @@ import Market from "./pages/Market";
 import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Messages from "./pages/Messages";
-import ConversationView from "./pages/ConversationView";
 
 const queryClient = new QueryClient();
 
@@ -86,16 +84,6 @@ const App = () => {
                   <Route path="/profile/:username" element={
                     <ProtectedRoute>
                       <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/messages" element={
-                    <ProtectedRoute>
-                      <Messages />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/messages/:conversationId" element={
-                    <ProtectedRoute>
-                      <ConversationView />
                     </ProtectedRoute>
                   } />
                   <Route path="*" element={<NotFound />} />
