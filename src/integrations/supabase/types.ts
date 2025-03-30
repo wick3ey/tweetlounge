@@ -446,6 +446,10 @@ export type Database = {
         }
         Returns: number
       }
+      deduplicate_usernames: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_bookmarked_tweets: {
         Args: {
           p_user_id: string

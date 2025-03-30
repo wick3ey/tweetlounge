@@ -18,6 +18,7 @@ const ProfileForm = () => {
   const { user } = useAuth();
   const { profile, isLoading, error: profileError, updateProfile } = useProfile();
   const { toast } = useToast();
+  
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
