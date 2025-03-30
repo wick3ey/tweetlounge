@@ -10,16 +10,24 @@ import LeftSidebar from "@/components/layout/LeftSidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import Navbar from "@/components/layout/Navbar";
 import { getProfileByUsername } from "@/services/profileService";
+import { supabase } from "@/lib/supabase";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading } = useProfile();
+  const { profile, isLoading: profileLoading, refetchProfile } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
   const [viewingOwnProfile, setViewingOwnProfile] = useState(true);
+
+  // Force profile refetch when navigating between profiles
+  useEffect(() => {
+    if (username && profile?.username !== username) {
+      refetchProfile?.();
+    }
+  }, [username, profile?.username, refetchProfile]);
 
   useEffect(() => {
     const checkProfileExists = async () => {
