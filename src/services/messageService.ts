@@ -108,14 +108,14 @@ export async function getConversations(): Promise<Conversation[]> {
     
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url')
+      .select('*')
       .in('id', otherUserIds);
 
     if (!profilesError && profilesData) {
       // Create a map of user IDs to profiles
       const profilesMap: { [key: string]: Profile } = {};
       for (const profile of profilesData) {
-        profilesMap[profile.id] = profile;
+        profilesMap[profile.id] = profile as Profile;
       }
 
       // Add participants to conversations
