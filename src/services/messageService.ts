@@ -1,37 +1,6 @@
-
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/supabase';
 import { Message, MessageReaction, Conversation, MessageSearchResult } from '@/types/Message';
-
-export interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  is_deleted: boolean;
-}
-
-export interface MessageReaction {
-  id: string;
-  message_id: string;
-  user_id: string;
-  reaction_type: string;
-  created_at: string;
-}
-
-export interface Conversation {
-  id: string;
-  created_at: string;
-  updated_at: string;
-  participants?: Profile[];
-  lastMessage?: Message;
-}
-
-export interface MessageSearchResult {
-  messages: Message[];
-  total: number;
-}
 
 export async function createMessage(conversationId: string, content: string): Promise<Message | null> {
   const { data: userData } = await supabase.auth.getUser();
