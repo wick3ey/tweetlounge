@@ -60,7 +60,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       // First, filter out any tweets with corrupted data using our type guard
       const validTweets = fetchedTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          console.error('Filtered out invalid tweet:', tweet?.id);
+          // Fix: Check if tweet exists before accessing its id
+          const tweetId = tweet?.id ? tweet.id : 'unknown';
+          console.error('Filtered out invalid tweet:', tweetId);
           return false;
         }
         
@@ -123,13 +125,16 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       }));
       
       // Filter out any null entries (retweets with missing originals)
+      // Fix: Add type assertion to handle null values properly
       const filteredTweets = processedTweets
-        .filter(tweet => tweet !== null) as TweetWithAuthor[];
+        .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
       
       // One more validation pass to ensure no invalid retweets
       const finalTweets = filteredTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          console.error('Removing invalid tweet after processing:', tweet?.id);
+          // Fix: Check if tweet exists before accessing its id
+          const tweetId = tweet?.id ? tweet.id : 'unknown';
+          console.error('Removing invalid tweet after processing:', tweetId);
           return false;
         }
         return true;
