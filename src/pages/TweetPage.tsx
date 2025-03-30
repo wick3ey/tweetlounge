@@ -16,6 +16,7 @@ import { followUser, unfollowUser, isFollowing } from '@/services/profileService
 import CommentForm from '@/components/comment/CommentForm';
 import { checkIfUserLikedTweet, likeTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -374,6 +375,8 @@ const TweetPage = () => {
     }
   };
 
+  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+
   if (loading) {
     return (
       <Layout>
@@ -442,11 +445,9 @@ const TweetPage = () => {
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex flex-col">
-                      <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline">
+                      <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
                         {tweet.author.display_name}
-                        {tweet.author.username === 'sweep' && (
-                          <span className="ml-1 text-crypto-blue">✓</span>
-                        )}
+                        {isNFTVerified && <VerifiedBadge />}
                       </Link>
                       <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
                     </div>

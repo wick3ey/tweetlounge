@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { checkIfUserLikedComment, likeComment } from '@/services/commentService';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 interface CommentCardProps {
   comment: Comment;
@@ -83,6 +84,9 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
     }
   };
   
+  // Check if user is NFT verified
+  const isNFTVerified = comment.author.avatar_nft_id && comment.author.avatar_nft_chain;
+  
   return (
     <div className="p-4 border-b border-crypto-gray hover:bg-crypto-darkgray/40 transition-colors">
       <div className="flex gap-3">
@@ -99,6 +103,7 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
           <div className="flex items-center gap-1.5">
             <Link to={`/profile/${comment.author.username}`} className="font-semibold hover:text-crypto-blue truncate">
               {comment.author.display_name || comment.author.username}
+              {isNFTVerified && <VerifiedBadge />}
             </Link>
             
             <span className="text-crypto-lightgray text-sm">

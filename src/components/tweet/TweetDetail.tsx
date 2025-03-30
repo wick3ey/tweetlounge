@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
@@ -40,7 +40,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Always show comments in tweet detail view
   const [showComments, setShowComments] = useState(true);
 
   useEffect(() => {
@@ -133,31 +132,27 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   };
 
   const handleCommentSubmit = () => {
-    // Update the local replies count
     setRepliesCount(prevCount => prevCount + 1);
     
-    // Notify parent components about the new comment
     if (onCommentAdded && tweet) {
       onCommentAdded(tweet.id);
     }
     
-    // Also trigger the general refresh
     onAction();
   };
 
-  // Handle comment count update from CommentList
   const handleCommentCountUpdated = (count: number) => {
     setRepliesCount(count);
   };
 
-  // Handle any action in comments (like, etc)
   const handleCommentAction = () => {
-    onAction(); // Refresh the tweet feed
+    onAction();
   };
+
+  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
 
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
-      {/* Close Button */}
       <Button
         variant="ghost"
         size="icon"
@@ -180,7 +175,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         <span className="sr-only">Close</span>
       </Button>
 
-      {/* Tweet Content */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
@@ -189,7 +183,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <div className="font-medium">{tweet?.author?.display_name}</div>
+              <div className="font-medium flex items-center">
+                {tweet?.author?.display_name}
+                {isNFTVerified && <VerifiedBadge />}
+              </div>
               <div className="text-gray-500">@{tweet?.author?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
             </div>
@@ -198,7 +195,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
               <img src={tweet?.image_url} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
             )}
           </div>
-          {/* Dropdown Menu */}
           {user?.id === tweet?.author_id && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -217,14 +213,12 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           )}
         </div>
 
-        {/* Tweet Stats */}
         <div className="flex mt-4 text-sm text-gray-500 space-x-6">
           <span>{repliesCount} {repliesCount === 1 ? 'Comment' : 'Comments'}</span>
           <span>{tweet?.retweets_count || 0} {(tweet?.retweets_count || 0) === 1 ? 'Retweet' : 'Retweets'}</span>
           <span>{tweet?.likes_count || 0} {(tweet?.likes_count || 0) === 1 ? 'Like' : 'Likes'}</span>
         </div>
 
-        {/* Tweet Actions */}
         <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
           <button className="hover:text-crypto-blue focus:outline-none">
             <MessageSquare className="inline-block h-5 w-5 mr-1" />
@@ -244,12 +238,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         </div>
       </div>
 
-      {/* Comment Form */}
       <div className="p-4 border-b border-gray-800">
         <CommentForm tweetId={tweet?.id} onSubmit={handleCommentSubmit} />
       </div>
 
-      {/* Comment List - now in a scrollable container */}
       <div className="overflow-y-auto flex-grow" ref={commentListRef}>
         <div className="p-4">
           <CommentList 

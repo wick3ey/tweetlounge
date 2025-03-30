@@ -1,6 +1,7 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -18,6 +19,8 @@ const badgeVariants = cva(
         success:
           "border-transparent bg-green-500 text-white hover:bg-green-500/80",
         outline: "text-foreground",
+        verified:
+          "p-0.5 ml-1 bg-crypto-blue rounded-full flex items-center justify-center",
       },
     },
     defaultVariants: {
@@ -36,4 +39,12 @@ function Badge({ className, variant, ...props }: BadgeProps) {
   )
 }
 
-export { Badge, badgeVariants }
+function VerifiedBadge() {
+  return (
+    <Badge variant="verified" className="ml-1">
+      <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
+    </Badge>
+  )
+}
+
+export { Badge, VerifiedBadge, badgeVariants }

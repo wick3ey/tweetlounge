@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -16,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -32,7 +32,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const { toast } = useToast();
 
   React.useEffect(() => {
-    // Check if the tweet is liked or bookmarked when component mounts
     const checkStatuses = async () => {
       if (tweet?.id) {
         const liked = await checkIfUserLikedTweet(tweet.id);
@@ -47,12 +46,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   }, [tweet?.id]);
 
   const handleTweetClick = (e: React.MouseEvent) => {
-    // Check if we're clicking on a button inside the tweet
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
     
-    // Navigate to the tweet detail page
     navigate(`/tweet/${tweet.id}`);
   };
 
@@ -107,6 +104,8 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   };
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
+  
+  const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
 
   return (
     <div 
@@ -124,7 +123,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="flex-1 min-w-0">
           <div className="flex justify-between">
             <div>
-              <span className="font-medium text-white">{tweet.author?.display_name}</span>
+              <span className="font-medium text-white flex items-center">
+                {tweet.author?.display_name}
+                {isNFTVerified && <VerifiedBadge />}
+              </span>
               <span className="text-gray-500 mx-1">·</span>
               <span className="text-gray-500">@{tweet.author?.username}</span>
               <span className="text-gray-500 mx-1">·</span>
