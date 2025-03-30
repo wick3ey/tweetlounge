@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,6 +17,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
+import { getOriginalTweet } from '@/services/tweetService';
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
@@ -41,8 +41,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  const [showComments, setShowComments] = useState(true);
+  const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -70,7 +69,16 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     checkRetweetStatus();
     checkBookmarkStatus();
     setRepliesCount(tweet?.replies_count || 0);
-  }, [tweet?.id, user, tweet?.replies_count]);
+
+    const fetchOriginalTweet = async () => {
+      if (tweet?.is_retweet && tweet?.original_tweet_id) {
+        const fetchedOriginalTweet = await getOriginalTweet(tweet.original_tweet_id);
+        setOriginalTweet(fetchedOriginalTweet);
+      }
+    };
+
+    fetchOriginalTweet();
+  }, [tweet?.id, user, tweet?.replies_count, tweet?.is_retweet, tweet?.original_tweet_id]);
 
   const toggleLike = async () => {
     if (!user) {
@@ -189,7 +197,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
   const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
   
-  // Determine if this is a retweet and get the appropriate content
   const isRetweet = tweet?.is_retweet && tweet?.original_tweet_id;
   const isCurrentUserRetweet = user?.id === tweet?.author_id && isRetweet;
 
@@ -218,6 +225,39 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       </Button>
 
       <div className="p-4 border-b border-gray-800">
+        {isRetweet && originalTweet && (
+          <div className="border border-gray-800 rounded-lg p-4 mb-4">
+            <div className="flex space-x-3 mb-2">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={originalTweet.author.avatar_url} alt={originalTweet.author.username} />
+                <AvatarFallback>{originalTweet.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium text-white flex items-center">
+                    {originalTweet.author.display_name}
+                  </span>
+                  <span className="text-gray-500 mx-1">·</span>
+                  <span className="text-gray-500">@{originalTweet.author.username}</span>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-white mb-3">{originalTweet.content}</p>
+            
+            {originalTweet.image_url && (
+              <div>
+                <img 
+                  src={originalTweet.image_url} 
+                  alt="Original tweet image" 
+                  className="rounded-md max-h-96 w-full object-cover"
+                />
+              </div>
+            )}
+          </div>
+        )}
+        
         {isRetweet && (
           <div className="flex items-center text-gray-500 text-sm mb-3">
             <Repeat className="h-4 w-4 mr-2" />

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
@@ -17,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
+import { getOriginalTweet } from '@/services/tweetService';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -30,6 +30,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [originalTweet, setOriginalTweet] = useState<TweetWithAuthor | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,6 +50,17 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     
     checkStatuses();
   }, [tweet?.id, user]);
+
+  useEffect(() => {
+    const fetchOriginalTweet = async () => {
+      if (tweet.is_retweet && tweet.original_tweet_id) {
+        const fetchedOriginalTweet = await getOriginalTweet(tweet.original_tweet_id);
+        setOriginalTweet(fetchedOriginalTweet);
+      }
+    };
+
+    fetchOriginalTweet();
+  }, [tweet.is_retweet, tweet.original_tweet_id]);
 
   const handleTweetClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) {
@@ -140,7 +152,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   
   const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
 
-  // Determine if this is a retweet and get the appropriate content
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   const isCurrentUserRetweet = user?.id === tweet.author_id && isRetweet;
 
@@ -149,13 +160,46 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
-      {isRetweet && (
+      {tweet.is_retweet && (
         <div className="flex items-center text-gray-500 text-sm mb-2">
           <Repeat className="h-4 w-4 mr-2" />
-          {isCurrentUserRetweet ? (
+          {user?.id === tweet.author_id ? (
             <span>You reposted</span>
           ) : (
             <span>{tweet.author?.display_name} reposted</span>
+          )}
+        </div>
+      )}
+      
+      {tweet.is_retweet && originalTweet && (
+        <div className="border border-gray-800 rounded-lg p-3 mb-3">
+          <div className="flex space-x-3 mb-2">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={originalTweet.author.avatar_url} alt={originalTweet.author.username} />
+              <AvatarFallback>{originalTweet.author.username?.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="font-medium text-white flex items-center">
+                  {originalTweet.author.display_name}
+                </span>
+                <span className="text-gray-500 mx-1">·</span>
+                <span className="text-gray-500">@{originalTweet.author.username}</span>
+              </div>
+            </div>
+          </div>
+          
+          <p className="text-white">{originalTweet.content}</p>
+          
+          {originalTweet.image_url && (
+            <div className="mt-3">
+              <img 
+                src={originalTweet.image_url} 
+                alt="Original tweet image" 
+                className="rounded-md max-h-80 object-cover"
+              />
+            </div>
           )}
         </div>
       )}
