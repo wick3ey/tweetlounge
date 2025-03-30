@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Conversation {
   id: string;
@@ -23,6 +24,7 @@ export const useRealtimeConversations = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) {
@@ -41,7 +43,10 @@ export const useRealtimeConversations = () => {
           .select('conversation_id, is_read, last_read_at')
           .eq('user_id', user.id);
           
-        if (participantsError) throw participantsError;
+        if (participantsError) {
+          console.error('Error fetching participants:', participantsError);
+          throw participantsError;
+        }
         
         if (!participantsData || participantsData.length === 0) {
           setConversations([]);
@@ -68,85 +73,105 @@ export const useRealtimeConversations = () => {
           .in('id', conversationIds)
           .order('updated_at', { ascending: false });
           
-        if (conversationsError) throw conversationsError;
+        if (conversationsError) {
+          console.error('Error fetching conversations:', conversationsError);
+          throw conversationsError;
+        }
         
-        // Get other participants for each conversation
+        if (!conversationsData || conversationsData.length === 0) {
+          setConversations([]);
+          setLoading(false);
+          return;
+        }
+
+        // Process each conversation to get the other participant and last message
         const enhancedConversations = await Promise.all(
           conversationsData.map(async (conversation) => {
-            // Get the other participant in this conversation
-            const { data: otherParticipants, error: participantError } = await supabase
-              .from('conversation_participants')
-              .select('*')
-              .eq('conversation_id', conversation.id)
-              .neq('user_id', user.id);
-              
-            if (participantError) {
-              console.error('Error fetching other participant:', participantError);
-              return null;
-            }
-            
-            // Make sure we have a valid participant before proceeding
-            if (!otherParticipants || otherParticipants.length === 0) {
-              console.error('No other participant found for conversation:', conversation.id);
-              return null;
-            }
-            
-            const otherParticipant = otherParticipants[0];
-            
-            // Get profile of the other participant
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain, bio')
-              .eq('id', otherParticipant.user_id)
-              .single();
-              
-            if (profileError) {
-              console.error('Error fetching profile:', profileError);
-              return null;
-            }
-            
-            // Get the last message in this conversation
-            const { data: lastMessages, error: messagesError } = await supabase
-              .from('messages')
-              .select('content, created_at, sender_id, is_deleted')
-              .eq('conversation_id', conversation.id)
-              .order('created_at', { ascending: false })
-              .limit(1);
-              
-            const lastMessage = lastMessages && lastMessages.length > 0 ? lastMessages[0] : null;
-            
-            // Calculate unread count
-            let unreadCount = 0;
-            if (!readStatusMap[conversation.id].is_read) {
-              const lastReadAt = readStatusMap[conversation.id].last_read_at;
-              
-              const { count, error: countError } = await supabase
-                .from('messages')
-                .select('*', { count: 'exact', head: true })
+            try {
+              // Get the other participant in this conversation
+              const { data: otherParticipants, error: participantError } = await supabase
+                .from('conversation_participants')
+                .select('user_id')
                 .eq('conversation_id', conversation.id)
-                .neq('sender_id', user.id)
-                .gt('created_at', lastReadAt || '1970-01-01');
+                .neq('user_id', user.id);
                 
-              if (!countError) {
-                unreadCount = count || 0;
+              if (participantError) {
+                console.error('Error fetching other participant:', participantError);
+                return null;
               }
+              
+              // Make sure we have a valid participant before proceeding
+              if (!otherParticipants || otherParticipants.length === 0) {
+                console.error('No other participant found for conversation:', conversation.id);
+                return null;
+              }
+              
+              const otherParticipant = otherParticipants[0];
+              
+              // Get profile of the other participant
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain, bio')
+                .eq('id', otherParticipant.user_id)
+                .single();
+                
+              if (profileError) {
+                console.error('Error fetching profile:', profileError);
+                return null;
+              }
+              
+              // Get the last message in this conversation
+              const { data: lastMessages, error: messagesError } = await supabase
+                .from('messages')
+                .select('content, created_at, sender_id, is_deleted')
+                .eq('conversation_id', conversation.id)
+                .order('created_at', { ascending: false })
+                .limit(1);
+                
+              if (messagesError) {
+                console.error('Error fetching last message:', messagesError);
+              }
+                
+              const lastMessage = lastMessages && lastMessages.length > 0 ? lastMessages[0] : null;
+              
+              // Calculate unread count
+              let unreadCount = 0;
+              if (!readStatusMap[conversation.id]?.is_read) {
+                const lastReadAt = readStatusMap[conversation.id]?.last_read_at;
+                
+                const { count, error: countError } = await supabase
+                  .from('messages')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('conversation_id', conversation.id)
+                  .neq('sender_id', user.id)
+                  .gt('created_at', lastReadAt || '1970-01-01');
+                  
+                if (countError) {
+                  console.error('Error counting unread messages:', countError);
+                } else {
+                  unreadCount = count || 0;
+                }
+              }
+              
+              return {
+                ...conversation,
+                last_message: lastMessage?.is_deleted 
+                  ? 'This message was deleted' 
+                  : lastMessage?.content || null,
+                sender_id: lastMessage?.sender_id || null,
+                unread_count: unreadCount,
+                other_user_id: otherParticipant.user_id,
+                other_user_username: profileData?.username || null,
+                other_user_display_name: profileData?.display_name || null,
+                other_user_avatar: profileData?.avatar_url || null,
+                other_user_avatar_nft_id: profileData?.avatar_nft_id || null,
+                other_user_avatar_nft_chain: profileData?.avatar_nft_chain || null,
+                other_user_bio: profileData?.bio || null
+              };
+            } catch (error) {
+              console.error('Error processing conversation:', error);
+              return null;
             }
-            
-            return {
-              ...conversation,
-              last_message: lastMessage?.is_deleted 
-                ? 'This message was deleted' 
-                : lastMessage?.content || null,
-              sender_id: lastMessage?.sender_id || null,
-              unread_count: unreadCount,
-              other_user_id: otherParticipant.user_id,
-              other_user_username: profileData?.username || null,
-              other_user_display_name: profileData?.display_name || null,
-              other_user_avatar: profileData?.avatar_url || null,
-              other_user_avatar_nft_id: profileData?.avatar_nft_id || null,
-              other_user_avatar_nft_chain: profileData?.avatar_nft_chain || null,
-              other_user_bio: profileData?.bio || null
-            };
           })
         );
         
@@ -155,9 +180,15 @@ export const useRealtimeConversations = () => {
           .filter(Boolean)
           .sort((a, b) => new Date(b!.updated_at).getTime() - new Date(a!.updated_at).getTime());
         
+        console.log('Valid conversations:', validConversations);
         setConversations(validConversations as Conversation[]);
       } catch (error) {
         console.error('Error fetching conversations:', error);
+        toast({
+          title: "Error loading conversations",
+          description: "Please try again later",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
@@ -165,9 +196,9 @@ export const useRealtimeConversations = () => {
 
     fetchConversations();
 
-    // Set up real-time listener for new messages
+    // Set up real-time listener for new messages and conversations
     const channel = supabase
-      .channel('conversations-channel')
+      .channel('conversations-changes')
       .on(
         'postgres_changes',
         {
@@ -176,7 +207,7 @@ export const useRealtimeConversations = () => {
           table: 'messages',
         },
         (payload) => {
-          // Update the conversations when a new message is added or updated
+          console.log('Message change detected:', payload);
           fetchConversations();
         }
       )
@@ -188,7 +219,7 @@ export const useRealtimeConversations = () => {
           table: 'conversations',
         },
         (payload) => {
-          // Update the conversations when a conversation is updated
+          console.log('Conversation change detected:', payload);
           fetchConversations();
         }
       )
@@ -200,17 +231,19 @@ export const useRealtimeConversations = () => {
           table: 'conversation_participants',
         },
         (payload) => {
-          // Update the conversations when participant data changes
+          console.log('Participant change detected:', payload);
           fetchConversations();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     // Clean up on unmount
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, toast]);
 
   return { conversations, loading };
 };

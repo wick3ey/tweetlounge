@@ -1,202 +1,75 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  createMessage, 
-  searchMessages, 
-  markConversationAsRead, 
-  deleteMessage 
-} from '@/services/messageService';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
+import { createMessage, deleteMessage } from '@/services/messageService';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Send, Loader2, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
-  Send, 
-  Search, 
-  X, 
-  Trash2, 
-  MoreVertical,
-  Smile,
-  Info,
-  ArrowLeft,
-  Image as ImageIcon
-} from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import MessageReactions from './MessageReactions';
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
-import { VerifiedBadge } from '@/components/ui/badge';
-import { useIsMobile } from '@/hooks/use-mobile';
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from '@/components/ui/use-toast';
+import { format, isSameDay } from 'date-fns';
+import { useMessageReactions } from '@/hooks/useMessageReactions';
+import MessageReactions from './MessageReactions';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/lib/supabase';
+
+interface MessageProps {
+  id: string;
+  content: string;
+  sender_id: string;
+  sender_name?: string;
+  sender_username?: string;
+  sender_avatar?: string;
+  created_at: string;
+  is_deleted: boolean;
+}
 
 interface MessageChatProps {
   conversationId: string;
 }
 
 const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
-  const [newMessage, setNewMessage] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [otherUserProfile, setOtherUserProfile] = useState<any>(null);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const messagesEndRef = useRef<null | HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  
   const { messages, loading, error } = useRealtimeMessages(conversationId);
+  const { user } = useAuth();
+  const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
+  const { toast } = useToast();
 
-  const otherParticipant = messages.length > 0 
-    ? messages.find(m => m.sender_id !== user?.id)
-    : null;
+  // Function to scroll to the bottom of the chat
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
-  const otherUserInfo = otherParticipant ? {
-    id: otherParticipant.sender_id,
-    name: otherParticipant.sender_name,
-    username: otherParticipant.sender_username,
-    avatar: otherParticipant.sender_avatar,
-  } : null;
-
-  useEffect(() => {
-    const fetchOtherUserProfile = async () => {
-      if (!conversationId || !user) return;
-      
-      try {
-        // Find the other user in this conversation
-        const { data: participants, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select('user_id')
-          .eq('conversation_id', conversationId)
-          .neq('user_id', user.id);
-          
-        if (participantsError) throw participantsError;
-        
-        if (!participants || participants.length === 0) return;
-        
-        const otherUserId = participants[0].user_id;
-        
-        // Get their profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, bio, avatar_nft_id, avatar_nft_chain')
-          .eq('id', otherUserId)
-          .single();
-          
-        if (profileError) throw profileError;
-        
-        setOtherUserProfile(profile);
-      } catch (error) {
-        console.error('Error fetching other user profile:', error);
-      }
-    };
-    
-    fetchOtherUserProfile();
-  }, [conversationId, user]);
-
-  const formatMessageTime = (timestamp: string) => {
-    return format(new Date(timestamp), 'h:mm a');
-  };
-
-  const formatMessageDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    }
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    }
-    
-    return format(date, 'MMMM d, yyyy');
-  };
-
-  const groupMessagesByDate = () => {
-    const groups: {[key: string]: typeof messages} = {};
-    
-    messages.forEach(message => {
-      const date = new Date(message.created_at).toDateString();
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(message);
-    });
-    
-    return Object.entries(groups)
-      .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
-      .map(([date, messages]) => ({
-        date,
-        messages
-      }));
-  };
-
-  const messageGroups = groupMessagesByDate();
-
+  // Scroll to bottom on initial load and when new messages are added
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    if (conversationId) {
-      markConversationAsRead(conversationId).catch(console.error);
-    }
-  }, [conversationId]);
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !conversationId) return;
+    if (!newMessage.trim()) return;
 
+    setIsSending(true);
     try {
       await createMessage(conversationId, newMessage);
       setNewMessage('');
       scrollToBottom();
-    } catch (error) {
-      console.error('Failed to send message', error);
+    } catch (err: any) {
+      console.error('Error sending message:', err);
       toast({
         title: 'Error',
-        description: 'Could not send message',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchTerm.trim() || !conversationId) return;
-
-    try {
-      setIsSearching(true);
-      const result = await searchMessages(conversationId, searchTerm);
-      setSearchResults(result.messages);
-    } catch (error) {
-      console.error('Failed to search messages', error);
-      toast({
-        title: 'Error',
-        description: 'Could not search messages',
+        description: 'Failed to send message',
         variant: 'destructive'
       });
     } finally {
-      setIsSearching(false);
+      setIsSending(false);
     }
   };
 
@@ -207,61 +80,50 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         title: 'Success',
         description: 'Message deleted',
       });
-    } catch (error) {
-      console.error('Failed to delete message', error);
+    } catch (err: any) {
+      console.error('Error deleting message:', err);
       toast({
         title: 'Error',
-        description: 'Could not delete message',
+        description: 'Failed to delete message',
         variant: 'destructive'
       });
     }
   };
 
+  const groupMessagesByDate = () => {
+    const groupedMessages: { [key: string]: MessageProps[] } = {};
+
+    messages.forEach(message => {
+      const date = format(new Date(message.created_at), 'yyyy-MM-dd');
+      if (!groupedMessages[date]) {
+        groupedMessages[date] = [];
+      }
+      groupedMessages[date].push(message);
+    });
+
+    return groupedMessages;
+  };
+
+  const groupedMessages = groupMessagesByDate();
+
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="mr-2 md:hidden"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="ml-3">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-4 w-24 mt-1" />
-            </div>
-          </div>
-          <Skeleton className="h-9 w-9 rounded-full" />
-        </div>
-        <div className="flex-grow p-4">
-          <div className="space-y-8">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="space-y-4">
-                <div className="flex justify-center">
-                  <Skeleton className="h-6 w-24 rounded-full" />
-                </div>
-                {[1, 2].map(j => (
-                  <div key={j} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-                    <div className="flex items-start max-w-[70%]">
-                      {i % 2 !== 0 && <Skeleton className="h-10 w-10 rounded-full mr-2" />}
-                      <Skeleton className={`h-16 w-48 rounded-2xl ${i % 2 === 0 ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} />
-                    </div>
-                  </div>
-                ))}
+      <div className="flex flex-col h-full p-4">
+        <div className="flex-grow overflow-y-auto">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="flex items-start mb-4">
+              <Skeleton className="h-10 w-10 rounded-full mr-3" />
+              <div>
+                <Skeleton className="h-4 w-48 mb-2" />
+                <Skeleton className="h-3 w-64" />
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+          <div ref={bottomRef} />
         </div>
-        <div className="border-t border-crypto-gray p-4">
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-            <Skeleton className="h-10 flex-grow rounded-full" />
-            <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
-            <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+        <div className="mt-4">
+          <div className="relative">
+            <Skeleton className="h-10 w-full rounded-full" />
           </div>
         </div>
       </div>
@@ -270,349 +132,92 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center text-red-500">
-        <div className="text-center p-6">
-          <div className="text-4xl mb-4">😢</div>
-          <h3 className="text-xl font-semibold mb-2">Error Loading Messages</h3>
-          <p className="text-crypto-lightgray mb-4">We couldn't load your conversation</p>
-          <Button onClick={() => navigate('/messages')}>
-            Back to Messages
-          </Button>
-        </div>
+      <div className="flex items-center justify-center h-full text-crypto-lightgray">
+        Error: {error.message}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
-        <div className="flex items-center">
-          {isMobile && (
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate('/messages')}
-              className="mr-2 md:hidden"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          )}
-          
-          {otherUserProfile && (
-            <Link to={`/profile/${otherUserProfile.username}`} className="flex items-center hover:opacity-80 transition-opacity">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={otherUserProfile.avatar_url || ''} />
-                <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                  {otherUserProfile.display_name?.[0] || otherUserProfile.username?.[0] || '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="ml-3">
-                <div className="flex items-center">
-                  <h2 className="font-bold text-lg">
-                    {otherUserProfile.display_name || otherUserProfile.username || 'Unknown User'}
-                  </h2>
-                  {otherUserProfile.avatar_nft_id && (
-                    <VerifiedBadge className="ml-1" />
-                  )}
-                </div>
-                <div className="text-sm text-crypto-lightgray">
-                  @{otherUserProfile.username || 'anonymous'}
-                </div>
-                {otherUserProfile.bio && (
-                  <div className="text-sm text-crypto-lightgray mt-1 max-w-sm line-clamp-1">
-                    {otherUserProfile.bio}
+    <div className="flex flex-col h-full p-4">
+      <div className="flex-grow overflow-y-auto">
+        {Object.entries(groupedMessages).map(([date, messagesForDate]) => (
+          <div key={date}>
+            <div className="text-center text-crypto-lightgray py-2">
+              {isSameDay(new Date(date), new Date())
+                ? 'Today'
+                : format(new Date(date), 'MMMM dd, yyyy')}
+            </div>
+            {messagesForDate.map(message => (
+              <div key={message.id} className="flex items-start mb-4">
+                <Avatar className="h-10 w-10 mr-3">
+                  <AvatarImage src={message.sender_avatar || ''} />
+                  <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                    {message.sender_name?.[0]?.toUpperCase() || message.sender_username?.[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <p className="font-semibold">{message.sender_name || message.sender_username || 'Unknown'}</p>
+                    <span className="text-xs text-crypto-lightgray">
+                      {format(new Date(message.created_at), 'h:mm a')}
+                    </span>
+                    {message.sender_id === user?.id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-5 w-5 p-0">
+                            <Trash2 className="h-4 w-4 text-crypto-lightgray hover:text-red-500" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-crypto-darkgray border-crypto-gray">
+                          <DropdownMenuItem onClick={() => handleDeleteMessage(message.id)} className="focus:bg-crypto-black text-red-500">
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
-                )}
-              </div>
-            </Link>
-          )}
-
-          {!otherUserProfile && otherUserInfo && (
-            <Link to={`/profile/${otherUserInfo.id}`} className="flex items-center hover:opacity-80 transition-opacity">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={otherUserInfo.avatar || ''} />
-                <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                  {otherUserInfo.name?.[0] || '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="ml-3">
-                <div className="flex items-center">
-                  <h2 className="font-bold text-lg">
-                    {otherUserInfo.name || 'Unknown User'}
-                  </h2>
+                  <div className={`rounded-lg px-3 py-2 break-words ${message.is_deleted ? 'italic text-crypto-lightgray' : 'bg-crypto-darkgray'}`}>
+                    {message.is_deleted ? 'This message was deleted' : message.content}
+                    {!message.is_deleted && (
+                      <MessageReactions messageId={message.id} />
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-crypto-lightgray">
-                  @{otherUserInfo.username || 'anonymous'}
-                </div>
-              </div>
-            </Link>
-          )}
-        </div>
-        <Button variant="ghost" size="icon">
-          <Info className="h-5 w-5" />
-        </Button>
-      </div>
-
-      {showSearch && (
-        <div className="border-b border-crypto-gray p-2 flex items-center">
-          <Input 
-            placeholder="Search in conversation..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            className="flex-grow"
-          />
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleSearch} 
-            disabled={isSearching || !searchTerm.trim()}
-          >
-            <Search className="h-5 w-5" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => {
-              setShowSearch(false);
-              setSearchTerm('');
-              setSearchResults([]);
-            }}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-      )}
-
-      {searchResults.length > 0 && (
-        <div className="border-b border-crypto-gray bg-crypto-darkgray p-4">
-          <h3 className="text-sm font-semibold mb-2">Search Results ({searchResults.length})</h3>
-          <div className="max-h-60 overflow-y-auto space-y-2">
-            {searchResults.map(message => (
-              <div 
-                key={message.id} 
-                className="p-2 rounded bg-crypto-black hover:bg-crypto-darkgray cursor-pointer"
-                onClick={() => {
-                  const element = document.getElementById(`message-${message.id}`);
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
-                    element.classList.add('bg-crypto-blue/10');
-                    setTimeout(() => {
-                      element.classList.remove('bg-crypto-blue/10');
-                    }, 2000);
-                  }
-                }}
-              >
-                <div className="flex items-center mb-1">
-                  <Avatar className="h-6 w-6 mr-2">
-                    <AvatarImage src={message.sender_id === user?.id 
-                      ? user?.user_metadata?.avatar_url 
-                      : otherUserInfo?.avatar || ''} 
-                    />
-                    <AvatarFallback className="text-xs">
-                      {message.sender_id === user?.id 
-                        ? user?.email?.[0].toUpperCase() 
-                        : otherUserInfo?.name?.[0] || '?'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-xs font-medium">
-                    {message.sender_id === user?.id 
-                      ? 'You' 
-                      : otherUserInfo?.name || 'User'}
-                  </span>
-                </div>
-                <p className="text-sm ml-8">{message.content}</p>
-                <p className="text-xs text-crypto-lightgray ml-8">
-                  {formatMessageTime(message.created_at)}
-                </p>
               </div>
             ))}
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setSearchResults([])} 
-            className="mt-2"
-          >
-            Clear Results
-          </Button>
-        </div>
-      )}
+        ))}
+        <div ref={bottomRef} />
+      </div>
 
-      {messages.length === 0 && (
-        <div className="flex-grow flex flex-col items-center justify-center p-8 text-crypto-lightgray">
-          <div className="bg-crypto-darkgray rounded-full p-6 mb-4">
-            <MessageReactions messageId="" emoji="👋" displayOnly />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Start the conversation</h3>
-          <p className="text-center mb-6">
-            Say hello to {otherUserProfile?.display_name || otherUserInfo?.name || 'your friend'}!
-          </p>
-        </div>
-      )}
-
-      {messages.length > 0 && (
-        <div className="flex-grow overflow-y-auto p-4 space-y-6">
-          {messageGroups.map(group => (
-            <div key={group.date} className="space-y-4">
-              <div className="flex justify-center">
-                <div className="bg-crypto-darkgray px-4 py-1 rounded-full text-xs text-crypto-lightgray">
-                  {formatMessageDate(group.date)}
-                </div>
-              </div>
-              
-              {group.messages.map((message, index) => {
-                const showAvatar = index === 0 || 
-                  group.messages[index - 1].sender_id !== message.sender_id ||
-                  new Date(message.created_at).getTime() - new Date(group.messages[index - 1].created_at).getTime() > 5 * 60 * 1000;
-                
-                const isCurrentUser = message.sender_id === user?.id;
-                
-                return (
-                  <div 
-                    key={message.id} 
-                    id={`message-${message.id}`}
-                    className={`flex transition-colors duration-300 group ${
-                      isCurrentUser ? 'justify-end' : 'justify-start'
-                    } ${
-                      !showAvatar && !isCurrentUser ? 'pl-12' : ''
-                    }`}
-                  >
-                    <div className={`max-w-[70%] ${showAvatar ? '' : 'mt-1'}`}>
-                      <div className="flex items-start gap-2">
-                        {!isCurrentUser && showAvatar && (
-                          <Avatar className="h-10 w-10 mt-1">
-                            <AvatarImage src={message.sender_avatar || ''} />
-                            <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                              {message.sender_name?.[0] || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                        
-                        <div className="flex flex-col">
-                          {!isCurrentUser && showAvatar && (
-                            <span className="text-xs font-medium text-crypto-text mb-1">
-                              {message.sender_name}
-                            </span>
-                          )}
-                          <div className="flex items-start">
-                            <div 
-                              className={`p-3 ${
-                                message.is_deleted 
-                                  ? 'bg-crypto-darkgray text-crypto-lightgray italic' 
-                                  : isCurrentUser 
-                                    ? 'bg-crypto-blue text-white rounded-2xl rounded-tr-sm' 
-                                    : 'bg-crypto-darkgray text-crypto-text rounded-2xl rounded-tl-sm'
-                              }`}
-                            >
-                              {message.is_deleted 
-                                ? 'This message was deleted' 
-                                : message.content
-                              }
-                            </div>
-
-                            {!message.is_deleted && isCurrentUser && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 ml-1 opacity-0 group-hover:opacity-100 hover:opacity-100 focus:opacity-100"
-                                  >
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleDeleteMessage(message.id)}>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </div>
-                          
-                          {!message.is_deleted && (
-                            <div className="flex items-center mt-1">
-                              <span className="text-xs text-crypto-lightgray">
-                                {formatMessageTime(message.created_at)}
-                              </span>
-                              <MessageReactions messageId={message.id} compact />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      )}
-      
-      <div className="border-t border-crypto-gray p-4">
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setShowSearch(!showSearch)}
-            className="flex-shrink-0 text-crypto-lightgray hover:text-crypto-text"
-          >
-            <Search className="h-5 w-5" />
-          </Button>
-          
-          <Input 
-            placeholder={`Message ${otherUserProfile?.display_name || otherUserInfo?.name || ''}...`}
+      <div className="mt-4">
+        <div className="relative">
+          <Input
+            type="text"
+            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-grow rounded-full bg-crypto-darkgray border-none"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            className="bg-crypto-black border-crypto-gray pr-12"
+            disabled={isSending}
           />
-          
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="flex-shrink-0 text-crypto-lightgray hover:text-crypto-text"
-              >
-                <Smile className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64">
-              <div className="grid grid-cols-8 gap-2">
-                {['😀', '😂', '😍', '🥰', '😘', '🤔', '😎', '🥳', 
-                  '😊', '🙂', '🤩', '😢', '😭', '😡', '👍', '👎',
-                  '❤️', '🔥', '💯', '👏', '🙌', '🤝', '🤷‍♂️', '🎉'].map(emoji => (
-                  <Button 
-                    key={emoji} 
-                    variant="ghost" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setNewMessage(current => current + emoji)}
-                  >
-                    {emoji}
-                  </Button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="flex-shrink-0 text-crypto-lightgray hover:text-crypto-text"
+          <Button
+            onClick={handleSendMessage}
+            className="absolute right-1 top-1 rounded-full p-2 bg-crypto-blue hover:bg-crypto-blue/80"
+            disabled={isSending}
           >
-            <ImageIcon className="h-5 w-5" />
-          </Button>
-          
-          <Button 
-            onClick={handleSendMessage} 
-            disabled={!newMessage.trim()}
-            className="bg-crypto-blue hover:bg-crypto-darkblue flex-shrink-0 rounded-full aspect-square p-0 w-10 h-10"
-          >
-            <Send className="h-5 w-5" />
+            {isSending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span className="sr-only">Send</span>
           </Button>
         </div>
       </div>

@@ -7,14 +7,22 @@ import MessageChat from '@/components/messages/MessageChat';
 import { MessageSquareText, Info } from 'lucide-react';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 
 const Messages: React.FC = () => {
   const { conversationId } = useParams<{ conversationId?: string }>();
   const { conversations, loading } = useRealtimeConversations();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(conversationId || null);
+
+  // Debug conversations
+  useEffect(() => {
+    console.log('Conversations in Messages.tsx:', conversations);
+  }, [conversations]);
 
   // Set selected conversation when route parameter changes
   useEffect(() => {
@@ -37,6 +45,27 @@ const Messages: React.FC = () => {
       navigate(`/messages/${id}`);
     }
   };
+
+  // Show login prompt if no user
+  if (!user) {
+    return (
+      <Layout>
+        <div className="flex h-screen items-center justify-center bg-crypto-black text-crypto-text">
+          <div className="text-center p-8">
+            <Info className="h-16 w-16 mx-auto mb-4 text-crypto-lightgray" />
+            <h2 className="text-2xl font-bold mb-4">You need to be logged in</h2>
+            <p className="text-crypto-lightgray mb-6">Please sign in to view your messages</p>
+            <button 
+              onClick={() => navigate('/login')}
+              className="px-4 py-2 bg-crypto-blue text-white rounded-lg hover:bg-crypto-blue/80"
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
