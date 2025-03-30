@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 
@@ -185,19 +186,21 @@ export async function likeComment(commentId: string): Promise<boolean> {
       throw new Error('User must be logged in to like a comment');
     }
     
+    // Check if the user has already liked this comment
     const { data: existingLike, error: checkError } = await supabase
       .from('comment_likes')
       .select('id')
       .eq('comment_id', commentId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
     
-    if (checkError && checkError.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
+    if (checkError) {
       console.error('Error checking comment like:', checkError);
       return false;
     }
     
     if (existingLike) {
+      // User already liked this comment, so remove the like
       const { error: deleteError } = await supabase
         .from('comment_likes')
         .delete()
@@ -208,9 +211,12 @@ export async function likeComment(commentId: string): Promise<boolean> {
         return false;
       }
       
+      // Decrement likes count in the comments table
       const { error: updateError } = await supabase
         .from('comments')
-        .update({ likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) })
+        .update({ 
+          likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) 
+        })
         .eq('id', commentId);
       
       if (updateError) {
@@ -221,6 +227,7 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return true;
     }
     
+    // User hasn't liked this comment yet, so add the like
     const { error: insertError } = await supabase
       .from('comment_likes')
       .insert({
@@ -233,9 +240,12 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return false;
     }
     
+    // Increment likes count in the comments table
     const { error: updateError } = await supabase
       .from('comments')
-      .update({ likes_count: supabase.rpc('increment_counter', { row_id: commentId }) })
+      .update({ 
+        likes_count: supabase.rpc('increment_counter', { row_id: commentId }) 
+      })
       .eq('id', commentId);
     
     if (updateError) {
@@ -264,9 +274,9 @@ export async function checkIfUserLikedComment(commentId: string): Promise<boolea
       .select('id')
       .eq('comment_id', commentId)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
+    if (error) {
       console.error('Error checking if user liked comment:', error);
       return false;
     }

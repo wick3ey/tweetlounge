@@ -38,6 +38,35 @@ export type Database = {
           },
         ]
       }
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
@@ -401,6 +430,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_counter: {
+        Args: {
+          row_id: string
+        }
+        Returns: number
+      }
       get_bookmarked_tweets: {
         Args: {
           p_user_id: string
@@ -677,6 +712,12 @@ export type Database = {
           "": unknown
         }
         Returns: unknown
+      }
+      increment_counter: {
+        Args: {
+          row_id: string
+        }
+        Returns: number
       }
       is_tweet_bookmarked: {
         Args: {
