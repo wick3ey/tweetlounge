@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -194,12 +193,6 @@ const Notifications = () => {
                             </button>
                           </div>
                         </div>
-                        
-                        {notification.type !== 'follow' && (
-                          <div className="text-gray-500 text-sm mt-1">
-                            {/* Removed @username display */}
-                          </div>
-                        )}
                         
                         {renderTweetPreview(notification)}
                         
