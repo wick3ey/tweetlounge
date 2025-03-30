@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TweetWithAuthor, Author } from '@/types/Tweet';
+import { TweetWithAuthor } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
@@ -75,39 +74,6 @@ const TweetPage = () => {
             avatar_nft_chain: tweetData.avatar_nft_chain
           }
         };
-
-        if (tweetData.is_retweet && tweetData.original_tweet_id) {
-          const { data: originalTweetData, error: originalTweetError } = await supabase
-            .from('tweets')
-            .select(`
-              id,
-              author_id,
-              profiles(username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
-            `)
-            .eq('id', tweetData.original_tweet_id)
-            .single();
-
-          if (!originalTweetError && originalTweetData) {
-            // Get the first profile from the profiles array
-            // Since profiles is returned as an array due to the Supabase join
-            const profilesData = originalTweetData.profiles as any[];
-            if (profilesData && profilesData.length > 0) {
-              const originalProfile = profilesData[0];
-              
-              const originalAuthor: Author = {
-                id: originalTweetData.author_id,
-                username: originalProfile.username || '',
-                display_name: originalProfile.display_name || '',
-                avatar_url: originalProfile.avatar_url || '',
-                avatar_nft_id: originalProfile.avatar_nft_id,
-                avatar_nft_chain: originalProfile.avatar_nft_chain
-              };
-              
-              formattedTweet.original_author = originalAuthor;
-              formattedTweet.retweeted_by = formattedTweet.author;
-            }
-          }
-        }
 
         setTweet(formattedTweet);
         
@@ -409,9 +375,7 @@ const TweetPage = () => {
     }
   };
 
-  const displayAuthor = tweet?.is_retweet && tweet?.original_author ? tweet.original_author : tweet?.author;
-  
-  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
+  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
 
   if (loading) {
     return (
@@ -467,20 +431,12 @@ const TweetPage = () => {
       <div className="max-w-[600px] mx-auto">
         <article className="border-b border-gray-800">
           <div className="p-4">
-            {tweet?.is_retweet && tweet?.retweeted_by && (
-              <div className="flex items-center mb-3 text-gray-500 text-sm">
-                <Repeat className="h-4 w-4 mr-1" />
-                <span>Reposted by {tweet.retweeted_by.display_name || tweet.retweeted_by.username}</span>
-              </div>
-            )}
-            
             <div className="flex items-start mb-2">
-              <Link to={`/profile/${displayAuthor?.username}`} className="mr-3 flex-shrink-0">
+              <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
                 <Avatar className="h-12 w-12 rounded-full">
-                  <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.display_name || displayAuthor?.username} />
+                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
                   <AvatarFallback className="bg-gray-800 text-white">
-                    {displayAuthor?.display_name?.charAt(0) || 
-                     displayAuthor?.username?.charAt(0)}
+                    {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </Link>
@@ -489,11 +445,11 @@ const TweetPage = () => {
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex flex-col">
-                      <Link to={`/profile/${displayAuthor?.username}`} className="font-bold text-white hover:underline flex items-center">
-                        {displayAuthor?.display_name}
+                      <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
+                        {tweet.author.display_name}
                         {isNFTVerified && <VerifiedBadge />}
                       </Link>
-                      <span className="text-gray-500 text-sm">@{displayAuthor?.username}</span>
+                      <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
                     </div>
                     
                     <div className="flex items-center">
