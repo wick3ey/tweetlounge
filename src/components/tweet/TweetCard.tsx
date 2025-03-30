@@ -140,11 +140,26 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   
   const isNFTVerified = tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain;
 
+  // Determine if this is a retweet and get the appropriate content
+  const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
+  const isCurrentUserRetweet = user?.id === tweet.author_id && isRetweet;
+
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
+      {isRetweet && (
+        <div className="flex items-center text-gray-500 text-sm mb-2">
+          <Repeat className="h-4 w-4 mr-2" />
+          {isCurrentUserRetweet ? (
+            <span>You reposted</span>
+          ) : (
+            <span>{tweet.author?.display_name} reposted</span>
+          )}
+        </div>
+      )}
+      
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
