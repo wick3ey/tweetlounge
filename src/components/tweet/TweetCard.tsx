@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/badge';
+import ProfileHoverCard from '@/components/profile/ProfileHoverCard';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -347,33 +348,39 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
         <div className="flex space-x-3">
           <div className="flex-shrink-0">
-            <Link to={`/profile/${tweet.original_author.username}`} onClick={(e) => e.stopPropagation()}>
-              <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
-                <AvatarImage 
-                  src={tweet.original_author.avatar_url} 
-                  alt={tweet.original_author.username} 
-                />
-                <AvatarFallback>
-                  {tweet.original_author.username?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
+            <ProfileHoverCard profile={tweet.original_author}>
+              <span onClick={(e) => e.stopPropagation()}>
+                <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                  <AvatarImage 
+                    src={tweet.original_author.avatar_url} 
+                    alt={tweet.original_author.username} 
+                  />
+                  <AvatarFallback>
+                    {tweet.original_author.username?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </span>
+            </ProfileHoverCard>
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex justify-between">
               <div>
                 <div className="flex items-center gap-1">
-                  <Link 
-                    to={`/profile/${tweet.original_author.username}`} 
-                    className="font-medium text-white flex items-center hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {tweet.original_author.display_name}
-                    {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
-                      <VerifiedBadge className="ml-1" />
-                    )}
-                  </Link>
+                  <ProfileHoverCard profile={tweet.original_author} align="start">
+                    <span 
+                      className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateToProfile(e, tweet.original_author.username);
+                      }}
+                    >
+                      {tweet.original_author.display_name}
+                      {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
+                        <VerifiedBadge className="ml-1" />
+                      )}
+                    </span>
+                  </ProfileHoverCard>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">@{tweet.original_author.username}</span>
                   <span className="text-gray-500 mx-1">·</span>
@@ -465,26 +472,34 @@ const TweetCard: React.FC<TweetCardProps> = ({
     >
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
-          <Link to={`/profile/${tweet.author?.username}`} onClick={(e) => e.stopPropagation()}>
-            <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
-              <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-              <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-          </Link>
+          <ProfileHoverCard profile={tweet.author || {}} align="center">
+            <span onClick={(e) => e.stopPropagation()}>
+              <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+                <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </span>
+          </ProfileHoverCard>
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex justify-between">
             <div>
               <div className="flex items-center gap-1">
-                <Link 
-                  to={`/profile/${tweet.author?.username}`} 
-                  className="font-medium text-white flex items-center hover:underline"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {tweet.author?.display_name}
-                  {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && <VerifiedBadge className="ml-1" />}
-                </Link>
+                <ProfileHoverCard profile={tweet.author || {}} align="start">
+                  <span 
+                    className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigateToProfile(e, tweet.author?.username);
+                    }}
+                  >
+                    {tweet.author?.display_name}
+                    {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && (
+                      <VerifiedBadge className="ml-1" />
+                    )}
+                  </span>
+                </ProfileHoverCard>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
