@@ -118,13 +118,16 @@ export const getTweets = async (limit = 10, offset = 0, userId?: string): Promis
           .single();
 
         if (!originalTweetError && originalTweetData) {
+          // Fix: Access profiles object correctly
+          const profileData = originalTweetData.profiles || {};
+          
           transformedTweet.original_author = {
-            id: originalTweetData.profiles.id,
-            username: originalTweetData.profiles.username,
-            display_name: originalTweetData.profiles.display_name,
-            avatar_url: originalTweetData.profiles.avatar_url,
-            avatar_nft_id: originalTweetData.profiles.avatar_nft_id,
-            avatar_nft_chain: originalTweetData.profiles.avatar_nft_chain
+            id: profileData.id || '',
+            username: profileData.username || '',
+            display_name: profileData.display_name || '',
+            avatar_url: profileData.avatar_url || '',
+            avatar_nft_id: profileData.avatar_nft_id || null,
+            avatar_nft_chain: profileData.avatar_nft_chain || null
           };
           
           // Use content and image from the original tweet
@@ -187,6 +190,9 @@ export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | n
       return null;
     }
 
+    // Fix: Access profiles object correctly
+    const profileData = data.profiles || {};
+    
     // Transform data to match the TweetWithAuthor type
     const transformedTweet: TweetWithAuthor = {
       id: data.id,
@@ -200,12 +206,12 @@ export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | n
       original_tweet_id: data.original_tweet_id,
       image_url: data.image_url,
       author: {
-        id: data.profiles?.id || data.author_id,
-        username: data.profiles?.username || '',
-        display_name: data.profiles?.display_name || '',
-        avatar_url: data.profiles?.avatar_url || '',
-        avatar_nft_id: data.profiles?.avatar_nft_id,
-        avatar_nft_chain: data.profiles?.avatar_nft_chain
+        id: profileData.id || data.author_id,
+        username: profileData.username || '',
+        display_name: profileData.display_name || '',
+        avatar_url: profileData.avatar_url || '',
+        avatar_nft_id: profileData.avatar_nft_id,
+        avatar_nft_chain: profileData.avatar_nft_chain
       }
     };
 
@@ -650,13 +656,16 @@ export const getUserRetweets = async (userId: string): Promise<TweetWithAuthor[]
           .single();
 
         if (!originalTweetError && originalTweetData) {
+          // Fix: Access profiles object correctly
+          const profileData = originalTweetData.profiles || {};
+          
           transformedTweet.original_author = {
-            id: originalTweetData.profiles.id,
-            username: originalTweetData.profiles.username,
-            display_name: originalTweetData.profiles.display_name,
-            avatar_url: originalTweetData.profiles.avatar_url,
-            avatar_nft_id: originalTweetData.profiles.avatar_nft_id,
-            avatar_nft_chain: originalTweetData.profiles.avatar_nft_chain
+            id: profileData.id || '',
+            username: profileData.username || '',
+            display_name: profileData.display_name || '',
+            avatar_url: profileData.avatar_url || '',
+            avatar_nft_id: profileData.avatar_nft_id || null,
+            avatar_nft_chain: profileData.avatar_nft_chain || null
           };
           
           transformedTweet.content = originalTweetData.content;
