@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -55,8 +54,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         table: 'comments'
       }, (payload) => {
         console.log('Realtime update on comments:', payload);
-        if (payload.new) {
-          const commentedTweetId = payload.new.tweet_id;
+        // Type guard to ensure payload.new exists and has a tweet_id property
+        if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
+          const commentedTweetId = payload.new.tweet_id as string;
           updateTweetCommentCount(commentedTweetId).then(() => {
             // After updating the database, refresh the tweet UI
             updateTweetCommentCountInUI(commentedTweetId);
@@ -143,7 +143,36 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
-      const validTweets = fetchedTweets.filter(tweet => {
+      // Ensure all tweets have the correct replies_count by fetching fresh data from database
+      const updatedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+        try {
+          // Get the accurate comment count for each tweet
+          const { count, error } = await supabase
+            .from('comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('tweet_id', tweet.id);
+          
+          // Update the tweet's replies_count with the accurate count
+          const commentCount = typeof count === 'number' ? count : 0;
+          
+          // Update the database to ensure consistency
+          await supabase
+            .from('tweets')
+            .update({ replies_count: commentCount })
+            .eq('id', tweet.id);
+          
+          // Return the tweet with updated replies_count
+          return {
+            ...tweet,
+            replies_count: commentCount
+          };
+        } catch (err) {
+          console.error(`Error updating count for tweet ${tweet.id}:`, err);
+          return tweet;
+        }
+      }));
+      
+      const validTweets = updatedTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
           const tweetId = getSafeTweetId(tweet);
           console.error('Filtered out invalid tweet:', tweetId);
@@ -208,6 +237,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         }
         return true;
       });
+      
+      // Log the final tweets with their comment counts for debugging
+      console.log('Final tweets with comment counts:', finalTweets.map(t => ({ id: t.id, replies: t.replies_count })));
       
       setTweets(finalTweets);
     } catch (err) {

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
@@ -100,7 +99,6 @@ export async function createComment(tweetId: string, content: string, parentComm
       throw error;
     }
 
-    // Force update the tweet's replies_count accurately
     await updateTweetCommentCount(tweetId);
 
     if (!parentCommentId) {
@@ -161,20 +159,16 @@ export async function createComment(tweetId: string, content: string, parentComm
   }
 }
 
-// New separate function to update tweet comment count
 export async function updateTweetCommentCount(tweetId: string): Promise<boolean> {
   try {
-    // Get accurate count using count query
     const { count, error: countError } = await supabase
       .from('comments')
       .select('id', { count: 'exact', head: true })
       .eq('tweet_id', tweetId);
     
-    // Ensure count is a number
     const commentCount = typeof count === 'number' ? count : 0;
     console.log(`Tweet ${tweetId} has ${commentCount} comments - updating in database`);
       
-    // Update the tweet with the new count
     const { error: updateError } = await supabase
       .from('tweets')
       .update({ replies_count: commentCount })

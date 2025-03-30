@@ -21,19 +21,25 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     if (tweetId) {
       fetchComments();
       
-      // Setup realtime subscription for comments
+      // Setup realtime subscription for comments with improved channel name
       const channel = supabase
-        .channel(`comments_for_tweet_${tweetId}`)
+        .channel(`comments_for_tweet_${tweetId}_list`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
           table: 'comments',
           filter: `tweet_id=eq.${tweetId}`
         }, (payload) => {
-          console.log('Realtime comment update:', payload);
+          console.log('CommentList detected realtime comment update:', payload);
           fetchComments();
-          // Always update the tweet count in the database when comments change
-          updateTweetCommentCount(tweetId);
+          
+          // Always update the tweet count in the database and notify parent components
+          updateTweetCommentCount(tweetId).then((success) => {
+            console.log(`CommentList: updated tweet ${tweetId} comment count in database: ${success}`);
+            
+            // Also force refresh the comments count in the UI immediately
+            getExactCommentCount();
+          });
         })
         .subscribe();
         
@@ -42,6 +48,34 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       };
     }
   }, [tweetId]);
+
+  const getExactCommentCount = async () => {
+    if (!tweetId) return;
+    
+    try {
+      // Get the TOTAL count of ALL comments for this tweet (including replies)
+      const { count, error: countError } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+        
+      if (countError) {
+        console.error('Error counting comments:', countError);
+      } else {
+        // Ensure count is always a number
+        const commentCount = typeof count === 'number' ? count : 0;
+        console.log(`Tweet ${tweetId} has ${commentCount} total comments (from CommentList)`);
+        setTotalComments(commentCount);
+        
+        // Notify parent component about the updated comment count
+        if (onCommentCountUpdated) {
+          onCommentCountUpdated(commentCount);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get exact comment count:', err);
+    }
+  };
 
   const fetchComments = async () => {
     if (!tweetId) return;
@@ -76,28 +110,11 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         return;
       }
       
-      // Get the TOTAL count of ALL comments for this tweet (including replies)
-      const { count, error: countError } = await supabase
-        .from('comments')
-        .select('id', { count: 'exact', head: true })
-        .eq('tweet_id', tweetId);
-        
-      if (countError) {
-        console.error('Error counting comments:', countError);
-      } else {
-        // Ensure count is always a number
-        const commentCount = typeof count === 'number' ? count : 0;
-        console.log(`Tweet ${tweetId} has ${commentCount} total comments`);
-        setTotalComments(commentCount);
-        
-        // Notify parent component about the updated comment count
-        if (onCommentCountUpdated) {
-          onCommentCountUpdated(commentCount);
-        }
-        
-        // Always update the tweet's replies_count in the database
-        await updateTweetCommentCount(tweetId);
-      }
+      // Get exact comment count
+      await getExactCommentCount();
+      
+      // Always update the tweet's replies_count in the database for consistency
+      await updateTweetCommentCount(tweetId);
       
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({

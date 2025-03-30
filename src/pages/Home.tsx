@@ -16,6 +16,7 @@ import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
+import { updateTweetCommentCount } from '@/services/commentService'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -25,21 +26,54 @@ const Home: React.FC = () => {
 
   // Listen for realtime comment updates to refresh the feed
   useEffect(() => {
-    // Setup realtime subscription for comments
+    // Setup realtime subscription for comments with improved error handling
     const channel = supabase
-      .channel('public:comments')
+      .channel('public:comments:home')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'comments'
       }, (payload) => {
         console.log('Home page detected comment change:', payload);
-        handleRefresh();
+        
+        // Check if payload.new exists and has a tweet_id property
+        if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
+          const tweetId = payload.new.tweet_id as string;
+          console.log(`Updating comment count for tweet ${tweetId} in Home page`);
+          
+          // First update the count in the database
+          updateTweetCommentCount(tweetId).then(() => {
+            // Then force a refresh of the feed to show the updated count
+            handleRefresh();
+          });
+        } else {
+          // If we can't get the tweet_id, refresh the whole feed anyway
+          handleRefresh();
+        }
       })
       .subscribe();
       
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Also listen for changes to the tweets table to refresh the feed
+  useEffect(() => {
+    const tweetsChannel = supabase
+      .channel('public:tweets:home')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweets'
+      }, (payload) => {
+        console.log('Home page detected tweet change:', payload);
+        handleRefresh();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(tweetsChannel);
     };
   }, []);
 
@@ -77,7 +111,7 @@ const Home: React.FC = () => {
 
   const handleRefresh = () => {
     // Update feed by incrementing key
-    console.log('Manually refreshing feed');
+    console.log('Manually refreshing feed in Home component');
     setFeedKey(prevKey => prevKey + 1);
   };
 
@@ -134,7 +168,7 @@ const Home: React.FC = () => {
         <RightSidebar />
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;
