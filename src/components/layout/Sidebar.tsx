@@ -14,7 +14,7 @@ const Sidebar: React.FC = () => {
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Explore', path: '/explore' },
     { icon: Hash, label: 'Trends', path: '/trends' },
-    { icon: BarChart2, label: 'Markets', path: '/market' },
+    { icon: BarChart2, label: 'Market', path: '/market' },
     { icon: Bell, label: 'Notifications', path: '/notifications' },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
