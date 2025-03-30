@@ -7,8 +7,12 @@ import Layout from '@/components/layout/Layout';
 import TweetDetail from '@/components/tweet/TweetDetail';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, Calendar, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { formatDistanceToNow, format } from 'date-fns';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link } from 'react-router-dom';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -125,12 +129,42 @@ const TweetPage = () => {
     navigate(-1); // Go back to the previous page
   };
 
+  const getFormattedDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return format(date, "h:mm a · MMM d, yyyy");
+    } catch (e) {
+      return "Unknown date";
+    }
+  };
+
+  const handleShareTweet = () => {
+    if (navigator.share && tweet) {
+      navigator.share({
+        title: `Tweet by ${tweet.author.display_name}`,
+        text: tweet.content,
+        url: window.location.href
+      }).catch((error) => {
+        console.error('Error sharing:', error);
+      });
+    } else {
+      // Fallback for browsers that don't support navigator.share
+      navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link Copied",
+        description: "Tweet link copied to clipboard",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
-          <span className="ml-2 text-gray-400">Loading tweet...</span>
+        <div className="min-h-screen flex justify-center items-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-crypto-blue mx-auto mb-4" />
+            <p className="text-crypto-lightgray">Loading tweet...</p>
+          </div>
         </div>
       </Layout>
     );
@@ -139,14 +173,19 @@ const TweetPage = () => {
   if (error || !tweet) {
     return (
       <Layout>
-        <div className="p-6 text-center">
-          <p className="text-red-500 mb-4">{error || 'Tweet not found'}</p>
-          <Button 
-            onClick={handleBack}
-            className="bg-crypto-blue text-white px-4 py-2 rounded-full hover:bg-crypto-blue/80"
-          >
-            Go Back
-          </Button>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center p-6">
+          <div className="glass-card p-8 max-w-md w-full text-center">
+            <div className="text-red-500 text-6xl mb-4">😕</div>
+            <h2 className="text-xl font-bold mb-4">{error || 'Tweet not found'}</h2>
+            <p className="text-crypto-lightgray mb-6">The tweet you're looking for doesn't exist or has been deleted.</p>
+            <Button 
+              onClick={handleBack}
+              className="bg-crypto-blue text-white hover:bg-crypto-blue/80 transition-all"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
         </div>
       </Layout>
     );
@@ -154,22 +193,92 @@ const TweetPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
-        <div className="sticky top-0 z-10 backdrop-blur-md bg-black/80 border-b border-gray-800 p-4">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleBack}
-              className="rounded-full hover:bg-gray-800"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-bold">Tweet</h1>
+      {/* Header */}
+      <div className="sticky top-0 z-10 backdrop-blur-md bg-black/90 border-b border-gray-800">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBack}
+            className="rounded-full hover:bg-gray-800 mr-4"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-bold">Tweet</h1>
+        </div>
+      </div>
+      
+      <div className="max-w-3xl mx-auto">
+        {/* Tweet Card */}
+        <div className="border-b border-gray-800">
+          {/* Author Info */}
+          <div className="p-4">
+            <div className="flex items-start mb-3">
+              <Link to={`/profile/${tweet.author.username}`} className="mr-3">
+                <Avatar className="h-12 w-12 rounded-full border border-gray-700 hover:border-crypto-blue transition-colors">
+                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.username} />
+                  <AvatarFallback className="bg-crypto-darkgray text-crypto-blue">
+                    {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+              <div className="flex-1">
+                <Link to={`/profile/${tweet.author.username}`} className="block hover:underline">
+                  <h2 className="font-bold text-white">{tweet.author.display_name}</h2>
+                  <p className="text-gray-500">@{tweet.author.username}</p>
+                </Link>
+              </div>
+              
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleShareTweet}
+                className="rounded-full hover:bg-gray-800/60"
+              >
+                <Share className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            {/* Tweet Content */}
+            <div className="mb-4">
+              <p className="text-xl whitespace-pre-wrap mb-4">{tweet.content}</p>
+              
+              {tweet.image_url && (
+                <div className="mt-3 mb-4">
+                  <img 
+                    src={tweet.image_url} 
+                    alt="Tweet attachment" 
+                    className="rounded-xl max-h-[500px] w-full object-cover border border-gray-800" 
+                  />
+                </div>
+              )}
+              
+              <div className="flex items-center text-gray-500 mt-4 text-sm">
+                <Calendar className="h-4 w-4 mr-2" />
+                <span>{getFormattedDate(tweet.created_at)}</span>
+              </div>
+            </div>
+            
+            {/* Tweet Stats */}
+            <div className="flex py-3 border-y border-gray-800 my-3">
+              <div className="flex-1 text-center">
+                <span className="text-white font-bold">{tweet.retweets_count || 0}</span>
+                <span className="text-gray-500 ml-1">Retweets</span>
+              </div>
+              <div className="flex-1 text-center">
+                <span className="text-white font-bold">{tweet.likes_count || 0}</span>
+                <span className="text-gray-500 ml-1">Likes</span>
+              </div>
+              <div className="flex-1 text-center">
+                <span className="text-white font-bold">{tweet.replies_count || 0}</span>
+                <span className="text-gray-500 ml-1">Comments</span>
+              </div>
+            </div>
           </div>
         </div>
         
-        <div className="mt-2">
+        {/* Tweet Detail Section with Comments */}
+        <div className="bg-black rounded-b-lg">
           <TweetDetail 
             tweet={tweet} 
             onClose={() => {}} // No-op since we're on the dedicated page
