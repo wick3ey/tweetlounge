@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
@@ -6,11 +7,13 @@ import { useNewsData, formatNewsDate, type NewsArticle } from '@/utils/newsServi
 import { AlertTriangle, ExternalLink, Loader2, Newspaper, TrendingUp, Tag, Clock, RotateCw, MessageSquare, Calendar, ThumbsUp, ThumbsDown, Star } from 'lucide-react';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 
+// Enhanced news item component with animations and interactive elements
 const NewsItem: React.FC<{ 
   article: NewsArticle; 
   expanded: boolean; 
@@ -20,6 +23,7 @@ const NewsItem: React.FC<{
   const formattedDate = formatNewsDate(article.published_at);
   const [isHovered, setIsHovered] = useState(false);
   
+  // Dynamic badge color based on currency
   const getCurrencyColor = (code: string) => {
     switch(code) {
       case 'BTC': return 'bg-amber-500/20 text-amber-400'; 
@@ -163,6 +167,7 @@ const NewsItem: React.FC<{
   );
 };
 
+// Loading skeleton for news items
 const NewsItemSkeleton: React.FC = () => (
   <div className="p-4 border-b border-crypto-gray">
     <div className="flex justify-between items-start">
@@ -201,6 +206,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
   const [expandedArticleId, setExpandedArticleId] = useState<number | null>(null);
   const [highlightColor, setHighlightColor] = useState('#1d9bf0'); // crypto-blue by default
   
+  // Array of highlight colors to cycle through
   const highlightColors = [
     '#1d9bf0', // crypto-blue
     '#8b5cf6', // purple
@@ -211,6 +217,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
     '#ec4899', // pink
   ];
   
+  // Cycle through highlight colors on interval
   useEffect(() => {
     if (!compact) {
       const intervalId = setInterval(() => {
@@ -225,6 +232,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
     }
   }, [compact]);
   
+  // Display error toast if needed
   useEffect(() => {
     if (error) {
       toast({
@@ -235,6 +243,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
     }
   }, [error]);
   
+  // Notify when new content is available
   useEffect(() => {
     if (isRefreshing) {
       toast({
@@ -261,8 +270,6 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
   const toggleExpandArticle = (articleId: number) => {
     setExpandedArticleId(expandedArticleId === articleId ? null : articleId);
   };
-
-  const displayCount = compact ? 4 : Math.max(10, newsArticles.length);
 
   return (
     <Card 
@@ -331,10 +338,12 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
         ) : (
           <div className={compact ? "max-h-[300px] overflow-auto" : "max-h-none"}>
             {loading ? (
+              // Loading skeletons
               Array(compact ? 3 : 5).fill(0).map((_, index) => (
                 <NewsItemSkeleton key={index} />
               ))
             ) : newsArticles.length === 0 ? (
+              // Empty state
               <div className="p-6 text-center">
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
@@ -347,9 +356,10 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
                 <p className="text-xs text-crypto-lightgray/70 mb-3">We'll display news as soon as they're published</p>
               </div>
             ) : (
+              // Articles - Display in a grid for non-compact view
               <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
                 <AnimatePresence>
-                  {newsArticles.slice(0, displayCount).map((article) => (
+                  {newsArticles.slice(0, compact ? 4 : newsArticles.length).map((article) => (
                     <NewsItem 
                       key={article.id} 
                       article={article} 
