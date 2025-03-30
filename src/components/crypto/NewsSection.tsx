@@ -263,6 +263,8 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
     setExpandedArticleId(expandedArticleId === articleId ? null : articleId);
   };
 
+  const articlesToDisplay = compact ? 8 : 12;
+
   return (
     <Card 
       className={`crypto-news-card border-crypto-gray shadow-md overflow-hidden bg-gradient-to-br from-black to-gray-900 ${compact ? "" : "w-full"}`}
@@ -328,10 +330,10 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
             </AlertDescription>
           </Alert>
         ) : (
-          <ScrollArea className={`${compact ? "max-h-[500px]" : "max-h-[700px]"} w-full`}>
+          <ScrollArea className={`${compact ? "max-h-[650px]" : "max-h-[800px]"} w-full`}>
             <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
               <AnimatePresence>
-                {newsArticles.slice(0, compact ? 4 : 12).map((article) => (
+                {newsArticles.slice(0, articlesToDisplay).map((article) => (
                   <NewsItem 
                     key={article.id} 
                     article={article} 
