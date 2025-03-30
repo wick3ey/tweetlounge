@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Loader, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
+import { ErrorDialog } from '@/components/ui/error-dialog';
 
 const SignupForm = () => {
   const [email, setEmail] = useState('');
@@ -21,8 +21,9 @@ const SignupForm = () => {
   
   const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | 'checking' | 'initial'>('initial');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogMessage, setErrorDialogMessage] = useState('');
 
-  // Check if username is available
   const checkUsernameAvailability = async (username: string) => {
     if (!username) {
       setUsernameStatus('initial');
@@ -33,7 +34,6 @@ const SignupForm = () => {
       setIsCheckingUsername(true);
       setUsernameStatus('checking');
       
-      // Look for other profiles with this username
       const { data, error } = await supabase
         .from('profiles')
         .select('id')
@@ -42,18 +42,15 @@ const SignupForm = () => {
       
       if (error) throw error;
       
-      // If data exists, username is taken
       setUsernameStatus(data ? 'taken' : 'available');
     } catch (err) {
       console.error('Error checking username:', err);
-      // Set status back to initial on error
       setUsernameStatus('initial');
     } finally {
       setIsCheckingUsername(false);
     }
   };
 
-  // Debounce the username check
   useEffect(() => {
     const timer = setTimeout(() => {
       if (username) {
@@ -69,44 +66,47 @@ const SignupForm = () => {
     setIsLoading(true);
     setErrorMessage(null);
     
-    // Prevent submission if username is taken
     if (usernameStatus === 'taken') {
-      setErrorMessage('Username is already taken. Please choose another.');
+      setErrorDialogMessage('Username is already taken. Please choose another.');
+      setShowErrorDialog(true);
       setIsLoading(false);
       return;
     }
     
-    // Prevent submission while checking username
     if (usernameStatus === 'checking') {
       setErrorMessage('Please wait while we check if the username is available.');
       setIsLoading(false);
       return;
     }
     
-    // Check if username is valid
     if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-      setErrorMessage('Username can only contain letters, numbers, and underscores.');
+      setErrorDialogMessage('Username can only contain letters, numbers, and underscores.');
+      setShowErrorDialog(true);
       setIsLoading(false);
       return;
     }
     
     try {
-      // Create user account
       const { error } = await signUp(email, password, { username });
       
       if (error) {
         console.error('Signup error:', error);
-        setErrorMessage(error.message || 'An error occurred during signup');
+        
+        if (error.message && error.message.includes('username is already taken')) {
+          setErrorDialogMessage(error.message);
+          setShowErrorDialog(true);
+        } else {
+          setErrorMessage(error.message || 'An error occurred during signup');
+        }
       } else {
-        // Show success message since email verification might be required
         setErrorMessage('Signup successful! Please check your email for verification instructions.');
       }
     } catch (error: any) {
       console.error('Signup error:', error);
       
-      // Handle the constraint violation error specifically
       if (error.message && error.message.includes('profiles_username_unique')) {
-        setErrorMessage('This username is already taken by another user. Please choose a different username.');
+        setErrorDialogMessage('This username is already taken by another user. Please choose a different username.');
+        setShowErrorDialog(true);
       } else {
         setErrorMessage(error.message || 'An error occurred during signup');
       }
@@ -239,6 +239,13 @@ const SignupForm = () => {
             {isLoading ? 'Creating Account...' : 'Create Account with Email'}
           </Button>
         </form>
+        
+        <ErrorDialog 
+          open={showErrorDialog}
+          onOpenChange={setShowErrorDialog}
+          title="Username Error"
+          description={errorDialogMessage}
+        />
       </CardContent>
       <CardFooter className="flex justify-center">
         <Button variant="link" onClick={() => navigate('/login')}>

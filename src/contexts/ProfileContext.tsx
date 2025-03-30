@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Database } from '@/integrations/supabase/types';
+import { useToast } from '@/components/ui/use-toast';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type ProfileUpdatePayload = Omit<Profile, 'id' | 'created_at'>;
@@ -22,6 +23,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<ProfileUpdatePayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchProfile = async () => {
     try {
@@ -96,9 +98,25 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         .update(updatedProfile)
         .eq('id', user.id);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        if (updateError.message && updateError.message.includes('profiles_username_unique')) {
+          const errorMessage = 'This username is already taken. Please choose a different username.';
+          toast({
+            title: 'Username already taken',
+            description: 'This username is already taken. Please choose a different username.',
+            variant: 'destructive',
+          });
+          throw new Error(errorMessage);
+        }
+        throw updateError;
+      }
       
       setProfile(prev => prev ? { ...prev, ...updatedProfile } : null);
+      
+      toast({
+        title: 'Profile updated',
+        description: 'Your profile has been successfully updated.',
+      });
     } catch (error) {
       console.error('Error updating profile:', error);
       setError(error.message);

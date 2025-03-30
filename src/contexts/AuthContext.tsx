@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -74,6 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     } catch (error) {
       console.error('Error signing up:', error);
+      
+      // Improved error handling for username conflicts
+      if (error.message && error.message.includes('profiles_username_unique')) {
+        toast({
+          title: 'Username already taken',
+          description: 'Please choose a different username.',
+          variant: 'destructive',
+        });
+        return { error: { message: 'This username is already taken. Please choose a different username.' } };
+      }
+      
       return { error };
     }
   };

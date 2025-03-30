@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -13,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CryptoButton } from '@/components/ui/crypto-button';
+import { ErrorDialog } from '@/components/ui/error-dialog';
 
 const ProfileForm = () => {
   const { user } = useAuth();
@@ -25,6 +25,8 @@ const ProfileForm = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [usernameStatus, setUsernameStatus] = useState<'available' | 'taken' | 'checking' | 'initial'>('initial');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogMessage, setErrorDialogMessage] = useState('');
   
   const [localProfile, setLocalProfile] = useState({
     username: '',
@@ -32,7 +34,6 @@ const ProfileForm = () => {
     bio: '',
   });
 
-  // Update local form state when profile data loads
   useEffect(() => {
     if (profile) {
       setLocalProfile({
@@ -43,14 +44,12 @@ const ProfileForm = () => {
     }
   }, [profile]);
 
-  // Check if username is available
   const checkUsernameAvailability = async (username: string) => {
     if (!username) {
       setUsernameStatus('initial');
       return;
     }
 
-    // Don't check if the username hasn't changed from the current profile
     if (profile?.username === username) {
       setUsernameStatus('available');
       return;
@@ -60,7 +59,6 @@ const ProfileForm = () => {
       setIsCheckingUsername(true);
       setUsernameStatus('checking');
       
-      // Look for other profiles with this username
       const { data, error } = await supabase
         .from('profiles')
         .select('id')
@@ -70,18 +68,15 @@ const ProfileForm = () => {
       
       if (error) throw error;
       
-      // If data exists, username is taken
       setUsernameStatus(data ? 'taken' : 'available');
     } catch (err) {
       console.error('Error checking username:', err);
-      // Set status back to initial on error
       setUsernameStatus('initial');
     } finally {
       setIsCheckingUsername(false);
     }
   };
 
-  // Debounce the username check
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localProfile.username) {
@@ -97,15 +92,15 @@ const ProfileForm = () => {
     
     if (!user) return;
     
-    // Prevent submission if username is taken
     if (usernameStatus === 'taken') {
-      setError('Username is already taken. Please choose another.');
+      setErrorDialogMessage('Username is already taken. Please choose another.');
+      setShowErrorDialog(true);
       return;
     }
     
-    // Prevent submission while checking username
     if (usernameStatus === 'checking') {
-      setError('Please wait while we check if the username is available.');
+      setErrorDialogMessage('Please wait while we check if the username is available.');
+      setShowErrorDialog(true);
       return;
     }
     
@@ -121,25 +116,15 @@ const ProfileForm = () => {
       });
       
       setSuccess('Profile updated successfully');
-      toast({
-        title: 'Profile updated',
-        description: 'Your profile has been successfully updated.',
-      });
     } catch (error: any) {
       console.error('Error updating profile:', error);
       
-      // Handle the constraint violation error specifically
-      if (error.message && error.message.includes('profiles_username_unique')) {
-        setError('This username is already taken by another user. Please choose a different username.');
+      if (error.message && error.message.includes('username is already taken')) {
+        setErrorDialogMessage('This username is already taken by another user. Please choose a different username.');
+        setShowErrorDialog(true);
       } else {
         setError('Error updating profile: ' + error.message);
       }
-      
-      toast({
-        title: 'Error updating profile',
-        description: error.message,
-        variant: 'destructive',
-      });
     } finally {
       setSaving(false);
     }
@@ -165,7 +150,6 @@ const ProfileForm = () => {
       
       console.log('Uploading avatar to storage:', filePath);
       
-      // Upload the file to Supabase Storage
       const { data, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
@@ -175,12 +159,10 @@ const ProfileForm = () => {
         throw uploadError;
       }
       
-      // Get the public URL
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
       
-      // Update the profile with the new avatar URL
       await updateProfile({ 
         avatar_url: urlData.publicUrl
       });
@@ -249,6 +231,13 @@ const ProfileForm = () => {
             <AlertDescription className="text-crypto-green">{success}</AlertDescription>
           </Alert>
         )}
+        
+        <ErrorDialog 
+          open={showErrorDialog}
+          onOpenChange={setShowErrorDialog}
+          title="Username Error"
+          description={errorDialogMessage}
+        />
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex items-center gap-6">
