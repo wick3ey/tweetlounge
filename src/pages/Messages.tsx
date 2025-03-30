@@ -16,15 +16,26 @@ const Messages: React.FC = () => {
   const isMobile = useIsMobile();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(conversationId || null);
 
+  // Set selected conversation when route parameter changes
+  useEffect(() => {
+    if (conversationId) {
+      setSelectedConversationId(conversationId);
+    }
+  }, [conversationId]);
+
   // For mobile: If we have conversations but none selected, redirect to first one
   useEffect(() => {
     if (isMobile && !selectedConversationId && !loading && conversations.length > 0) {
       setSelectedConversationId(conversations[0].id);
+      navigate(`/messages/${conversations[0].id}`);
     }
-  }, [isMobile, selectedConversationId, loading, conversations]);
+  }, [isMobile, selectedConversationId, loading, conversations, navigate]);
 
   const handleSelectConversation = (id: string) => {
     setSelectedConversationId(id);
+    if (isMobile) {
+      navigate(`/messages/${id}`);
+    }
   };
 
   return (

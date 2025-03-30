@@ -15,6 +15,7 @@ interface Conversation {
   other_user_avatar: string | null;
   other_user_avatar_nft_id: string | null;
   other_user_avatar_nft_chain: string | null;
+  other_user_bio: string | null;
   sender_id: string | null;
 }
 
@@ -73,7 +74,6 @@ export const useRealtimeConversations = () => {
         const enhancedConversations = await Promise.all(
           conversationsData.map(async (conversation) => {
             // Get the other participant in this conversation
-            // Using SELECT * instead of user_id and adding .single() at the end to get a single result
             const { data: otherParticipants, error: participantError } = await supabase
               .from('conversation_participants')
               .select('*')
@@ -96,7 +96,7 @@ export const useRealtimeConversations = () => {
             // Get profile of the other participant
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
-              .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+              .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain, bio')
               .eq('id', otherParticipant.user_id)
               .single();
               
@@ -144,7 +144,8 @@ export const useRealtimeConversations = () => {
               other_user_display_name: profileData?.display_name || null,
               other_user_avatar: profileData?.avatar_url || null,
               other_user_avatar_nft_id: profileData?.avatar_nft_id || null,
-              other_user_avatar_nft_chain: profileData?.avatar_nft_chain || null
+              other_user_avatar_nft_chain: profileData?.avatar_nft_chain || null,
+              other_user_bio: profileData?.bio || null
             };
           })
         );

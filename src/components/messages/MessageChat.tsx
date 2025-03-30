@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -39,6 +40,7 @@ import { format } from 'date-fns';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/lib/supabase';
 
 interface MessageChatProps {
   conversationId: string;
@@ -50,6 +52,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [otherUserProfile, setOtherUserProfile] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
@@ -68,6 +71,42 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
     username: otherParticipant.sender_username,
     avatar: otherParticipant.sender_avatar,
   } : null;
+
+  useEffect(() => {
+    const fetchOtherUserProfile = async () => {
+      if (!conversationId || !user) return;
+      
+      try {
+        // Find the other user in this conversation
+        const { data: participants, error: participantsError } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', user.id);
+          
+        if (participantsError) throw participantsError;
+        
+        if (!participants || participants.length === 0) return;
+        
+        const otherUserId = participants[0].user_id;
+        
+        // Get their profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, bio, avatar_nft_id, avatar_nft_chain')
+          .eq('id', otherUserId)
+          .single();
+          
+        if (profileError) throw profileError;
+        
+        setOtherUserProfile(profile);
+      } catch (error) {
+        console.error('Error fetching other user profile:', error);
+      }
+    };
+    
+    fetchOtherUserProfile();
+  }, [conversationId, user]);
 
   const formatMessageTime = (timestamp: string) => {
     return format(new Date(timestamp), 'h:mm a');
@@ -259,7 +298,36 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
             </Button>
           )}
           
-          {otherUserInfo && (
+          {otherUserProfile && (
+            <Link to={`/profile/${otherUserProfile.username}`} className="flex items-center hover:opacity-80 transition-opacity">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={otherUserProfile.avatar_url || ''} />
+                <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                  {otherUserProfile.display_name?.[0] || otherUserProfile.username?.[0] || '?'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="ml-3">
+                <div className="flex items-center">
+                  <h2 className="font-bold text-lg">
+                    {otherUserProfile.display_name || otherUserProfile.username || 'Unknown User'}
+                  </h2>
+                  {otherUserProfile.avatar_nft_id && (
+                    <VerifiedBadge className="ml-1" />
+                  )}
+                </div>
+                <div className="text-sm text-crypto-lightgray">
+                  @{otherUserProfile.username || 'anonymous'}
+                </div>
+                {otherUserProfile.bio && (
+                  <div className="text-sm text-crypto-lightgray mt-1 max-w-sm line-clamp-1">
+                    {otherUserProfile.bio}
+                  </div>
+                )}
+              </div>
+            </Link>
+          )}
+
+          {!otherUserProfile && otherUserInfo && (
             <Link to={`/profile/${otherUserInfo.id}`} className="flex items-center hover:opacity-80 transition-opacity">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={otherUserInfo.avatar || ''} />
@@ -272,9 +340,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
                   <h2 className="font-bold text-lg">
                     {otherUserInfo.name || 'Unknown User'}
                   </h2>
-                  {otherUserInfo.id && (
-                    <VerifiedBadge className="ml-1" />
-                  )}
                 </div>
                 <div className="text-sm text-crypto-lightgray">
                   @{otherUserInfo.username || 'anonymous'}
@@ -381,7 +446,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
           </div>
           <h3 className="text-xl font-semibold mb-2">Start the conversation</h3>
           <p className="text-center mb-6">
-            Say hello to {otherUserInfo?.name || 'your friend'}!
+            Say hello to {otherUserProfile?.display_name || otherUserInfo?.name || 'your friend'}!
           </p>
         </div>
       )}
@@ -499,7 +564,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
           </Button>
           
           <Input 
-            placeholder={`Message ${otherUserInfo?.name || ''}...`}
+            placeholder={`Message ${otherUserProfile?.display_name || otherUserInfo?.name || ''}...`}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
