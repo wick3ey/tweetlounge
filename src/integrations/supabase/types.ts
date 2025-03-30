@@ -381,6 +381,7 @@ export type Database = {
       tweets: {
         Row: {
           author_id: string
+          bookmarks_count: number | null
           content: string
           created_at: string
           id: string
@@ -393,6 +394,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          bookmarks_count?: number | null
           content: string
           created_at?: string
           id?: string
@@ -405,6 +407,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          bookmarks_count?: number | null
           content?: string
           created_at?: string
           id?: string
