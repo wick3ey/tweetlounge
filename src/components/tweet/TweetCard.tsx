@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -106,6 +105,13 @@ const TweetCard: React.FC<TweetCardProps> = ({
       navigate(`/tweet/${tweet.original_tweet_id}`);
     } else {
       navigate(`/tweet/${tweet.id}`);
+    }
+  };
+
+  const navigateToProfile = (e: React.MouseEvent, username?: string) => {
+    e.stopPropagation();
+    if (username) {
+      navigate(`/profile/${username}`);
     }
   };
 
@@ -298,13 +304,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     }
   };
 
-  const navigateToProfile = (e: React.MouseEvent, username?: string) => {
-    e.stopPropagation();
-    if (username) {
-      navigate(`/profile/${username}`);
-    }
-  };
-
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
   // Special handling for retweets
@@ -315,7 +314,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
           <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
             <Repeat className="h-4 w-4 mr-1" />
             <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-              <span className="hover:underline cursor-pointer">{tweet.author?.display_name || 'User'} reposted</span>
+              <span 
+                className="hover:underline cursor-pointer"
+                onClick={(e) => navigateToProfile(e, tweet.author?.username)}
+              >
+                {tweet.author?.display_name || 'User'} reposted
+              </span>
             </ProfileHoverCard>
           </div>
           <div className="bg-gray-900/20 p-3 rounded-md">
@@ -336,14 +340,22 @@ const TweetCard: React.FC<TweetCardProps> = ({
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
           <Repeat className="h-4 w-4 mr-1" />
           <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-            <span className="hover:underline cursor-pointer">{tweet.author?.display_name || 'User'} reposted</span>
+            <span 
+              className="hover:underline cursor-pointer"
+              onClick={(e) => navigateToProfile(e, tweet.author?.username)}
+            >
+              {tweet.author?.display_name || 'User'} reposted
+            </span>
           </ProfileHoverCard>
         </div>
 
         <div className="flex space-x-3">
           <div className="flex-shrink-0">
             <ProfileHoverCard username={tweet.original_author.username} direction="right">
-              <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+              <Avatar 
+                className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
+              >
                 <AvatarImage 
                   src={tweet.original_author.avatar_url} 
                   alt={tweet.original_author.username} 
@@ -362,6 +374,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
                   <ProfileHoverCard username={tweet.original_author.username} direction="bottom">
                     <span 
                       className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                      onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
                     >
                       {tweet.original_author.display_name}
                       {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
@@ -371,7 +384,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
                   </ProfileHoverCard>
                   <span className="text-gray-500 mx-1">·</span>
                   <ProfileHoverCard username={tweet.original_author.username} direction="bottom">
-                    <span className="text-gray-500 hover:underline cursor-pointer">@{tweet.original_author.username}</span>
+                    <span 
+                      className="text-gray-500 hover:underline cursor-pointer"
+                      onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
+                    >
+                      @{tweet.original_author.username}
+                    </span>
                   </ProfileHoverCard>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
@@ -464,7 +482,10 @@ const TweetCard: React.FC<TweetCardProps> = ({
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-            <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+            <Avatar 
+              className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={(e) => navigateToProfile(e, tweet.author?.username)}
+            >
               <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
               <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
@@ -478,6 +499,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
                 <ProfileHoverCard username={tweet.author?.username || ''} direction="bottom">
                   <span 
                     className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                    onClick={(e) => navigateToProfile(e, tweet.author?.username)}
                   >
                     {tweet.author?.display_name}
                     {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && <VerifiedBadge className="ml-1" />}
@@ -485,7 +507,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
                 </ProfileHoverCard>
                 <span className="text-gray-500 mx-1">·</span>
                 <ProfileHoverCard username={tweet.author?.username || ''} direction="bottom">
-                  <span className="text-gray-500 hover:underline cursor-pointer">@{tweet.author?.username}</span>
+                  <span 
+                    className="text-gray-500 hover:underline cursor-pointer"
+                    onClick={(e) => navigateToProfile(e, tweet.author?.username)}
+                  >
+                    @{tweet.author?.username}
+                  </span>
                 </ProfileHoverCard>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
