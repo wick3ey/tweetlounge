@@ -38,6 +38,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       // Log a sample tweet for debugging
       if (fetchedTweets.length > 0) {
         console.log('Sample tweet data:', fetchedTweets[0]);
+      } else {
+        console.log('No tweets fetched.');
       }
       
       setTweets(fetchedTweets);

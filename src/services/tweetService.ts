@@ -59,7 +59,27 @@ export async function getTweets(limit: number = 20, offset: number = 0): Promise
       return [];
     }
 
-    return data || [];
+    // Map the data to match the TweetWithAuthor interface
+    return data?.map(tweet => ({
+      id: tweet.id,
+      content: tweet.content,
+      author_id: tweet.author_id,
+      created_at: tweet.created_at,
+      likes_count: tweet.likes_count,
+      retweets_count: tweet.retweets_count,
+      replies_count: tweet.replies_count,
+      is_retweet: tweet.is_retweet,
+      original_tweet_id: tweet.original_tweet_id,
+      image_url: tweet.image_url,
+      author: {
+        id: tweet.author_id,
+        username: tweet.profile_username,
+        display_name: tweet.profile_display_name,
+        avatar_url: tweet.profile_avatar_url || '',
+        avatar_nft_id: tweet.profile_avatar_nft_id,
+        avatar_nft_chain: tweet.profile_avatar_nft_chain
+      }
+    })) || [];
   } catch (error) {
     console.error('Failed to fetch tweets:', error);
     return [];
