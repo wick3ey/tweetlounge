@@ -193,7 +193,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     setIsUserFollowing(newFollowState);
   };
   
-  if (isLoading || currentProfileLoading) {
+  if (isLoadingProfile || currentProfileLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
@@ -204,11 +204,11 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  if (error || currentProfileError) {
+  if (profileError || currentProfileError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
-          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error || currentProfileError}</div>
+          <div className="text-crypto-red mb-4 text-center">Error loading profile: {profileError || currentProfileError}</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
