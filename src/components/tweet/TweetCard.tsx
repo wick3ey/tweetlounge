@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -57,7 +56,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
     
-    // If this is a retweet, navigate to the original tweet
     if (tweet.is_retweet && tweet.original_tweet_id) {
       navigate(`/tweet/${tweet.original_tweet_id}`);
     } else {
@@ -75,7 +73,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    // For retweets, like the original tweet
     const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
       ? tweet.original_tweet_id 
       : tweet.id;
@@ -97,7 +94,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    // For retweets, retweet the original tweet
     const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
       ? tweet.original_tweet_id 
       : tweet.id;
@@ -155,22 +151,18 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  // If this is a retweet and we have the original tweet data
   if (tweet.is_retweet) {
-    // We need to handle both the retweet header and original tweet content
     return (
       <div 
         className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
         onClick={handleTweetClick}
       >
-        {/* Retweet header showing who retweeted */}
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
           <Repeat className="h-4 w-4 mr-1" />
           <span>{tweet.author?.display_name} reposted</span>
         </div>
 
         <div className="flex space-x-3">
-          {/* Original tweet's author avatar */}
           <div className="flex-shrink-0">
             <Avatar className="h-10 w-10">
               <AvatarImage 
@@ -185,7 +177,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           
           <div className="flex-1 min-w-0">
             <div className="flex justify-between">
-              {/* Original tweet's author info */}
               <div>
                 <div className="flex items-center gap-1">
                   <span className="font-medium text-white flex items-center">
@@ -203,7 +194,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
                 </div>
               </div>
               
-              {/* Show delete dropdown only for current user's retweets */}
               {user?.id === tweet.author_id && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -222,7 +212,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               )}
             </div>
             
-            {/* Original tweet content */}
             <p className="mt-1 text-white">{tweet.content}</p>
             
             {tweet.image_url && (
@@ -235,7 +224,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               </div>
             )}
             
-            {/* Interaction buttons */}
             <div className="mt-3 flex justify-between text-gray-500">
               <button 
                 className="flex items-center space-x-1 hover:text-crypto-blue"
@@ -281,7 +269,6 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     );
   }
   
-  // Regular tweet display (non-retweet)
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
