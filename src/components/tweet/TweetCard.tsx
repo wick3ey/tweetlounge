@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from '@/integrations/supabase/client';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -29,6 +30,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = React.useState(false);
   const [likeCount, setLikeCount] = React.useState(tweet.likes_count || 0);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [commentsCount, setCommentsCount] = React.useState(tweet.replies_count || 0);
   
   // Check if user liked the tweet on component mount
   React.useEffect(() => {
@@ -41,6 +43,34 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     
     checkLikeStatus();
   }, [tweet.id, user]);
+
+  // Fetch actual comments count on mount
+  React.useEffect(() => {
+    const fetchCommentsCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('comments')
+          .select('id', { count: 'exact', head: true })
+          .eq('tweet_id', tweet.id);
+          
+        if (error) {
+          console.error('Error fetching comments count:', error);
+          return;
+        }
+        
+        // Update local state with the actual count
+        if (count !== null) {
+          setCommentsCount(count);
+        }
+      } catch (err) {
+        console.error('Failed to fetch comments count:', err);
+      }
+    };
+    
+    fetchCommentsCount();
+    // Also set initial state from the tweet object
+    setCommentsCount(tweet.replies_count || 0);
+  }, [tweet.id, tweet.replies_count]);
   
   // Format the date to a human-readable format
   const formattedDate = React.useMemo(() => {
@@ -216,7 +246,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             
             <button className="flex items-center hover:text-crypto-blue">
               <MessageCircle className="h-4 w-4 mr-1" />
-              <span className="text-xs">{formatCount(tweet.replies_count || 0)}</span>
+              <span className="text-xs">{formatCount(commentsCount)}</span>
             </button>
             
             <button className="flex items-center hover:text-crypto-green">

@@ -7,9 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface CommentListProps {
   tweetId?: string;
+  onCommentCountUpdated?: (count: number) => void;
 }
 
-const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
+const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalComments, setTotalComments] = useState(0);
@@ -61,7 +62,16 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
       if (countError) {
         console.error('Error counting comments:', countError);
       } else {
-        setTotalComments(count || 0);
+        const commentCount = count || 0;
+        setTotalComments(commentCount);
+        
+        // Notify parent component about the updated comment count
+        if (onCommentCountUpdated) {
+          onCommentCountUpdated(commentCount);
+        }
+        
+        // Update the tweet's replies_count if it doesn't match the actual count
+        updateTweetRepliesCount(tweetId, commentCount);
       }
       
       if (data) {
@@ -88,6 +98,39 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
       console.error('Failed to fetch comments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Update the tweet's replies_count to match the actual comment count
+  const updateTweetRepliesCount = async (tweetId: string, commentCount: number) => {
+    try {
+      // First get the current replies_count
+      const { data: tweetData, error: tweetError } = await supabase
+        .from('tweets')
+        .select('replies_count')
+        .eq('id', tweetId)
+        .single();
+        
+      if (tweetError) {
+        console.error('Error fetching tweet:', tweetError);
+        return;
+      }
+      
+      // Only update if the count doesn't match
+      if (tweetData && tweetData.replies_count !== commentCount) {
+        const { error: updateError } = await supabase
+          .from('tweets')
+          .update({ replies_count: commentCount })
+          .eq('id', tweetId);
+          
+        if (updateError) {
+          console.error('Error updating tweet replies count:', updateError);
+        } else {
+          console.log(`Updated tweet ${tweetId} replies_count to ${commentCount}`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update tweet replies count:', err);
     }
   };
 

@@ -145,6 +145,11 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     onAction();
   };
 
+  // Handle comment count update from CommentList
+  const handleCommentCountUpdated = (count: number) => {
+    setRepliesCount(count);
+  };
+
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       {/* Close Button */}
@@ -242,7 +247,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       {/* Comment List - now in a scrollable container */}
       <div className="overflow-y-auto flex-grow" ref={commentListRef}>
         <div className="p-4">
-          <CommentList tweetId={tweet?.id} />
+          <CommentList 
+            tweetId={tweet?.id} 
+            onCommentCountUpdated={handleCommentCountUpdated}
+          />
         </div>
       </div>
     </div>
