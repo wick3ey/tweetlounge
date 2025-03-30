@@ -21,7 +21,7 @@ export async function createNotification(
     const currentUser = userData?.user;
     
     // Ensure that the actor ID matches the current user's ID for RLS compliance
-    if (currentUser?.id !== actorId) {
+    if (!currentUser || currentUser.id !== actorId) {
       console.error('Permission denied: Cannot create notification with different actor_id than the current user');
       return null;
     }
@@ -60,15 +60,17 @@ export async function createNotification(
       return existingNotification;
     }
     
+    // Prepare the notification object - make sure to set actor_id to currentUser.id
     const notification = {
       user_id: userId,
-      actor_id: actorId,
+      actor_id: currentUser.id, // Explicitly use current user ID to satisfy RLS
       type,
       tweet_id: tweetId || null,
       comment_id: commentId || null,
       read: false
     };
     
+    // Insert the notification with explicit auth headers
     const { data, error } = await supabase
       .from('notifications')
       .insert(notification)
@@ -101,7 +103,7 @@ export async function deleteNotification(
     const currentUser = userData?.user;
     
     // Ensure that we're either the recipient or the actor for RLS compliance
-    if (currentUser?.id !== userId && currentUser?.id !== actorId) {
+    if (!currentUser || (currentUser.id !== userId && currentUser.id !== actorId)) {
       console.error('Permission denied: Cannot delete notification that you did not create or receive');
       return false;
     }
@@ -147,7 +149,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
     const { data: userData } = await supabase.auth.getUser();
     const currentUser = userData?.user;
     
-    if (currentUser?.id !== userId) {
+    if (!currentUser || currentUser.id !== userId) {
       console.error('Permission denied: Cannot get unread count for another user');
       return 0;
     }
@@ -173,7 +175,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
 // Mark specific notification as read
 export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
   try {
-    // First verify that this notification belongs to the current user
+    // Get current user to verify permissions
     const { data: userData } = await supabase.auth.getUser();
     const currentUser = userData?.user;
     
@@ -220,7 +222,7 @@ export async function markAllNotificationsAsRead(userId: string): Promise<boolea
     const { data: userData } = await supabase.auth.getUser();
     const currentUser = userData?.user;
     
-    if (currentUser?.id !== userId) {
+    if (!currentUser || currentUser.id !== userId) {
       console.error('Permission denied: Cannot mark notifications as read for another user');
       return false;
     }

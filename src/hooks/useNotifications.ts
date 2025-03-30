@@ -35,6 +35,14 @@ export function useNotifications() {
 
       // Then fetch profile data for each actor_id
       const actorIds = notificationsData.map(notification => notification.actor_id);
+      
+      if (actorIds.length === 0) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
+      }
+      
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
