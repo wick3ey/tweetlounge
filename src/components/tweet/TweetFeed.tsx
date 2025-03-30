@@ -41,8 +41,13 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
             // Get the original tweet with author information
-            const { data: originalTweetData } = await supabase
+            const { data: originalTweetData, error: originalTweetError } = await supabase
               .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+            
+            if (originalTweetError) {
+              console.error('Error fetching original tweet:', originalTweetError);
+              return tweet;
+            }
             
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
