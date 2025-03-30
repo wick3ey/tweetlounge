@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import { PlusCircle, Search, Check } from 'lucide-react';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { VerifiedBadge } from '@/components/ui/badge';
-import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import {
@@ -27,8 +27,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { startConversation } from '@/services/messageService';
 import { useToast } from '@/components/ui/use-toast';
 
-const ConversationList: React.FC = () => {
-  const { conversationId } = useParams<{ conversationId?: string }>();
+interface ConversationListProps {
+  selectedConversationId: string | null;
+  onSelectConversation: (id: string) => void;
+}
+
+const ConversationList: React.FC<ConversationListProps> = ({ 
+  selectedConversationId, 
+  onSelectConversation 
+}) => {
   const { conversations, loading } = useRealtimeConversations();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -92,7 +99,8 @@ const ConversationList: React.FC = () => {
       setSearchTerm('');
       setSearchResults([]);
       
-      // The new conversation will show up automatically from the useRealtimeConversations hook
+      // Select the new conversation
+      onSelectConversation(conversationId);
     } catch (error) {
       console.error('Error starting conversation:', error);
       toast({
@@ -262,11 +270,11 @@ const ConversationList: React.FC = () => {
       ) : (
         <div className="overflow-y-auto flex-1">
           {filteredConversations.map(conversation => (
-            <Link
+            <div
               key={conversation.id}
-              to={`/messages/${conversation.id}`}
-              className={`block p-4 border-b border-crypto-gray hover:bg-crypto-darkgray transition-colors ${
-                conversation.id === conversationId ? 'bg-crypto-darkgray' : ''
+              onClick={() => onSelectConversation(conversation.id)}
+              className={`block p-4 border-b border-crypto-gray hover:bg-crypto-darkgray transition-colors cursor-pointer ${
+                conversation.id === selectedConversationId ? 'bg-crypto-darkgray' : ''
               }`}
             >
               <div className="flex items-center">
@@ -309,7 +317,7 @@ const ConversationList: React.FC = () => {
                   {conversation.updated_at ? formatTime(conversation.updated_at) : ''}
                 </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

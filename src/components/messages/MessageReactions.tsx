@@ -1,12 +1,14 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useMessageReactions } from '@/hooks/useMessageReactions';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-
-// Define standard reaction types
-const REACTION_TYPES = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+import { SmilePlus } from 'lucide-react';
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MessageReactionsProps {
   messageId: string;
@@ -17,78 +19,131 @@ interface MessageReactionsProps {
 
 const MessageReactions: React.FC<MessageReactionsProps> = ({ 
   messageId, 
-  compact = false, 
+  compact = false,
   displayOnly = false,
   emoji
 }) => {
-  const { reactions, loading, toggleReaction } = useMessageReactions(messageId);
+  const { reactions, toggleReaction } = useMessageReactions(messageId);
+  const [showReactions, setShowReactions] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
-
-  const handleReaction = async (reactionType: string) => {
-    if (displayOnly) return;
+  
+  // Count reactions by type
+  const reactionCounts = reactions.reduce((acc, reaction) => {
+    if (!acc[reaction.reaction_type]) {
+      acc[reaction.reaction_type] = {
+        count: 0,
+        users: [],
+        hasReacted: false
+      };
+    }
     
+    acc[reaction.reaction_type].count += 1;
+    acc[reaction.reaction_type].users.push(reaction.user_id);
+    
+    if (user && reaction.user_id === user.id) {
+      acc[reaction.reaction_type].hasReacted = true;
+    }
+    
+    return acc;
+  }, {} as Record<string, { count: number, users: string[], hasReacted: boolean }>);
+  
+  // Common reaction emojis
+  const commonReactions = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+  
+  const handleReaction = async (reactionType: string) => {
     try {
       await toggleReaction(reactionType);
+      setShowReactions(false);
     } catch (error) {
-      console.error('Error toggling reaction:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not add reaction',
-        variant: 'destructive'
-      });
+      console.error('Error toggling reaction', error);
     }
   };
-
-  // Group reactions by type and count them
-  const reactionCounts = reactions.reduce((acc, reaction) => {
-    acc[reaction.reaction_type] = (acc[reaction.reaction_type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Check which reactions the current user has added
-  const userReactions = user 
-    ? reactions
-        .filter(r => r.user_id === user.id)
-        .map(r => r.reaction_type)
-    : [];
-
-  if (loading) return null;
-
+  
+  // If this is just for display with a specific emoji, render that
   if (displayOnly && emoji) {
+    return <div className="text-4xl">{emoji}</div>;
+  }
+  
+  // If no reactions and compact mode, show minimal UI
+  if (Object.keys(reactionCounts).length === 0 && compact) {
     return (
-      <div className="text-4xl">{emoji}</div>
+      <Popover open={showReactions} onOpenChange={setShowReactions}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-6 px-1.5 text-xs text-crypto-lightgray hover:text-crypto-text hover:bg-transparent"
+          >
+            <SmilePlus className="h-3.5 w-3.5 mr-1" />
+            React
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-2" align="start">
+          <div className="flex gap-1">
+            {commonReactions.map(reaction => (
+              <Button
+                key={reaction}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => handleReaction(reaction)}
+              >
+                {reaction}
+              </Button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   }
-
+  
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
-      {compact ? (
-        // Compact view only shows reactions that exist
-        Object.entries(reactionCounts).map(([type, count]) => (
-          <Button
-            key={type}
-            variant="ghost"
-            size="sm"
-            className={`h-6 px-2 rounded-full text-xs ${userReactions.includes(type) ? 'bg-crypto-blue/20' : ''}`}
-            onClick={() => handleReaction(type)}
-          >
-            {type} {count}
-          </Button>
-        ))
-      ) : (
-        // Full view shows all possible reactions
-        REACTION_TYPES.map(type => (
-          <Button
-            key={type}
-            variant="ghost"
-            size="sm"
-            className={`h-8 px-2 rounded-full ${userReactions.includes(type) ? 'bg-crypto-blue/20' : ''}`}
-            onClick={() => handleReaction(type)}
-          >
-            {type} {reactionCounts[type] ? reactionCounts[type] : ''}
-          </Button>
-        ))
+    <div className={`flex items-center gap-1 ${compact ? 'ml-2' : 'mt-1'}`}>
+      {Object.entries(reactionCounts).map(([reaction, data]) => (
+        <Button
+          key={reaction}
+          variant={data.hasReacted ? "secondary" : "outline"}
+          size="sm"
+          className={`
+            h-6 px-1.5 rounded-full text-xs
+            ${data.hasReacted 
+              ? 'bg-crypto-blue/20 text-crypto-blue hover:bg-crypto-blue/30 border-none' 
+              : 'bg-transparent hover:bg-crypto-gray/20 border-crypto-gray/50'
+            }
+          `}
+          onClick={() => handleReaction(reaction)}
+        >
+          {reaction} {data.count}
+        </Button>
+      ))}
+      
+      {!compact && (
+        <Popover open={showReactions} onOpenChange={setShowReactions}>
+          <PopoverTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-6 w-6 p-0 rounded-full bg-transparent hover:bg-crypto-gray/20 border-crypto-gray/50"
+            >
+              <SmilePlus className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2">
+            <div className="flex gap-1">
+              {commonReactions.map(reaction => (
+                <Button
+                  key={reaction}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleReaction(reaction)}
+                >
+                  {reaction}
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );

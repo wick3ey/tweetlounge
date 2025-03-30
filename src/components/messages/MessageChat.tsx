@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   createMessage, 
   searchMessages, 
@@ -38,12 +38,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { VerifiedBadge } from '@/components/ui/badge';
-import { useProfile } from '@/contexts/ProfileContext';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from '@/hooks/use-mobile';
 
-const MessageChat: React.FC = () => {
-  const { conversationId } = useParams<{ conversationId: string }>();
+interface MessageChatProps {
+  conversationId: string;
+}
+
+const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,9 +54,10 @@ const MessageChat: React.FC = () => {
   const { toast } = useToast();
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   // Use our custom hook for real-time messages
-  const { messages, loading, error } = useRealtimeMessages(conversationId || '');
+  const { messages, loading, error } = useRealtimeMessages(conversationId);
 
   // Get other user's info
   const otherParticipant = messages.length > 0 
@@ -258,14 +260,16 @@ const MessageChat: React.FC = () => {
       {/* Header with user info */}
       <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
         <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => navigate('/messages')}
-            className="mr-2 md:hidden"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          {isMobile && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate('/messages')}
+              className="mr-2 md:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
           
           {otherUserInfo && (
             <Link to={`/profile/${otherUserInfo.id}`} className="flex items-center hover:opacity-80 transition-opacity">
@@ -389,7 +393,7 @@ const MessageChat: React.FC = () => {
       {messages.length === 0 && (
         <div className="flex-grow flex flex-col items-center justify-center p-8 text-crypto-lightgray">
           <div className="bg-crypto-darkgray rounded-full p-6 mb-4">
-            <MessageReactions messageId="" displayOnly emoji="👋" />
+            <MessageReactions messageId="" emoji="👋" displayOnly />
           </div>
           <h3 className="text-xl font-semibold mb-2">Start the conversation</h3>
           <p className="text-center mb-6">
