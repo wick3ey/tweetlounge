@@ -138,18 +138,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  // Determine which user info to show based on whether it's a retweet
-  let displayAuthor;
-  let retweetedBy = null;
+  // Determine who reposted the tweet if it's a retweet
+  const retweetedBy = tweet.is_retweet ? tweet.author : null;
   
-  if (tweet.is_retweet) {
-    // For retweets, show the original author's info
-    displayAuthor = tweet.original_author || tweet.author;
-    retweetedBy = tweet.author;
-  } else {
-    // For normal tweets, show the tweet author's info
-    displayAuthor = tweet.author;
-  }
+  // For retweets, we always show the original author's info
+  const displayAuthor = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
   
   const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
 
@@ -158,10 +151,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
+      {/* If this is a retweet, show who reposted it */}
       {tweet.is_retweet && retweetedBy && (
         <div className="flex items-center text-gray-500 text-sm mb-3">
           <Repeat className="h-4 w-4 mr-2" />
-          <span className="font-medium">{retweetedBy.display_name} reposted</span>
+          <span>{retweetedBy.display_name} reposted</span>
         </div>
       )}
       

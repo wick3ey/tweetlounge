@@ -413,7 +413,7 @@ const TweetPage = () => {
   };
 
   let displayAuthor = tweet?.author;
-  let retweetedBy = null;
+  let retweetedBy = tweet?.is_retweet ? tweet.author : null;
   
   if (tweet?.is_retweet && tweet?.original_author) {
     displayAuthor = tweet.original_author;
