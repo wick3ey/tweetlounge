@@ -430,6 +430,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_actor_id: string
+          p_type: string
+          p_tweet_id?: string
+          p_comment_id?: string
+        }
+        Returns: Json
+      }
       decrement_counter: {
         Args: {
           row_id: string

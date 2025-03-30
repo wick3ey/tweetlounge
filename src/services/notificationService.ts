@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { NotificationType } from '@/types/Notification';
 
@@ -26,59 +25,17 @@ export async function createNotification(
       return null;
     }
     
-    // Check if a similar notification already exists to prevent duplicates
-    // For example, if a user likes and unlikes a post multiple times
-    let query = supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('actor_id', actorId)
-      .eq('type', type);
-      
-    // Apply conditional filters correctly using is for null checks
-    if (tweetId) {
-      query = query.eq('tweet_id', tweetId);
-    } else {
-      query = query.is('tweet_id', null);
-    }
+    // Use the database function to create the notification (bypasses RLS)
+    const { data, error } = await supabase.rpc('create_notification', {
+      p_user_id: userId,
+      p_actor_id: currentUser.id,
+      p_type: type,
+      p_tweet_id: tweetId || null,
+      p_comment_id: commentId || null
+    });
     
-    if (commentId) {
-      query = query.eq('comment_id', commentId);
-    } else {
-      query = query.is('comment_id', null);
-    }
-    
-    const { data: existingNotification, error: checkError } = await query.maybeSingle();
-      
-    if (checkError && checkError.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
-      console.error('Error checking for existing notification:', checkError);
-    }
-    
-    // If a similar notification exists, return that instead of creating a new one
-    if (existingNotification) {
-      console.log('Similar notification already exists, skipping creation');
-      return existingNotification;
-    }
-    
-    // Prepare the notification object - make sure to set actor_id to currentUser.id
-    const notification = {
-      user_id: userId,
-      actor_id: currentUser.id, // Explicitly use current user ID to satisfy RLS
-      type,
-      tweet_id: tweetId || null,
-      comment_id: commentId || null,
-      read: false
-    };
-    
-    // Insert the notification with explicit auth headers
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(notification)
-      .select()
-      .single();
-      
     if (error) {
-      console.error('Error creating notification:', error);
+      console.error('Error creating notification via RPC:', error);
       return null;
     }
     
