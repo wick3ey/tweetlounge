@@ -81,30 +81,27 @@ const TweetPage = () => {
             .select(`
               id,
               author_id,
-              profiles:author_id (
-                id,
-                username,
-                display_name,
-                avatar_url,
-                avatar_nft_id,
-                avatar_nft_chain
-              )
+              profiles(username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain)
             `)
             .eq('id', tweetData.original_tweet_id)
             .single();
 
-          if (!originalTweetError && originalTweetData && originalTweetData.profiles) {
-            const originalAuthor: Author = {
-              id: originalTweetData.author_id,
-              username: originalTweetData.profiles.username || '',
-              display_name: originalTweetData.profiles.display_name || '',
-              avatar_url: originalTweetData.profiles.avatar_url || '',
-              avatar_nft_id: originalTweetData.profiles.avatar_nft_id,
-              avatar_nft_chain: originalTweetData.profiles.avatar_nft_chain
-            };
+          if (!originalTweetError && originalTweetData) {
+            const originalProfile = originalTweetData.profiles;
             
-            formattedTweet.original_author = originalAuthor;
-            formattedTweet.retweeted_by = formattedTweet.author;
+            if (originalProfile) {
+              const originalAuthor: Author = {
+                id: originalTweetData.author_id,
+                username: originalProfile.username || '',
+                display_name: originalProfile.display_name || '',
+                avatar_url: originalProfile.avatar_url || '',
+                avatar_nft_id: originalProfile.avatar_nft_id,
+                avatar_nft_chain: originalProfile.avatar_nft_chain
+              };
+              
+              formattedTweet.original_author = originalAuthor;
+              formattedTweet.retweeted_by = formattedTweet.author;
+            }
           }
         }
 
