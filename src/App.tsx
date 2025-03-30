@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +21,8 @@ import Market from "./pages/Market";
 import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Messages from './pages/Messages';
+import MessageChat from './components/messages/MessageChat';
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,16 @@ const App = () => {
                   <Route path="/profile/:username" element={
                     <ProtectedRoute>
                       <ProfilePage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/messages" element={
+                    <ProtectedRoute>
+                      <Messages />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/messages/:conversationId" element={
+                    <ProtectedRoute>
+                      <MessageChat />
                     </ProtectedRoute>
                   } />
                   <Route path="*" element={<NotFound />} />
