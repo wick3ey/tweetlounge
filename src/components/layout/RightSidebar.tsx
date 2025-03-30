@@ -1,4 +1,3 @@
-
 import { Search, TrendingUp, MoreHorizontal, LineChart, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -149,8 +148,8 @@ const RightSidebar = () => {
   };
   
   return (
-    <div className="hidden lg:block w-80 min-w-80 max-w-[400px] border-l border-crypto-gray/30 min-h-screen">
-      <ScrollArea className="h-screen sticky top-0">
+    <div className="hidden lg:block w-80 min-w-80 max-w-[400px] border-l border-crypto-gray/30 h-screen sticky top-0">
+      <ScrollArea className="h-screen">
         <div className="p-4">
           <div className="relative mb-6">
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
