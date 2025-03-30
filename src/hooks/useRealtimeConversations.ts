@@ -41,29 +41,17 @@ export const useRealtimeConversations = () => {
         
         console.log('Fetching conversations for user:', user.id);
         
-        // Fall back to simpler query if RPC function fails
-        let data;
-        let error;
-
-        try {
-          // First try to use the RPC function
-          const result = await supabase
-            .rpc('get_user_conversations', { user_uuid: user.id });
+        // Try to use the RPC function
+        const { data, error } = await supabase
+          .rpc('get_user_conversations', { 
+            user_uuid: user.id 
+          });
           
-          data = result.data;
-          error = result.error;
+        if (error) {
+          console.error('Error fetching conversations:', error);
+          console.error('Error details:', error.message, error.details, error.hint);
           
-          // If we get an error, log it for debugging but don't throw yet
-          if (error) {
-            console.error('Error with RPC get_user_conversations:', error);
-          }
-        } catch (rpcError) {
-          console.error('Exception calling get_user_conversations RPC:', rpcError);
-          error = rpcError;
-        }
-
-        // If RPC failed or returned no data, use a fallback query
-        if (error || !data || data.length === 0) {
+          // Fall back to a direct query if the RPC fails
           console.log('Falling back to direct query for conversations');
           
           // Get conversations the user is part of
@@ -100,8 +88,8 @@ export const useRealtimeConversations = () => {
 
           console.log('Fetched conversations data:', conversationsData);
           
-          // Map to simplified model for now (losing some info but will be functional)
-          const basicConversations = [];
+          // Create a basic conversations array as fallback
+          const fallbackConversations: Conversation[] = [];
           
           for (const conv of conversationsData) {
             // For each conversation, get the other participant
@@ -128,17 +116,18 @@ export const useRealtimeConversations = () => {
               .from('messages')
               .select('*')
               .eq('conversation_id', conv.id)
+              .eq('is_deleted', false)
               .order('created_at', { ascending: false })
               .limit(1)
               .single();
               
-            basicConversations.push({
+            fallbackConversations.push({
               id: conv.id,
               created_at: conv.created_at,
               updated_at: conv.updated_at,
               last_message: latestMessage?.content || null,
               last_message_time: latestMessage?.created_at || null,
-              unread_count: 0, // Would need a more complex query to get this
+              unread_count: 0, // Simplified for fallback
               sender_id: latestMessage?.sender_id || null,
               other_user_id: profile.id,
               other_user_username: profile.username,
@@ -150,13 +139,14 @@ export const useRealtimeConversations = () => {
             });
           }
           
-          data = basicConversations;
+          setConversations(fallbackConversations);
+          return;
         }
         
-        console.log('Final conversations data:', data);
+        console.log('Successfully fetched conversations:', data);
         setConversations(data || []);
       } catch (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('Error in fetchConversations:', error);
         toast({
           title: "Error loading conversations",
           description: "Please try again later",
@@ -169,7 +159,7 @@ export const useRealtimeConversations = () => {
 
     fetchConversations();
 
-    // Set up real-time listener with improved filters and handling
+    // Set up real-time listener for conversation updates
     const channel = supabase
       .channel('conversations-changes')
       .on(
@@ -182,7 +172,7 @@ export const useRealtimeConversations = () => {
         },
         (payload) => {
           console.log('New message sent by current user:', payload);
-          fetchConversations(); // Immediate update when user sends a message
+          fetchConversations(); // Refresh conversations when the user sends a message
         }
       )
       .on(
@@ -231,25 +221,13 @@ export const useRealtimeConversations = () => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
           table: 'conversation_participants',
           filter: user ? `user_id=eq.${user.id}` : undefined
         },
         (payload) => {
-          console.log('User added to conversation:', payload);
-          fetchConversations();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'conversations'
-        },
-        (payload) => {
-          console.log('Conversation updated:', payload);
+          console.log('Conversation participant updated:', payload);
           fetchConversations();
         }
       )

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/supabase';
 import { Message, MessageReaction, Conversation, MessageSearchResult } from '@/types/Message';
@@ -9,6 +10,7 @@ export async function createMessage(conversationId: string, content: string): Pr
     throw new Error('User must be logged in to send messages');
   }
 
+  // Mark conversation as read for the sender
   await markConversationAsRead(conversationId);
 
   const { data, error } = await supabase
