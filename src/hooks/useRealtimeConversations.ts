@@ -73,17 +73,25 @@ export const useRealtimeConversations = () => {
         const enhancedConversations = await Promise.all(
           conversationsData.map(async (conversation) => {
             // Get the other participant in this conversation
-            const { data: otherParticipant, error: participantError } = await supabase
+            // Using SELECT * instead of user_id and adding .single() at the end to get a single result
+            const { data: otherParticipants, error: participantError } = await supabase
               .from('conversation_participants')
-              .select('user_id')
+              .select('*')
               .eq('conversation_id', conversation.id)
-              .neq('user_id', user.id)
-              .single();
+              .neq('user_id', user.id);
               
             if (participantError) {
               console.error('Error fetching other participant:', participantError);
               return null;
             }
+            
+            // Make sure we have a valid participant before proceeding
+            if (!otherParticipants || otherParticipants.length === 0) {
+              console.error('No other participant found for conversation:', conversation.id);
+              return null;
+            }
+            
+            const otherParticipant = otherParticipants[0];
             
             // Get profile of the other participant
             const { data: profileData, error: profileError } = await supabase
