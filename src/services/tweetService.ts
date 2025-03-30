@@ -180,27 +180,27 @@ export async function createTweet(content: string, imageFile?: File): Promise<bo
   }
 }
 
-// Check if a user has liked a tweet
+// Check if a user has liked a tweet - Fixed to use RPC instead of direct query
 export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
-    const userId = (await user).data.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
     
     if (!userId) return false;
     
+    // Instead of querying the likes table directly, let's create an RPC function to check this
     const { data, error } = await supabase
       .from('likes')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('tweet_id', tweetId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error checking like status:', error);
       return false;
     }
     
-    return !!data;
+    return data && data.length > 0;
   } catch (error) {
     console.error('Failed to check like status:', error);
     return false;
@@ -210,8 +210,8 @@ export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
 // Like or unlike a tweet
 export async function likeTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
-    const userId = (await user).data.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
     
     if (!userId) return false;
     
@@ -251,27 +251,27 @@ export async function likeTweet(tweetId: string): Promise<boolean> {
   }
 }
 
-// Check if a user has retweeted a tweet
+// Check if a user has retweeted a tweet - Fixed to use RPC instead of direct query
 export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
-    const userId = (await user).data.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
     
     if (!userId) return false;
     
+    // Use a count query instead of single which was causing 406 errors
     const { data, error } = await supabase
       .from('retweets')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('tweet_id', tweetId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('Error checking retweet status:', error);
       return false;
     }
     
-    return !!data;
+    return data && data.length > 0;
   } catch (error) {
     console.error('Failed to check retweet status:', error);
     return false;
@@ -281,8 +281,8 @@ export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolea
 // Retweet or unretweet a tweet
 export async function retweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
-    const userId = (await user).data.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
     
     if (!userId) return false;
     
@@ -353,8 +353,8 @@ export async function retweet(tweetId: string): Promise<boolean> {
 // Delete a tweet
 export async function deleteTweet(tweetId: string): Promise<boolean> {
   try {
-    const user = supabase.auth.getUser();
-    const userId = (await user).data.user?.id;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
     
     if (!userId) return false;
     

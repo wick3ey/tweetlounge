@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor } from '@/types/Tweet';
 
@@ -95,34 +96,22 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
     }
     
     try {
+      // Use direct query instead of RPC which was causing 400 errors
       const { data, error } = await supabase
-        .rpc('is_tweet_bookmarked', {
-          tweet_id: tweetId,
-          user_id: user.id
-        });
+        .from('bookmarks')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId);
         
       if (error) {
         console.error('Error checking bookmark status:', error);
         return false;
       }
       
-      return data;
+      return data && data.length > 0;
     } catch (catchError) {
-      // Fall back to direct query if RPC fails
-      console.warn('RPC failed, falling back to direct query');
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('tweet_id', tweetId)
-        .maybeSingle();
-        
-      if (error) {
-        console.error('Error checking bookmark status with direct query:', error);
-        return false;
-      }
-      
-      return !!data;
+      console.warn('Direct query failed:', catchError);
+      return false;
     }
   } catch (error) {
     console.error('Check bookmark status failed:', error);
