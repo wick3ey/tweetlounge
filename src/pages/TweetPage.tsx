@@ -7,11 +7,14 @@ import Layout from '@/components/layout/Layout';
 import TweetDetail from '@/components/tweet/TweetDetail';
 import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, ArrowLeft, Calendar, Share2, MoreHorizontal } from 'lucide-react';
+import { Loader2, ArrowLeft, Share2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
+import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
+import CommentForm from '@/components/comment/CommentForm';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -19,8 +22,11 @@ const TweetPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthor, setIsAuthor] = useState(false);
+  const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchTweet = async () => {
@@ -69,6 +75,11 @@ const TweetPage = () => {
         
         // Check if the current user is the author
         checkIfUserIsAuthor(tweetData.author_id);
+        
+        // Check if the current user is following the author
+        if (user && user.id !== tweetData.author_id) {
+          checkIfFollowingAuthor(tweetData.author_id);
+        }
       } catch (err) {
         console.error('Failed to fetch tweet:', err);
         setError('Failed to load tweet. Please try again later.');
@@ -85,7 +96,7 @@ const TweetPage = () => {
     if (tweetId) {
       fetchTweet();
     }
-  }, [tweetId, toast]);
+  }, [tweetId, toast, user]);
 
   // Check if the current user is the author of the tweet
   const checkIfUserIsAuthor = async (authorId: string) => {
@@ -96,6 +107,56 @@ const TweetPage = () => {
     } catch (error) {
       console.error('Error getting current user:', error);
       setIsAuthor(false);
+    }
+  };
+
+  // Check if the current user is following the author
+  const checkIfFollowingAuthor = async (authorId: string) => {
+    if (!user) return;
+    const following = await isFollowing(authorId);
+    setIsFollowingAuthor(following);
+  };
+
+  const handleFollowToggle = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You need to be logged in to follow users",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!tweet) return;
+
+    try {
+      let success;
+      if (isFollowingAuthor) {
+        success = await unfollowUser(tweet.author.id);
+        if (success) {
+          toast({
+            title: "Unfollowed",
+            description: `You are no longer following ${tweet.author.display_name}`,
+          });
+          setIsFollowingAuthor(false);
+        }
+      } else {
+        success = await followUser(tweet.author.id);
+        if (success) {
+          toast({
+            title: "Following",
+            description: `You are now following ${tweet.author.display_name}`,
+          });
+          setIsFollowingAuthor(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast({
+        title: "Error",
+        description: "There was a problem with your request. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -170,6 +231,11 @@ const TweetPage = () => {
         description: "Tweet link copied to clipboard",
       });
     }
+  };
+
+  const handleCommentSubmit = () => {
+    handleTweetAction(); // Refresh the tweet data
+    setShowReplyForm(false); // Hide the reply form after submitting
   };
 
   if (loading) {
@@ -253,13 +319,26 @@ const TweetPage = () => {
                     </div>
                     
                     <div className="flex items-center">
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full text-sm font-medium hover:bg-blue-500/10 border-none hover:text-white ml-2"
-                      >
-                        Subscribe
-                      </Button>
+                      {user && !isAuthor && !isFollowingAuthor && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={handleFollowToggle}
+                          className="rounded-full text-sm font-medium hover:bg-blue-500/10 border-none hover:text-white ml-2"
+                        >
+                          Follow
+                        </Button>
+                      )}
+                      {user && !isAuthor && isFollowingAuthor && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          onClick={handleFollowToggle}
+                          className="rounded-full text-sm font-medium bg-gray-800 text-white hover:bg-red-500/10 hover:text-red-500 ml-2"
+                        >
+                          Following
+                        </Button>
+                      )}
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -312,16 +391,14 @@ const TweetPage = () => {
                 <span className="text-white font-bold mr-1">{tweet.likes_count || 0}</span>
                 <span className="text-gray-500 text-sm">{tweet.likes_count === 1 ? 'Like' : 'Likes'}</span>
               </div>
-              
-              <div className="flex items-center">
-                <span className="text-white font-bold mr-1">1</span>
-                <span className="text-gray-500 text-sm">Bookmark</span>
-              </div>
             </div>
             
             {/* Tweet Actions */}
             <div className="flex justify-between items-center py-1">
-              <button className="text-gray-500 hover:text-crypto-blue">
+              <button 
+                className="text-gray-500 hover:text-crypto-blue"
+                onClick={() => setShowReplyForm(!showReplyForm)}
+              >
                 <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
                   <g><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></g>
                 </svg>
@@ -341,12 +418,6 @@ const TweetPage = () => {
               
               <button className="text-gray-500 hover:text-crypto-blue">
                 <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-                  <g><path d="M17.5 1.25c.69 0 1.37.5 1.5 1.24l.12 1.67c.27.07.53.17.79.29l1.5-.65c.65-.29 1.42-.03 1.78.56l.84 1.45c.36.62.18 1.41-.36 1.86l-1.34 1.13c.01.12.01.25.01.37s0 .25-.01.37l1.34 1.13c.54.45.72 1.24.36 1.86l-.84 1.45c-.36.59-1.13.85-1.78.56l-1.5-.65c-.26.12-.52.22-.79.29l-.12 1.67c-.13.74-.81 1.25-1.5 1.25H15c-.69 0-1.37-.5-1.5-1.24l-.12-1.67c-.27-.07-.53-.17-.79-.29l-1.5.65c-.65.29-1.42.03-1.78-.56l-.84-1.45c-.36-.62-.17-1.41.36-1.86l1.34-1.13c-.01-.12-.01-.25-.01-.37s0-.25.01-.37l-1.34-1.13c-.54-.45-.72-1.24-.36-1.86l.84-1.45c.36-.59 1.13-.85 1.78-.56l1.5.65c.26-.12.52-.22.79-.29l.12-1.67c.13-.74.81-1.25 1.5-1.25H17.5zM16.25 12c0 1.52-1.23 2.75-2.75 2.75s-2.75-1.23-2.75-2.75 1.23-2.75 2.75-2.75 2.75 1.23 2.75 2.75z"></path></g>
-                </svg>
-              </button>
-              
-              <button className="text-gray-500 hover:text-crypto-blue">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
                   <g><path d="M8.75 21V3h2v18h-2zM18 21V8.5h2V21h-2zM4 21l.004-10h2L6 21H4zm9.248 0v-7h2v7h-2z"></path></g>
                 </svg>
               </button>
@@ -360,29 +431,42 @@ const TweetPage = () => {
           </div>
         </article>
         
-        {/* Reply Input Section - Twitter Style */}
-        <div className="flex gap-3 p-3 border-b border-gray-800">
-          <Avatar className="h-10 w-10 rounded-full">
-            <AvatarImage src="" alt="Your avatar" />
-            <AvatarFallback className="bg-gray-800 text-white">
-              U
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1 flex items-center">
-            <span className="text-gray-500">Post your reply</span>
+        {/* Reply Form */}
+        {showReplyForm && (
+          <div className="p-4 border-b border-gray-800">
+            <CommentForm 
+              tweetId={tweet.id} 
+              onSubmit={handleCommentSubmit} 
+            />
           </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full bg-transparent text-gray-500 hover:bg-crypto-blue/10 border border-gray-700 text-sm"
-          >
-            Reply
-          </Button>
-        </div>
+        )}
         
-        {/* Tweet Comments Section - Only include CommentList to avoid duplication */}
+        {/* Reply Input Section - Twitter Style */}
+        {!showReplyForm && (
+          <div className="flex gap-3 p-3 border-b border-gray-800">
+            <Avatar className="h-10 w-10 rounded-full">
+              <AvatarImage src="" alt="Your avatar" />
+              <AvatarFallback className="bg-gray-800 text-white">
+                U
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex-1 flex items-center">
+              <span className="text-gray-500">Post your reply</span>
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowReplyForm(true)}
+              className="rounded-full bg-transparent text-gray-500 hover:bg-crypto-blue/10 border border-gray-700 text-sm"
+            >
+              Reply
+            </Button>
+          </div>
+        )}
+        
+        {/* Tweet Comments Section */}
         <div className="bg-black p-4">
           <CommentList 
             tweetId={tweet.id} 
