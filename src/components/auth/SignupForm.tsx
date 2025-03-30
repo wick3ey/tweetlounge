@@ -243,8 +243,9 @@ const SignupForm = () => {
         <ErrorDialog 
           open={showErrorDialog}
           onOpenChange={setShowErrorDialog}
-          title="Username Error"
+          title="Username Availability"
           description={errorDialogMessage}
+          variant="info"
         />
       </CardContent>
       <CardFooter className="flex justify-center">

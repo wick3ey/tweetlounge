@@ -235,8 +235,9 @@ const ProfileForm = () => {
         <ErrorDialog 
           open={showErrorDialog}
           onOpenChange={setShowErrorDialog}
-          title="Username Error"
+          title="Username Availability"
           description={errorDialogMessage}
+          variant="info"
         />
         
         <form onSubmit={handleSubmit} className="space-y-6">
