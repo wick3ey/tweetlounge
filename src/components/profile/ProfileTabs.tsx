@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserTweets, getUserRetweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
-import { TweetWithAuthor } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, enhanceTweetData } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { Loader, MessageSquare, Reply, FileImage, Coins, Sparkles } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
@@ -11,6 +10,7 @@ import TweetCard from '@/components/tweet/TweetCard';
 import CommentCard from '@/components/comment/CommentCard';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 interface ProfileTabsProps {
   userId: string;
@@ -32,14 +32,95 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         setLoading(true);
         if (activeTab === 'posts') {
           const fetchedTweets = await getUserTweets(userId);
-          setTweets(fetchedTweets);
+          
+          const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+            const enhancedTweet = enhanceTweetData(tweet);
+            if (!enhancedTweet || !isValidTweet(enhancedTweet)) return null;
+            
+            if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+              try {
+                const { data: originalTweetData, error: originalTweetError } = await supabase
+                  .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+                
+                if (originalTweetError) {
+                  console.error('Error fetching original tweet:', originalTweetError);
+                  return enhancedTweet;
+                }
+                
+                if (originalTweetData && originalTweetData.length > 0) {
+                  const originalTweet = originalTweetData[0];
+                  
+                  return {
+                    ...enhancedTweet,
+                    content: originalTweet.content || enhancedTweet.content,
+                    image_url: originalTweet.image_url || enhancedTweet.image_url,
+                    original_author: {
+                      id: originalTweet.author_id,
+                      username: originalTweet.username || 'user',
+                      display_name: originalTweet.display_name || 'User',
+                      avatar_url: originalTweet.avatar_url || '',
+                      avatar_nft_id: originalTweet.avatar_nft_id,
+                      avatar_nft_chain: originalTweet.avatar_nft_chain,
+                      replies_sort_order: originalTweet.replies_sort_order
+                    }
+                  };
+                }
+              } catch (err) {
+                console.error('Error processing retweet:', err);
+              }
+            }
+            
+            return enhancedTweet;
+          }));
+          
+          const validTweets = processedTweets
+            .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+            .filter(tweet => isValidTweet(tweet));
+          
+          setTweets(validTweets);
         } else if (activeTab === 'replies') {
           const fetchedReplies = await getUserComments(userId);
           setReplies(fetchedReplies);
         } else if (activeTab === 'media') {
           const fetchedTweets = await getUserTweets(userId);
-          const tweetsWithMedia = fetchedTweets.filter(tweet => tweet.image_url);
-          setMediaTweets(tweetsWithMedia);
+          
+          const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+            const enhancedTweet = enhanceTweetData(tweet);
+            if (!enhancedTweet || !isValidTweet(enhancedTweet)) return null;
+            
+            if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+              try {
+                const { data: originalTweetData, error: originalTweetError } = await supabase
+                  .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+                
+                if (!originalTweetError && originalTweetData && originalTweetData.length > 0) {
+                  return {
+                    ...enhancedTweet,
+                    image_url: originalTweetData[0].image_url || enhancedTweet.image_url,
+                    content: originalTweetData[0].content || enhancedTweet.content,
+                    original_author: {
+                      id: originalTweetData[0].author_id,
+                      username: originalTweetData[0].username || 'user',
+                      display_name: originalTweetData[0].display_name || 'User',
+                      avatar_url: originalTweetData[0].avatar_url || '',
+                      avatar_nft_id: originalTweetData[0].avatar_nft_id,
+                      avatar_nft_chain: originalTweetData[0].avatar_nft_chain,
+                    }
+                  };
+                }
+              } catch (err) {
+                console.error('Error processing media retweet:', err);
+              }
+            }
+            
+            return enhancedTweet;
+          }));
+          
+          const validTweets = processedTweets
+            .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+            .filter(tweet => isValidTweet(tweet) && tweet.image_url);
+          
+          setMediaTweets(validTweets);
         }
       } catch (error) {
         console.error(`Error fetching ${activeTab}:`, error);
@@ -61,14 +142,88 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       setLoading(true);
       if (activeTab === 'posts') {
         const freshTweets = await getUserTweets(userId);
-        setTweets(freshTweets);
+        
+        const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
+          const enhancedTweet = enhanceTweetData(tweet);
+          if (!enhancedTweet || !isValidTweet(enhancedTweet)) return null;
+          
+          if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+            try {
+              const { data: originalTweetData, error: originalTweetError } = await supabase
+                .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+              
+              if (!originalTweetError && originalTweetData && originalTweetData.length > 0) {
+                return {
+                  ...enhancedTweet,
+                  content: originalTweetData[0].content || enhancedTweet.content,
+                  image_url: originalTweetData[0].image_url || enhancedTweet.image_url,
+                  original_author: {
+                    id: originalTweetData[0].author_id,
+                    username: originalTweetData[0].username || 'user',
+                    display_name: originalTweetData[0].display_name || 'User',
+                    avatar_url: originalTweetData[0].avatar_url || '',
+                    avatar_nft_id: originalTweetData[0].avatar_nft_id,
+                    avatar_nft_chain: originalTweetData[0].avatar_nft_chain,
+                    replies_sort_order: originalTweetData[0].replies_sort_order
+                  }
+                };
+              }
+            } catch (err) {
+              console.error('Error refreshing retweet:', err);
+            }
+          }
+          
+          return enhancedTweet;
+        }));
+        
+        const validTweets = processedTweets
+          .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+          .filter(tweet => isValidTweet(tweet));
+        
+        setTweets(validTweets);
       } else if (activeTab === 'replies') {
         const freshReplies = await getUserComments(userId);
         setReplies(freshReplies);
       } else if (activeTab === 'media') {
         const freshTweets = await getUserTweets(userId);
-        const tweetsWithMedia = freshTweets.filter(tweet => tweet.image_url);
-        setMediaTweets(tweetsWithMedia);
+        
+        const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
+          const enhancedTweet = enhanceTweetData(tweet);
+          if (!enhancedTweet || !isValidTweet(enhancedTweet)) return null;
+          
+          if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+            try {
+              const { data: originalTweetData, error: originalTweetError } = await supabase
+                .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+              
+              if (!originalTweetError && originalTweetData && originalTweetData.length > 0) {
+                return {
+                  ...enhancedTweet,
+                  image_url: originalTweetData[0].image_url || enhancedTweet.image_url,
+                  content: originalTweetData[0].content || enhancedTweet.content,
+                  original_author: {
+                    id: originalTweetData[0].author_id,
+                    username: originalTweetData[0].username || 'user',
+                    display_name: originalTweetData[0].display_name || 'User',
+                    avatar_url: originalTweetData[0].avatar_url || '',
+                    avatar_nft_id: originalTweetData[0].avatar_nft_id,
+                    avatar_nft_chain: originalTweetData[0].avatar_nft_chain,
+                  }
+                };
+              }
+            } catch (err) {
+              console.error('Error refreshing media retweet:', err);
+            }
+          }
+          
+          return enhancedTweet;
+        }));
+        
+        const validTweets = processedTweets
+          .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+          .filter(tweet => isValidTweet(tweet) && tweet.image_url);
+        
+        setMediaTweets(validTweets);
       }
     } catch (error) {
       console.error(`Error refreshing ${activeTab}:`, error);
@@ -123,6 +278,13 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
                   key={tweet.id} 
                   tweet={tweet} 
                   onAction={handleRefresh}
+                  onError={(title, description) => {
+                    toast({
+                      title,
+                      description,
+                      variant: "destructive"
+                    });
+                  }}
                 />
               ))}
             </div>

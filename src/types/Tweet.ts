@@ -76,8 +76,8 @@ export function isValidRetweet(tweet: any): tweet is RetweetWithAuthor {
 }
 
 /**
- * Enhanced tweet data processor that fixes common issues with tweet data
- * Much more robust than previous version
+ * Completely rewritten enhanceTweetData function that's much more robust
+ * and handles edge cases better, particularly for retweets in profile pages
  */
 export function enhanceTweetData(tweet: any): TweetWithAuthor | null {
   if (!tweet) return null;
@@ -121,6 +121,7 @@ export function enhanceTweetData(tweet: any): TweetWithAuthor | null {
   // For retweets with original_tweet_id but without original_author, create a placeholder
   // This allows the tweet to pass validation and be displayed properly
   if (enhancedTweet.is_retweet === true && enhancedTweet.original_tweet_id && !enhancedTweet.original_author) {
+    // We'll use default placeholder values that will be replaced when we fetch the original tweet data
     enhancedTweet.original_author = {
       id: 'placeholder',
       username: 'user',
