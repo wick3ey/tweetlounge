@@ -102,13 +102,15 @@ export async function createComment(tweetId: string, content: string, parentComm
 
     // Force update the tweet's replies_count
     try {
-      // Get current count first
-      const { data: countData } = await supabase
+      // Get current count first - fixed the type error here
+      const { count, error: countError } = await supabase
         .from('comments')
         .select('id', { count: 'exact', head: true })
         .eq('tweet_id', tweetId);
         
-      const commentCount = countData || 0;
+      // Ensure count is a number
+      const commentCount = typeof count === 'number' ? count : 0;
+      console.log(`Tweet ${tweetId} has ${commentCount} comments after adding a new one`);
         
       // Update the tweet with the new count
       await supabase
