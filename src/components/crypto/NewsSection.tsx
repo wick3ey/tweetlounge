@@ -263,7 +263,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
     setExpandedArticleId(expandedArticleId === articleId ? null : articleId);
   };
 
-  const articlesToDisplay = compact ? 8 : 12;
+  const articlesToDisplay = compact ? newsArticles.length : 12;
 
   return (
     <Card 
@@ -330,7 +330,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
             </AlertDescription>
           </Alert>
         ) : (
-          <ScrollArea className={`${compact ? "max-h-[650px]" : "max-h-[800px]"} w-full`}>
+          <ScrollArea className={`${compact ? "h-[500px]" : "max-h-[800px]"} w-full`}>
             <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
               <AnimatePresence>
                 {newsArticles.slice(0, articlesToDisplay).map((article) => (
