@@ -22,7 +22,6 @@ import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Messages from './pages/Messages';
-import MessageChat from './components/messages/MessageChat';
 
 const queryClient = new QueryClient();
 
@@ -94,7 +93,7 @@ const App = () => {
                   } />
                   <Route path="/messages/:conversationId" element={
                     <ProtectedRoute>
-                      <MessageChat />
+                      <Messages />
                     </ProtectedRoute>
                   } />
                   <Route path="*" element={<NotFound />} />

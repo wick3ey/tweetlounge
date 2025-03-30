@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -39,6 +38,7 @@ import {
 import { format } from 'date-fns';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface MessageChatProps {
   conversationId: string;
@@ -56,10 +56,8 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  // Use our custom hook for real-time messages
   const { messages, loading, error } = useRealtimeMessages(conversationId);
 
-  // Get other user's info
   const otherParticipant = messages.length > 0 
     ? messages.find(m => m.sender_id !== user?.id)
     : null;
@@ -71,33 +69,27 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
     avatar: otherParticipant.sender_avatar,
   } : null;
 
-  // Format message timestamp
   const formatMessageTime = (timestamp: string) => {
     return format(new Date(timestamp), 'h:mm a');
   };
 
-  // Format message date for groups
   const formatMessageDate = (timestamp: string) => {
     const date = new Date(timestamp);
     const today = new Date();
     
-    // If today, show "Today"
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     }
     
-    // If yesterday, show "Yesterday"
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     }
     
-    // Otherwise, show the date
     return format(date, 'MMMM d, yyyy');
   };
 
-  // Group messages by date
   const groupMessagesByDate = () => {
     const groups: {[key: string]: typeof messages} = {};
     
@@ -109,7 +101,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
       groups[date].push(message);
     });
     
-    // Sort groups by date
     return Object.entries(groups)
       .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
       .map(([date, messages]) => ({
@@ -120,7 +111,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
 
   const messageGroups = groupMessagesByDate();
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -129,7 +119,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Mark conversation as read when opened
   useEffect(() => {
     if (conversationId) {
       markConversationAsRead(conversationId).catch(console.error);
@@ -257,7 +246,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with user info */}
       <div className="border-b border-crypto-gray p-4 flex items-center justify-between">
         <div className="flex items-center">
           {isMobile && (
@@ -300,7 +288,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         </Button>
       </div>
 
-      {/* Search bar (conditionally rendered) */}
       {showSearch && (
         <div className="border-b border-crypto-gray p-2 flex items-center">
           <Input 
@@ -332,7 +319,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         </div>
       )}
 
-      {/* Search results (conditionally rendered) */}
       {searchResults.length > 0 && (
         <div className="border-b border-crypto-gray bg-crypto-darkgray p-4">
           <h3 className="text-sm font-semibold mb-2">Search Results ({searchResults.length})</h3>
@@ -342,7 +328,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
                 key={message.id} 
                 className="p-2 rounded bg-crypto-black hover:bg-crypto-darkgray cursor-pointer"
                 onClick={() => {
-                  // Find the message element and scroll to it
                   const element = document.getElementById(`message-${message.id}`);
                   if (element) {
                     element.scrollIntoView({ behavior: 'smooth' });
@@ -389,7 +374,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         </div>
       )}
 
-      {/* Empty state if no messages */}
       {messages.length === 0 && (
         <div className="flex-grow flex flex-col items-center justify-center p-8 text-crypto-lightgray">
           <div className="bg-crypto-darkgray rounded-full p-6 mb-4">
@@ -402,7 +386,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         </div>
       )}
 
-      {/* Messages container */}
       {messages.length > 0 && (
         <div className="flex-grow overflow-y-auto p-4 space-y-6">
           {messageGroups.map(group => (
@@ -504,7 +487,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
         </div>
       )}
       
-      {/* Message input */}
       <div className="border-t border-crypto-gray p-4">
         <div className="flex items-center space-x-2">
           <Button 
