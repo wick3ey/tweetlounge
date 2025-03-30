@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,9 +88,12 @@ const TweetPage = () => {
             .single();
 
           if (!originalTweetError && originalTweetData) {
-            const originalProfile = originalTweetData.profiles;
-            
-            if (originalProfile) {
+            // Get the first profile from the profiles array
+            // Since profiles is returned as an array due to the Supabase join
+            const profilesData = originalTweetData.profiles as any[];
+            if (profilesData && profilesData.length > 0) {
+              const originalProfile = profilesData[0];
+              
               const originalAuthor: Author = {
                 id: originalTweetData.author_id,
                 username: originalProfile.username || '',
