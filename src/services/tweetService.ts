@@ -2,690 +2,642 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
-import { createNotification } from '@/services/notificationService';
+import { createNotification, deleteNotification } from './notificationService';
 
-export const getTweets = async (limit = 10, offset = 0, userId?: string): Promise<TweetWithAuthor[]> => {
+export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
-    let query;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    if (userId) {
-      // Get tweets by a specific user
-      query = supabase
-        .from('tweets')
-        .select(`
-          id,
-          content,
-          created_at,
-          author_id,
-          likes_count,
-          retweets_count,
-          replies_count,
-          is_retweet,
-          original_tweet_id,
-          image_url,
-          profiles!tweets_author_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            avatar_nft_id,
-            avatar_nft_chain
-          )
-        `)
-        .eq('author_id', userId)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-    } else {
-      // Get all tweets - using from instead of rpc since the function doesn't exist
-      query = supabase
-        .from('tweets')
-        .select(`
-          id,
-          content,
-          created_at,
-          author_id,
-          likes_count,
-          retweets_count,
-          replies_count,
-          is_retweet,
-          original_tweet_id,
-          image_url,
-          profiles!tweets_author_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            avatar_nft_id,
-            avatar_nft_chain
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+    if (!user) {
+      throw new Error('User must be logged in to create a tweet');
     }
+    
+    let imageUrl = null;
+    
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('tweet-images')
+        .upload(filePath, imageFile);
+        
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw uploadError;
+      }
+      
+      const { data } = supabase.storage
+        .from('tweet-images')
+        .getPublicUrl(filePath);
+        
+      imageUrl = data.publicUrl;
+    }
+    
+    const { data, error } = await supabase
+      .from('tweets')
+      .insert({
+        content,
+        author_id: user.id,
+        image_url: imageUrl
+      } as any)
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error creating tweet:', error);
+      throw error;
+    }
+    
+    return data as Tweet;
+  } catch (error) {
+    console.error('Tweet creation failed:', error);
+    return null;
+  }
+}
 
-    const { data, error } = await query;
-
+export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_tweets_with_authors_reliable', { 
+        limit_count: limit, 
+        offset_count: offset 
+      });
+      
     if (error) {
       console.error('Error fetching tweets:', error);
-      return [];
+      throw error;
     }
+    
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+      return {
+        id: item.id,
+        content: item.content,
+        author_id: item.author_id,
+        created_at: item.created_at,
+        likes_count: item.likes_count,
+        retweets_count: item.retweets_count,
+        replies_count: item.replies_count,
+        is_retweet: item.is_retweet,
+        original_tweet_id: item.original_tweet_id,
+        image_url: item.image_url,
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+        author: {
+          id: item.author_id,
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+        }
+      };
+    });
+    
+    return transformedData;
+  } catch (error) {
+    console.error('Failed to fetch tweets:', error);
+    return [];
+  }
+}
 
-    if (!data || data.length === 0) {
-      return [];
+export async function getUserTweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_user_tweets_reliable', { 
+        user_id: userId,
+        limit_count: limit, 
+        offset_count: offset 
+      });
+      
+    if (error) {
+      console.error('Error fetching user tweets:', error);
+      throw error;
     }
+    
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+      return {
+        id: item.id,
+        content: item.content,
+        author_id: item.author_id,
+        created_at: item.created_at,
+        likes_count: item.likes_count,
+        retweets_count: item.retweets_count,
+        replies_count: item.replies_count,
+        is_retweet: item.is_retweet,
+        original_tweet_id: item.original_tweet_id,
+        image_url: item.image_url,
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+        author: {
+          id: item.author_id,
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+        }
+      };
+    });
+    
+    return transformedData;
+  } catch (error) {
+    console.error('Failed to fetch user tweets:', error);
+    return [];
+  }
+}
 
-    // Transform data to match the TweetWithAuthor type
-    const transformedTweets: TweetWithAuthor[] = await Promise.all(data.map(async (tweet: any) => {
-      let transformedTweet: TweetWithAuthor = {
+export async function likeTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to like a tweet');
+    }
+    
+    const { data: existingLike } = await supabase
+      .from('likes')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+    
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id, likes_count')
+      .eq('id', tweetId)
+      .single();
+    
+    if (existingLike) {
+      const { error: deleteError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId);
+      
+      if (deleteError) {
+        throw deleteError;
+      }
+      
+      // Manually update the likes count
+      if (tweet && tweet.likes_count > 0) {
+        const newCount = tweet.likes_count - 1;
+        await supabase
+          .from('tweets')
+          .update({ likes_count: newCount })
+          .eq('id', tweetId);
+      }
+      
+      await deleteNotification(tweet.author_id, user.id, 'like', tweetId);
+      
+      return true;
+    } else {
+      const { error: insertError } = await supabase
+        .from('likes')
+        .insert({
+          user_id: user.id,
+          tweet_id: tweetId
+        });
+      
+      if (insertError) {
+        throw insertError;
+      }
+      
+      // Manually update the likes count
+      if (tweet) {
+        const newCount = (tweet.likes_count || 0) + 1;
+        await supabase
+          .from('tweets')
+          .update({ likes_count: newCount })
+          .eq('id', tweetId);
+      }
+      
+      await createNotification(tweet.author_id, user.id, 'like', tweetId);
+      
+      return true;
+    }
+  } catch (error) {
+    console.error('Error liking/unliking tweet:', error);
+    return false;
+  }
+}
+
+export async function retweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to retweet');
+    }
+    
+    const { data: existingRetweet } = await supabase
+      .from('retweets')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+    
+    // Get the original tweet data to use when creating a retweet
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id, content, image_url, retweets_count')
+      .eq('id', tweetId)
+      .single();
+    
+    if (existingRetweet) {
+      // If retweet exists, remove it
+      const { error: deleteError } = await supabase
+        .from('retweets')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tweet_id', tweetId);
+      
+      if (deleteError) {
+        console.error('Error deleting retweet:', deleteError);
+        throw deleteError;
+      }
+      
+      // Delete the retweet tweet
+      const { error: deleteTweetError } = await supabase
+        .from('tweets')
+        .delete()
+        .eq('author_id', user.id)
+        .eq('is_retweet', true)
+        .eq('original_tweet_id', tweetId);
+      
+      if (deleteTweetError) {
+        console.error('Error deleting retweet tweet:', deleteTweetError);
+        throw deleteTweetError;
+      }
+      
+      // Manually update the retweets count
+      if (tweet && tweet.retweets_count > 0) {
+        const newCount = tweet.retweets_count - 1;
+        await supabase
+          .from('tweets')
+          .update({ retweets_count: newCount })
+          .eq('id', tweetId);
+      }
+      
+      await deleteNotification(tweet.author_id, user.id, 'retweet', tweetId);
+      
+      return true;
+    } else {
+      // Create new retweet
+      const { error: insertError } = await supabase
+        .from('retweets')
+        .insert({
+          user_id: user.id,
+          tweet_id: tweetId
+        });
+      
+      if (insertError) {
+        console.error('Error inserting retweet:', insertError);
+        throw insertError;
+      }
+      
+      // Create retweet tweet
+      const { error: createTweetError } = await supabase
+        .from('tweets')
+        .insert({
+          author_id: user.id,
+          content: tweet.content,
+          is_retweet: true,
+          original_tweet_id: tweetId,
+          image_url: tweet.image_url
+        });
+      
+      if (createTweetError) {
+        console.error('Error creating retweet tweet:', createTweetError);
+        throw createTweetError;
+      }
+      
+      // Manually update the retweets count
+      if (tweet) {
+        const newCount = (tweet.retweets_count || 0) + 1;
+        await supabase
+          .from('tweets')
+          .update({ retweets_count: newCount })
+          .eq('id', tweetId);
+      }
+      
+      await createNotification(tweet.author_id, user.id, 'retweet', tweetId);
+      
+      return true;
+    }
+  } catch (error) {
+    console.error('Error retweeting/unretweeting:', error);
+    return false;
+  }
+}
+
+export async function replyToTweet(tweetId: string, content: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to comment');
+    }
+    
+    if (!content || content.trim() === '') {
+      throw new Error('Comment content cannot be empty');
+    }
+    
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id, replies_count')
+      .eq('id', tweetId)
+      .single();
+    
+    const { error: commentError } = await supabase
+      .from('comments')
+      .insert({
+        user_id: user.id,
+        tweet_id: tweetId,
+        content: content.trim()
+      });
+    
+    if (commentError) {
+      throw commentError;
+    }
+    
+    // Manually update the replies count
+    if (tweet) {
+      const newCount = (tweet.replies_count || 0) + 1;
+      await supabase
+        .from('tweets')
+        .update({ replies_count: newCount })
+        .eq('id', tweetId);
+    }
+    
+    await createNotification(tweet.author_id, user.id, 'comment', tweetId);
+    
+    return true;
+  } catch (error) {
+    console.error('Error commenting on tweet:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserLikedTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('likes')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+      
+    if (error) {
+      console.error('Error checking like status:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Check like status failed:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserRetweetedTweet(tweetId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('retweets')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tweet_id', tweetId)
+      .maybeSingle();
+      
+    if (error) {
+      console.error('Error checking retweet status:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Check retweet status failed:', error);
+    return false;
+  }
+}
+
+export async function getTweetComments(tweetId: string, limit = 20, offset = 0): Promise<Comment[]> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_tweet_comments', {
+        p_tweet_id: tweetId,
+        limit_count: limit,
+        offset_count: offset
+      });
+      
+    if (error) {
+      console.error('Error fetching tweet comments:', error);
+      throw error;
+    }
+    
+    const formattedComments: Comment[] = (data || []).map((comment: any) => ({
+      id: comment.id,
+      content: comment.content,
+      user_id: comment.user_id,
+      tweet_id: comment.tweet_id,
+      parent_comment_id: comment.parent_comment_id,
+      created_at: comment.created_at,
+      likes_count: comment.likes_count,
+      author: {
+        username: comment.profile_username,
+        display_name: comment.profile_display_name,
+        avatar_url: comment.profile_avatar_url || '',
+        avatar_nft_id: comment.profile_avatar_nft_id,
+        avatar_nft_chain: comment.profile_avatar_nft_chain
+      }
+    }));
+    
+    return formattedComments;
+  } catch (error) {
+    console.error('Failed to fetch tweet comments:', error);
+    return [];
+  }
+}
+
+export async function getUserRetweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
+  try {
+    const { data, error } = await supabase
+      .from('retweets')
+      .select(`
+        tweet_id,
+        tweets:tweet_id (
+          id,
+          content,
+          author_id,
+          created_at,
+          likes_count,
+          retweets_count,
+          replies_count,
+          is_retweet,
+          original_tweet_id,
+          image_url,
+          profiles:author_id (
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+      
+    if (error) {
+      console.error('Error fetching user retweets:', error);
+      throw error;
+    }
+    
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = data.map((item: any) => {
+      const tweet = item.tweets;
+      return {
         id: tweet.id,
         content: tweet.content,
         author_id: tweet.author_id,
         created_at: tweet.created_at,
-        likes_count: tweet.likes_count || 0,
-        retweets_count: tweet.retweets_count || 0,
-        replies_count: tweet.replies_count || 0,
-        is_retweet: tweet.is_retweet || false,
+        likes_count: tweet.likes_count,
+        retweets_count: tweet.retweets_count,
+        replies_count: tweet.replies_count,
+        is_retweet: tweet.is_retweet,
         original_tweet_id: tweet.original_tweet_id,
         image_url: tweet.image_url,
+        profile_username: tweet.profiles.username,
+        profile_display_name: tweet.profiles.display_name,
+        profile_avatar_url: tweet.profiles.avatar_url,
+        profile_avatar_nft_id: tweet.profiles.avatar_nft_id,
+        profile_avatar_nft_chain: tweet.profiles.avatar_nft_chain,
         author: {
-          id: tweet.profiles?.id || tweet.author_id,
-          username: tweet.profiles?.username || tweet.profile_username || '',
-          display_name: tweet.profiles?.display_name || tweet.profile_display_name || '',
-          avatar_url: tweet.profiles?.avatar_url || tweet.profile_avatar_url || '',
-          avatar_nft_id: tweet.profiles?.avatar_nft_id || tweet.profile_avatar_nft_id,
-          avatar_nft_chain: tweet.profiles?.avatar_nft_chain || tweet.profile_avatar_nft_chain
+          id: tweet.author_id,
+          username: tweet.profiles.username,
+          display_name: tweet.profiles.display_name,
+          avatar_url: tweet.profiles.avatar_url || '',
+          avatar_nft_id: tweet.profiles.avatar_nft_id,
+          avatar_nft_chain: tweet.profiles.avatar_nft_chain
         }
       };
-
-      // If this is a retweet, fetch original tweet information
-      if (tweet.is_retweet && tweet.original_tweet_id) {
-        const { data: originalTweetData, error: originalTweetError } = await supabase
-          .from('tweets')
-          .select(`
-            id, 
-            content, 
-            image_url,
-            profiles!tweets_author_id_fkey (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              avatar_nft_id,
-              avatar_nft_chain
-            )
-          `)
-          .eq('id', tweet.original_tweet_id)
-          .single();
-
-        if (!originalTweetError && originalTweetData) {
-          // Fix: Access profiles object correctly
-          const profileData = originalTweetData.profiles || {};
-          
-          transformedTweet.original_author = {
-            id: profileData.id || '',
-            username: profileData.username || '',
-            display_name: profileData.display_name || '',
-            avatar_url: profileData.avatar_url || '',
-            avatar_nft_id: profileData.avatar_nft_id || null,
-            avatar_nft_chain: profileData.avatar_nft_chain || null
-          };
-          
-          // Use content and image from the original tweet
-          transformedTweet.content = originalTweetData.content;
-          transformedTweet.image_url = originalTweetData.image_url;
-          
-          // Store who retweeted it
-          transformedTweet.retweeted_by = {
-            id: transformedTweet.author.id,
-            username: transformedTweet.author.username || '',
-            display_name: transformedTweet.author.display_name || '',
-            avatar_url: transformedTweet.author.avatar_url || ''
-          };
-        }
-      }
-
-      return transformedTweet;
-    }));
-
-    return transformedTweets;
+    });
+    
+    return transformedData;
   } catch (error) {
-    console.error('Error in getTweets:', error);
+    console.error('Failed to fetch user retweets:', error);
     return [];
   }
-};
+}
 
-export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | null> => {
+export async function deleteTweet(tweetId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('tweets')
-      .select(`
-        id,
-        content,
-        created_at,
-        author_id,
-        likes_count,
-        retweets_count,
-        replies_count,
-        is_retweet,
-        original_tweet_id,
-        image_url,
-        profiles!tweets_author_id_fkey (
-          id,
-          username,
-          display_name,
-          avatar_url,
-          avatar_nft_id,
-          avatar_nft_chain
-        )
-      `)
-      .eq('id', tweetId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching tweet:', error);
-      return null;
-    }
-
-    if (!data) {
-      return null;
-    }
-
-    // Fix: Access profiles object correctly
-    const profileData = data.profiles || {};
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
     
-    // Transform data to match the TweetWithAuthor type
-    const transformedTweet: TweetWithAuthor = {
-      id: data.id,
-      content: data.content,
-      author_id: data.author_id,
-      created_at: data.created_at,
-      likes_count: data.likes_count || 0,
-      retweets_count: data.retweets_count || 0,
-      replies_count: data.replies_count || 0,
-      is_retweet: data.is_retweet || false,
-      original_tweet_id: data.original_tweet_id,
-      image_url: data.image_url,
-      author: {
-        id: profileData.id || data.author_id,
-        username: profileData.username || '',
-        display_name: profileData.display_name || '',
-        avatar_url: profileData.avatar_url || '',
-        avatar_nft_id: profileData.avatar_nft_id,
-        avatar_nft_chain: profileData.avatar_nft_chain
-      }
-    };
-
-    return transformedTweet;
-  } catch (error) {
-    console.error('Error in getTweetById:', error);
-    return null;
-  }
-};
-
-export const createTweet = async (content: string, imageFile?: File): Promise<Tweet | null> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      console.error('User not authenticated');
-      return null;
+    if (!user) {
+      throw new Error('User must be logged in to delete a tweet');
     }
-
-    let image_url = null;
     
-    // If we have an image file, upload it first
-    if (imageFile) {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('tweet_images')
-        .upload(`${userId}/${fileName}`, imageFile);
-      
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-      } else if (uploadData) {
-        // Get the public URL for the uploaded image
-        const { data: publicUrlData } = supabase
-          .storage
-          .from('tweet_images')
-          .getPublicUrl(uploadData.path);
-          
-        image_url = publicUrlData.publicUrl;
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('tweets')
-      .insert([
-        { content, author_id: userId, image_url }
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating tweet:', error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Error in createTweet:', error);
-    return null;
-  }
-};
-
-export const likeTweet = async (tweetId: string): Promise<boolean> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      console.error('User not authenticated');
-      return false;
-    }
-
-    // First, check if the user has already liked the tweet
-    const { data: existingLike, error: existingLikeError } = await supabase
-      .from('likes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('tweet_id', tweetId)
-      .single();
-
-    if (existingLikeError && existingLikeError.code !== 'PGRST116') {
-      console.error('Error checking existing like:', existingLikeError);
-      return false;
-    }
-
-    if (existingLike) {
-      // If the user has already liked the tweet, unlike it
-      const { error: deleteError } = await supabase
-        .from('likes')
-        .delete()
-        .eq('user_id', userId)
-        .eq('tweet_id', tweetId);
-
-      if (deleteError) {
-        console.error('Error unliking tweet:', deleteError);
-        return false;
-      }
-
-      // Decrement likes_count in tweets table
-      await supabase
-        .rpc('decrement_counter', { row_id: tweetId });
-
-      return true;
-    } else {
-      // If the user has not liked the tweet, like it
-      const { error: insertError } = await supabase
-        .from('likes')
-        .insert([
-          { user_id: userId, tweet_id: tweetId }
-        ]);
-
-      if (insertError) {
-        console.error('Error liking tweet:', insertError);
-        return false;
-      }
-
-      // Increment likes_count in tweets table
-      await supabase
-        .rpc('increment_counter', { row_id: tweetId });
-      
-      // Create notification for the tweet author
-      const { data: tweetData, error: tweetError } = await supabase
-        .from('tweets')
-        .select('author_id')
-        .eq('id', tweetId)
-        .single();
-
-      if (tweetError) {
-        console.error('Error fetching tweet author:', tweetError);
-        return false;
-      }
-
-      if (tweetData && tweetData.author_id !== userId) {
-        await createNotification(tweetData.author_id, userId, 'like', tweetId);
-      }
-      
-      return true;
-    }
-  } catch (error) {
-    console.error('Error in likeTweet:', error);
-    return false;
-  }
-};
-
-export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      //console.warn('User not authenticated');
-      return false;
-    }
-
-    const { data, error } = await supabase
-      .from('likes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('tweet_id', tweetId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking if user liked tweet:', error);
-      return false;
-    }
-
-    return !!data;
-  } catch (error) {
-    console.error('Error in checkIfUserLikedTweet:', error);
-    return false;
-  }
-};
-
-export const retweet = async (tweetId: string): Promise<boolean> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      console.error('User not authenticated');
-      return false;
-    }
-
-    // Check if the user has already retweeted the tweet
-    const { data: existingRetweet, error: existingRetweetError } = await supabase
-      .from('tweets')
-      .select('*')
-      .eq('author_id', userId)
-      .eq('original_tweet_id', tweetId)
-      .eq('is_retweet', true)
-      .single();
-
-    if (existingRetweetError && existingRetweetError.code !== 'PGRST116') {
-      console.error('Error checking existing retweet:', existingRetweetError);
-      return false;
-    }
-
-    if (existingRetweet) {
-      // If the user has already retweeted the tweet, undo the retweet
-      const { error: deleteError } = await supabase
-        .from('tweets')
-        .delete()
-        .eq('author_id', userId)
-        .eq('original_tweet_id', tweetId)
-        .eq('is_retweet', true);
-
-      if (deleteError) {
-        console.error('Error undoing retweet:', deleteError);
-        return false;
-      }
-
-      // Decrement retweets_count in the original tweet
-      await supabase
-        .rpc('decrement_counter', { row_id: tweetId });
-      
-      return true;
-    } else {
-      // If the user has not retweeted the tweet, retweet it
-      const { data: originalTweet, error: originalTweetError } = await supabase
-        .from('tweets')
-        .select('author_id')
-        .eq('id', tweetId)
-        .single();
-
-      if (originalTweetError) {
-        console.error('Error fetching original tweet:', originalTweetError);
-        return false;
-      }
-
-      const { error: insertError } = await supabase
-        .from('tweets')
-        .insert([
-          {
-            content: '', // You might want to include some default content or leave it empty
-            author_id: userId,
-            is_retweet: true,
-            original_tweet_id: tweetId
-          }
-        ]);
-
-      if (insertError) {
-        console.error('Error retweeting:', insertError);
-        return false;
-      }
-
-      // Increment retweets_count in the original tweet
-      await supabase
-        .rpc('increment_counter', { row_id: tweetId });
-      
-      // Create notification for the tweet author, but only if it's not the same user retweeting their own tweet
-      if (originalTweet && originalTweet.author_id !== userId) {
-        await createNotification(originalTweet.author_id, userId, 'retweet', tweetId);
-      }
-      
-      return true;
-    }
-  } catch (error) {
-    console.error('Error in retweet:', error);
-    return false;
-  }
-};
-
-export const checkIfUserRetweetedTweet = async (tweetId: string): Promise<boolean> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      //console.warn('User not authenticated');
-      return false;
-    }
-
-    const { data, error } = await supabase
-      .from('tweets')
-      .select('*')
-      .eq('author_id', userId)
-      .eq('original_tweet_id', tweetId)
-      .eq('is_retweet', true)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking if user retweeted tweet:', error);
-      return false;
-    }
-
-    return !!data;
-  } catch (error) {
-    console.error('Error in checkIfUserRetweetedTweet:', error);
-    return false;
-  }
-};
-
-export const deleteTweet = async (tweetId: string): Promise<boolean> => {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-
-    if (!userId) {
-      console.error('User not authenticated');
-      return false;
-    }
-
-    // Check if the tweet belongs to the user
-    const { data: tweetData, error: tweetError } = await supabase
+    // First check if the tweet belongs to the user
+    const { data: tweet, error: fetchError } = await supabase
       .from('tweets')
       .select('author_id')
       .eq('id', tweetId)
-      .single();
-
-    if (tweetError) {
-      console.error('Error fetching tweet:', tweetError);
-      return false;
+      .maybeSingle();
+      
+    if (fetchError) {
+      console.error('Error fetching tweet:', fetchError);
+      throw fetchError;
     }
-
-    if (!tweetData || tweetData.author_id !== userId) {
-      console.warn('User not authorized to delete this tweet');
-      return false;
+    
+    if (!tweet) {
+      console.error('Tweet not found or already deleted');
+      return true; // Consider it a success if tweet is already gone
     }
-
+    
+    if (tweet.author_id !== user.id) {
+      throw new Error('You can only delete your own tweets');
+    }
+    
+    // Delete related bookmarks first to avoid foreign key constraints
+    const { error: bookmarksDeleteError } = await supabase
+      .from('bookmarks')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (bookmarksDeleteError) {
+      console.error('Error deleting related bookmarks:', bookmarksDeleteError);
+      // Continue with deletion anyway
+    }
+    
+    // Delete related likes
+    const { error: likesDeleteError } = await supabase
+      .from('likes')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (likesDeleteError) {
+      console.error('Error deleting related likes:', likesDeleteError);
+      // Continue with deletion anyway
+    }
+    
+    // Delete related retweets
+    const { error: retweetsDeleteError } = await supabase
+      .from('retweets')
+      .delete()
+      .eq('tweet_id', tweetId);
+      
+    if (retweetsDeleteError) {
+      console.error('Error deleting related retweets:', retweetsDeleteError);
+      // Continue with deletion anyway
+    }
+    
     // Delete the tweet
     const { error: deleteError } = await supabase
       .from('tweets')
       .delete()
       .eq('id', tweetId);
-
+      
     if (deleteError) {
       console.error('Error deleting tweet:', deleteError);
-      return false;
+      throw deleteError;
     }
-
+    
     return true;
   } catch (error) {
-    console.error('Error in deleteTweet:', error);
+    console.error('Tweet deletion failed:', error);
     return false;
   }
-};
-
-export const updateTweetCounts = async (tweetId: string, likesCount: number, retweetsCount: number, repliesCount: number): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('tweets')
-      .update({ likes_count: likesCount, retweets_count: retweetsCount, replies_count: repliesCount })
-      .eq('id', tweetId);
-
-    if (error) {
-      console.error('Error updating tweet counts:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in updateTweetCounts:', error);
-    return false;
-  }
-};
-
-export const getUserTweets = async (userId: string): Promise<TweetWithAuthor[]> => {
-  return getTweets(20, 0, userId);
-};
-
-export const getUserRetweets = async (userId: string): Promise<TweetWithAuthor[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('tweets')
-      .select(`
-        id,
-        content,
-        created_at,
-        author_id,
-        likes_count,
-        retweets_count,
-        replies_count,
-        is_retweet,
-        original_tweet_id,
-        image_url,
-        profiles!tweets_author_id_fkey (
-          id,
-          username,
-          display_name,
-          avatar_url,
-          avatar_nft_id,
-          avatar_nft_chain
-        )
-      `)
-      .eq('author_id', userId)
-      .eq('is_retweet', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching user retweets:', error);
-      return [];
-    }
-
-    if (!data || data.length === 0) {
-      return [];
-    }
-
-    // Process the retweets the same way as in getTweets
-    const transformedTweets: TweetWithAuthor[] = await Promise.all(data.map(async (tweet: any) => {
-      let transformedTweet: TweetWithAuthor = {
-        id: tweet.id,
-        content: tweet.content,
-        author_id: tweet.author_id,
-        created_at: tweet.created_at,
-        likes_count: tweet.likes_count || 0,
-        retweets_count: tweet.retweets_count || 0,
-        replies_count: tweet.replies_count || 0,
-        is_retweet: tweet.is_retweet || false,
-        original_tweet_id: tweet.original_tweet_id,
-        image_url: tweet.image_url,
-        author: {
-          id: tweet.profiles?.id || tweet.author_id,
-          username: tweet.profiles?.username || '',
-          display_name: tweet.profiles?.display_name || '',
-          avatar_url: tweet.profiles?.avatar_url || '',
-          avatar_nft_id: tweet.profiles?.avatar_nft_id,
-          avatar_nft_chain: tweet.profiles?.avatar_nft_chain
-        }
-      };
-
-      // If this is a retweet, fetch original tweet information
-      if (tweet.is_retweet && tweet.original_tweet_id) {
-        const { data: originalTweetData, error: originalTweetError } = await supabase
-          .from('tweets')
-          .select(`
-            id, 
-            content, 
-            image_url,
-            profiles!tweets_author_id_fkey (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              avatar_nft_id,
-              avatar_nft_chain
-            )
-          `)
-          .eq('id', tweet.original_tweet_id)
-          .single();
-
-        if (!originalTweetError && originalTweetData) {
-          // Fix: Access profiles object correctly
-          const profileData = originalTweetData.profiles || {};
-          
-          transformedTweet.original_author = {
-            id: profileData.id || '',
-            username: profileData.username || '',
-            display_name: profileData.display_name || '',
-            avatar_url: profileData.avatar_url || '',
-            avatar_nft_id: profileData.avatar_nft_id || null,
-            avatar_nft_chain: profileData.avatar_nft_chain || null
-          };
-          
-          transformedTweet.content = originalTweetData.content;
-          transformedTweet.image_url = originalTweetData.image_url;
-          
-          transformedTweet.retweeted_by = {
-            id: transformedTweet.author.id,
-            username: transformedTweet.author.username || '',
-            display_name: transformedTweet.author.display_name || '',
-            avatar_url: transformedTweet.author.avatar_url || ''
-          };
-        }
-      }
-
-      return transformedTweet;
-    }));
-
-    return transformedTweets;
-  } catch (error) {
-    console.error('Error in getUserRetweets:', error);
-    return [];
-  }
-};
+}

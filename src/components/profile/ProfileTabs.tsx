@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getTweets, getUserRetweets } from '@/services/tweetService';
+import { getUserTweets, getUserRetweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -31,13 +31,13 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       try {
         setLoading(true);
         if (activeTab === 'posts') {
-          const fetchedTweets = await getTweets(20, 0, userId);
+          const fetchedTweets = await getUserTweets(userId);
           setTweets(fetchedTweets);
         } else if (activeTab === 'replies') {
           const fetchedReplies = await getUserComments(userId);
           setReplies(fetchedReplies);
         } else if (activeTab === 'media') {
-          const fetchedTweets = await getTweets(20, 0, userId);
+          const fetchedTweets = await getUserTweets(userId);
           const tweetsWithMedia = fetchedTweets.filter(tweet => tweet.image_url);
           setMediaTweets(tweetsWithMedia);
         }
@@ -60,13 +60,13 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
     try {
       setLoading(true);
       if (activeTab === 'posts') {
-        const freshTweets = await getTweets(20, 0, userId);
+        const freshTweets = await getUserTweets(userId);
         setTweets(freshTweets);
       } else if (activeTab === 'replies') {
         const freshReplies = await getUserComments(userId);
         setReplies(freshReplies);
       } else if (activeTab === 'media') {
-        const freshTweets = await getTweets(20, 0, userId);
+        const freshTweets = await getUserTweets(userId);
         const tweetsWithMedia = freshTweets.filter(tweet => tweet.image_url);
         setMediaTweets(tweetsWithMedia);
       }

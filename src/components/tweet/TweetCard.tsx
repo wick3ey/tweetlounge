@@ -149,15 +149,15 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       {tweet.is_retweet && (
         <div className="flex items-center mb-2 text-gray-500 text-sm">
           <Repeat className="h-4 w-4 mr-1" />
-          <span>Reposted by {tweet.retweeted_by?.display_name || tweet.retweeted_by?.username}</span>
+          <span>Reposted by {tweet.author?.display_name || tweet.author?.username}</span>
         </div>
       )}
 
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.original_author?.avatar_url || tweet.author?.avatar_url} alt={tweet.original_author?.username || tweet.author?.username} />
-            <AvatarFallback>{(tweet.original_author?.username || tweet.author?.username)?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </div>
         
@@ -166,11 +166,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {tweet.original_author?.display_name || tweet.author?.display_name}
-                  {(tweet.original_author?.avatar_nft_id || tweet.author?.avatar_nft_id) && <VerifiedBadge className="ml-1" />}
+                  {tweet.author?.display_name}
+                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
                 </span>
                 <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{tweet.original_author?.username || tweet.author?.username}</span>
+                <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
