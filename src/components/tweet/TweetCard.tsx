@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -36,6 +35,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isRetweeting, setIsRetweeting] = useState(false); // Add a state to track retweet action in progress
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -107,25 +107,50 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
-      ? tweet.original_tweet_id 
-      : tweet.id;
+    // Prevent multiple retweet clicks
+    if (isRetweeting) {
+      return;
+    }
 
-    const success = await retweet(tweetIdToRetweet);
-    if (success) {
-      setIsRetweeted(!isRetweeted);
-      if (onAction) onAction();
+    try {
+      setIsRetweeting(true);
       
-      toast({
-        title: isRetweeted ? "Repost removed" : "Reposted",
-        description: isRetweeted ? "You removed your repost" : "You reposted this post",
-      });
-    } else {
+      const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
+        ? tweet.original_tweet_id 
+        : tweet.id;
+
+      const success = await retweet(tweetIdToRetweet);
+      
+      if (success) {
+        setIsRetweeted(!isRetweeted);
+        
+        toast({
+          title: isRetweeted ? "Repost removed" : "Reposted",
+          description: isRetweeted ? "You removed your repost" : "You reposted this post",
+        });
+        
+        // After a successful retweet, trigger a full refresh to get fresh data
+        if (onAction) {
+          setTimeout(() => {
+            onAction();
+          }, 500); // Small delay to ensure backend has updated
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to repost/unrepost the tweet.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error during retweet operation:', error);
       toast({
         title: "Error",
-        description: "Failed to repost/unrepost the tweet.",
+        description: "An unexpected error occurred during the repost operation.",
         variant: "destructive"
       });
+    } finally {
+      setIsRetweeting(false);
     }
   };
 

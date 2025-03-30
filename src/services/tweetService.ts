@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
@@ -101,7 +101,53 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
       };
     });
     
-    return transformedData;
+    // Process tweets to get original tweet information for retweets
+    const processedTweets = await Promise.all(transformedData.map(async (tweet) => {
+      if (tweet.is_retweet && tweet.original_tweet_id) {
+        try {
+          // Get the original tweet with author information
+          const { data: originalTweetData, error: originalTweetError } = await supabase
+            .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+          
+          if (originalTweetError) {
+            console.error('Error fetching original tweet:', originalTweetError);
+            return tweet;
+          }
+          
+          if (originalTweetData && originalTweetData.length > 0) {
+            const originalTweet = originalTweetData[0];
+            
+            // IMPORTANT: Copy both the original author AND the content
+            return {
+              ...tweet,
+              // Use the original tweet's content
+              content: originalTweet.content,
+              image_url: originalTweet.image_url,
+              // Add the original author information
+              original_author: {
+                id: originalTweet.author_id,
+                username: originalTweet.username,
+                display_name: originalTweet.display_name,
+                avatar_url: originalTweet.avatar_url || '',
+                avatar_nft_id: originalTweet.avatar_nft_id,
+                avatar_nft_chain: originalTweet.avatar_nft_chain
+              }
+            };
+          }
+        } catch (err) {
+          console.error('Error fetching original tweet:', err);
+        }
+      }
+      
+      return tweet;
+    }));
+    
+    // Log a sample tweet for debugging
+    if (processedTweets.length > 0) {
+      console.log('Sample tweet data:', processedTweets[0]);
+    }
+    
+    return processedTweets;
   } catch (error) {
     console.error('Failed to fetch tweets:', error);
     return [];
@@ -251,6 +297,23 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .eq('tweet_id', tweetId)
       .maybeSingle();
     
+    // Fetch the original tweet information, including its author
+    const { data: originalTweetData, error: originalTweetError } = await supabase
+      .rpc('get_tweet_with_author_reliable', { tweet_id: tweetId });
+    
+    if (originalTweetError) {
+      console.error('Error fetching original tweet for retweet:', originalTweetError);
+      throw originalTweetError;
+    }
+    
+    if (!originalTweetData || originalTweetData.length === 0) {
+      console.error('Original tweet not found for retweeting');
+      throw new Error('Original tweet not found');
+    }
+    
+    const originalTweet = originalTweetData[0];
+    
+    // Use .single() with caution, only when sure the result exists
     const { data: tweet } = await supabase
       .from('tweets')
       .select('author_id, content, image_url, retweets_count')
@@ -314,10 +377,10 @@ export async function retweet(tweetId: string): Promise<boolean> {
         .from('tweets')
         .insert({
           author_id: user.id,
-          content: tweet.content,
+          content: originalTweet.content, // Use the content directly from the reliable original tweet data
           is_retweet: true,
           original_tweet_id: tweetId,
-          image_url: tweet.image_url
+          image_url: originalTweet.image_url // Use the image URL from the reliable original tweet data
         });
       
       if (createTweetError) {
@@ -334,7 +397,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
           .eq('id', tweetId);
       }
       
-      await createNotification(tweet.author_id, user.id, 'retweet', tweetId);
+      await createNotification(originalTweet.author_id, user.id, 'retweet', tweetId);
       
       return true;
     }
