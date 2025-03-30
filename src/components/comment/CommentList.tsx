@@ -8,9 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface CommentListProps {
   tweetId?: string;
   onCommentCountUpdated?: (count: number) => void;
+  onAction?: () => void;
 }
 
-const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated }) => {
+const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated, onAction }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalComments, setTotalComments] = useState(0);
@@ -134,6 +135,14 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     }
   };
 
+  // Refresh comments when an action occurs (like a like)
+  const handleCommentAction = () => {
+    fetchComments();
+    if (onAction) {
+      onAction();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-4">
@@ -159,6 +168,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
               key={comment.id} 
               comment={comment} 
               tweetId={tweetId || ''} 
+              onAction={handleCommentAction}
             />
           ))}
         </div>

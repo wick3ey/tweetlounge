@@ -1,12 +1,13 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Comment } from '@/types/Comment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Heart, MoreHorizontal } from 'lucide-react';
+import { Heart, MoreHorizontal } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { checkIfUserLikedComment, likeComment } from '@/services/commentService';
 
 interface CommentCardProps {
   comment: Comment;
@@ -16,9 +17,22 @@ interface CommentCardProps {
 
 const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(comment.likes_count || 0);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  useEffect(() => {
+    // Check if the current user has liked this comment
+    const checkLikedStatus = async () => {
+      if (comment.id && user) {
+        const liked = await checkIfUserLikedComment(comment.id);
+        setIsLiked(liked);
+      }
+    };
+    
+    checkLikedStatus();
+  }, [comment.id, user]);
   
   const getInitials = (name: string) => {
     return name
@@ -38,20 +52,34 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
     }
   };
 
-  const handleInteraction = (action: string) => {
+  const handleLike = async () => {
     if (!user) {
       toast({
         title: "Authentication Required",
-        description: "You must be logged in to perform this action",
+        description: "You must be logged in to like a comment",
         variant: "destructive"
       });
       navigate('/login');
       return;
     }
     
-    // Handle the interaction (like reply, like, etc)
-    if (action === 'like') {
-      setIsLiked(!isLiked);
+    if (comment.id) {
+      const success = await likeComment(comment.id);
+      
+      if (success) {
+        setIsLiked(!isLiked);
+        setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
+        
+        if (onAction) {
+          onAction();
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to like comment",
+          variant: "destructive"
+        });
+      }
     }
   };
   
@@ -90,24 +118,16 @@ const CommentCard = ({ comment, tweetId, onAction }: CommentCardProps) => {
           
           <div className="flex items-center gap-6 mt-3">
             <button 
-              className="flex items-center text-crypto-lightgray hover:text-crypto-blue group"
-              onClick={() => handleInteraction('reply')}
-            >
-              <MessageSquare className="h-4 w-4 mr-2 group-hover:text-crypto-blue" />
-              <span className="text-xs">{comment.replies?.length || 0}</span>
-            </button>
-            
-            <button 
               className={`flex items-center ${isLiked ? 'text-red-500' : 'text-crypto-lightgray hover:text-red-500'} group`}
-              onClick={() => handleInteraction('like')}
+              onClick={handleLike}
             >
               <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : 'group-hover:text-red-500'}`} />
-              <span className="text-xs">{comment.likes_count}</span>
+              <span className="text-xs">{likesCount}</span>
             </button>
             
             <button 
               className="flex items-center text-crypto-lightgray hover:text-crypto-blue"
-              onClick={() => handleInteraction('more')}
+              onClick={() => {}}
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>

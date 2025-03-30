@@ -150,6 +150,11 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     setRepliesCount(count);
   };
 
+  // Handle any action in comments (like, etc)
+  const handleCommentAction = () => {
+    onAction(); // Refresh the tweet feed
+  };
+
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       {/* Close Button */}
@@ -250,6 +255,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           <CommentList 
             tweetId={tweet?.id} 
             onCommentCountUpdated={handleCommentCountUpdated}
+            onAction={handleCommentAction}
           />
         </div>
       </div>

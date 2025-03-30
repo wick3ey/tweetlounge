@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 
@@ -174,5 +173,107 @@ export async function getCommentReplies(commentId: string): Promise<Comment[]> {
   } catch (error) {
     console.error('Failed to fetch comment replies:', error);
     return [];
+  }
+}
+
+export async function likeComment(commentId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      throw new Error('User must be logged in to like a comment');
+    }
+    
+    const { data: existingLike, error: checkError } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.id)
+      .single();
+    
+    if (checkError && checkError.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
+      console.error('Error checking comment like:', checkError);
+      return false;
+    }
+    
+    if (existingLike) {
+      const { error: deleteError } = await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('id', existingLike.id);
+      
+      if (deleteError) {
+        console.error('Error removing comment like:', deleteError);
+        return false;
+      }
+      
+      const { error: updateError } = await supabase
+        .from('comments')
+        .update({ likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) })
+        .eq('id', commentId);
+      
+      if (updateError) {
+        console.error('Error updating comment likes count:', updateError);
+        return false;
+      }
+      
+      return true;
+    }
+    
+    const { error: insertError } = await supabase
+      .from('comment_likes')
+      .insert({
+        comment_id: commentId,
+        user_id: user.id
+      });
+    
+    if (insertError) {
+      console.error('Error adding comment like:', insertError);
+      return false;
+    }
+    
+    const { error: updateError } = await supabase
+      .from('comments')
+      .update({ likes_count: supabase.rpc('increment_counter', { row_id: commentId }) })
+      .eq('id', commentId);
+    
+    if (updateError) {
+      console.error('Error updating comment likes count:', updateError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Comment like operation failed:', error);
+    return false;
+  }
+}
+
+export async function checkIfUserLikedComment(commentId: string): Promise<boolean> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+    
+    if (!user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error && error.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
+      console.error('Error checking if user liked comment:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Failed to check if user liked comment:', error);
+    return false;
   }
 }
