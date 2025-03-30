@@ -156,14 +156,16 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="flex-1 min-w-0">
           <div className="flex justify-between">
             <div>
-              <span className="font-medium text-white flex items-center">
-                {tweet.author?.display_name}
-                {isNFTVerified && <VerifiedBadge className="ml-1" />}
-              </span>
-              <span className="text-gray-500 mx-1">·</span>
-              <span className="text-gray-500">@{tweet.author?.username}</span>
-              <span className="text-gray-500 mx-1">·</span>
-              <span className="text-gray-500">{formattedDate}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-medium text-white flex items-center">
+                  {tweet.author?.display_name}
+                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                </span>
+                <span className="text-gray-500 mx-1">·</span>
+                <span className="text-gray-500">@{tweet.author?.username}</span>
+                <span className="text-gray-500 mx-1">·</span>
+                <span className="text-gray-500">{formattedDate}</span>
+              </div>
             </div>
             
             {user?.id === tweet.author_id && (
