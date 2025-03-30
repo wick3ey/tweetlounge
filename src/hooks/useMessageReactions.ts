@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { addMessageReaction, removeMessageReaction, getMessageReactions } from '@/services/messageService';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface MessageReaction {
@@ -15,22 +14,8 @@ export interface MessageReaction {
 export const useMessageReactions = (messageId: string) => {
   const [reactions, setReactions] = useState<MessageReaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
 
-  // Group reactions by type
-  const groupedReactions = reactions.reduce((acc, reaction) => {
-    if (!acc[reaction.reaction_type]) {
-      acc[reaction.reaction_type] = { count: 0, userReacted: false };
-    }
-    acc[reaction.reaction_type].count++;
-    if (user && reaction.user_id === user.id) {
-      acc[reaction.reaction_type].userReacted = true;
-    }
-    return acc;
-  }, {} as Record<string, { count: number; userReacted: boolean }>);
-
-  // Get reactions for a message
   useEffect(() => {
     if (!messageId) {
       setReactions([]);
@@ -40,11 +25,19 @@ export const useMessageReactions = (messageId: string) => {
 
     const fetchReactions = async () => {
       try {
-        const reactionsData = await getMessageReactions(messageId);
-        setReactions(reactionsData);
-      } catch (err) {
-        console.error('Error fetching message reactions:', err);
-        setError(err instanceof Error ? err : new Error('Failed to fetch reactions'));
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('message_reactions')
+          .select('*')
+          .eq('message_id', messageId);
+
+        if (error) {
+          throw error;
+        }
+
+        setReactions(data || []);
+      } catch (error) {
+        console.error('Error fetching message reactions:', error);
       } finally {
         setLoading(false);
       }
@@ -52,50 +45,79 @@ export const useMessageReactions = (messageId: string) => {
 
     fetchReactions();
 
-    // Set up real-time listener
+    // Set up real-time listener for reactions
     const channel = supabase
-      .channel('message-reactions')
+      .channel(`reactions-${messageId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',  // Listen for all events (INSERT, UPDATE, DELETE)
+          event: 'INSERT',
           schema: 'public',
           table: 'message_reactions',
           filter: `message_id=eq.${messageId}`
         },
         (payload) => {
-          // Refetch reactions on any change
-          fetchReactions();
+          setReactions(current => [...current, payload.new as MessageReaction]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'message_reactions',
+          filter: `message_id=eq.${messageId}`
+        },
+        (payload) => {
+          setReactions(current => 
+            current.filter(reaction => reaction.id !== (payload.old as MessageReaction).id)
+          );
         }
       )
       .subscribe();
 
+    // Clean up on unmount
     return () => {
       supabase.removeChannel(channel);
     };
   }, [messageId]);
 
-  // Toggle a reaction
   const toggleReaction = async (reactionType: string) => {
-    if (!messageId || !user) return;
+    if (!user || !messageId) {
+      throw new Error('You must be logged in to react to messages');
+    }
 
     try {
-      // Check if user already reacted with this type
+      // Check if the user already has this reaction
       const existingReaction = reactions.find(
         r => r.user_id === user.id && r.reaction_type === reactionType
       );
 
       if (existingReaction) {
-        // Remove reaction
-        await removeMessageReaction(messageId, reactionType);
+        // Remove the reaction
+        const { error } = await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id);
+
+        if (error) throw error;
       } else {
-        // Add reaction
-        await addMessageReaction(messageId, reactionType);
+        // Add the reaction
+        const { error } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: messageId,
+            user_id: user.id,
+            reaction_type: reactionType
+          });
+
+        if (error) throw error;
       }
-    } catch (err) {
-      console.error('Error toggling reaction:', err);
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      throw error;
     }
   };
 
-  return { reactions, groupedReactions, loading, error, toggleReaction };
+  return { reactions, loading, toggleReaction };
 };

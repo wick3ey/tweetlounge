@@ -21,10 +21,6 @@ const Messages: React.FC = () => {
     }
   }, [isMobile, conversationId, loading, conversations, navigate]);
 
-  // If mobile and no conversationId, show just the conversation list
-  // If mobile and conversationId, show just the message chat
-  // If desktop, show both side by side
-
   return (
     <Layout>
       <div className="flex h-screen bg-crypto-black text-crypto-text">

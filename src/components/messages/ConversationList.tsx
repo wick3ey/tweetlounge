@@ -1,13 +1,12 @@
-
-import React, { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
-import { startConversation } from '@/services/messageService';
-import { useAuth } from '@/contexts/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Search, PlusCircle, Settings, Calendar, Mail, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { PlusCircle, Search, Check } from 'lucide-react';
+import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
+import { useAuth } from '@/contexts/AuthContext';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -15,379 +14,305 @@ import { supabase } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose
-} from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+} from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
+import { startConversation } from '@/services/messageService';
 import { useToast } from '@/components/ui/use-toast';
 
-// User search type
-interface UserSearchResult {
-  id: string;
-  username: string;
-  display_name: string;
-  avatar_url: string;
-  similarity: number;
-}
-
 const ConversationList: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const { conversations, loading, error } = useRealtimeConversations();
+  const { conversationId } = useParams<{ conversationId?: string }>();
+  const { conversations, loading } = useRealtimeConversations();
   const { user } = useAuth();
-  const { conversationId: activeConversationId } = useParams<{ conversationId?: string }>();
-  const [isNewMessageDialogOpen, setIsNewMessageDialogOpen] = useState(false);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
-  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
-  const [startingConversation, setStartingConversation] = useState(false);
-  const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
   
-  const truncateMessage = (message: string, length = 30) => 
-    message.length > length ? message.substring(0, length) + '...' : message;
-
-  const getDateDisplay = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
     const now = new Date();
     
+    // If today, show the time
     if (date.toDateString() === now.toDateString()) {
-      // Today, show time
       return format(date, 'h:mm a');
-    } else if (date.getFullYear() === now.getFullYear()) {
-      // This year, show month and day
-      return format(date, 'MMM d');
-    } else {
-      // Different year, show month and year
-      return format(date, 'MMM yyyy');
     }
+    
+    // If this week, show the day name
+    const daysDiff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff < 7) {
+      return format(date, 'EEE');
+    }
+    
+    // Otherwise show the date
+    return format(date, 'MM/dd/yy');
   };
-
-  const filteredConversations = conversations.filter(conv => {
-    const otherUser = conv.participants?.[0];
-    const displayName = otherUser?.display_name || otherUser?.username || '';
-    const username = otherUser?.username || '';
+  
+  const searchUsers = async (term: string) => {
+    if (!term.trim()) {
+      setSearchResults([]);
+      return;
+    }
     
-    return displayName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-           username.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
-  // Search for users
-  const searchUsers = async () => {
-    if (!userSearchTerm.trim()) return;
+    setSearching(true);
     
-    setSearchingUsers(true);
     try {
       const { data, error } = await supabase
-        .rpc('search_users', { 
-          search_term: userSearchTerm, 
-          limit_count: 5 
-        });
-        
+        .rpc('search_users', { search_term: term, limit_count: 5 });
+      
       if (error) throw error;
-      setUserSearchResults(data);
-    } catch (err) {
-      console.error('Error searching users:', err);
+      
+      // Filter out the current user
+      const filteredResults = data.filter(profile => profile.id !== user?.id);
+      setSearchResults(filteredResults);
+    } catch (error) {
+      console.error('Error searching users:', error);
       toast({
         title: 'Error',
-        description: 'Failed to search users',
-        variant: 'destructive',
+        description: 'Could not search for users',
+        variant: 'destructive'
       });
     } finally {
-      setSearchingUsers(false);
+      setSearching(false);
     }
   };
-
-  // Start a new conversation
-  const handleStartConversation = async () => {
-    if (!selectedUser) return;
-    
-    setStartingConversation(true);
+  
+  const handleNewConversation = async (userId: string) => {
     try {
-      const conversationId = await startConversation(selectedUser.id);
-      if (conversationId) {
-        navigate(`/messages/${conversationId}`);
-        setIsNewMessageDialogOpen(false);
-        setSelectedUser(null);
-        setUserSearchTerm('');
-        setUserSearchResults([]);
-      }
-    } catch (err) {
-      console.error('Error starting conversation:', err);
+      const conversationId = await startConversation(userId);
+      setShowNewMessageDialog(false);
+      setSearchTerm('');
+      setSearchResults([]);
+      
+      // The new conversation will show up automatically from the useRealtimeConversations hook
+    } catch (error) {
+      console.error('Error starting conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to start conversation',
-        variant: 'destructive',
+        variant: 'destructive'
       });
-    } finally {
-      setStartingConversation(false);
     }
   };
 
+  const filteredConversations = searchTerm
+    ? conversations.filter(conv => 
+        conv.other_user_username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.other_user_display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.last_message?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : conversations;
+
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center border-b border-crypto-gray">
-          <h1 className="text-xl font-bold">Messages</h1>
-          <div className="flex space-x-2">
-            <Button variant="ghost" size="icon" className="text-crypto-lightgray">
-              <Settings className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="text-crypto-lightgray">
-              <Calendar className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-        <div className="p-3">
-          <Skeleton className="h-10 w-full rounded-md" />
-        </div>
-        <div className="flex-grow overflow-y-auto">
-          <div className="space-y-1">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="p-4">
-                <div className="flex items-start space-x-3">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex justify-between">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-16" />
-                    </div>
-                    <Skeleton className="h-3 w-40" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="p-4 border-t border-crypto-gray">
-          <Skeleton className="h-10 w-full rounded-md" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b border-crypto-gray">
-          <h1 className="text-xl font-bold">Messages</h1>
-        </div>
-        <div className="flex-grow flex items-center justify-center">
-          <div className="text-center text-red-500 p-6">
-            <div className="text-4xl mb-4">😢</div>
-            <p className="mb-4">Error loading conversations</p>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // New Message Dialog
-  const renderNewMessageDialog = () => (
-    <Dialog open={isNewMessageDialogOpen} onOpenChange={setIsNewMessageDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>New Message</DialogTitle>
-          <DialogDescription>
-            Search for a user to start a conversation
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex items-center space-x-2 my-4">
-          <div className="relative flex-1">
-            <Input
-              placeholder="Search by username or name"
-              value={userSearchTerm}
-              onChange={(e) => setUserSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && searchUsers()}
-              className="pr-10"
-            />
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="absolute right-0 top-0 h-full"
-              onClick={searchUsers}
-              disabled={searchingUsers || !userSearchTerm.trim()}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        
-        {searchingUsers ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center p-2 border rounded-md">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="ml-3 space-y-1 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : userSearchResults.length > 0 ? (
-          <div className="max-h-60 overflow-y-auto space-y-2">
-            {userSearchResults.map(result => (
-              <div 
-                key={result.id}
-                className={`flex items-center p-2 border rounded-md cursor-pointer ${
-                  selectedUser?.id === result.id ? 'bg-crypto-blue/10 border-crypto-blue' : 'hover:bg-crypto-darkgray'
-                }`}
-                onClick={() => setSelectedUser(result)}
-              >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={result.avatar_url || ''} />
-                  <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                    {result.display_name?.[0] || result.username?.[0] || '?'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="ml-3">
-                  <div className="font-medium">{result.display_name || result.username}</div>
-                  <div className="text-sm text-crypto-lightgray">@{result.username}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : userSearchTerm && !searchingUsers ? (
-          <div className="py-4 text-center text-crypto-lightgray">
-            <span className="text-lg">🔍</span>
-            <p>No users found</p>
-          </div>
-        ) : null}
-        
-        <DialogFooter>
-          <Button
-            onClick={handleStartConversation}
-            disabled={startingConversation || !selectedUser}
-            className="w-full sm:w-auto"
-          >
-            {startingConversation ? 'Starting...' : 'Start Conversation'}
+      <div className="h-full flex flex-col">
+        <div className="p-4 flex justify-between items-center">
+          <h2 className="text-xl font-bold">Messages</h2>
+          <Button variant="ghost" size="icon">
+            <PlusCircle className="h-5 w-5" />
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+        </div>
+        <div className="px-4 pb-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-crypto-lightgray" />
+            <Skeleton className="h-10 w-full rounded-full" />
+          </div>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="p-4 border-b border-crypto-gray">
+              <div className="flex items-center">
+                <Skeleton className="h-12 w-12 rounded-full flex-shrink-0" />
+                <div className="ml-3 flex-grow">
+                  <Skeleton className="h-4 w-32 mb-2" />
+                  <Skeleton className="h-3 w-40" />
+                </div>
+                <Skeleton className="h-3 w-10 flex-shrink-0" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center border-b border-crypto-gray">
-        <h1 className="text-xl font-bold">Messages</h1>
-        <div className="flex space-x-2">
-          <Button variant="ghost" size="icon" className="text-crypto-lightgray hover:text-crypto-text hover:bg-crypto-darkgray">
-            <Settings className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-crypto-lightgray hover:text-crypto-text hover:bg-crypto-darkgray">
-            <Mail className="h-5 w-5" />
-          </Button>
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="p-4 flex justify-between items-center">
+        <h2 className="text-xl font-bold">Messages</h2>
+        <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
+          <DialogTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="text-crypto-blue hover:text-crypto-blue/80 hover:bg-crypto-darkgray"
+            >
+              <PlusCircle className="h-5 w-5" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md bg-crypto-darkgray border-crypto-gray">
+            <DialogHeader>
+              <DialogTitle>New Message</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-crypto-lightgray" />
+                <Input
+                  placeholder="Search people"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    searchUsers(e.target.value);
+                  }}
+                  className="pl-9 bg-crypto-black border-crypto-gray"
+                />
+              </div>
+              
+              {searching && (
+                <div className="py-3 text-center text-crypto-lightgray">
+                  Searching...
+                </div>
+              )}
+              
+              {!searching && searchResults.length === 0 && searchTerm.trim() !== '' && (
+                <div className="py-3 text-center text-crypto-lightgray">
+                  No users found
+                </div>
+              )}
+              
+              {!searching && searchResults.length > 0 && (
+                <div className="space-y-2">
+                  {searchResults.map(user => (
+                    <div 
+                      key={user.id}
+                      className="flex items-center p-2 rounded hover:bg-crypto-black cursor-pointer"
+                      onClick={() => handleNewConversation(user.id)}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user.avatar_url || ''} />
+                        <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                          {user.display_name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="ml-3">
+                        <div className="flex items-center">
+                          <p className="font-semibold">{user.display_name || user.username}</p>
+                          {user.avatar_nft_id && (
+                            <VerifiedBadge className="ml-1" />
+                          )}
+                        </div>
+                        <p className="text-sm text-crypto-lightgray">@{user.username}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      <div className="p-3">
+      
+      <div className="px-4 pb-2">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-crypto-lightgray h-4 w-4" />
+          <Search className="absolute left-3 top-3 h-4 w-4 text-crypto-lightgray" />
           <Input
-            placeholder="Search Direct Messages"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-crypto-darkgray border-none"
+            placeholder="Search messages"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-crypto-black border-crypto-gray"
           />
         </div>
       </div>
-
-      <div className="flex-grow overflow-y-auto">
-        {filteredConversations.length === 0 && !searchQuery && (
-          <div className="flex flex-col items-center justify-center p-8 text-crypto-lightgray">
-            <MessageSquare className="h-12 w-12 mb-4 text-crypto-gray" />
-            <p className="font-medium mb-2">No conversations yet</p>
-            <p className="text-sm text-center">Start a conversation with another user to see it here</p>
-          </div>
-        )}
-
-        {filteredConversations.length === 0 && searchQuery && (
-          <div className="flex flex-col items-center justify-center p-8 text-crypto-lightgray">
-            <Search className="h-12 w-12 mb-4 text-crypto-gray" />
-            <p className="font-medium mb-2">No conversations found</p>
-            <p className="text-sm text-center">Try a different search term or start a new conversation</p>
-          </div>
-        )}
-
-        <div className="divide-y divide-crypto-gray">
-          {filteredConversations.map(conv => {
-            const otherUser = conv.participants?.[0];
-            const isRead = true; // We'll add unread indicator later
-            const isActive = conv.id === activeConversationId;
-            
-            return (
-              <Link 
-                key={conv.id} 
-                to={`/messages/${conv.id}`} 
-                className={`block p-4 transition-colors ${
-                  isActive 
-                    ? 'bg-crypto-blue/10' 
-                    : 'hover:bg-crypto-darkgray'
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <Avatar className="h-12 w-12 rounded-full">
-                    <AvatarImage src={otherUser?.avatar_url || ''} />
+      
+      <Separator className="bg-crypto-gray" />
+      
+      {conversations.length === 0 ? (
+        <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">
+          <PlusCircle className="h-12 w-12 mb-4 opacity-50" />
+          <p className="text-center">No conversations yet</p>
+          <Button 
+            variant="outline" 
+            className="mt-4 border-crypto-gray text-crypto-blue hover:bg-crypto-gray/20"
+            onClick={() => setShowNewMessageDialog(true)}
+          >
+            Start a new message
+          </Button>
+        </div>
+      ) : filteredConversations.length === 0 ? (
+        <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">
+          <Search className="h-12 w-12 mb-4 opacity-50" />
+          <p className="text-center">No conversations match your search</p>
+          <Button 
+            variant="outline" 
+            className="mt-4 border-crypto-gray"
+            onClick={() => setSearchTerm('')}
+          >
+            Clear search
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-y-auto flex-1">
+          {filteredConversations.map(conversation => (
+            <Link
+              key={conversation.id}
+              to={`/messages/${conversation.id}`}
+              className={`block p-4 border-b border-crypto-gray hover:bg-crypto-darkgray transition-colors ${
+                conversation.id === conversationId ? 'bg-crypto-darkgray' : ''
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="relative">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={conversation.other_user_avatar || ''} />
                     <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                      {otherUser?.display_name?.[0] || otherUser?.username?.[0] || '?'}
+                      {conversation.other_user_display_name?.[0]?.toUpperCase() || 
+                       conversation.other_user_username?.[0]?.toUpperCase() || '?'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <div className="flex items-center max-w-[70%]">
-                        <h3 className={`font-medium truncate ${!isRead ? 'text-crypto-blue' : ''}`}>
-                          {otherUser?.display_name || otherUser?.username}
-                        </h3>
-                        {otherUser?.ethereum_address && (
-                          <VerifiedBadge className="ml-1 flex-shrink-0" />
-                        )}
-                      </div>
-                      <span className="text-xs text-crypto-lightgray flex-shrink-0">
-                        {conv.updated_at && getDateDisplay(conv.updated_at)}
-                      </span>
+                  {conversation.unread_count > 0 && (
+                    <div className="absolute -top-1 -right-1 bg-crypto-blue text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {conversation.unread_count > 9 ? '9+' : conversation.unread_count}
                     </div>
-                    <div className="flex justify-between items-center">
-                      <p className={`text-sm truncate text-crypto-lightgray ${!isRead ? 'text-crypto-text font-medium' : ''}`}>
-                        {conv.lastMessage 
-                          ? conv.lastMessage.is_deleted 
-                            ? <span className="italic">Message was deleted</span>
-                            : truncateMessage(conv.lastMessage.content)
-                          : 'Start a conversation'
-                        }
-                      </p>
-                      {!isRead && (
-                        <Badge variant="default" className="bg-crypto-blue h-2 w-2 rounded-full p-0 flex-shrink-0" />
-                      )}
-                    </div>
+                  )}
+                </div>
+                
+                <div className="ml-3 flex-grow overflow-hidden">
+                  <div className="flex items-center mb-1">
+                    <h3 className="font-semibold truncate mr-1">
+                      {conversation.other_user_display_name || conversation.other_user_username || 'Unknown User'}
+                    </h3>
+                    {conversation.other_user_avatar_nft_id && (
+                      <VerifiedBadge className="flex-shrink-0" />
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center text-crypto-lightgray">
+                    <p className={`text-sm truncate ${conversation.unread_count > 0 ? 'font-semibold text-white' : ''}`}>
+                      {conversation.last_message || 'No messages yet'}
+                    </p>
+                    {conversation.sender_id === user?.id && conversation.last_message && (
+                      <Check className="h-4 w-4 ml-1 flex-shrink-0" />
+                    )}
                   </div>
                 </div>
-              </Link>
-            );
-          })}
+                
+                <div className="text-xs text-crypto-lightgray whitespace-nowrap ml-2">
+                  {conversation.updated_at ? formatTime(conversation.updated_at) : ''}
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
-      </div>
-
-      <div className="p-4 border-t border-crypto-gray">
-        <Button 
-          className="w-full bg-crypto-blue hover:bg-crypto-darkblue"
-          onClick={() => setIsNewMessageDialogOpen(true)}
-        >
-          <PlusCircle className="h-5 w-5 mr-2" />
-          New Message
-        </Button>
-      </div>
-
-      {renderNewMessageDialog()}
+      )}
     </div>
   );
 };
