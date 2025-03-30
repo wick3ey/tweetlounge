@@ -48,10 +48,13 @@ export async function getOriginalTweet(originalTweetId: string): Promise<TweetWi
 // Get tweets with pagination support
 export async function getTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
   try {
+    // Fix the function call to match the database function definition
+    // Changing from 'get_tweets_with_authors' with tweets_limit, tweets_offset parameters
+    // to 'get_tweets_with_authors' with limit_count, offset_count parameters
     const { data, error } = await supabase
       .rpc('get_tweets_with_authors', { 
-        tweets_limit: limit, 
-        tweets_offset: offset 
+        limit_count: limit, 
+        offset_count: offset 
       });
 
     if (error) {

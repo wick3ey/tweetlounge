@@ -33,6 +33,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       setLoading(true);
       setError(null);
       
+      console.log('Fetching tweets with limit:', limit, 'and userId:', userId);
       const fetchedTweets = await getTweets(limit, 0);
       
       // Log a sample tweet for debugging
