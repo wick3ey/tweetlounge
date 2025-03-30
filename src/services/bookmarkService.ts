@@ -1,4 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
+
+import { supabase } from '@/lib/supabase';
 import { TweetWithAuthor } from '@/types/Tweet';
 
 // Add a bookmark
@@ -95,21 +96,7 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
     }
     
     try {
-      const { data, error } = await supabase
-        .rpc('is_tweet_bookmarked', {
-          tweet_id: tweetId,
-          user_id: user.id
-        });
-        
-      if (error) {
-        console.error('Error checking bookmark status:', error);
-        return false;
-      }
-      
-      return data;
-    } catch (catchError) {
-      // Fall back to direct query if RPC fails
-      console.warn('RPC failed, falling back to direct query');
+      // Use a direct query instead of the RPC function to avoid ambiguous column reference
       const { data, error } = await supabase
         .from('bookmarks')
         .select('*')
@@ -118,11 +105,14 @@ export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> 
         .maybeSingle();
         
       if (error) {
-        console.error('Error checking bookmark status with direct query:', error);
+        console.error('Error checking bookmark status:', error);
         return false;
       }
       
       return !!data;
+    } catch (catchError) {
+      console.error('Error checking bookmark status with direct query:', catchError);
+      return false;
     }
   } catch (error) {
     console.error('Check bookmark status failed:', error);
@@ -140,39 +130,68 @@ export async function getBookmarkedTweets(limit = 20, offset = 0): Promise<Tweet
       return [];
     }
     
+    // Use a direct query instead of RPC to avoid ambiguous column references
     const { data, error } = await supabase
-      .rpc('get_bookmarked_tweets', {
-        p_user_id: user.id,
-        limit_count: limit,
-        offset_count: offset
-      });
+      .from('bookmarks')
+      .select(`
+        created_at as bookmarked_at,
+        tweets!bookmarks_tweet_id_fkey (
+          id,
+          content,
+          author_id,
+          created_at,
+          likes_count,
+          retweets_count,
+          replies_count,
+          is_retweet,
+          original_tweet_id,
+          image_url,
+          profiles!tweets_author_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          )
+        )
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
       
     if (error) {
       console.error('Error fetching bookmarked tweets:', error);
       throw error;
     }
     
-    const transformedData: TweetWithAuthor[] = (data || []).map((item: any) => ({
-      id: item.id,
-      content: item.content,
-      author_id: item.author_id,
-      created_at: item.created_at,
-      likes_count: item.likes_count,
-      retweets_count: item.retweets_count,
-      replies_count: item.replies_count,
-      is_retweet: item.is_retweet,
-      original_tweet_id: item.original_tweet_id,
-      image_url: item.image_url,
-      bookmarked_at: item.bookmarked_at,
-      author: {
-        id: item.author_id,
-        username: item.username,
-        display_name: item.display_name,
-        avatar_url: item.avatar_url || '',
-        avatar_nft_id: item.avatar_nft_id,
-        avatar_nft_chain: item.avatar_nft_chain
-      }
-    }));
+    // Transform the data to match the TweetWithAuthor type
+    const transformedData: TweetWithAuthor[] = (data || []).map((item: any) => {
+      const tweet = item.tweets;
+      const profile = tweet.profiles;
+      
+      return {
+        id: tweet.id,
+        content: tweet.content,
+        author_id: tweet.author_id,
+        created_at: tweet.created_at,
+        likes_count: tweet.likes_count,
+        retweets_count: tweet.retweets_count,
+        replies_count: tweet.replies_count,
+        is_retweet: tweet.is_retweet,
+        original_tweet_id: tweet.original_tweet_id,
+        image_url: tweet.image_url,
+        bookmarked_at: item.bookmarked_at,
+        author: {
+          id: profile.id,
+          username: profile.username,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url || '',
+          avatar_nft_id: profile.avatar_nft_id,
+          avatar_nft_chain: profile.avatar_nft_chain
+        }
+      };
+    });
     
     return transformedData;
   } catch (error) {
