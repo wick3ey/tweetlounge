@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -187,7 +186,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     onAction();
   };
 
-  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+  const isNFTVerified = tweet?.original_author?.avatar_nft_id && tweet?.original_author?.avatar_nft_chain || 
+                        tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+
+  const displayAuthor = tweet?.original_author || tweet?.author;
 
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
@@ -214,18 +216,25 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       </Button>
 
       <div className="p-4 border-b border-gray-800">
+        {tweet.is_retweet && tweet.retweeted_by && (
+          <div className="flex items-center mb-3 text-gray-500 text-sm">
+            <Repeat className="h-4 w-4 mr-1" />
+            <span>Reposted by {tweet.retweeted_by.display_name}</span>
+          </div>
+        )}
+        
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet?.author?.avatar_url} alt={tweet?.author?.username} />
-            <AvatarFallback>{tweet?.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+            <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.username} />
+            <AvatarFallback>{displayAuthor?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <div className="font-medium flex items-center">
-                {tweet?.author?.display_name}
+                {displayAuthor?.display_name}
                 {isNFTVerified && <VerifiedBadge className="ml-1" />}
               </div>
-              <div className="text-gray-500">@{tweet?.author?.username}</div>
+              <div className="text-gray-500">@{displayAuthor?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
             </div>
             <div className="mt-2 text-base">{tweet?.content}</div>
@@ -254,7 +263,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         <div className="flex mt-4 text-sm text-gray-500 space-x-6">
           <span>{repliesCount} {repliesCount === 1 ? 'Comment' : 'Comments'}</span>
           <span>{tweet?.retweets_count || 0} {(tweet?.retweets_count || 0) === 1 ? 'Retweet' : 'Retweets'}</span>
-          <span>{tweet?.likes_count || 0} {(tweet?.likes_count || 0) === 1 ? 'Like' : 'Likes'}</span>
+          <span>{tweet?.likes_count ||
+ 0} {(tweet?.likes_count || 0) === 1 ? 'Like' : 'Likes'}</span>
         </div>
 
         <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
