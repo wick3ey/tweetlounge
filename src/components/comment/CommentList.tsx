@@ -27,6 +27,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     
     setLoading(true);
     try {
+      // Fetch parent comments
       const { data, error } = await supabase
         .from('comments')
         .select(`
@@ -54,7 +55,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         return;
       }
       
-      // Get the total count of comments for this tweet
+      // Get the TOTAL count of ALL comments for this tweet (including replies)
       const { count, error: countError } = await supabase
         .from('comments')
         .select('id', { count: 'exact', head: true })
@@ -64,6 +65,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         console.error('Error counting comments:', countError);
       } else {
         const commentCount = count || 0;
+        console.log(`Tweet ${tweetId} has ${commentCount} total comments`);
         setTotalComments(commentCount);
         
         // Notify parent component about the updated comment count
@@ -72,7 +74,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         }
         
         // Update the tweet's replies_count if it doesn't match the actual count
-        updateTweetRepliesCount(tweetId, commentCount);
+        await updateTweetRepliesCount(tweetId, commentCount);
       }
       
       if (data) {
@@ -119,6 +121,8 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       
       // Only update if the count doesn't match
       if (tweetData && tweetData.replies_count !== commentCount) {
+        console.log(`Updating tweet ${tweetId} replies_count from ${tweetData.replies_count} to ${commentCount}`);
+        
         const { error: updateError } = await supabase
           .from('tweets')
           .update({ replies_count: commentCount })

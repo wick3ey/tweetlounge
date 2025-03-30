@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -35,11 +34,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
   onRetweetRemoved,
   onError
 }) => {
-  // Enhanced validation at the component level
   if (!isValidTweet(tweet)) {
     console.error('Invalid tweet data received:', tweet);
-    
-    // Show fallback content instead of returning null
     return (
       <div className="p-4 border-b border-gray-800 bg-gray-900/20">
         <div className="flex items-center space-x-2 text-red-500">
@@ -50,11 +46,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
     );
   }
   
-  // For retweets with missing original tweet
   if (tweet.is_retweet && !tweet.original_tweet_id) {
     console.error('Retweet with null original_tweet_id:', tweet);
-    
-    // Better handling for invalid retweets
     return (
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
@@ -250,7 +243,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
         variant: "destructive"
       });
       
-      // Report the error to parent component if handler is provided
       if (onError) {
         onError(
           "Repost Error", 
@@ -318,7 +310,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Special handling for retweets
   if (tweet.is_retweet && tweet.original_tweet_id) {
     if (!tweet.original_author) {
       return (
@@ -454,7 +445,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     );
   }
   
-  // Standard tweets
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"

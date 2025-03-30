@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
@@ -97,6 +98,26 @@ export async function createComment(tweetId: string, content: string, parentComm
     if (error) {
       console.error('Error creating comment:', error);
       throw error;
+    }
+
+    // Force update the tweet's replies_count
+    try {
+      // Get current count first
+      const { data: countData } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+        
+      const commentCount = countData || 0;
+        
+      // Update the tweet with the new count
+      await supabase
+        .from('tweets')
+        .update({ replies_count: commentCount })
+        .eq('id', tweetId);
+    } catch (countError) {
+      console.error('Error updating comment count:', countError);
+      // Continue anyway
     }
 
     if (!parentCommentId) {

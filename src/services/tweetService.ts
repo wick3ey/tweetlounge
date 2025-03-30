@@ -492,12 +492,7 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
       throw new Error('Comment content cannot be empty');
     }
     
-    const { data: tweet } = await supabase
-      .from('tweets')
-      .select('author_id, replies_count')
-      .eq('id', tweetId)
-      .single();
-    
+    // Insert the comment
     const { error: commentError } = await supabase
       .from('comments')
       .insert({
@@ -510,16 +505,42 @@ export async function replyToTweet(tweetId: string, content: string): Promise<bo
       throw commentError;
     }
     
-    // Manually update the replies count
-    if (tweet) {
-      const newCount = (tweet.replies_count || 0) + 1;
-      await supabase
+    // Fetch the tweet to get its author and current replies count
+    const { data: tweet } = await supabase
+      .from('tweets')
+      .select('author_id, replies_count')
+      .eq('id', tweetId)
+      .single();
+    
+    // Get the total comments count for this tweet
+    const { count, error: countError } = await supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('tweet_id', tweetId);
+      
+    if (countError) {
+      console.error('Error counting comments:', countError);
+    } else {
+      // Use the actual count from the database instead of incremental updates
+      const newCount = count || 0;
+      
+      // Update the tweet with the accurate count
+      const { error: updateError } = await supabase
         .from('tweets')
         .update({ replies_count: newCount })
         .eq('id', tweetId);
+        
+      if (updateError) {
+        console.error('Error updating tweet replies count:', updateError);
+      } else {
+        console.log(`Updated tweet ${tweetId} replies_count to ${newCount}`);
+      }
     }
     
-    await createNotification(tweet.author_id, user.id, 'comment', tweetId);
+    // Create notification for the tweet author
+    if (tweet) {
+      await createNotification(tweet.author_id, user.id, 'comment', tweetId);
+    }
     
     return true;
   } catch (error) {
