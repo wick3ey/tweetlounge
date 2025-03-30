@@ -316,6 +316,16 @@ const TweetCard: React.FC<TweetCardProps> = ({
     }
   };
 
+  const getValidProfileObject = (profile: any) => {
+    if (!profile) return null;
+    
+    if (profile.id && profile.username && profile.display_name) {
+      return profile;
+    }
+    
+    return null;
+  };
+
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
   if (tweet.is_retweet && tweet.original_tweet_id) {
@@ -348,41 +358,51 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
         <div className="flex space-x-3">
           <div className="flex-shrink-0">
-            <ProfileHoverCard profile={tweet.original_author}>
-              <span onClick={(e) => e.stopPropagation()}>
-                <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
-                  <AvatarImage 
-                    src={tweet.original_author.avatar_url} 
-                    alt={tweet.original_author.username} 
-                  />
-                  <AvatarFallback>
-                    {tweet.original_author.username?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </span>
-            </ProfileHoverCard>
+            {getValidProfileObject(tweet.original_author) ? (
+              <ProfileHoverCard profile={tweet.original_author}>
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                    <AvatarImage 
+                      src={tweet.original_author.avatar_url} 
+                      alt={tweet.original_author.username} 
+                    />
+                    <AvatarFallback>
+                      {tweet.original_author.username?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </span>
+              </ProfileHoverCard>
+            ) : (
+              <Avatar className="h-10 w-10">
+                <AvatarFallback>?</AvatarFallback>
+              </Avatar>
+            )}
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex justify-between">
               <div>
                 <div className="flex items-center gap-1">
-                  <ProfileHoverCard profile={tweet.original_author} align="start">
-                    <span 
-                      className="font-medium text-white flex items-center hover:underline cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToProfile(e, tweet.original_author.username);
-                      }}
-                    >
-                      {tweet.original_author.display_name}
-                      {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
-                        <VerifiedBadge className="ml-1" />
-                      )}
-                    </span>
-                  </ProfileHoverCard>
+                  {getValidProfileObject(tweet.original_author) ? (
+                    <ProfileHoverCard profile={tweet.original_author} align="start">
+                      <span 
+                        className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToProfile(e, tweet.original_author.username);
+                        }}
+                      >
+                        {tweet.original_author.display_name}
+                        {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
+                          <VerifiedBadge className="ml-1" />
+                        )}
+                      </span>
+                    </ProfileHoverCard>
+                  ) : (
+                    <span className="font-medium text-white">Unknown user</span>
+                  )}
                   <span className="text-gray-500 mx-1">·</span>
-                  <span className="text-gray-500">@{tweet.original_author.username}</span>
+                  <span className="text-gray-500">@{tweet.original_author?.username || 'unknown'}</span>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
                 </div>
@@ -472,36 +492,46 @@ const TweetCard: React.FC<TweetCardProps> = ({
     >
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
-          <ProfileHoverCard profile={tweet.author || {}} align="center">
-            <span onClick={(e) => e.stopPropagation()}>
-              <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
-                <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-                <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            </span>
-          </ProfileHoverCard>
+          {getValidProfileObject(tweet.author) ? (
+            <ProfileHoverCard profile={tweet.author}>
+              <span onClick={(e) => e.stopPropagation()}>
+                <Avatar className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity">
+                  <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
+                  <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </span>
+            </ProfileHoverCard>
+          ) : (
+            <Avatar className="h-10 w-10">
+              <AvatarFallback>?</AvatarFallback>
+            </Avatar>
+          )}
         </div>
         
         <div className="flex-1 min-w-0">
           <div className="flex justify-between">
             <div>
               <div className="flex items-center gap-1">
-                <ProfileHoverCard profile={tweet.author || {}} align="start">
-                  <span 
-                    className="font-medium text-white flex items-center hover:underline cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateToProfile(e, tweet.author?.username);
-                    }}
-                  >
-                    {tweet.author?.display_name}
-                    {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && (
-                      <VerifiedBadge className="ml-1" />
-                    )}
-                  </span>
-                </ProfileHoverCard>
+                {getValidProfileObject(tweet.author) ? (
+                  <ProfileHoverCard profile={tweet.author} align="start">
+                    <span 
+                      className="font-medium text-white flex items-center hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateToProfile(e, tweet.author?.username);
+                      }}
+                    >
+                      {tweet.author?.display_name}
+                      {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && (
+                        <VerifiedBadge className="ml-1" />
+                      )}
+                    </span>
+                  </ProfileHoverCard>
+                ) : (
+                  <span className="font-medium text-white">Unknown user</span>
+                )}
                 <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">@{tweet.author?.username}</span>
+                <span className="text-gray-500">@{tweet.author?.username || 'unknown'}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
               </div>

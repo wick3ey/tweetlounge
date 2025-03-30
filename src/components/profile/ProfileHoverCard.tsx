@@ -24,7 +24,7 @@ interface Profile {
 }
 
 interface ProfileHoverCardProps {
-  profile: Profile;
+  profile: Partial<Profile>;
   children: React.ReactNode;
   align?: "center" | "start" | "end";
 }
@@ -35,6 +35,7 @@ const ProfileHoverCard: React.FC<ProfileHoverCardProps> = ({ profile, children, 
   const [following, setFollowing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Only try to check follow status if we have both user and profile id
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (user && profile.id && user.id !== profile.id) {
@@ -46,11 +47,25 @@ const ProfileHoverCard: React.FC<ProfileHoverCardProps> = ({ profile, children, 
     checkFollowStatus();
   }, [user, profile.id]);
 
+  // If we don't have minimum required profile data, just render the children without hover card
+  if (!profile.id || !profile.username || !profile.display_name) {
+    return <>{children}</>;
+  }
+
   const handleFollow = async () => {
     if (!user) {
       toast({
         title: "Not logged in",
         description: "You need to be logged in to follow users",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!profile.id) {
+      toast({
+        title: "Error",
+        description: "Unable to follow this user",
         variant: "destructive"
       });
       return;
