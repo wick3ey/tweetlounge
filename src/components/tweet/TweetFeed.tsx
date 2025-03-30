@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { supabase } from '@/lib/supabase';
 
 interface TweetFeedProps {
   userId?: string;
@@ -35,12 +36,44 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
+      // Process tweets to get original author information for retweets
+      const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          try {
+            // Get the original tweet with author information
+            const { data: originalTweetData } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              // Add the original author information to the retweet
+              return {
+                ...tweet,
+                original_author: {
+                  id: originalTweet.author_id,
+                  username: originalTweet.username,
+                  display_name: originalTweet.display_name,
+                  avatar_url: originalTweet.avatar_url,
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain
+                }
+              };
+            }
+          } catch (err) {
+            console.error('Error fetching original tweet:', err);
+          }
+        }
+        
+        return tweet;
+      }));
+      
       // Log a sample tweet for debugging
-      if (fetchedTweets.length > 0) {
-        console.log('Sample tweet data:', fetchedTweets[0]);
+      if (processedTweets.length > 0) {
+        console.log('Sample tweet data:', processedTweets[0]);
       }
       
-      setTweets(fetchedTweets);
+      setTweets(processedTweets);
     } catch (err) {
       console.error('Failed to fetch tweets:', err);
       setError('Failed to load tweets. Please try again later.');

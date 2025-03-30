@@ -23,6 +23,16 @@ export type TweetWithAuthor = Tweet & {
     avatar_nft_chain?: string;
     replies_sort_order?: string;
   };
+  // For retweets, store the original author information
+  original_author?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+    avatar_nft_id?: string;
+    avatar_nft_chain?: string;
+    replies_sort_order?: string;
+  };
   // Add profile_ prefixed properties to match the database function return
   profile_username?: string;
   profile_display_name?: string;

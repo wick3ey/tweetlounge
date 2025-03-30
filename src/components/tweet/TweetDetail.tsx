@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -200,9 +199,9 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   };
 
   const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+  const isOriginalAuthorNFTVerified = tweet?.original_author?.avatar_nft_id && tweet?.original_author?.avatar_nft_chain;
 
-  // If this is a retweet, show retweet info
-  if (tweet.is_retweet && tweet.original_tweet_id) {
+  if (tweet.is_retweet) {
     return (
       <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
         <Button
@@ -228,7 +227,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         </Button>
 
         <div className="p-4 border-b border-gray-800">
-          {/* Retweet indicator */}
           <div className="flex items-center gap-1 text-gray-500 text-sm mb-3">
             <Repeat className="h-4 w-4 mr-1" />
             <span>{tweet.author?.display_name} reposted</span>
@@ -236,16 +234,24 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           
           <div className="flex items-start space-x-3">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={tweet?.author?.avatar_url} alt={tweet?.author?.username} />
-              <AvatarFallback>{tweet?.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage 
+                src={tweet?.original_author?.avatar_url || tweet?.author?.avatar_url} 
+                alt={tweet?.original_author?.username || tweet?.author?.username} 
+              />
+              <AvatarFallback>
+                {(tweet?.original_author?.username || tweet?.author?.username)?.charAt(0).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
+            
             <div className="flex-1">
               <div className="flex items-center space-x-2">
                 <div className="font-medium flex items-center">
-                  {tweet?.author?.display_name}
-                  {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                  {tweet?.original_author?.display_name || tweet?.author?.display_name}
+                  {isOriginalAuthorNFTVerified && <VerifiedBadge className="ml-1" />}
                 </div>
-                <div className="text-gray-500">@{tweet?.author?.username}</div>
+                <div className="text-gray-500">
+                  @{tweet?.original_author?.username || tweet?.author?.username}
+                </div>
                 <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
               </div>
               <div className="mt-2 text-base">{tweet?.content}</div>
@@ -253,6 +259,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
                 <img src={tweet?.image_url} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
               )}
             </div>
+            
             {user?.id === tweet?.author_id && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -313,7 +320,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     );
   }
 
-  // Regular tweet display
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       <Button

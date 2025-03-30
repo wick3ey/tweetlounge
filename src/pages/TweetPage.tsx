@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,6 +74,28 @@ const TweetPage = () => {
             avatar_nft_chain: tweetData.avatar_nft_chain
           }
         };
+
+        if (tweetData.is_retweet && tweetData.original_tweet_id) {
+          try {
+            const { data: originalTweetData } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweetData.original_tweet_id });
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              formattedTweet.original_author = {
+                id: originalTweet.author_id,
+                username: originalTweet.username,
+                display_name: originalTweet.display_name,
+                avatar_url: originalTweet.avatar_url || '',
+                avatar_nft_id: originalTweet.avatar_nft_id,
+                avatar_nft_chain: originalTweet.avatar_nft_chain
+              };
+            }
+          } catch (err) {
+            console.error('Error fetching original tweet author:', err);
+          }
+        }
 
         setTweet(formattedTweet);
         
@@ -376,7 +397,15 @@ const TweetPage = () => {
     }
   };
 
-  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+  const getAuthorToDisplay = () => {
+    if (tweet?.is_retweet && tweet?.original_author) {
+      return tweet.original_author;
+    }
+    return tweet?.author;
+  };
+
+  const displayedAuthor = getAuthorToDisplay();
+  const isNFTVerified = displayedAuthor?.avatar_nft_id && displayedAuthor?.avatar_nft_chain;
 
   if (loading) {
     return (
@@ -412,8 +441,7 @@ const TweetPage = () => {
     );
   }
 
-  // If this is a retweet, show retweet info at the top
-  if (tweet.is_retweet && tweet.original_tweet_id) {
+  if (tweet.is_retweet) {
     return (
       <Layout>
         <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
@@ -434,18 +462,17 @@ const TweetPage = () => {
         <div className="max-w-[600px] mx-auto">
           <article className="border-b border-gray-800">
             <div className="p-4">
-              {/* Retweet indicator */}
               <div className="flex items-center gap-1 text-gray-500 text-sm mb-3">
                 <Repeat className="h-4 w-4 mr-1" />
                 <span>{tweet.author?.display_name} reposted</span>
               </div>
               
               <div className="flex items-start mb-2">
-                <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
+                <Link to={`/profile/${displayedAuthor?.username}`} className="mr-3 flex-shrink-0">
                   <Avatar className="h-12 w-12 rounded-full">
-                    <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
+                    <AvatarImage src={displayedAuthor?.avatar_url} alt={displayedAuthor?.display_name || displayedAuthor?.username} />
                     <AvatarFallback className="bg-gray-800 text-white">
-                      {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
+                      {displayedAuthor?.display_name?.charAt(0) || displayedAuthor?.username?.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                 </Link>
@@ -454,11 +481,11 @@ const TweetPage = () => {
                   <div className="flex flex-col">
                     <div className="flex items-center justify-between w-full">
                       <div className="flex flex-col">
-                        <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
-                          {tweet.author.display_name}
+                        <Link to={`/profile/${displayedAuthor?.username}`} className="font-bold text-white hover:underline flex items-center">
+                          {displayedAuthor?.display_name}
                           {isNFTVerified && <VerifiedBadge />}
                         </Link>
-                        <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
+                        <span className="text-gray-500 text-sm">@{displayedAuthor?.username}</span>
                       </div>
                       
                       <div className="flex items-center">
@@ -616,7 +643,6 @@ const TweetPage = () => {
     );
   }
 
-  // Regular tweet display
   return (
     <Layout>
       <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
