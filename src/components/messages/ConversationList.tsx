@@ -1,17 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Search, Check } from 'lucide-react';
+import { Search, Check, PlusCircle } from 'lucide-react';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
+import CreateConversation from './CreateConversation';
 
 interface ConversationListProps {
   selectedConversationId: string | null;
@@ -26,6 +26,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateConversation, setShowCreateConversation] = useState(false);
   
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -85,10 +86,37 @@ const ConversationList: React.FC<ConversationListProps> = ({
     );
   }
 
+  // If we're showing the create conversation view
+  if (showCreateConversation) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="p-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">New Message</h2>
+          <Button 
+            variant="ghost" 
+            onClick={() => setShowCreateConversation(false)}
+            className="text-crypto-lightgray hover:text-white"
+          >
+            Cancel
+          </Button>
+        </div>
+        <CreateConversation />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4">
+      <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-bold">Messages</h2>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setShowCreateConversation(true)}
+          className="text-crypto-blue hover:bg-crypto-darkgray"
+        >
+          <PlusCircle className="h-5 w-5" />
+        </Button>
       </div>
       
       <div className="px-4 pb-2">
@@ -109,8 +137,16 @@ const ConversationList: React.FC<ConversationListProps> = ({
         <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">
           <p className="text-center">No conversations yet</p>
           <p className="text-center text-sm mt-2">
-            Visit someone's profile and click the message button to start chatting
+            Click the + button to start a new conversation
           </p>
+          <Button 
+            variant="outline" 
+            className="mt-4 border-crypto-gray"
+            onClick={() => setShowCreateConversation(true)}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Message
+          </Button>
         </div>
       ) : filteredConversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-grow p-6 text-crypto-lightgray">

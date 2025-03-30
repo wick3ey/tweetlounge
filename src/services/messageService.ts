@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/supabase';
 import { Message, MessageReaction, Conversation, MessageSearchResult } from '@/types/Message';
