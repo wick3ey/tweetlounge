@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight, BarChart, Clock, Coins, TrendingUp, Activity, Loader2, AlertTriangle, RotateCw, TrendingDown, ExternalLink } from 'lucide-react'
@@ -26,16 +25,13 @@ const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' |
   if (num === undefined) return 'N/A';
   
   if (type === 'currency') {
-    // Format as currency with appropriate suffix (T for trillion, B for billion)
     if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
     if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
     if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
     return `$${num.toFixed(2)}`;
   } else if (type === 'percentage') {
-    // Format as percentage with one decimal place
     return `${num.toFixed(1)}%`;
   } else {
-    // Format as regular number with commas
     return num.toLocaleString('en-US');
   }
 };
@@ -43,7 +39,6 @@ const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' |
 // Helper function to determine fear & greed status
 const getFearGreedStatus = (value: number | undefined, label: string | undefined): { text: string; color: string; bg: string; icon: React.ElementType } => {
   if (label) {
-    // If we have a label from the API, use it
     const fearGreedMap: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
       'Extreme Fear': { color: 'text-crypto-red font-bold', bg: 'bg-red-500/10', icon: TrendingDown },
       'Fear': { color: 'text-orange-400 font-bold', bg: 'bg-orange-400/10', icon: TrendingDown },
@@ -60,7 +55,6 @@ const getFearGreedStatus = (value: number | undefined, label: string | undefined
     };
   }
   
-  // Fallback to calculation based on market cap change if no label
   const change = value || 0;
   
   if (change >= 80) return { text: 'Extreme Greed', color: 'text-crypto-green font-bold', bg: 'bg-green-500/10', icon: TrendingUp };
@@ -130,10 +124,8 @@ const MarketStats: React.FC = () => {
   const [isManualRefresh, setIsManualRefresh] = useState(false);
   const [expandedStat, setExpandedStat] = useState<string | null>(null);
   
-  // Use fallback data when API fails
   const displayStats = marketStats || fallbackMarketData;
   
-  // Display toast on error only when manually refreshed
   useEffect(() => {
     if (error && isManualRefresh) {
       toast({
@@ -145,7 +137,6 @@ const MarketStats: React.FC = () => {
     }
   }, [error, isManualRefresh]);
   
-  // Auto-retry once if initial load fails
   useEffect(() => {
     if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000)) {
       console.log("Auto-retrying market stats fetch after error");
@@ -159,7 +150,6 @@ const MarketStats: React.FC = () => {
     }
   }, [error, retryCount, lastRefreshAttempt, refreshData]);
   
-  // Get Fear & Greed status - use the value from API if available, otherwise use market cap change
   const fearGreed = getFearGreedStatus(
     displayStats.fear_greed_value,
     displayStats.fear_greed_label
@@ -184,7 +174,6 @@ const MarketStats: React.FC = () => {
     }
   };
 
-  // Toggle expanded stat
   const toggleExpandStat = (statName: string) => {
     if (expandedStat === statName) {
       setExpandedStat(null);
@@ -193,13 +182,12 @@ const MarketStats: React.FC = () => {
     }
   };
 
-  // Get last updated info
   const getLastUpdatedInfo = () => {
     if (!marketStats) return "Using fallback data";
     
-    const date = new Date(marketStats.lastUpdated || Date.now());
+    const currentTime = new Date();
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
+    const diffMs = now.getTime() - currentTime.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     
     if (diffMins < 1) return "Just now";
@@ -266,7 +254,6 @@ const MarketStats: React.FC = () => {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="grid grid-cols-2 gap-2 mt-2">
-          {/* Market Cap */}
           <StatItem
             icon={Coins}
             label="Total Market Cap"
@@ -277,7 +264,6 @@ const MarketStats: React.FC = () => {
             onClick={() => toggleExpandStat('marketCap')}
           />
           
-          {/* BTC Dominance */}
           <StatItem
             icon={BarChart}
             label="BTC Dominance"
@@ -288,7 +274,6 @@ const MarketStats: React.FC = () => {
             onClick={() => toggleExpandStat('btcDom')}
           />
           
-          {/* 24h Volume */}
           <StatItem
             icon={Clock}
             label="24h Volume"
@@ -299,7 +284,6 @@ const MarketStats: React.FC = () => {
             onClick={() => toggleExpandStat('volume')}
           />
           
-          {/* ETH Dominance */}
           <StatItem
             icon={ArrowUpRight}
             label="ETH Dominance"
@@ -310,7 +294,6 @@ const MarketStats: React.FC = () => {
             onClick={() => toggleExpandStat('ethDom')}
           />
           
-          {/* Active Cryptocurrencies */}
           <StatItem
             icon={Coins}
             label="Active Cryptocurrencies"
@@ -321,7 +304,6 @@ const MarketStats: React.FC = () => {
             onClick={() => toggleExpandStat('activeCrypto')}
           />
           
-          {/* Fear & Greed Index */}
           <StatItem
             icon={fearGreed.icon}
             label="Fear & Greed Index"
@@ -333,7 +315,6 @@ const MarketStats: React.FC = () => {
           />
         </div>
         
-        {/* Expanded stat details */}
         {expandedStat && (
           <motion.div 
             initial={{ opacity: 0, height: 0 }}

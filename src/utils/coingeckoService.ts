@@ -20,6 +20,7 @@ export interface MarketStats {
   market_cap_change_percentage_24h: number;
   fear_greed_value?: number;
   fear_greed_label?: string;
+  lastUpdated?: string;
 }
 
 // Cache keys
@@ -356,11 +357,21 @@ export const useMarketStats = (): {
       // Check if memory cache is valid (less than memory cache duration)
       if (globalStatsCache.data && currentTime - globalStatsCache.timestamp < MEMORY_CACHE_DURATION) {
         console.log('Using in-memory cached market stats data');
-        setMarketStats(globalStatsCache.data);
+        // Add lastUpdated property to the data when setting it
+        const dataWithTimestamp = {
+          ...globalStatsCache.data,
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
       } else {
         // Fetch new data from Supabase cache
         const freshData = await fetchMarketStats();
-        setMarketStats(freshData);
+        // Add lastUpdated property when setting fresh data
+        const dataWithTimestamp = {
+          ...freshData,
+          lastUpdated: new Date().toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -369,9 +380,17 @@ export const useMarketStats = (): {
       
       // Fall back to memory cache if available, or use fallback data
       if (globalStatsCache.data) {
-        setMarketStats(globalStatsCache.data);
+        const dataWithTimestamp = {
+          ...globalStatsCache.data,
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
       } else {
-        setMarketStats(getFallbackMarketStats());
+        const fallbackWithTimestamp = {
+          ...getFallbackMarketStats(),
+          lastUpdated: new Date().toISOString()
+        };
+        setMarketStats(fallbackWithTimestamp);
       }
     } finally {
       setLoading(false);
@@ -385,7 +404,11 @@ export const useMarketStats = (): {
     // Rate limit refreshes to prevent API spam
     if (currentTime - globalStatsCache.timestamp < MIN_REFRESH_INTERVAL) {
       console.log('Refresh rate limited - using cached market stats');
-      setMarketStats(globalStatsCache.data || getFallbackMarketStats());
+      const dataWithTimestamp = {
+        ...(globalStatsCache.data || getFallbackMarketStats()),
+        lastUpdated: new Date(globalStatsCache.timestamp || currentTime).toISOString()
+      };
+      setMarketStats(dataWithTimestamp);
       return;
     }
     
@@ -401,16 +424,28 @@ export const useMarketStats = (): {
       
       // Now fetch from the cache
       const freshData = await fetchMarketStats();
-      setMarketStats(freshData);
+      const dataWithTimestamp = {
+        ...freshData,
+        lastUpdated: new Date().toISOString()
+      };
+      setMarketStats(dataWithTimestamp);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       
       // Fall back to existing data or fallback
       if (globalStatsCache.data) {
-        setMarketStats(globalStatsCache.data);
+        const dataWithTimestamp = {
+          ...globalStatsCache.data,
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
       } else {
-        setMarketStats(getFallbackMarketStats());
+        const fallbackWithTimestamp = {
+          ...getFallbackMarketStats(),
+          lastUpdated: new Date().toISOString()
+        };
+        setMarketStats(fallbackWithTimestamp);
       }
     } finally {
       setLoading(false);
