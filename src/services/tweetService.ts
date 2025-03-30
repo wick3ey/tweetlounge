@@ -290,6 +290,12 @@ export async function retweet(tweetId: string): Promise<boolean> {
       throw new Error('User must be logged in to retweet');
     }
     
+    // Validate the tweet ID
+    if (!tweetId) {
+      console.error('Invalid tweetId provided for retweet operation');
+      return false;
+    }
+    
     // First check if the original tweet actually exists
     const { data: originalTweet, error: originalTweetCheckError } = await supabase
       .from('tweets')
@@ -324,6 +330,11 @@ export async function retweet(tweetId: string): Promise<boolean> {
     }
     
     const originalTweetInfo = originalTweetData[0];
+    
+    if (!originalTweetInfo || !originalTweetInfo.content) {
+      console.error('Invalid original tweet data for retweet');
+      return false;
+    }
     
     // Use .single() with caution, only when sure the result exists
     const { data: tweet } = await supabase

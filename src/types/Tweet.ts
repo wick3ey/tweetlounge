@@ -58,3 +58,30 @@ export type RetweetWithAuthor = TweetWithAuthor & {
     replies_sort_order?: string;
   };
 };
+
+// Type guard function to validate a retweet
+export function isValidRetweet(tweet: TweetWithAuthor): tweet is RetweetWithAuthor {
+  return (
+    tweet.is_retweet === true && 
+    typeof tweet.original_tweet_id === 'string' && 
+    tweet.original_tweet_id !== null &&
+    tweet.original_author !== undefined
+  );
+}
+
+// Function to validate any tweet
+export function isValidTweet(tweet: TweetWithAuthor | null | undefined): tweet is TweetWithAuthor {
+  if (!tweet) return false;
+  
+  // A tweet must have these basic properties
+  if (!tweet.id || !tweet.author_id || !tweet.content || !tweet.created_at) {
+    return false;
+  }
+  
+  // If it's a retweet, it must have original_tweet_id and original_author
+  if (tweet.is_retweet) {
+    return isValidRetweet(tweet);
+  }
+  
+  return true;
+}

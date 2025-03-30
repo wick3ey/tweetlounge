@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
-import { TweetWithAuthor } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,15 +26,19 @@ interface TweetCardProps {
 }
 
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete, onRetweetRemoved }) => {
-  if (!tweet || (tweet.is_retweet && !tweet.original_tweet_id)) {
+  // Enhanced validation at the component level
+  if (!isValidTweet(tweet)) {
     console.error('Invalid tweet data received:', tweet);
     return null; // Don't render invalid tweets
   }
   
-  console.log('Rendering tweet:', tweet.id);
-  console.log('Is retweet:', tweet.is_retweet);
-  console.log('Original tweet ID:', tweet.original_tweet_id);
-  console.log('Original author:', tweet.original_author);
+  // For debugging
+  if (tweet.is_retweet) {
+    console.log('Rendering tweet:', tweet.id);
+    console.log('Is retweet:', tweet.is_retweet);
+    console.log('Original tweet ID:', tweet.original_tweet_id);
+    console.log('Original author:', tweet.original_author);
+  }
   
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);

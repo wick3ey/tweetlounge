@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { TweetWithAuthor } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -57,10 +57,15 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
-      // First, filter out any tweets with corrupted data
+      // First, filter out any tweets with corrupted data using our type guard
       const validTweets = fetchedTweets.filter(tweet => {
-        // If it's a retweet but missing original_tweet_id, it's invalid
-        if (tweet.is_retweet && !tweet.original_tweet_id) {
+        if (!isValidTweet(tweet)) {
+          console.error('Filtered out invalid tweet:', tweet?.id);
+          return false;
+        }
+        
+        // Special validation for retweets
+        if (tweet.is_retweet && !isValidRetweet(tweet)) {
           console.error('Filtered out invalid retweet with null original_tweet_id:', tweet.id);
           // Log details to help debug
           console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
@@ -69,7 +74,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         return true;
       });
       
-      // Process tweets to get original tweet information for retweets
+      // Process tweets to get original tweet information for retweets (only for valid retweets)
       const processedTweets = await Promise.all(validTweets.map(async (tweet) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
@@ -118,18 +123,14 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       }));
       
       // Filter out any null entries (retweets with missing originals)
-      // Also double-check for any retweets that still have missing original_tweet_id
       const filteredTweets = processedTweets
         .filter(tweet => tweet !== null) as TweetWithAuthor[];
       
       // One more validation pass to ensure no invalid retweets
       const finalTweets = filteredTweets.filter(tweet => {
-        if (tweet.is_retweet) {
-          // Ensure both original_tweet_id and original_author exist
-          if (!tweet.original_tweet_id || !tweet.original_author) {
-            console.error('Removing invalid retweet after processing:', tweet.id);
-            return false;
-          }
+        if (!isValidTweet(tweet)) {
+          console.error('Removing invalid tweet after processing:', tweet?.id);
+          return false;
         }
         return true;
       });
