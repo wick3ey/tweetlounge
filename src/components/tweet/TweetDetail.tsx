@@ -44,6 +44,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [retweetsCount, setRetweetsCount] = useState(tweet?.retweets_count || 0);
   const [isLiking, setIsLiking] = useState(false);
   const [isRetweeting, setIsRetweeting] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -90,6 +91,11 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     }
 
     if (isLiking) return;
+    
+    const newLikedState = !isLiked;
+    setIsLiked(newLikedState);
+    setLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+    
     setIsLiking(true);
 
     try {
@@ -99,31 +105,35 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
       if (tweetIdToLike) {
         const success = await likeTweet(tweetIdToLike);
-        if (success) {
-          const newLikedState = !isLiked;
-          setIsLiked(newLikedState);
-          setLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+        
+        if (!success) {
+          setIsLiked(!newLikedState);
+          setLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
           
-          if (newLikedState) {
-            toast({
-              title: "Liked",
-              description: "You liked this post",
-            });
-          }
-          
-          setTimeout(() => {
-            onAction();
-          }, 500);
-        } else {
           toast({
             title: "Error",
             description: "Failed to like/unlike tweet.",
             variant: "destructive",
           });
+        } else if (newLikedState) {
+          toast({
+            title: "Liked",
+            description: "You liked this post",
+          });
+        }
+        
+        if (success) {
+          setTimeout(() => {
+            onAction();
+          }, 1000);
         }
       }
     } catch (error) {
       console.error('Error liking tweet:', error);
+      
+      setIsLiked(!newLikedState);
+      setLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
+      
       toast({
         title: "Error",
         description: "An unexpected error occurred during the like operation.",
@@ -145,6 +155,11 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     }
 
     if (isRetweeting) return;
+    
+    const newRetweetedState = !isRetweeted;
+    setIsRetweeted(newRetweetedState);
+    setRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+    
     setIsRetweeting(true);
 
     try {
@@ -158,11 +173,16 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       
       const success = await retweet(tweetIdToRetweet);
       
-      if (success) {
-        const newRetweetedState = !isRetweeted;
-        setIsRetweeted(newRetweetedState);
-        setRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+      if (!success) {
+        setIsRetweeted(!newRetweetedState);
+        setRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
         
+        toast({
+          title: "Error",
+          description: "Failed to repost",
+          variant: "destructive",
+        });
+      } else {
         toast({
           title: newRetweetedState ? "Reposted" : "Repost Removed",
           description: newRetweetedState ? "You reposted this post" : "You removed your repost",
@@ -174,16 +194,14 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         
         setTimeout(() => {
           onAction();
-        }, 500);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to repost",
-          variant: "destructive",
-        });
+        }, 1000);
       }
     } catch (error) {
       console.error('Error retweeting:', error);
+      
+      setIsRetweeted(!newRetweetedState);
+      setRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+      
       toast({
         title: "Error",
         description: "An unexpected error occurred",
@@ -203,23 +221,47 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       return;
     }
 
-    if (tweet?.id) {
+    if (isBookmarking) return;
+    
+    const newBookmarkedState = !isBookmarked;
+    setIsBookmarked(newBookmarkedState);
+    setIsBookmarking(true);
+
+    try {
       let success;
-      if (isBookmarked) {
-        success = await unbookmarkTweet(tweet.id);
-      } else {
+      if (newBookmarkedState) {
         success = await bookmarkTweet(tweet.id);
+      } else {
+        success = await unbookmarkTweet(tweet.id);
       }
 
-      if (success) {
-        setIsBookmarked(!isBookmarked);
-      } else {
+      if (!success) {
+        setIsBookmarked(!newBookmarkedState);
         toast({
           title: "Error",
           description: "Failed to bookmark/unbookmark tweet.",
           variant: "destructive",
         });
+      } else {
+        toast({
+          title: newBookmarkedState ? "Bookmarked" : "Bookmark Removed",
+          description: newBookmarkedState ? "Post saved to your bookmarks" : "Post removed from your bookmarks",
+        });
+        
+        setTimeout(() => {
+          onAction();
+        }, 1000);
       }
+    } catch (error) {
+      console.error('Error during bookmark operation:', error);
+      setIsBookmarked(!newBookmarkedState);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during the bookmark operation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBookmarking(false);
     }
   };
 
@@ -344,30 +386,31 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
           </div>
 
           <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
-            <button className="hover:text-crypto-blue focus:outline-none">
+            <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
               <MessageSquare className="inline-block h-5 w-5 mr-1" />
             </button>
             <button 
               onClick={handleRetweetToggle} 
-              className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''}`}
+              className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''} transition-colors duration-100`}
               disabled={isRetweeting}
             >
               <Repeat className={`inline-block h-5 w-5 mr-1 ${isRetweeted ? 'fill-current' : ''}`} />
             </button>
             <button 
               onClick={toggleLike} 
-              className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}
+              className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''} transition-colors duration-100`}
               disabled={isLiking}
             >
               <Heart className={`inline-block h-5 w-5 mr-1 ${isLiked ? 'fill-current' : ''}`} />
             </button>
             <button 
               onClick={toggleBookmark} 
-              className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''}`}
+              className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''} transition-colors duration-100`}
+              disabled={isBookmarking}
             >
               <Bookmark className={`inline-block h-5 w-5 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />
             </button>
-            <button className="hover:text-crypto-blue focus:outline-none">
+            <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
               <Share2 className="inline-block h-5 w-5 mr-1" />
             </button>
           </div>
@@ -459,30 +502,31 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         </div>
 
         <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
-          <button className="hover:text-crypto-blue focus:outline-none">
+          <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
             <MessageSquare className="inline-block h-5 w-5 mr-1" />
           </button>
           <button 
             onClick={handleRetweetToggle} 
-            className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''}`}
+            className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''} transition-colors duration-100`}
             disabled={isRetweeting}
           >
             <Repeat className={`inline-block h-5 w-5 mr-1 ${isRetweeted ? 'fill-current' : ''}`} />
           </button>
           <button 
             onClick={toggleLike} 
-            className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}
+            className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''} transition-colors duration-100`}
             disabled={isLiking}
           >
             <Heart className={`inline-block h-5 w-5 mr-1 ${isLiked ? 'fill-current' : ''}`} />
           </button>
           <button 
             onClick={toggleBookmark} 
-            className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''}`}
+            className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''} transition-colors duration-100`}
+            disabled={isBookmarking}
           >
             <Bookmark className={`inline-block h-5 w-5 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />
           </button>
-          <button className="hover:text-crypto-blue focus:outline-none">
+          <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
             <Share2 className="inline-block h-5 w-5 mr-1" />
           </button>
         </div>

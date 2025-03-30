@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -21,16 +22,37 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedTweet, setSelectedTweet] = useState<TweetWithAuthor | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchTweets();
+    
+    // Setup realtime subscription for new tweets
+    const channel = supabase
+      .channel('public:tweets')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweets'
+      }, (payload) => {
+        console.log('Realtime update:', payload);
+        // Refresh tweets when we get a notification about changes
+        fetchTweets(false); // Don't show loading indicator for realtime updates
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [limit, userId]);
 
-  const fetchTweets = async () => {
+  const fetchTweets = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       setError(null);
       
       const fetchedTweets = await getTweets(limit, 0);
@@ -119,8 +141,10 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   };
 
   const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
     try {
-      setLoading(true);
       const freshTweets = await getTweets(limit, 0);
       
       // Process the tweets just like in fetchTweets
@@ -170,7 +194,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         variant: 'destructive'
       });
     } finally {
-      setLoading(false);
+      setIsRefreshing(false);
     }
   };
 

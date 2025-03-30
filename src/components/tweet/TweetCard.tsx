@@ -97,6 +97,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     }
 
     if (isLiking) return;
+    
+    const newLikedState = !isLiked;
+    setIsLiked(newLikedState);
+    setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+    
     setIsLiking(true);
 
     try {
@@ -106,33 +111,30 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       
       const success = await likeTweet(tweetIdToLike);
       
-      if (success) {
-        const newLikedState = !isLiked;
-        setIsLiked(newLikedState);
+      if (!success) {
+        setIsLiked(!newLikedState);
+        setLocalLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
         
-        setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
-        
-        if (newLikedState) {
-          toast({
-            title: "Liked",
-            description: "You liked this post",
-          });
-        }
-        
-        if (onAction) {
-          setTimeout(() => {
-            onAction();
-          }, 500);
-        }
-      } else {
         toast({
           title: "Error",
           description: "Failed to like/unlike the post.",
           variant: "destructive"
         });
+      } else if (newLikedState) {
+        toast({
+          title: "Liked",
+          description: "You liked this post",
+        });
+      }
+      
+      if (onAction && success) {
+        setTimeout(() => {
+          onAction();
+        }, 1000);
       }
     } catch (error) {
       console.error('Error during like operation:', error);
+      
       toast({
         title: "Error",
         description: "An unexpected error occurred during the like operation.",
@@ -157,9 +159,13 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
+    const newRetweetedState = !isRetweeted;
+    setIsRetweeted(newRetweetedState);
+    setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+    
+    setIsRetweeting(true);
+
     try {
-      setIsRetweeting(true);
-      
       const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
         ? tweet.original_tweet_id 
         : tweet.id;
@@ -170,12 +176,16 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
       const success = await retweet(tweetIdToRetweet);
       
-      if (success) {
-        const newRetweetedState = !isRetweeted;
-        setIsRetweeted(newRetweetedState);
+      if (!success) {
+        setIsRetweeted(!newRetweetedState);
+        setLocalRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
         
-        setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-        
+        toast({
+          title: "Error",
+          description: "Failed to repost/unrepost the tweet.",
+          variant: "destructive"
+        });
+      } else {
         toast({
           title: newRetweetedState ? "Reposted" : "Repost removed",
           description: newRetweetedState ? "You reposted this post" : "You removed your repost",
@@ -188,17 +198,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         if (onAction) {
           setTimeout(() => {
             onAction();
-          }, 500);
+          }, 1000);
         }
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to repost/unrepost the tweet.",
-          variant: "destructive"
-        });
       }
     } catch (error) {
       console.error('Error during retweet operation:', error);
+      
       toast({
         title: "Error",
         description: "An unexpected error occurred during the repost operation.",
@@ -219,16 +224,37 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    let success;
-    if (isBookmarked) {
-      success = await unbookmarkTweet(tweet.id);
-    } else {
-      success = await bookmarkTweet(tweet.id);
-    }
+    const newBookmarkedState = !isBookmarked;
+    setIsBookmarked(newBookmarkedState);
 
-    if (success) {
-      setIsBookmarked(!isBookmarked);
-      if (onAction) onAction();
+    let success;
+    try {
+      if (newBookmarkedState) {
+        success = await bookmarkTweet(tweet.id);
+      } else {
+        success = await unbookmarkTweet(tweet.id);
+      }
+
+      if (!success) {
+        setIsBookmarked(!newBookmarkedState);
+        toast({
+          title: "Error",
+          description: "Failed to bookmark/unbookmark this post.",
+          variant: "destructive"
+        });
+      } else if (onAction) {
+        setTimeout(() => {
+          onAction();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error during bookmark operation:', error);
+      setIsBookmarked(!newBookmarkedState);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during the bookmark operation.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -307,7 +333,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">@{tweet.original_author.username}</span>
                   <span className="text-gray-500 mx-1">·</span>
-                  <span className="text-gray-500">{formattedDate}</span>
+                  <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
                 </div>
               </div>
               
@@ -351,7 +377,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               </button>
               
               <button 
-                className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
+                className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green transition-colors duration-100`}
                 onClick={toggleRetweet}
                 disabled={isRetweeting}
               >
@@ -360,7 +386,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               </button>
               
               <button 
-                className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
+                className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red transition-colors duration-100`}
                 onClick={toggleLike}
                 disabled={isLiking}
               >
@@ -369,7 +395,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               </button>
               
               <button 
-                className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple`}
+                className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple transition-colors duration-100`}
                 onClick={toggleBookmark}
               >
                 <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
@@ -412,7 +438,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">{formattedDate}</span>
+                <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
               </div>
             </div>
             
@@ -456,7 +482,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             </button>
             
             <button 
-              className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
+              className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green transition-colors duration-100`}
               onClick={toggleRetweet}
               disabled={isRetweeting}
             >
@@ -465,7 +491,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             </button>
             
             <button 
-              className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
+              className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red transition-colors duration-100`}
               onClick={toggleLike}
               disabled={isLiking}
             >
@@ -474,7 +500,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             </button>
             
             <button 
-              className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple`}
+              className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple transition-colors duration-100`}
               onClick={toggleBookmark}
             >
               <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
