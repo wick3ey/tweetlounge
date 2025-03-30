@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -138,20 +137,13 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
-  // Determine who reposted the tweet if it's a retweet
   const retweetedBy = tweet.is_retweet ? tweet.author : null;
   
-  // For retweets, we always show the original author's info
-  const displayAuthor = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
-  
-  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
-
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
-      {/* If this is a retweet, show who reposted it */}
       {tweet.is_retweet && retweetedBy && (
         <div className="flex items-center text-gray-500 text-sm mb-3">
           <Repeat className="h-4 w-4 mr-2" />
@@ -163,11 +155,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
             <AvatarImage 
-              src={displayAuthor?.avatar_url} 
-              alt={displayAuthor?.username || ''} 
+              src={tweet.author?.avatar_url} 
+              alt={tweet.author?.username || ''} 
             />
             <AvatarFallback>
-              {displayAuthor?.username?.charAt(0).toUpperCase() || '?'}
+              {tweet.author?.username?.charAt(0).toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -177,12 +169,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {displayAuthor?.display_name}
-                  {isNFTVerified && (
+                  {tweet.author?.display_name}
+                  {tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain && (
                     <VerifiedBadge className="ml-1" />
                   )}
                 </span>
-                <span className="text-gray-500">@{displayAuthor?.username}</span>
+                <span className="text-gray-500">@{tweet.author?.username}</span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -187,14 +186,9 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     onAction();
   };
 
-  // Determine who reposted the tweet if it's a retweet
+  // Show who reposted if this is a retweet
   const retweetedBy = tweet.is_retweet ? tweet.author : null;
   
-  // For retweets, we always show the original author's info
-  const displayAuthor = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
-  
-  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
-
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       <Button
@@ -230,16 +224,18 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.username || ''} />
-            <AvatarFallback>{displayAuthor?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username || ''} />
+            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <div className="font-medium flex items-center">
-                {displayAuthor?.display_name}
-                {isNFTVerified && <VerifiedBadge className="ml-1" />}
+                {tweet.author?.display_name}
+                {tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain && (
+                  <VerifiedBadge className="ml-1" />
+                )}
               </div>
-              <div className="text-gray-500">@{displayAuthor?.username}</div>
+              <div className="text-gray-500">@{tweet.author?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
             </div>
             <div className="mt-2 text-base">{tweet?.content}</div>
