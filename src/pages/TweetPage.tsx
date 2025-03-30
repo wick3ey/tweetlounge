@@ -75,6 +75,19 @@ const TweetPage = () => {
           }
         };
 
+        if (tweetData.is_retweet && tweetData.original_author_id) {
+          formattedTweet.original_author = {
+            id: tweetData.original_author_id,
+            username: tweetData.original_author_username || '',
+            display_name: tweetData.original_author_display_name || '',
+            avatar_url: tweetData.original_author_avatar_url || '',
+            avatar_nft_id: tweetData.original_author_avatar_nft_id,
+            avatar_nft_chain: tweetData.original_author_avatar_nft_chain
+          };
+          
+          formattedTweet.retweeted_by = formattedTweet.author;
+        }
+
         setTweet(formattedTweet);
         
         checkIfUserIsAuthor(tweetData.author_id);
@@ -375,7 +388,9 @@ const TweetPage = () => {
     }
   };
 
-  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+  const displayAuthor = tweet?.is_retweet && tweet?.original_author ? tweet.original_author : tweet?.author;
+  
+  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
 
   if (loading) {
     return (
@@ -431,12 +446,20 @@ const TweetPage = () => {
       <div className="max-w-[600px] mx-auto">
         <article className="border-b border-gray-800">
           <div className="p-4">
+            {tweet?.is_retweet && tweet?.retweeted_by && (
+              <div className="flex items-center mb-3 text-gray-500 text-sm">
+                <Repeat className="h-4 w-4 mr-1" />
+                <span>Reposted by {tweet.retweeted_by.display_name || tweet.retweeted_by.username}</span>
+              </div>
+            )}
+            
             <div className="flex items-start mb-2">
-              <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
+              <Link to={`/profile/${displayAuthor?.username}`} className="mr-3 flex-shrink-0">
                 <Avatar className="h-12 w-12 rounded-full">
-                  <AvatarImage src={tweet.author.avatar_url} alt={tweet.author.display_name || tweet.author.username} />
+                  <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.display_name || displayAuthor?.username} />
                   <AvatarFallback className="bg-gray-800 text-white">
-                    {tweet.author.display_name?.charAt(0) || tweet.author.username?.charAt(0)}
+                    {displayAuthor?.display_name?.charAt(0) || 
+                     displayAuthor?.username?.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </Link>
@@ -445,11 +468,11 @@ const TweetPage = () => {
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between w-full">
                     <div className="flex flex-col">
-                      <Link to={`/profile/${tweet.author.username}`} className="font-bold text-white hover:underline flex items-center">
-                        {tweet.author.display_name}
+                      <Link to={`/profile/${displayAuthor?.username}`} className="font-bold text-white hover:underline flex items-center">
+                        {displayAuthor?.display_name}
                         {isNFTVerified && <VerifiedBadge />}
                       </Link>
-                      <span className="text-gray-500 text-sm">@{tweet.author.username}</span>
+                      <span className="text-gray-500 text-sm">@{displayAuthor?.username}</span>
                     </div>
                     
                     <div className="flex items-center">
