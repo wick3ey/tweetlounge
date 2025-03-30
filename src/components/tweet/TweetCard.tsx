@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
@@ -35,22 +36,35 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isRetweeting, setIsRetweeting] = useState(false); // Add a state to track retweet action in progress
+  const [isRetweeting, setIsRetweeting] = useState(false); // Track retweet action in progress
+  const [isLiking, setIsLiking] = useState(false); // Track like action in progress
+  const [localLikesCount, setLocalLikesCount] = useState(tweet?.likes_count || 0);
+  const [localRetweetsCount, setLocalRetweetsCount] = useState(tweet?.retweets_count || 0);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  React.useEffect(() => {
+  useEffect(() => {
+    setLocalLikesCount(tweet?.likes_count || 0);
+    setLocalRetweetsCount(tweet?.retweets_count || 0);
+  }, [tweet?.likes_count, tweet?.retweets_count]);
+
+  useEffect(() => {
     const checkStatuses = async () => {
       if (tweet?.id && user) {
         try {
+          // Check if the user liked this tweet
           const liked = await checkIfUserLikedTweet(tweet.id);
           setIsLiked(liked);
           
-          const retweeted = await checkIfUserRetweetedTweet(tweet.is_retweet && tweet.original_tweet_id 
+          // For retweets, check against the original tweet ID if this is a retweet
+          const tweetIdToCheck = tweet.is_retweet && tweet.original_tweet_id 
             ? tweet.original_tweet_id 
-            : tweet.id);
+            : tweet.id;
+            
+          const retweeted = await checkIfUserRetweetedTweet(tweetIdToCheck);
           setIsRetweeted(retweeted);
           
+          // Check if the tweet is bookmarked
           const bookmarked = await checkIfTweetBookmarked(tweet.id);
           setIsBookmarked(bookmarked);
         } catch (error) {
@@ -86,14 +100,55 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
-      ? tweet.original_tweet_id 
-      : tweet.id;
+    // Prevent multiple clicks
+    if (isLiking) return;
+    setIsLiking(true);
 
-    const success = await likeTweet(tweetIdToLike);
-    if (success) {
-      setIsLiked(!isLiked);
-      if (onAction) onAction();
+    try {
+      const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
+        ? tweet.original_tweet_id 
+        : tweet.id;
+
+      const success = await likeTweet(tweetIdToLike);
+      
+      if (success) {
+        // Immediately update UI
+        const newLikedState = !isLiked;
+        setIsLiked(newLikedState);
+        
+        // Update the local like count for immediate feedback
+        setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+        
+        // Show toast for better UX
+        if (newLikedState) {
+          toast({
+            title: "Liked",
+            description: "You liked this post",
+          });
+        }
+        
+        // Still trigger the refresh for accurate data
+        if (onAction) {
+          setTimeout(() => {
+            onAction();
+          }, 500); // Small delay to ensure backend has updated
+        }
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to like/unlike the post.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error during like operation:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during the like operation.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -122,11 +177,16 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       const success = await retweet(tweetIdToRetweet);
       
       if (success) {
-        setIsRetweeted(!isRetweeted);
+        // Immediately update UI
+        const newRetweetedState = !isRetweeted;
+        setIsRetweeted(newRetweetedState);
+        
+        // Update the local retweet count for immediate feedback
+        setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
         
         toast({
-          title: isRetweeted ? "Repost removed" : "Reposted",
-          description: isRetweeted ? "You removed your repost" : "You reposted this post",
+          title: newRetweetedState ? "Reposted" : "Repost removed",
+          description: newRetweetedState ? "You reposted this post" : "You removed your repost",
         });
         
         // After a successful retweet, trigger a full refresh to get fresh data
@@ -288,17 +348,19 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               <button 
                 className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
                 onClick={toggleRetweet}
+                disabled={isRetweeting}
               >
                 <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
-                <span>{tweet.retweets_count || 0}</span>
+                <span>{localRetweetsCount}</span>
               </button>
               
               <button 
                 className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
                 onClick={toggleLike}
+                disabled={isLiking}
               >
                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{tweet.likes_count || 0}</span>
+                <span>{localLikesCount}</span>
               </button>
               
               <button 
@@ -391,17 +453,19 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <button 
               className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green`}
               onClick={toggleRetweet}
+              disabled={isRetweeting}
             >
               <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
-              <span>{tweet.retweets_count || 0}</span>
+              <span>{localRetweetsCount}</span>
             </button>
             
             <button 
               className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red`}
               onClick={toggleLike}
+              disabled={isLiking}
             >
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{tweet.likes_count || 0}</span>
+              <span>{localLikesCount}</span>
             </button>
             
             <button 

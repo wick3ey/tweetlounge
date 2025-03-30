@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,11 @@ const TweetPage = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isRetweeting, setIsRetweeting] = useState(false);
+  const [localLikesCount, setLocalLikesCount] = useState(0);
+  const [localRetweetsCount, setLocalRetweetsCount] = useState(0);
+  const [localRepliesCount, setLocalRepliesCount] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -98,6 +104,9 @@ const TweetPage = () => {
         }
 
         setTweet(formattedTweet);
+        setLocalLikesCount(formattedTweet.likes_count || 0);
+        setLocalRetweetsCount(formattedTweet.retweets_count || 0);
+        setLocalRepliesCount(formattedTweet.replies_count || 0);
         
         checkIfUserIsAuthor(tweetData.author_id);
         
@@ -217,12 +226,18 @@ const TweetPage = () => {
           }
 
           const tweetData = data[0];
-          setTweet(prev => prev ? {
-            ...prev,
-            likes_count: tweetData.likes_count,
-            retweets_count: tweetData.retweets_count,
-            replies_count: tweetData.replies_count
-          } : null);
+          if (tweet) {
+            setLocalLikesCount(tweetData.likes_count || 0);
+            setLocalRetweetsCount(tweetData.retweets_count || 0);
+            setLocalRepliesCount(tweetData.replies_count || 0);
+            
+            setTweet(prev => prev ? {
+              ...prev,
+              likes_count: tweetData.likes_count,
+              retweets_count: tweetData.retweets_count,
+              replies_count: tweetData.replies_count
+            } : null);
+          }
         } catch (err) {
           console.error('Failed to refresh tweet:', err);
         }
@@ -274,6 +289,9 @@ const TweetPage = () => {
   const handleCommentSubmit = () => {
     handleTweetAction();
     setShowReplyForm(false);
+    
+    // Immediately increment the local replies count for better UX
+    setLocalRepliesCount(prev => prev + 1);
   };
 
   const handleLikeToggle = async () => {
@@ -286,19 +304,28 @@ const TweetPage = () => {
       return;
     }
 
-    if (!tweetId) return;
+    if (!tweetId || isLiking) return;
+    setIsLiking(true);
 
     try {
       const success = await likeTweet(tweetId);
       if (success) {
-        setIsLiked(!isLiked);
-        handleTweetAction();
-        if (!isLiked) {
+        // Update UI immediately
+        const newLikedState = !isLiked;
+        setIsLiked(newLikedState);
+        setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+        
+        if (newLikedState) {
           toast({
             title: "Liked",
             description: "You liked this post",
           });
         }
+        
+        // Still trigger the refresh after a delay
+        setTimeout(() => {
+          handleTweetAction();
+        }, 500);
       } else {
         toast({
           title: "Error",
@@ -313,6 +340,8 @@ const TweetPage = () => {
         description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -326,17 +355,26 @@ const TweetPage = () => {
       return;
     }
 
-    if (!tweetId) return;
+    if (!tweetId || isRetweeting) return;
+    setIsRetweeting(true);
 
     try {
       const success = await retweet(tweetId);
       if (success) {
-        setIsRetweeted(!isRetweeted);
-        handleTweetAction();
+        // Update UI immediately
+        const newRetweetedState = !isRetweeted;
+        setIsRetweeted(newRetweetedState);
+        setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
+        
         toast({
-          title: isRetweeted ? "Repost Removed" : "Reposted",
-          description: isRetweeted ? "You removed your repost" : "You reposted this post",
+          title: newRetweetedState ? "Reposted" : "Repost Removed",
+          description: newRetweetedState ? "You reposted this post" : "You removed your repost",
         });
+        
+        // Still trigger the refresh after a delay
+        setTimeout(() => {
+          handleTweetAction();
+        }, 500);
       } else {
         toast({
           title: "Error",
@@ -351,6 +389,8 @@ const TweetPage = () => {
         description: "An unexpected error occurred",
         variant: "destructive",
       });
+    } finally {
+      setIsRetweeting(false);
     }
   };
 
@@ -540,7 +580,7 @@ const TweetPage = () => {
                 <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
                   <span>{getFormattedDate(tweet.created_at)}</span>
                   <span className="mx-1">·</span>
-                  <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
+                  <span>{localLikesCount + localRetweetsCount + localRepliesCount} Views</span>
                 </div>
               </div>
               
@@ -550,26 +590,28 @@ const TweetPage = () => {
                   onClick={() => setShowReplyForm(!showReplyForm)}
                 >
                   <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
-                  <span>{tweet.replies_count || 0}</span>
+                  <span>{localRepliesCount}</span>
                 </button>
                 
                 <button 
                   className={`flex items-center space-x-1 transition-colors ${isRetweeted ? 'text-crypto-green' : 'hover:text-crypto-green'}`}
                   onClick={handleRetweetToggle}
+                  disabled={isRetweeting}
                 >
                   <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
-                  <span>{tweet.retweets_count || 0}</span>
+                  <span>{localRetweetsCount}</span>
                 </button>
                 
                 <button 
                   className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-crypto-red' : 'hover:text-crypto-red'}`}
                   onClick={handleLikeToggle}
+                  disabled={isLiking}
                 >
                   <Heart 
                     className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
                     strokeWidth={isLiked ? 0 : 1.5}
                   />
-                  <span>{tweet.likes_count || 0}</span>
+                  <span>{localLikesCount}</span>
                 </button>
                 
                 <button 
@@ -631,6 +673,7 @@ const TweetPage = () => {
             <CommentList 
               tweetId={tweet.id} 
               onCommentCountUpdated={(count) => {
+                setLocalRepliesCount(count);
                 if (tweet) {
                   setTweet(prev => prev ? { ...prev, replies_count: count } : null);
                 }
@@ -736,7 +779,7 @@ const TweetPage = () => {
               <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
                 <span>{getFormattedDate(tweet.created_at)}</span>
                 <span className="mx-1">·</span>
-                <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
+                <span>{localLikesCount + localRetweetsCount + localRepliesCount} Views</span>
               </div>
             </div>
             
@@ -746,26 +789,28 @@ const TweetPage = () => {
                 onClick={() => setShowReplyForm(!showReplyForm)}
               >
                 <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
-                <span>{tweet.replies_count || 0}</span>
+                <span>{localRepliesCount}</span>
               </button>
               
               <button 
                 className={`flex items-center space-x-1 transition-colors ${isRetweeted ? 'text-crypto-green' : 'hover:text-crypto-green'}`}
                 onClick={handleRetweetToggle}
+                disabled={isRetweeting}
               >
                 <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
-                <span>{tweet.retweets_count || 0}</span>
+                <span>{localRetweetsCount}</span>
               </button>
               
               <button 
                 className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-crypto-red' : 'hover:text-crypto-red'}`}
                 onClick={handleLikeToggle}
+                disabled={isLiking}
               >
                 <Heart 
                   className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
                   strokeWidth={isLiked ? 0 : 1.5}
                 />
-                <span>{tweet.likes_count || 0}</span>
+                <span>{localLikesCount}</span>
               </button>
               
               <button 
@@ -827,6 +872,7 @@ const TweetPage = () => {
           <CommentList 
             tweetId={tweet.id} 
             onCommentCountUpdated={(count) => {
+              setLocalRepliesCount(count);
               if (tweet) {
                 setTweet(prev => prev ? { ...prev, replies_count: count } : null);
               }
