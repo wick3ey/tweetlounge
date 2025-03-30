@@ -56,6 +56,7 @@ export const useRealtimeConversations = () => {
         
         // Extract conversation IDs
         const conversationIds = participantsData.map(p => p.conversation_id);
+        console.log('Found conversation IDs:', conversationIds);
         
         // Create a map of conversation_id to is_read status
         const readStatusMap = participantsData.reduce((acc, curr) => {
@@ -79,10 +80,13 @@ export const useRealtimeConversations = () => {
         }
         
         if (!conversationsData || conversationsData.length === 0) {
+          console.log('No conversation data found');
           setConversations([]);
           setLoading(false);
           return;
         }
+
+        console.log('Found conversations:', conversationsData);
 
         // Process each conversation to get the other participant and last message
         const enhancedConversations = await Promise.all(
