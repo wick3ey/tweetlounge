@@ -25,6 +25,11 @@ interface TweetCardProps {
 }
 
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete }) => {
+  console.log('Rendering tweet:', tweet.id);
+  console.log('Is retweet:', tweet.is_retweet);
+  console.log('Original tweet ID:', tweet.original_tweet_id);
+  console.log('Original author:', tweet.original_author);
+  
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
@@ -152,6 +157,19 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
   if (tweet.is_retweet) {
+    if (!tweet.original_author) {
+      console.error('Retweet missing original_author data:', tweet);
+      return (
+        <div className="p-4 border-b border-gray-800">
+          <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
+            <Repeat className="h-4 w-4 mr-1" />
+            <span>{tweet.author?.display_name} reposted</span>
+          </div>
+          <div className="text-white">Original content could not be loaded</div>
+        </div>
+      );
+    }
+    
     return (
       <div 
         className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
@@ -166,11 +184,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
           <div className="flex-shrink-0">
             <Avatar className="h-10 w-10">
               <AvatarImage 
-                src={tweet.original_author?.avatar_url || tweet.author?.avatar_url} 
-                alt={tweet.original_author?.username || tweet.author?.username} 
+                src={tweet.original_author.avatar_url} 
+                alt={tweet.original_author.username} 
               />
               <AvatarFallback>
-                {(tweet.original_author?.username || tweet.author?.username)?.charAt(0).toUpperCase()}
+                {tweet.original_author.username?.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           </div>
@@ -180,14 +198,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               <div>
                 <div className="flex items-center gap-1">
                   <span className="font-medium text-white flex items-center">
-                    {tweet.original_author?.display_name || tweet.author?.display_name}
-                    {(tweet.original_author?.avatar_nft_id && tweet.original_author?.avatar_nft_chain) && (
+                    {tweet.original_author.display_name}
+                    {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
                       <VerifiedBadge className="ml-1" />
                     )}
                   </span>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">
-                    @{tweet.original_author?.username || tweet.author?.username}
+                    @{tweet.original_author.username}
                   </span>
                   <span className="text-gray-500 mx-1">·</span>
                   <span className="text-gray-500">{formattedDate}</span>

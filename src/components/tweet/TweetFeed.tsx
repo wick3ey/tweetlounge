@@ -36,7 +36,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       
       const fetchedTweets = await getTweets(limit, 0);
       
-      // Process tweets to get original author information for retweets
+      // Process tweets to get original tweet information for retweets
       const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
         if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
@@ -47,9 +47,13 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
               
-              // Add the original author information to the retweet
+              // IMPORTANT: Copy both the original author AND the content
               return {
                 ...tweet,
+                // Use the original tweet's content
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                // Add the original author information
                 original_author: {
                   id: originalTweet.author_id,
                   username: originalTweet.username,
