@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TweetWithAuthor } from '@/types/Tweet';
+import { TweetWithAuthor, Author } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
@@ -75,17 +75,37 @@ const TweetPage = () => {
           }
         };
 
-        if (tweetData.is_retweet && tweetData.original_author_id) {
-          formattedTweet.original_author = {
-            id: tweetData.original_author_id,
-            username: tweetData.original_author_username || '',
-            display_name: tweetData.original_author_display_name || '',
-            avatar_url: tweetData.original_author_avatar_url || '',
-            avatar_nft_id: tweetData.original_author_avatar_nft_id,
-            avatar_nft_chain: tweetData.original_author_avatar_nft_chain
-          };
-          
-          formattedTweet.retweeted_by = formattedTweet.author;
+        if (tweetData.is_retweet && tweetData.original_tweet_id) {
+          const { data: originalTweetData, error: originalTweetError } = await supabase
+            .from('tweets')
+            .select(`
+              id,
+              author_id,
+              profiles:author_id (
+                id,
+                username,
+                display_name,
+                avatar_url,
+                avatar_nft_id,
+                avatar_nft_chain
+              )
+            `)
+            .eq('id', tweetData.original_tweet_id)
+            .single();
+
+          if (!originalTweetError && originalTweetData && originalTweetData.profiles) {
+            const originalAuthor: Author = {
+              id: originalTweetData.author_id,
+              username: originalTweetData.profiles.username || '',
+              display_name: originalTweetData.profiles.display_name || '',
+              avatar_url: originalTweetData.profiles.avatar_url || '',
+              avatar_nft_id: originalTweetData.profiles.avatar_nft_id,
+              avatar_nft_chain: originalTweetData.profiles.avatar_nft_chain
+            };
+            
+            formattedTweet.original_author = originalAuthor;
+            formattedTweet.retweeted_by = formattedTweet.author;
+          }
         }
 
         setTweet(formattedTweet);
