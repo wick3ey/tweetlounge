@@ -130,9 +130,9 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     }
   };
   
-  // Format the reply count to display in a human-readable format
+  // Format the count to display in a human-readable format
   const formatCount = (count: number): string => {
-    if (count === 0) return '';
+    if (count === 0) return '0';
     if (count < 1000) return count.toString();
     if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
     return `${(count / 1000000).toFixed(1)}M`;
