@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CryptoButton } from "@/components/ui/crypto-button";
@@ -13,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 
-// Enhanced news item component with animations and interactive elements
 const NewsItem: React.FC<{ 
   article: NewsArticle; 
   expanded: boolean; 
@@ -23,7 +21,6 @@ const NewsItem: React.FC<{
   const formattedDate = formatNewsDate(article.published_at);
   const [isHovered, setIsHovered] = useState(false);
   
-  // Dynamic badge color based on currency
   const getCurrencyColor = (code: string) => {
     switch(code) {
       case 'BTC': return 'bg-amber-500/20 text-amber-400'; 
@@ -167,7 +164,6 @@ const NewsItem: React.FC<{
   );
 };
 
-// Loading skeleton for news items
 const NewsItemSkeleton: React.FC = () => (
   <div className="p-4 border-b border-crypto-gray">
     <div className="flex justify-between items-start">
@@ -204,20 +200,18 @@ interface NewsSectionProps {
 const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
   const { newsArticles, loading, error, isRefreshing, refreshData } = useNewsData();
   const [expandedArticleId, setExpandedArticleId] = useState<number | null>(null);
-  const [highlightColor, setHighlightColor] = useState('#1d9bf0'); // crypto-blue by default
-  
-  // Array of highlight colors to cycle through
+  const [highlightColor, setHighlightColor] = useState('#1d9bf0');
+
   const highlightColors = [
-    '#1d9bf0', // crypto-blue
-    '#8b5cf6', // purple
-    '#10b981', // green
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#6366f1', // indigo
-    '#ec4899', // pink
+    '#1d9bf0',
+    '#8b5cf6',
+    '#10b981',
+    '#f59e0b',
+    '#ef4444',
+    '#6366f1',
+    '#ec4899',
   ];
-  
-  // Cycle through highlight colors on interval
+
   useEffect(() => {
     if (!compact) {
       const intervalId = setInterval(() => {
@@ -231,8 +225,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
       return () => clearInterval(intervalId);
     }
   }, [compact]);
-  
-  // Display error toast if needed
+
   useEffect(() => {
     if (error) {
       toast({
@@ -242,8 +235,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
       });
     }
   }, [error]);
-  
-  // Notify when new content is available
+
   useEffect(() => {
     if (isRefreshing) {
       toast({
@@ -252,7 +244,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
       });
     }
   }, [isRefreshing]);
-  
+
   const handleRefresh = async () => {
     toast({
       title: "Refreshing News",
@@ -336,68 +328,47 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className={compact ? "max-h-[300px] overflow-auto" : "max-h-none"}>
-            {loading ? (
-              // Loading skeletons
-              Array(compact ? 3 : 5).fill(0).map((_, index) => (
-                <NewsItemSkeleton key={index} />
-              ))
-            ) : newsArticles.length === 0 ? (
-              // Empty state
-              <div className="p-6 text-center">
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 0.5 }}
-                  transition={{ repeat: Infinity, repeatType: "reverse", duration: 2 }}
+          <ScrollArea className={`${compact ? "max-h-[500px]" : "max-h-[700px]"} w-full`}>
+            <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
+              <AnimatePresence>
+                {newsArticles.slice(0, compact ? 4 : 12).map((article) => (
+                  <NewsItem 
+                    key={article.id} 
+                    article={article} 
+                    expanded={expandedArticleId === article.id}
+                    onClick={() => toggleExpandArticle(article.id)}
+                    highlightColor={highlightColor}
+                  />
+                ))}
+              </AnimatePresence>
+              
+              {!compact && (
+                <motion.div 
+                  className="p-3 flex justify-center col-span-full"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
                 >
-                  <AlertTriangle className="h-8 w-8 text-crypto-lightgray mx-auto mb-2 opacity-50" />
-                </motion.div>
-                <p className="text-crypto-lightgray text-sm mb-2">No recent news available</p>
-                <p className="text-xs text-crypto-lightgray/70 mb-3">We'll display news as soon as they're published</p>
-              </div>
-            ) : (
-              // Articles - Display in a grid for non-compact view
-              <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
-                <AnimatePresence>
-                  {newsArticles.slice(0, compact ? 4 : newsArticles.length).map((article) => (
-                    <NewsItem 
-                      key={article.id} 
-                      article={article} 
-                      expanded={expandedArticleId === article.id}
-                      onClick={() => toggleExpandArticle(article.id)}
-                      highlightColor={highlightColor}
-                    />
-                  ))}
-                </AnimatePresence>
-                
-                {!compact && (
-                  <motion.div 
-                    className="p-3 flex justify-center col-span-full"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
+                  <a 
+                    href="https://cryptopanic.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="w-full"
                   >
-                    <a 
-                      href="https://cryptopanic.com/" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="w-full"
+                    <CryptoButton 
+                      variant="ghost" 
+                      size="sm" 
+                      className="hover:bg-crypto-blue/10 w-full"
+                      style={{ color: highlightColor, borderColor: `${highlightColor}33` }}
                     >
-                      <CryptoButton 
-                        variant="ghost" 
-                        size="sm" 
-                        className="hover:bg-crypto-blue/10 w-full"
-                        style={{ color: highlightColor, borderColor: `${highlightColor}33` }}
-                      >
-                        <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-                        View All Crypto News
-                      </CryptoButton>
-                    </a>
-                  </motion.div>
-                )}
-              </div>
-            )}
-          </div>
+                      <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
+                      View All Crypto News
+                    </CryptoButton>
+                  </a>
+                </motion.div>
+              )}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
