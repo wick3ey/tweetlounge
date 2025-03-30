@@ -1,17 +1,16 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { User } from '@supabase/supabase-js';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, Mail, MapPin, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Profile } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { followUser, unfollowUser } from '@/services/profileService';
 import { useToast } from '@/components/ui/use-toast';
 import { useProfile } from '@/contexts/ProfileContext';
 import { createOrGetConversation } from '@/services/messageService';
+import { Profile } from '@/lib/supabase'; // Updated import
 
 interface ProfileHeaderProps {
   profile: Profile;

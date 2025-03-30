@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -16,6 +17,7 @@ import {
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import { getProfileByUsername, isFollowing } from '@/services/profileService';
+import { Profile as ProfileType } from '@/lib/supabase';
 
 const CryptoTag = ({ children }: { children: React.ReactNode }) => (
   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
@@ -39,7 +41,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const [showNFTBrowser, setShowNFTBrowser] = useState(false);
   const [showProfileImage, setShowProfileImage] = useState(false);
   
-  const [viewedProfile, setViewedProfile] = useState<any>(null);
+  const [viewedProfile, setViewedProfile] = useState<ProfileType | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isUserFollowing, setIsUserFollowing] = useState(false);
@@ -170,8 +172,8 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     }
   };
   
-  const handleFollowAction = () => {
-    setIsUserFollowing(!isUserFollowing);
+  const handleFollowAction = (newFollowState: boolean) => {
+    setIsUserFollowing(newFollowState);
   };
   
   if (isLoading) {
@@ -215,35 +217,13 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  const formatWebsiteUrl = (url: string | null): string | null => {
-    if (!url) return null;
-    
-    return url.startsWith('http') ? url : `https://${url}`;
-  };
-  
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
       <ProfileHeader
-        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-        username={profile?.username || 'username'}
-        displayName={profile?.display_name || 'Display Name'}
-        avatarUrl={profile?.avatar_url || undefined}
-        coverUrl={profile?.cover_url || undefined}
-        bio={profile?.bio || undefined}
-        location={profile?.location || undefined}
-        website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
-        ethereumAddress={profile?.ethereum_address}
-        solanaAddress={profile?.solana_address}
+        profile={profile}
         isCurrentUser={isOwnProfile}
-        followersCount={profile?.followers_count || 0}
-        followingCount={profile?.following_count || 0}
-        joinedDate={userCreatedAt || new Date().toISOString()}
-        onEditProfile={handleEditProfile}
-        onOpenNFTBrowser={handleOpenNFTBrowser}
         isFollowing={isUserFollowing}
-        onFollow={handleFollowAction}
-        isNFTVerified={isNFTVerified}
-        onAvatarClick={handleOpenProfileImage}
+        onFollowChange={handleFollowAction}
       />
       
       <ProfileTabs 
