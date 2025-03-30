@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
 import CommentForm from '@/components/comment/CommentForm';
 import { checkIfUserLikedTweet, likeTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
@@ -30,6 +31,7 @@ const TweetPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { profile } = useProfile();
 
   useEffect(() => {
     const fetchTweet = async () => {
@@ -37,7 +39,6 @@ const TweetPage = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch tweet with author using RPC
         const { data, error } = await supabase
           .rpc('get_tweet_with_author_reliable', { tweet_id: tweetId });
 
@@ -52,7 +53,6 @@ const TweetPage = () => {
 
         const tweetData = data[0];
         
-        // Transform the data to match TweetWithAuthor format
         const formattedTweet: TweetWithAuthor = {
           id: tweetData.id,
           content: tweetData.content,
@@ -76,15 +76,12 @@ const TweetPage = () => {
 
         setTweet(formattedTweet);
         
-        // Check if the current user is the author
         checkIfUserIsAuthor(tweetData.author_id);
         
-        // Check if the current user is following the author
         if (user && user.id !== tweetData.author_id) {
           checkIfFollowingAuthor(tweetData.author_id);
         }
 
-        // Check if the current user has liked or retweeted the tweet
         if (user && tweetId) {
           checkTweetInteractions(tweetId);
         }
@@ -106,7 +103,6 @@ const TweetPage = () => {
     }
   }, [tweetId, toast, user]);
 
-  // Check if the current user is the author of the tweet
   const checkIfUserIsAuthor = async (authorId: string) => {
     try {
       const { data } = await supabase.auth.getUser();
@@ -118,14 +114,12 @@ const TweetPage = () => {
     }
   };
 
-  // Check if the current user is following the author
   const checkIfFollowingAuthor = async (authorId: string) => {
     if (!user) return;
     const following = await isFollowing(authorId);
     setIsFollowingAuthor(following);
   };
 
-  // Check if user has liked or retweeted the tweet
   const checkTweetInteractions = async (tweetId: string) => {
     try {
       const liked = await checkIfUserLikedTweet(tweetId);
@@ -185,7 +179,6 @@ const TweetPage = () => {
   };
 
   const handleTweetAction = () => {
-    // Refresh the tweet data when actions are performed
     if (tweetId) {
       const fetchUpdatedTweet = async () => {
         try {
@@ -221,12 +214,11 @@ const TweetPage = () => {
       title: "Tweet Deleted",
       description: "Your tweet has been successfully deleted."
     });
-    // Navigate back to home if the tweet was deleted
     navigate('/home');
   };
 
   const handleBack = () => {
-    navigate(-1); // Go back to the previous page
+    navigate(-1);
   };
 
   const getFormattedDate = (dateString: string) => {
@@ -248,7 +240,6 @@ const TweetPage = () => {
         console.error('Error sharing:', error);
       });
     } else {
-      // Fallback for browsers that don't support navigator.share
       navigator.clipboard.writeText(window.location.href);
       toast({
         title: "Link Copied",
@@ -258,8 +249,8 @@ const TweetPage = () => {
   };
 
   const handleCommentSubmit = () => {
-    handleTweetAction(); // Refresh the tweet data
-    setShowReplyForm(false); // Hide the reply form after submitting
+    handleTweetAction();
+    setShowReplyForm(false);
   };
 
   const handleLikeToggle = async () => {
@@ -278,8 +269,7 @@ const TweetPage = () => {
       const success = await likeTweet(tweetId);
       if (success) {
         setIsLiked(!isLiked);
-        handleTweetAction(); // Refresh tweet data
-        
+        handleTweetAction();
         if (!isLiked) {
           toast({
             title: "Liked",
@@ -319,8 +309,7 @@ const TweetPage = () => {
       const success = await retweet(tweetId);
       if (success) {
         setIsRetweeted(!isRetweeted);
-        handleTweetAction(); // Refresh tweet data
-        
+        handleTweetAction();
         toast({
           title: isRetweeted ? "Repost Removed" : "Reposted",
           description: isRetweeted ? "You removed your repost" : "You reposted this post",
@@ -421,7 +410,6 @@ const TweetPage = () => {
 
   return (
     <Layout hideRightSidebar>
-      {/* Twitter-style header - Fixed at top */}
       <div className="sticky top-0 z-10 bg-black border-b border-gray-800">
         <div className="max-w-[600px] mx-auto px-4 py-3 flex items-center">
           <Button 
@@ -438,9 +426,7 @@ const TweetPage = () => {
       </div>
       
       <div className="max-w-[600px] mx-auto">
-        {/* Main Tweet */}
         <article className="border-b border-gray-800">
-          {/* Author Info + Tweet Header */}
           <div className="p-4">
             <div className="flex items-start mb-2">
               <Link to={`/profile/${tweet.author.username}`} className="mr-3 flex-shrink-0">
@@ -501,7 +487,6 @@ const TweetPage = () => {
               </div>
             </div>
             
-            {/* Tweet Content */}
             <div className="mt-1">
               <p className="text-[17px] text-white whitespace-pre-wrap mb-4 leading-normal">{tweet.content}</p>
               
@@ -522,9 +507,6 @@ const TweetPage = () => {
               </div>
             </div>
             
-            {/* Remove the text stats row */}
-            
-            {/* Tweet Actions */}
             <div className="flex justify-between items-center py-1">
               <button 
                 className={`flex items-center space-x-1 hover:text-crypto-blue transition-colors`}
@@ -570,7 +552,6 @@ const TweetPage = () => {
           </div>
         </article>
         
-        {/* Reply Form */}
         {showReplyForm && (
           <div className="p-4 border-b border-gray-800">
             <CommentForm 
@@ -580,7 +561,6 @@ const TweetPage = () => {
           </div>
         )}
         
-        {/* Reply Input Section - Twitter Style */}
         {!showReplyForm && (
           <div className="flex gap-3 p-3 border-b border-gray-800">
             <Avatar className="h-10 w-10 rounded-full">
@@ -610,7 +590,6 @@ const TweetPage = () => {
           </div>
         )}
         
-        {/* Tweet Comments Section */}
         <div className="bg-black p-4">
           <CommentList 
             tweetId={tweet.id} 
