@@ -28,15 +28,27 @@ export async function createNotification(
     
     // Check if a similar notification already exists to prevent duplicates
     // For example, if a user likes and unlikes a post multiple times
-    const { data: existingNotification, error: checkError } = await supabase
+    let query = supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .eq('actor_id', actorId)
-      .eq('type', type)
-      .is('tweet_id', tweetId ? tweetId : null)
-      .is('comment_id', commentId ? commentId : null)
-      .maybeSingle();
+      .eq('type', type);
+      
+    // Apply conditional filters correctly
+    if (tweetId) {
+      query = query.eq('tweet_id', tweetId);
+    } else {
+      query = query.is('tweet_id', null);
+    }
+    
+    if (commentId) {
+      query = query.eq('comment_id', commentId);
+    } else {
+      query = query.is('comment_id', null);
+    }
+    
+    const { data: existingNotification, error: checkError } = await query.maybeSingle();
       
     if (checkError && checkError.code !== 'PGSQL_ERROR_NO_ROWS_IN_RESULT_SET') {
       console.error('Error checking for existing notification:', checkError);
@@ -52,8 +64,8 @@ export async function createNotification(
       user_id: userId,
       actor_id: actorId,
       type,
-      tweet_id: tweetId,
-      comment_id: commentId,
+      tweet_id: tweetId || null,
+      comment_id: commentId || null,
       read: false
     };
     
@@ -94,19 +106,27 @@ export async function deleteNotification(
       return false;
     }
     
-    const match: any = {
-      user_id: userId,
-      actor_id: actorId,
-      type
-    };
-    
-    if (tweetId) match.tweet_id = tweetId;
-    if (commentId) match.comment_id = commentId;
-    
-    const { error } = await supabase
+    let query = supabase
       .from('notifications')
       .delete()
-      .match(match);
+      .eq('user_id', userId)
+      .eq('actor_id', actorId)
+      .eq('type', type);
+    
+    // Apply conditional filters correctly
+    if (tweetId) {
+      query = query.eq('tweet_id', tweetId);
+    } else {
+      query = query.is('tweet_id', null);
+    }
+    
+    if (commentId) {
+      query = query.eq('comment_id', commentId);
+    } else {
+      query = query.is('comment_id', null);
+    }
+      
+    const { error } = await query;
       
     if (error) {
       console.error('Error deleting notification:', error);

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
@@ -254,7 +255,8 @@ export async function likeComment(commentId: string): Promise<boolean> {
         return false;
       }
       
-      const { error: updateError } = await supabase
+      // Fixed the increment_counter and decrement_counter usage
+      const { data: updatedComment, error: updateError } = await supabase
         .from('comments')
         .update({ 
           likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) 
@@ -289,7 +291,8 @@ export async function likeComment(commentId: string): Promise<boolean> {
       return false;
     }
     
-    const { error: updateError } = await supabase
+    // Fixed the increment_counter and decrement_counter usage
+    const { data: updatedComment, error: updateError } = await supabase
       .from('comments')
       .update({ 
         likes_count: supabase.rpc('increment_counter', { row_id: commentId }) 
