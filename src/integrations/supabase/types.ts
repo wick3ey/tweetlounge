@@ -119,6 +119,59 @@ export type Database = {
           },
         ]
       }
+      conversation_participants: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       followers: {
         Row: {
           created_at: string
@@ -195,6 +248,73 @@ export type Database = {
           source?: string | null
         }
         Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          reaction_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          reaction_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          reaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_deleted: boolean
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -478,6 +598,13 @@ export type Database = {
           bookmarked_at: string
         }[]
       }
+      get_or_create_conversation: {
+        Args: {
+          user1_id: string
+          user2_id: string
+        }
+        Returns: string
+      }
       get_tweet_comments: {
         Args: {
           p_tweet_id: string
@@ -587,6 +714,27 @@ export type Database = {
           profile_avatar_url: string
           profile_avatar_nft_id: string
           profile_avatar_nft_chain: string
+        }[]
+      }
+      get_user_conversations: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: {
+          id: string
+          created_at: string
+          updated_at: string
+          last_message: string
+          last_message_time: string
+          sender_id: string
+          other_user_id: string
+          other_user_username: string
+          other_user_display_name: string
+          other_user_avatar: string
+          other_user_avatar_nft_id: string
+          other_user_avatar_nft_chain: string
+          other_user_bio: string
+          unread_count: number
         }[]
       }
       get_user_retweets: {

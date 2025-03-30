@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -96,7 +97,7 @@ const Notifications = () => {
           {notification.type === 'comment' && (
             <div className="flex items-center space-x-1 mb-1 text-xs">
               <span>Replying to</span>
-              <span className="text-blue-400">@{notification.actor.username}</span>
+              <span className="text-blue-400">{notification.actor.displayName}</span>
             </div>
           )}
           <div className="text-white text-sm border-l-0 pl-0">
@@ -196,7 +197,7 @@ const Notifications = () => {
                         
                         {notification.type !== 'follow' && (
                           <div className="text-gray-500 text-sm mt-1">
-                            <span className="text-gray-400">@{notification.actor.username}</span>
+                            {/* Removed @username display */}
                           </div>
                         )}
                         
