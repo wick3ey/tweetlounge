@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import Layout from '@/components/layout/Layout';
 
 const TokenCardSkeleton = () => (
@@ -66,10 +67,10 @@ const TokenRow = ({ token, type }: { token: any, type: 'gainer' | 'loser' | 'hot
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   
   return (
-    <div className="flex items-center justify-between py-2 px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
+      <div className="flex items-center gap-4">
         <div className="relative">
-          <Avatar className="h-9 w-9 border-2" style={{ 
+          <Avatar className="h-12 w-12 border-2" style={{ 
             borderColor: type === 'gainer' 
               ? 'rgba(34, 197, 94, 0.3)' 
               : type === 'loser' 
@@ -83,30 +84,30 @@ const TokenRow = ({ token, type }: { token: any, type: 'gainer' | 'loser' | 'hot
           </Avatar>
           <Badge 
             variant={type === 'gainer' ? 'success' : type === 'loser' ? 'destructive' : 'default'} 
-            className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px]"
+            className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs"
           >
             {token.rank}
           </Badge>
         </div>
         <div>
-          <div className="font-semibold text-sm flex items-center">
+          <div className="font-semibold text-base flex items-center">
             {token.symbol}
-            <span className="text-xs text-muted-foreground ml-2">{token.name.length > 15 ? token.name.substring(0, 15) + '...' : token.name}</span>
+            <span className="text-sm text-muted-foreground ml-2">{token.name.length > 15 ? token.name.substring(0, 15) + '...' : token.name}</span>
           </div>
-          <div className="text-xs text-muted-foreground">{token.exchange}</div>
+          <div className="text-xs text-muted-foreground mt-1">{token.exchange}</div>
         </div>
       </div>
       
       <div className="text-right">
         {!isHot ? (
           <>
-            <div className="font-medium text-sm">${formatPrice(token.price)}</div>
-            <div className={`text-xs ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
+            <div className="font-medium text-base">${formatPrice(token.price)}</div>
+            <div className={`text-sm ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium mt-1`}>
               {formatPercentage(token.variation24h)}
             </div>
           </>
         ) : (
-          <div className="text-xs text-blue-400 font-medium">
+          <div className="text-sm text-blue-400 font-medium">
             Created: {new Date(token.creationTime).toLocaleDateString()}
           </div>
         )}
@@ -130,13 +131,13 @@ const MarketSection = ({
   loading: boolean,
   accentColor: string
 }) => (
-  <div className="rounded-xl border border-gray-800 bg-black/70 backdrop-blur-sm overflow-hidden">
+  <div className="rounded-xl border border-gray-800 bg-black/70 backdrop-blur-sm h-full">
     <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800/70" style={{ backgroundColor: `${accentColor}20` }}>
       <Icon className="h-5 w-5" style={{ color: accentColor }} />
-      <h2 className="text-base font-bold">{title}</h2>
+      <h2 className="text-lg font-bold">{title}</h2>
     </div>
     
-    <div className="max-h-[460px] overflow-y-auto crypto-scrollbar">
+    <ScrollArea className="h-[calc(100vh-220px)]">
       {loading ? (
         <TokenCardSkeleton />
       ) : tokens && tokens.length > 0 ? (
@@ -146,7 +147,7 @@ const MarketSection = ({
       ) : (
         <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
       )}
-    </div>
+    </ScrollArea>
   </div>
 );
 
@@ -164,20 +165,20 @@ const Market: React.FC = () => {
 
   return (
     <Layout>
-      <div className="container max-w-7xl mx-auto p-4">
+      <div className="h-screen p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text">
               Crypto Market Dashboard
             </h1>
-            <p className="text-muted-foreground text-sm md:text-base">
+            <p className="text-muted-foreground text-base md:text-lg">
               Latest movements, gainers, losers, and hot new tokens
             </p>
           </div>
           
-          <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2 self-start">
+          <Button onClick={handleRefresh} variant="outline" size="default" className="gap-2 self-start">
             <RefreshCw className="h-4 w-4" /> 
-            <span className="hidden sm:inline">Refresh Markets</span>
+            <span>Refresh Markets</span>
           </Button>
         </div>
 
@@ -194,11 +195,11 @@ const Market: React.FC = () => {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-240px)]">
           <MarketSection
             title="Top Gainers"
             icon={TrendingUp}
-            tokens={marketData?.gainers || []}
+            tokens={marketData?.gainers?.slice(0, 10) || []}
             type="gainer"
             loading={loading}
             accentColor="#22c55e" // Green
@@ -207,7 +208,7 @@ const Market: React.FC = () => {
           <MarketSection
             title="Top Losers"
             icon={TrendingDown}
-            tokens={marketData?.losers || []}
+            tokens={marketData?.losers?.slice(0, 10) || []}
             type="loser"
             loading={loading}
             accentColor="#ef4444" // Red
@@ -216,7 +217,7 @@ const Market: React.FC = () => {
           <MarketSection
             title="Hot"
             icon={Zap}
-            tokens={marketData?.hotPools || []}
+            tokens={marketData?.hotPools?.slice(0, 10) || []}
             type="hot"
             loading={loading}
             accentColor="#3b82f6" // Blue
