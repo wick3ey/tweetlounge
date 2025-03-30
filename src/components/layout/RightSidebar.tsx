@@ -1,4 +1,3 @@
-
 import { Search, TrendingUp, MoreHorizontal, LineChart, Newspaper, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Link, useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type UserSuggestion = {
   id: string;
@@ -203,20 +203,13 @@ const RightSidebar = () => {
         </div>
         
         <Tabs defaultValue="stats" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4 bg-gray-900/70 rounded-xl p-1">
+          <TabsList className="grid grid-cols-3 mb-4 bg-gray-900/70 rounded-xl p-1">
             <TabsTrigger 
               value="stats" 
               className="rounded-lg data-[state=active]:bg-crypto-blue/20 data-[state=active]:text-crypto-blue"
             >
               <LineChart className="h-4 w-4 mr-1" />
               <span className="text-xs">Stats</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="news" 
-              className="rounded-lg data-[state=active]:bg-crypto-blue/20 data-[state=active]:text-crypto-blue"
-            >
-              <Newspaper className="h-4 w-4 mr-1" />
-              <span className="text-xs">News</span>
             </TabsTrigger>
             <TabsTrigger 
               value="trends" 
@@ -240,10 +233,6 @@ const RightSidebar = () => {
               <div className="mt-4">
                 <NewsSection compact={true} />
               </div>
-            </TabsContent>
-            
-            <TabsContent value="news" className="mt-0">
-              <NewsSection compact={false} />
             </TabsContent>
             
             <TabsContent value="trends" className="mt-0">
