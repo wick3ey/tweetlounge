@@ -584,9 +584,14 @@ const TweetPage = () => {
         {!showReplyForm && (
           <div className="flex gap-3 p-3 border-b border-gray-800">
             <Avatar className="h-10 w-10 rounded-full">
-              <AvatarImage src={user?.user_metadata?.avatar_url || ""} alt="Your avatar" />
+              <AvatarImage 
+                src={user?.user_metadata?.avatar_url || profile?.avatar_url || ""} 
+                alt="Your avatar" 
+              />
               <AvatarFallback className="bg-gray-800 text-white">
-                {user?.user_metadata?.name?.charAt(0).toUpperCase() || "U"}
+                {user?.user_metadata?.name?.charAt(0).toUpperCase() || 
+                 profile?.display_name?.charAt(0).toUpperCase() || 
+                 "U"}
               </AvatarFallback>
             </Avatar>
             
