@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
-import NewsSection from '@/components/crypto/NewsSection';
 
 const TokenCardSkeleton = () => (
   <div className="p-4">
@@ -268,10 +267,6 @@ const Market: React.FC = () => {
             accentColor="#3b82f6"
             accentBg="bg-blue-500/10"
           />
-        </div>
-        
-        <div className="mt-6">
-          <NewsSection compact={false} />
         </div>
       </div>
     </Layout>
