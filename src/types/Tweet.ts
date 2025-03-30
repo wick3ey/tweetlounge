@@ -11,13 +11,6 @@ export type Tweet = {
   original_tweet_id?: string;
   image_url?: string;
   bookmarks_count?: number;
-  // Adding fields for retweet info
-  original_author_id?: string;
-  original_author_username?: string;
-  original_author_display_name?: string;
-  original_author_avatar_url?: string;
-  original_author_avatar_nft_id?: string;
-  original_author_avatar_nft_chain?: string;
 };
 
 export type TweetWithAuthor = Tweet & {
@@ -39,18 +32,4 @@ export type TweetWithAuthor = Tweet & {
   profile_replies_sort_order?: string;
   // Add bookmark-related field
   bookmarked_at?: string;
-  // Add original author data for retweets
-  original_author?: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-    avatar_nft_id?: string;
-    avatar_nft_chain?: string;
-  };
-  retweeted_by?: {
-    id: string;
-    username: string;
-    display_name: string;
-  };
 };

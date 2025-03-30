@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -99,7 +100,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     if (!user) {
       toast({
         title: "Not logged in",
-        description: "You must be logged in to repost this post.",
+        description: "You must be logged in to retweet this post.",
       });
       return;
     }
@@ -186,9 +187,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     onAction();
   };
 
-  // Show who reposted if this is a retweet
-  const retweetedBy = tweet.is_retweet ? tweet.author : null;
-  
+  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
+
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       <Button
@@ -214,28 +214,18 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       </Button>
 
       <div className="p-4 border-b border-gray-800">
-        {/* If this is a retweet, show who reposted it */}
-        {tweet.is_retweet && retweetedBy && (
-          <div className="flex items-center text-gray-500 text-sm mb-3">
-            <Repeat className="h-4 w-4 mr-2" />
-            <span>{retweetedBy.display_name} reposted</span>
-          </div>
-        )}
-        
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username || ''} />
-            <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+            <AvatarImage src={tweet?.author?.avatar_url} alt={tweet?.author?.username} />
+            <AvatarFallback>{tweet?.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <div className="font-medium flex items-center">
-                {tweet.author?.display_name}
-                {tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain && (
-                  <VerifiedBadge className="ml-1" />
-                )}
+                {tweet?.author?.display_name}
+                {isNFTVerified && <VerifiedBadge className="ml-1" />}
               </div>
-              <div className="text-gray-500">@{tweet.author?.username}</div>
+              <div className="text-gray-500">@{tweet?.author?.username}</div>
               <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
             </div>
             <div className="mt-2 text-base">{tweet?.content}</div>
