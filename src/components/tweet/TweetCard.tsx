@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
-import { TweetWithAuthor, isValidTweet, isValidRetweet } from '@/types/Tweet';
+import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
+import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,21 +24,51 @@ interface TweetCardProps {
   onAction?: () => void;
   onDelete?: (tweetId: string) => void;
   onRetweetRemoved?: (originalTweetId: string) => void;
+  onError?: (title: string, description: string) => void;
 }
 
-const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete, onRetweetRemoved }) => {
+const TweetCard: React.FC<TweetCardProps> = ({ 
+  tweet, 
+  onClick, 
+  onAction, 
+  onDelete, 
+  onRetweetRemoved,
+  onError
+}) => {
   // Enhanced validation at the component level
   if (!isValidTweet(tweet)) {
     console.error('Invalid tweet data received:', tweet);
-    return null; // Don't render invalid tweets
+    
+    // Show fallback content instead of returning null
+    return (
+      <div className="p-4 border-b border-gray-800 bg-gray-900/20">
+        <div className="flex items-center space-x-2 text-red-500">
+          <AlertCircle size={16} />
+          <span className="text-sm">Invalid tweet data</span>
+        </div>
+      </div>
+    );
   }
   
-  // For debugging
-  if (tweet.is_retweet) {
-    console.log('Rendering tweet:', tweet.id);
-    console.log('Is retweet:', tweet.is_retweet);
-    console.log('Original tweet ID:', tweet.original_tweet_id);
-    console.log('Original author:', tweet.original_author);
+  // For retweets with missing original tweet
+  if (tweet.is_retweet && !tweet.original_tweet_id) {
+    console.error('Retweet with null original_tweet_id:', tweet);
+    
+    // Better handling for invalid retweets
+    return (
+      <div className="p-4 border-b border-gray-800">
+        <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
+          <Repeat className="h-4 w-4 mr-1" />
+          <span>{tweet.author?.display_name || 'User'} reposted</span>
+        </div>
+        <div className="bg-gray-900/20 p-3 rounded-md">
+          <div className="flex items-center space-x-2 text-yellow-500">
+            <AlertCircle size={16} />
+            <span className="text-sm">Content could not be loaded</span>
+          </div>
+        </div>
+      </div>
+    );
   }
   
   const { user } = useAuth();
@@ -218,6 +249,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         description: "An unexpected error occurred during the repost operation.",
         variant: "destructive"
       });
+      
+      // Report the error to parent component if handler is provided
+      if (onError) {
+        onError(
+          "Repost Error", 
+          "There was a problem with your repost. Please try again later."
+        );
+      }
     } finally {
       setIsRetweeting(false);
     }
@@ -278,30 +317,22 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   };
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
-  
-  if (tweet.is_retweet && !tweet.original_tweet_id) {
-    console.error('Retweet with null original_tweet_id:', tweet);
-    return (
-      <div className="p-4 border-b border-gray-800">
-        <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-          <Repeat className="h-4 w-4 mr-1" />
-          <span>{tweet.author?.display_name || 'User'} reposted</span>
-        </div>
-        <div className="text-white">Content could not be loaded</div>
-      </div>
-    );
-  }
-  
+
+  // Special handling for retweets
   if (tweet.is_retweet && tweet.original_tweet_id) {
     if (!tweet.original_author) {
-      console.error('Retweet missing original_author data:', tweet);
       return (
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
             <Repeat className="h-4 w-4 mr-1" />
             <span>{tweet.author?.display_name || 'User'} reposted</span>
           </div>
-          <div className="text-white">Original content could not be loaded</div>
+          <div className="bg-gray-900/20 p-3 rounded-md">
+            <div className="flex items-center space-x-2 text-yellow-500">
+              <AlertCircle size={16} />
+              <span className="text-sm">Original content could not be loaded</span>
+            </div>
+          </div>
         </div>
       );
     }
@@ -423,6 +454,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     );
   }
   
+  // Standard tweets
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"

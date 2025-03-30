@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { TweetWithAuthor, isValidTweet, isValidRetweet } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { ErrorDialog } from '@/components/ui/error-dialog';
 
 interface TweetFeedProps {
   userId?: string;
@@ -23,6 +25,8 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   const [selectedTweet, setSelectedTweet] = useState<TweetWithAuthor | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
+  const [errorDetails, setErrorDetails] = useState({title: '', description: ''});
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -60,15 +64,16 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       // First, filter out any tweets with corrupted data using our type guard
       const validTweets = fetchedTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          // Fix: Check if tweet exists before accessing its id
-          const tweetId = tweet?.id ? tweet.id : 'unknown';
+          // Get safe tweet ID for logging
+          const tweetId = getSafeTweetId(tweet);
           console.error('Filtered out invalid tweet:', tweetId);
           return false;
         }
         
         // Special validation for retweets
         if (tweet.is_retweet && !isValidRetweet(tweet)) {
-          console.error('Filtered out invalid retweet with null original_tweet_id:', tweet.id);
+          const tweetId = getSafeTweetId(tweet);
+          console.error('Filtered out invalid retweet with null original_tweet_id:', tweetId);
           // Log details to help debug
           console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
           return false;
@@ -125,15 +130,15 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       }));
       
       // Filter out any null entries (retweets with missing originals)
-      // Fix: Add type assertion to handle null values properly
+      // Use type predicate for proper TypeScript narrowing
       const filteredTweets = processedTweets
         .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
       
       // One more validation pass to ensure no invalid retweets
       const finalTweets = filteredTweets.filter(tweet => {
         if (!isValidTweet(tweet)) {
-          // Fix: Check if tweet exists before accessing its id
-          const tweetId = tweet?.id ? tweet.id : 'unknown';
+          // Get safe tweet ID for logging
+          const tweetId = getSafeTweetId(tweet);
           console.error('Removing invalid tweet after processing:', tweetId);
           return false;
         }
@@ -205,7 +210,13 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
         return tweet;
       }));
       
-      setTweets(processedTweets);
+      // Filter out null and invalid tweets
+      const validTweets = processedTweets
+        .filter((tweet): tweet is TweetWithAuthor => 
+          tweet !== null && isValidTweet(tweet)
+        );
+      
+      setTweets(validTweets);
     } catch (err) {
       console.error('Failed to refresh tweets:', err);
       toast({
@@ -278,6 +289,11 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     }
   };
 
+  const handleError = (title: string, description: string) => {
+    setErrorDetails({ title, description });
+    setIsErrorDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -320,12 +336,18 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             onAction={handleRefresh}
             onDelete={handleTweetDeleted}
             onRetweetRemoved={handleRetweetRemoved}
+            onError={handleError}
           />
         ))}
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-hidden">
+          {/* Add hidden DialogTitle for accessibility */}
+          <VisuallyHidden asChild>
+            <DialogTitle>Tweet Detail</DialogTitle>
+          </VisuallyHidden>
+          
           {selectedTweet && (
             <TweetDetail 
               tweet={selectedTweet} 
@@ -338,6 +360,14 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
           )}
         </DialogContent>
       </Dialog>
+      
+      <ErrorDialog 
+        open={isErrorDialogOpen}
+        onOpenChange={setIsErrorDialogOpen}
+        title={errorDetails.title}
+        description={errorDetails.description}
+        variant="error"
+      />
     </>
   );
 };
