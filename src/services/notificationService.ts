@@ -35,7 +35,7 @@ export async function createNotification(
       .eq('actor_id', actorId)
       .eq('type', type);
       
-    // Apply conditional filters correctly
+    // Apply conditional filters correctly using is for null checks
     if (tweetId) {
       query = query.eq('tweet_id', tweetId);
     } else {
@@ -113,7 +113,7 @@ export async function deleteNotification(
       .eq('actor_id', actorId)
       .eq('type', type);
     
-    // Apply conditional filters correctly
+    // Apply conditional filters correctly using is for null checks
     if (tweetId) {
       query = query.eq('tweet_id', tweetId);
     } else {
