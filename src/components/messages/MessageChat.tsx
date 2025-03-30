@@ -3,7 +3,7 @@ import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useAuth } from '@/contexts/AuthContext';
 import { createMessage, deleteMessage, markConversationAsRead } from '@/services/messageService';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, Check, Trash2, ArrowLeft } from 'lucide-react';
+import { Send, Loader2, Check, Trash2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -44,6 +44,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const [isSending, setIsSending] = useState(false);
   const [otherUser, setOtherUser] = useState<any>(null);
   const [loadingOtherUser, setLoadingOtherUser] = useState(true);
+  const [participantError, setParticipantError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -69,6 +70,7 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
       
       try {
         setLoadingOtherUser(true);
+        setParticipantError(null);
         
         // First get the other participant's ID
         const { data: participantData, error: participantError } = await supabase
@@ -76,15 +78,19 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
           .select('user_id')
           .eq('conversation_id', conversationId)
           .neq('user_id', user.id)
-          .single();
+          .maybeSingle();
           
         if (participantError) {
           console.error('Error fetching other participant:', participantError);
+          setParticipantError('Failed to fetch conversation participant information');
+          setLoadingOtherUser(false);
           return;
         }
         
         if (!participantData) {
           console.error('No other participant found');
+          setParticipantError('No other participant found in this conversation');
+          setLoadingOtherUser(false);
           return;
         }
         
@@ -93,16 +99,25 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
           .from('profiles')
           .select('*')
           .eq('id', participantData.user_id)
-          .single();
+          .maybeSingle();
           
         if (profileError) {
           console.error('Error fetching other user profile:', profileError);
+          setParticipantError('Failed to fetch user profile information');
+          setLoadingOtherUser(false);
+          return;
+        }
+        
+        if (!profileData) {
+          setParticipantError('User profile not found');
+          setLoadingOtherUser(false);
           return;
         }
         
         setOtherUser(profileData);
       } catch (error) {
         console.error('Error fetching other user:', error);
+        setParticipantError('An unexpected error occurred');
       } finally {
         setLoadingOtherUser(false);
       }
@@ -185,6 +200,31 @@ const MessageChat: React.FC<MessageChatProps> = ({ conversationId }) => {
   const handleBackToList = () => {
     navigate('/messages');
   };
+
+  // Show error state if there's an issue with participants
+  if (participantError && !loadingOtherUser) {
+    return (
+      <div className="flex flex-col h-full p-4">
+        <div className="flex items-center border-b border-crypto-gray pb-3 mb-4">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="mr-2" onClick={handleBackToList}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <span className="font-semibold">Conversation</span>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center flex-grow text-center p-6">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Conversation Error</h3>
+          <p className="text-crypto-lightgray mb-4">{participantError}</p>
+          <Button onClick={handleBackToList}>
+            Back to Messages
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state for the chat
   if (loading || loadingOtherUser) {
