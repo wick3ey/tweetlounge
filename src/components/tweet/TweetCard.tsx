@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -25,6 +26,7 @@ interface TweetCardProps {
 }
 
 const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete }) => {
+  // Add these debug logs to help track the issue
   console.log('Rendering tweet:', tweet.id);
   console.log('Is retweet:', tweet.is_retweet);
   console.log('Original tweet ID:', tweet.original_tweet_id);
@@ -40,16 +42,20 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   React.useEffect(() => {
     const checkStatuses = async () => {
       if (tweet?.id && user) {
-        const liked = await checkIfUserLikedTweet(tweet.id);
-        setIsLiked(liked);
-        
-        const retweeted = await checkIfUserRetweetedTweet(tweet.is_retweet && tweet.original_tweet_id 
-          ? tweet.original_tweet_id 
-          : tweet.id);
-        setIsRetweeted(retweeted);
-        
-        const bookmarked = await checkIfTweetBookmarked(tweet.id);
-        setIsBookmarked(bookmarked);
+        try {
+          const liked = await checkIfUserLikedTweet(tweet.id);
+          setIsLiked(liked);
+          
+          const retweeted = await checkIfUserRetweetedTweet(tweet.is_retweet && tweet.original_tweet_id 
+            ? tweet.original_tweet_id 
+            : tweet.id);
+          setIsRetweeted(retweeted);
+          
+          const bookmarked = await checkIfTweetBookmarked(tweet.id);
+          setIsBookmarked(bookmarked);
+        } catch (error) {
+          console.error('Error checking tweet statuses:', error);
+        }
       }
     };
     
@@ -61,7 +67,9 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
     
-    if (tweet.is_retweet && tweet.original_tweet_id) {
+    if (onClick) {
+      onClick();
+    } else if (tweet.is_retweet && tweet.original_tweet_id) {
       navigate(`/tweet/${tweet.original_tweet_id}`);
     } else {
       navigate(`/tweet/${tweet.id}`);
@@ -157,6 +165,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
   if (tweet.is_retweet) {
+    // Check if original_author exists
     if (!tweet.original_author) {
       console.error('Retweet missing original_author data:', tweet);
       return (

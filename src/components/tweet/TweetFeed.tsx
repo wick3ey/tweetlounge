@@ -63,7 +63,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
                   id: originalTweet.author_id,
                   username: originalTweet.username,
                   display_name: originalTweet.display_name,
-                  avatar_url: originalTweet.avatar_url,
+                  avatar_url: originalTweet.avatar_url || '',
                   avatar_nft_id: originalTweet.avatar_nft_id,
                   avatar_nft_chain: originalTweet.avatar_nft_chain
                 }
