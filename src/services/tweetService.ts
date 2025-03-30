@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -525,6 +526,8 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
     
     const transformedData: TweetWithAuthor[] = data.map((item: any) => {
       const tweet = item.tweets;
+      const profileData = tweet.profiles;
+      
       return {
         id: tweet.id,
         content: tweet.content,
@@ -536,18 +539,18 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
         is_retweet: tweet.is_retweet,
         original_tweet_id: tweet.original_tweet_id,
         image_url: tweet.image_url,
-        profile_username: tweet.profiles.username,
-        profile_display_name: tweet.profiles.display_name,
-        profile_avatar_url: tweet.profiles.avatar_url,
-        profile_avatar_nft_id: tweet.profiles.avatar_nft_id,
-        profile_avatar_nft_chain: tweet.profiles.avatar_nft_chain,
+        profile_username: profileData.username,
+        profile_display_name: profileData.display_name,
+        profile_avatar_url: profileData.avatar_url,
+        profile_avatar_nft_id: profileData.avatar_nft_id,
+        profile_avatar_nft_chain: profileData.avatar_nft_chain,
         author: {
           id: tweet.author_id,
-          username: tweet.profiles.username,
-          display_name: tweet.profiles.display_name,
-          avatar_url: tweet.profiles.avatar_url || '',
-          avatar_nft_id: tweet.profiles.avatar_nft_id,
-          avatar_nft_chain: tweet.profiles.avatar_nft_chain
+          username: profileData.username,
+          display_name: profileData.display_name,
+          avatar_url: profileData.avatar_url || '',
+          avatar_nft_id: profileData.avatar_nft_id,
+          avatar_nft_chain: profileData.avatar_nft_chain
         }
       };
     });
