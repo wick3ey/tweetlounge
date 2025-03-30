@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +15,7 @@ const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading, refetchProfile } = useProfile();
+  const { profile, isLoading: profileLoading, refreshProfile } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
@@ -25,26 +24,23 @@ const ProfilePage = () => {
   // Force profile refetch when navigating between profiles
   useEffect(() => {
     if (username && profile?.username !== username) {
-      refetchProfile?.();
+      refreshProfile?.();
     }
-  }, [username, profile?.username, refetchProfile]);
+  }, [username, profile?.username, refreshProfile]);
 
   useEffect(() => {
     const checkProfileExists = async () => {
       if (!username) {
         if (profile?.username) {
-          // Redirect to the user's own profile if no username provided
           navigate(`/profile/${profile.username}`, { replace: true });
           return;
         }
-        // If we don't have a username in the URL or in the profile, show the user's profile anyway
         setViewingOwnProfile(true);
         setProfileExists(true);
         setIsLoading(false);
         return;
       }
 
-      // Check if this is the user's own profile by comparing usernames
       if (profile?.username === username) {
         setViewingOwnProfile(true);
         setProfileExists(true);
@@ -52,9 +48,7 @@ const ProfilePage = () => {
         return;
       }
 
-      // If not viewing own profile, fetch the profile data for the requested username
       try {
-        // Actually check if the profile exists in the database
         const profileData = await getProfileByUsername(username);
         if (profileData) {
           setProfileExists(true);
