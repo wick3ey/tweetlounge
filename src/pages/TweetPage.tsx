@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,7 +75,6 @@ const TweetPage = () => {
           }
         };
 
-        // If this is a retweet, get original tweet author info
         if (tweetData.is_retweet && tweetData.original_tweet_id) {
           try {
             const { data: originalTweetData, error: originalTweetError } = await supabase
@@ -96,7 +94,6 @@ const TweetPage = () => {
               .single();
 
             if (!originalTweetError && originalTweetData && originalTweetData.profiles) {
-              // If profiles is an array, take the first item
               const profileData = Array.isArray(originalTweetData.profiles) 
                 ? originalTweetData.profiles[0]
                 : originalTweetData.profiles;
@@ -415,8 +412,15 @@ const TweetPage = () => {
     }
   };
 
-  const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
-  const isOriginalAuthorNFTVerified = tweet?.original_author?.avatar_nft_id && tweet?.original_author?.avatar_nft_chain;
+  let displayAuthor = tweet?.author;
+  let retweetedBy = null;
+  
+  if (tweet?.is_retweet && tweet?.original_author) {
+    displayAuthor = tweet.original_author;
+    retweetedBy = tweet.author;
+  }
+  
+  const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
 
   if (loading) {
     return (
@@ -472,27 +476,25 @@ const TweetPage = () => {
       <div className="max-w-[600px] mx-auto">
         <article className="border-b border-gray-800">
           <div className="p-4">
-            {tweet.is_retweet && tweet.original_author && (
+            {tweet?.is_retweet && retweetedBy && (
               <div className="flex items-center text-gray-500 text-sm mb-3">
                 <Repeat className="h-4 w-4 mr-2" />
-                <span>{tweet.author.display_name} reposted</span>
+                <span>{retweetedBy.display_name} reposted</span>
               </div>
             )}
             
             <div className="flex items-start mb-2">
               <Link 
-                to={`/profile/${tweet.is_retweet && tweet.original_author ? tweet.original_author.username : tweet.author.username}`} 
+                to={`/profile/${displayAuthor?.username}`} 
                 className="mr-3 flex-shrink-0"
               >
                 <Avatar className="h-12 w-12 rounded-full">
                   <AvatarImage 
-                    src={tweet.is_retweet && tweet.original_author ? tweet.original_author.avatar_url : tweet.author.avatar_url} 
-                    alt={tweet.is_retweet && tweet.original_author ? tweet.original_author.display_name : tweet.author.display_name} 
+                    src={displayAuthor?.avatar_url} 
+                    alt={displayAuthor?.display_name || ''} 
                   />
                   <AvatarFallback className="bg-gray-800 text-white">
-                    {(tweet.is_retweet && tweet.original_author 
-                        ? tweet.original_author.display_name 
-                        : tweet.author.display_name)?.charAt(0) || '?'}
+                    {displayAuthor?.display_name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
               </Link>
@@ -502,22 +504,14 @@ const TweetPage = () => {
                   <div className="flex items-center justify-between w-full">
                     <div className="flex flex-col">
                       <Link 
-                        to={`/profile/${tweet.is_retweet && tweet.original_author ? tweet.original_author.username : tweet.author.username}`} 
+                        to={`/profile/${displayAuthor?.username}`} 
                         className="font-bold text-white hover:underline flex items-center"
                       >
-                        {tweet.is_retweet && tweet.original_author 
-                          ? tweet.original_author.display_name 
-                          : tweet.author.display_name}
-                        {tweet.is_retweet && isOriginalAuthorNFTVerified 
-                          ? <VerifiedBadge />
-                          : !tweet.is_retweet && isNFTVerified 
-                            ? <VerifiedBadge /> 
-                            : null}
+                        {displayAuthor?.display_name}
+                        {isNFTVerified && <VerifiedBadge />}
                       </Link>
                       <span className="text-gray-500 text-sm">
-                        @{tweet.is_retweet && tweet.original_author 
-                          ? tweet.original_author.username 
-                          : tweet.author.username}
+                        @{displayAuthor?.username}
                       </span>
                     </div>
                     
@@ -558,12 +552,12 @@ const TweetPage = () => {
             </div>
             
             <div className="mt-1">
-              <p className="text-[17px] text-white whitespace-pre-wrap mb-4 leading-normal">{tweet.content}</p>
+              <p className="text-[17px] text-white whitespace-pre-wrap mb-4 leading-normal">{tweet?.content}</p>
               
-              {tweet.image_url && (
+              {tweet?.image_url && (
                 <div className="mt-3 mb-3">
                   <img 
-                    src={tweet.image_url} 
+                    src={tweet?.image_url} 
                     alt="Tweet attachment" 
                     className="rounded-2xl max-h-[500px] w-full object-cover border border-gray-800" 
                   />
@@ -571,9 +565,9 @@ const TweetPage = () => {
               )}
               
               <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
-                <span>{getFormattedDate(tweet.created_at)}</span>
+                <span>{getFormattedDate(tweet?.created_at)}</span>
                 <span className="mx-1">·</span>
-                <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
+                <span>{tweet?.replies_count + tweet?.retweets_count + tweet?.likes_count} Views</span>
               </div>
             </div>
             
@@ -583,7 +577,7 @@ const TweetPage = () => {
                 onClick={() => setShowReplyForm(!showReplyForm)}
               >
                 <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
-                <span>{tweet.replies_count || 0}</span>
+                <span>{tweet?.replies_count || 0}</span>
               </button>
               
               <button 
@@ -591,7 +585,7 @@ const TweetPage = () => {
                 onClick={handleRetweetToggle}
               >
                 <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
-                <span>{tweet.retweets_count || 0}</span>
+                <span>{tweet?.retweets_count || 0}</span>
               </button>
               
               <button 
@@ -602,7 +596,7 @@ const TweetPage = () => {
                   className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
                   strokeWidth={isLiked ? 0 : 1.5}
                 />
-                <span>{tweet.likes_count || 0}</span>
+                <span>{tweet?.likes_count || 0}</span>
               </button>
               
               <button 

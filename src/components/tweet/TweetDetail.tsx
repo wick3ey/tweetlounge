@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -186,8 +187,18 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     onAction();
   };
 
-  const displayAuthor = tweet?.is_retweet && tweet?.original_author ? tweet.original_author : tweet?.author;
-  const retweetedBy = tweet?.is_retweet ? tweet.author : null;
+  // Determine which user info to show based on whether it's a retweet
+  let displayAuthor;
+  let retweetedBy = null;
+  
+  if (tweet?.is_retweet) {
+    // For retweets, show the original author's info
+    displayAuthor = tweet.original_author || tweet.author;
+    retweetedBy = tweet.author;
+  } else {
+    // For normal tweets, show the tweet author's info
+    displayAuthor = tweet?.author;
+  }
   
   const isNFTVerified = displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain;
 
@@ -225,7 +236,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.username} />
+            <AvatarImage src={displayAuthor?.avatar_url} alt={displayAuthor?.username || ''} />
             <AvatarFallback>{displayAuthor?.username?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
