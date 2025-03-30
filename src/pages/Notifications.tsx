@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -31,17 +30,14 @@ const Notifications = () => {
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    // Now we just show all notifications without any filtering
     setFilteredNotifications(notifications);
   }, [notifications]);
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
     if (!notification.read) {
       markAsRead(notification.id);
     }
     
-    // Navigate to the relevant content
     if (notification.tweetId) {
       navigate(`/tweet/${notification.tweetId}`);
     } else if (notification.type === 'follow') {
