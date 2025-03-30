@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -38,23 +39,28 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         const liked = await checkIfUserLikedTweet(tweet.id);
         setIsLiked(liked);
         
-        const retweeted = await checkIfUserRetweetedTweet(tweet.id);
+        // If this is a retweet, we need to check if the user liked the original tweet
+        const idToCheck = tweet.is_retweet && tweet.original_tweet_id ? tweet.original_tweet_id : tweet.id;
+        
+        const retweeted = await checkIfUserRetweetedTweet(idToCheck);
         setIsRetweeted(retweeted);
         
-        const bookmarked = await checkIfTweetBookmarked(tweet.id);
+        const bookmarked = await checkIfTweetBookmarked(idToCheck);
         setIsBookmarked(bookmarked);
       }
     };
     
     checkStatuses();
-  }, [tweet?.id, user]);
+  }, [tweet?.id, tweet?.original_tweet_id, tweet?.is_retweet, user]);
 
   const handleTweetClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
     
-    navigate(`/tweet/${tweet.id}`);
+    // Navigate to the original tweet if this is a retweet
+    const targetTweetId = tweet.is_retweet && tweet.original_tweet_id ? tweet.original_tweet_id : tweet.id;
+    navigate(`/tweet/${targetTweetId}`);
   };
 
   const toggleLike = async (e: React.MouseEvent) => {
@@ -67,7 +73,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    const success = await likeTweet(tweet.id);
+    // Like the original tweet if this is a retweet
+    const targetTweetId = tweet.is_retweet && tweet.original_tweet_id ? tweet.original_tweet_id : tweet.id;
+    const success = await likeTweet(targetTweetId);
+    
     if (success) {
       setIsLiked(!isLiked);
       if (onAction) onAction();
@@ -84,7 +93,10 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
-    const success = await retweet(tweet.id);
+    // Retweet the original tweet if this is already a retweet
+    const targetTweetId = tweet.is_retweet && tweet.original_tweet_id ? tweet.original_tweet_id : tweet.id;
+    const success = await retweet(targetTweetId);
+    
     if (success) {
       setIsRetweeted(!isRetweeted);
       if (onAction) onAction();
@@ -112,11 +124,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       return;
     }
 
+    // Bookmark the original tweet if this is a retweet
+    const targetTweetId = tweet.is_retweet && tweet.original_tweet_id ? tweet.original_tweet_id : tweet.id;
     let success;
+    
     if (isBookmarked) {
-      success = await unbookmarkTweet(tweet.id);
+      success = await unbookmarkTweet(targetTweetId);
     } else {
-      success = await bookmarkTweet(tweet.id);
+      success = await bookmarkTweet(targetTweetId);
     }
 
     if (success) {
@@ -135,19 +150,49 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     }
   };
 
-  const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
+  // Determine which content and author to display
+  // If it's a retweet, we show the original tweet's content and author
+  const displayContent = tweet.content;
+  const displayImageUrl = tweet.image_url;
   
-  const retweetedBy = tweet.is_retweet ? tweet.author : null;
+  // Determine the correct author to display (original author for retweets)
+  const displayAuthor = tweet.author || {
+    id: tweet.author_id,
+    username: tweet.profile_username || 'unknown',
+    display_name: tweet.profile_display_name || 'Unknown User',
+    avatar_url: tweet.profile_avatar_url || '',
+    avatar_nft_id: tweet.profile_avatar_nft_id,
+    avatar_nft_chain: tweet.profile_avatar_nft_chain
+  };
+  
+  // Who retweeted this (if it's a retweet)
+  const retweetedBy = tweet.is_retweet ? displayAuthor : null;
+  
+  // For retweets, the displayed author should be the original author
+  const originalAuthor = tweet.original_author || displayAuthor;
+  
+  // For logging/debugging
+  if (tweet.is_retweet) {
+    console.log('Retweet data:', {
+      isRetweet: tweet.is_retweet,
+      originalTweetId: tweet.original_tweet_id,
+      displayAuthor,
+      originalAuthor: tweet.original_author,
+      retweetedBy
+    });
+  }
+
+  const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
   return (
     <div 
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
-      {tweet.is_retweet && retweetedBy && (
+      {tweet.is_retweet && (
         <div className="flex items-center text-gray-500 text-sm mb-3">
           <Repeat className="h-4 w-4 mr-2" />
-          <span>{retweetedBy.display_name} reposted</span>
+          <span>{tweet.author?.display_name || 'Someone'} reposted</span>
         </div>
       )}
       
@@ -155,11 +200,17 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
             <AvatarImage 
-              src={tweet.author?.avatar_url} 
-              alt={tweet.author?.username || ''} 
+              src={tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.avatar_url 
+                : displayAuthor?.avatar_url} 
+              alt={(tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.username 
+                : displayAuthor?.username) || ''} 
             />
             <AvatarFallback>
-              {tweet.author?.username?.charAt(0).toUpperCase() || '?'}
+              {(tweet.is_retweet && tweet.original_author 
+                ? tweet.original_author.username?.charAt(0).toUpperCase() 
+                : displayAuthor?.username?.charAt(0).toUpperCase()) || '?'}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -169,12 +220,19 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-medium text-white flex items-center">
-                  {tweet.author?.display_name}
-                  {tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain && (
+                  {tweet.is_retweet && tweet.original_author 
+                    ? tweet.original_author.display_name 
+                    : displayAuthor?.display_name}
+                  {((tweet.is_retweet && tweet.original_author?.avatar_nft_id && tweet.original_author?.avatar_nft_chain) ||
+                    (!tweet.is_retweet && displayAuthor?.avatar_nft_id && displayAuthor?.avatar_nft_chain)) && (
                     <VerifiedBadge className="ml-1" />
                   )}
                 </span>
-                <span className="text-gray-500">@{tweet.author?.username}</span>
+                <span className="text-gray-500">
+                  @{tweet.is_retweet && tweet.original_author 
+                    ? tweet.original_author.username 
+                    : displayAuthor?.username}
+                </span>
                 <span className="text-gray-500 mx-1">·</span>
                 <span className="text-gray-500">{formattedDate}</span>
               </div>
@@ -198,12 +256,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             )}
           </div>
           
-          <p className="mt-1 text-white">{tweet.content}</p>
+          <p className="mt-1 text-white">{displayContent}</p>
           
-          {tweet.image_url && (
+          {displayImageUrl && (
             <div className="mt-3">
               <img 
-                src={tweet.image_url} 
+                src={displayImageUrl} 
                 alt="Tweet image" 
                 className="rounded-md max-h-80 object-cover"
               />
