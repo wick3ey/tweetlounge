@@ -125,7 +125,7 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
             
           if (originalTweetData && originalTweetData.profiles) {
             // Fix: Access the profiles data correctly
-            // The profiles property could be an object (single profile) or an array (multiple profiles)
+            // The profiles property is an object representing a single profile
             const profileData = originalTweetData.profiles;
             
             tweetData.original_author = {
