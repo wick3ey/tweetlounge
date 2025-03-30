@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarDays, LinkIcon, MapPin, Wallet, Check, Users, DollarSign } from 'lucide-react';
+import { CalendarDays, LinkIcon, MapPin, Wallet, Check, Users, DollarSign, MessageSquare } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistance } from 'date-fns';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -15,6 +15,8 @@ import { followUser, unfollowUser, isFollowing as checkIsFollowing, getFollowers
 import { useAuth } from '@/contexts/AuthContext';
 import FollowersList from '@/components/profile/FollowersList';
 import { fetchWalletTokens } from '@/utils/tokenService';
+import { startConversation } from '@/services/messageService';
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileHeaderProps {
   userId: string;
@@ -77,6 +79,7 @@ const ProfileHeader = ({
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(false);
   const [walletBalance, setWalletBalance] = useState<string | null>(null);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+  const navigate = useNavigate();
   
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -310,6 +313,28 @@ const ProfileHeader = ({
     fetchBalance();
   }, [solanaAddress]);
 
+  const handleStartConversation = async () => {
+    try {
+      const conversationId = await startConversation(userId);
+      if (conversationId) {
+        navigate(`/messages/${conversationId}`);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Could not start conversation',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not start conversation',
+        variant: 'destructive'
+      });
+    }
+  };
+
   return (
     <div className="border-b border-crypto-gray pb-0">
       <AspectRatio ratio={3/1} className="bg-crypto-darkgray">
@@ -369,16 +394,26 @@ const ProfileHeader = ({
             </CryptoButton>
           </div>
         ) : (
-          <CryptoButton 
-            variant={following ? "outline" : "default"}
-            className={`rounded-full font-semibold ${following ? 'hover:bg-crypto-red/10 hover:text-crypto-red hover:border-crypto-red/20 border-crypto-gray text-crypto-text' : 'bg-crypto-blue hover:bg-crypto-darkblue text-white'}`}
-            onClick={handleFollowClick}
-            disabled={isCheckingFollowStatus || isUpdatingFollow}
-          >
-            {isUpdatingFollow ? 
-              (following ? 'Unfollowing...' : 'Following...') : 
-              (following ? 'Following' : 'Follow')}
-          </CryptoButton>
+          <div className="flex space-x-3">
+            <CryptoButton 
+              variant={following ? "outline" : "default"}
+              className={`rounded-full font-semibold ${following ? 'hover:bg-crypto-red/10 hover:text-crypto-red hover:border-crypto-red/20 border-crypto-gray text-crypto-text' : 'bg-crypto-blue hover:bg-crypto-darkblue text-white'}`}
+              onClick={handleFollowClick}
+              disabled={isCheckingFollowStatus || isUpdatingFollow}
+            >
+              {isUpdatingFollow ? 
+                (following ? 'Unfollowing...' : 'Following...') : 
+                (following ? 'Following' : 'Follow')}
+            </CryptoButton>
+            <CryptoButton 
+              variant="outline" 
+              className="rounded-full font-semibold border-crypto-blue text-crypto-blue hover:bg-crypto-blue/10"
+              onClick={handleStartConversation}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Message
+            </CryptoButton>
+          </div>
         )}
       </div>
       
