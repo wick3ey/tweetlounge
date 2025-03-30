@@ -12,6 +12,7 @@ interface CommentListProps {
 const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalComments, setTotalComments] = useState(0);
 
   useEffect(() => {
     if (tweetId) {
@@ -51,6 +52,18 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
         return;
       }
       
+      // Get the total count of comments for this tweet
+      const { count, error: countError } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+        
+      if (countError) {
+        console.error('Error counting comments:', countError);
+      } else {
+        setTotalComments(count || 0);
+      }
+      
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
           id: comment.id,
@@ -86,23 +99,27 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId }) => {
     );
   }
 
-  if (comments.length === 0) {
-    return (
-      <div className="text-center py-6 text-gray-500">
-        No comments yet. Be the first to comment!
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-2 mt-4">
-      {comments.map((comment) => (
-        <CommentCard 
-          key={comment.id} 
-          comment={comment} 
-          tweetId={tweetId || ''} 
-        />
-      ))}
+    <div className="space-y-2">
+      <div className="text-gray-500 font-medium py-2 border-b border-gray-800">
+        {totalComments} {totalComments === 1 ? 'Comment' : 'Comments'}
+      </div>
+      
+      {comments.length === 0 ? (
+        <div className="text-center py-6 text-gray-500">
+          No comments yet. Be the first to comment!
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {comments.map((comment) => (
+            <CommentCard 
+              key={comment.id} 
+              comment={comment} 
+              tweetId={tweetId || ''} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

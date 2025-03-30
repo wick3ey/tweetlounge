@@ -130,6 +130,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
     }
   };
   
+  // Format the reply count to display in a human-readable format
+  const formatCount = (count: number): string => {
+    if (count === 0) return '';
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
+    return `${(count / 1000000).toFixed(1)}M`;
+  };
+  
   return (
     <div
       className="p-4 border-b border-gray-800 hover:bg-crypto-darkgray/20 cursor-pointer transition-colors"
@@ -203,17 +211,17 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
               onClick={handleLike}
             >
               <Heart className={`h-4 w-4 mr-1 ${isLiked ? 'fill-crypto-pink' : ''}`} />
-              <span className="text-xs">{likeCount > 0 ? likeCount : ''}</span>
-            </button>
-            
-            <button className="flex items-center hover:text-crypto-green">
-              <MessageCircle className="h-4 w-4 mr-1" />
-              <span className="text-xs">{tweet.replies_count > 0 ? tweet.replies_count : ''}</span>
+              <span className="text-xs">{formatCount(likeCount)}</span>
             </button>
             
             <button className="flex items-center hover:text-crypto-blue">
+              <MessageCircle className="h-4 w-4 mr-1" />
+              <span className="text-xs">{formatCount(tweet.replies_count || 0)}</span>
+            </button>
+            
+            <button className="flex items-center hover:text-crypto-green">
               <Repeat className="h-4 w-4 mr-1" />
-              <span className="text-xs">{tweet.retweets_count > 0 ? tweet.retweets_count : ''}</span>
+              <span className="text-xs">{formatCount(tweet.retweets_count || 0)}</span>
             </button>
             
             <button className="flex items-center hover:text-crypto-blue">

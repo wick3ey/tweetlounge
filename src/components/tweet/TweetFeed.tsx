@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 interface TweetFeedProps {
   userId?: string;
   limit?: number;
-  onCommentAdded?: () => void; // Add callback for comment events
+  onCommentAdded?: () => void;
 }
 
 const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
@@ -26,7 +26,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   useEffect(() => {
     fetchTweets();
-  }, [limit, toast]);
+  }, [limit, userId]);
 
   const fetchTweets = async () => {
     try {
@@ -89,7 +89,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     setTweets(prevTweets => 
       prevTweets.map(tweet => 
         tweet.id === tweetId 
-          ? { ...tweet, replies_count: tweet.replies_count + 1 } 
+          ? { ...tweet, replies_count: (tweet.replies_count || 0) + 1 } 
           : tweet
       )
     );
@@ -162,7 +162,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-auto">
+        <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-hidden">
           {selectedTweet && (
             <TweetDetail 
               tweet={selectedTweet} 

@@ -23,7 +23,7 @@ interface TweetDetailProps {
   onClose: () => void;
   onAction: () => void;
   onDelete: (tweetId: string) => void;
-  onCommentAdded?: (tweetId: string) => void; // Add callback for comment events
+  onCommentAdded?: (tweetId: string) => void; 
 }
 
 const TweetDetail: React.FC<TweetDetailProps> = ({ 
@@ -36,10 +36,12 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [commentsVisible, setCommentsVisible] = useState(false);
   const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Always show comments in tweet detail view
+  const [showComments, setShowComments] = useState(true);
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -130,16 +132,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     }
   };
 
-  const toggleComments = () => {
-    setCommentsVisible(!commentsVisible);
-    // Scroll to the comment list when it becomes visible
-    if (!commentsVisible && commentListRef.current) {
-      setTimeout(() => {
-        commentListRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100); // Delay to allow the component to render
-    }
-  };
-
   const handleCommentSubmit = () => {
     // Update the local replies count
     setRepliesCount(prevCount => prevCount + 1);
@@ -154,13 +146,13 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   };
 
   return (
-    <div className="bg-black text-white rounded-lg shadow-md p-4 relative">
+    <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
       {/* Close Button */}
       <Button
         variant="ghost"
         size="icon"
         onClick={onClose}
-        className="absolute top-2 right-2 text-white hover:bg-gray-800 rounded-full"
+        className="absolute top-2 right-2 text-white hover:bg-gray-800 rounded-full z-10"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -179,73 +171,79 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       </Button>
 
       {/* Tweet Content */}
-      <div className="flex items-start space-x-3">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={tweet?.author?.avatar_url} alt={tweet?.author?.username} />
-          <AvatarFallback>{tweet?.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <div className="font-medium">{tweet?.author?.display_name}</div>
-            <div className="text-gray-500">@{tweet?.author?.username}</div>
-            <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
+      <div className="p-4 border-b border-gray-800">
+        <div className="flex items-start space-x-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={tweet?.author?.avatar_url} alt={tweet?.author?.username} />
+            <AvatarFallback>{tweet?.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <div className="flex items-center space-x-2">
+              <div className="font-medium">{tweet?.author?.display_name}</div>
+              <div className="text-gray-500">@{tweet?.author?.username}</div>
+              <div className="text-gray-500">• {formatDistanceToNow(new Date(tweet?.created_at), { addSuffix: true })}</div>
+            </div>
+            <div className="mt-2 text-base">{tweet?.content}</div>
+            {tweet?.image_url && (
+              <img src={tweet?.image_url} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
+            )}
           </div>
-          <div className="mt-1">{tweet?.content}</div>
-          {tweet?.image_url && (
-            <img src={tweet?.image_url} alt="Tweet Image" className="mt-2 rounded-md max-h-96 w-full object-cover" />
+          {/* Dropdown Menu */}
+          {user?.id === tweet?.author_id && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-black border-gray-800">
+                <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
-        {/* Dropdown Menu */}
-        {user?.id === tweet?.author_id && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-black border-gray-800">
-              <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
 
-      {/* Tweet Actions */}
-      <div className="mt-4 flex justify-between text-gray-500">
-        <button onClick={toggleComments} className="hover:text-crypto-blue focus:outline-none">
-          <MessageSquare className="inline-block h-5 w-5 mr-1" />
-          <span className="align-middle">{repliesCount}</span>
-        </button>
-        <button onClick={toggleLike} className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}>
-          <Heart className="inline-block h-5 w-5 mr-1" />
-          <span className="align-middle">{tweet?.likes_count || 0}</span>
-        </button>
-        <button className="hover:text-crypto-green focus:outline-none">
-          <Repeat className="inline-block h-5 w-5 mr-1" />
-          <span className="align-middle">{tweet?.retweets_count || 0}</span>
-        </button>
-        <button onClick={toggleBookmark} className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''}`}>
-          <Bookmark className="inline-block h-5 w-5 mr-1" />
-        </button>
-        <button className="hover:text-crypto-blue focus:outline-none">
-          <Share2 className="inline-block h-5 w-5 mr-1" />
-        </button>
+        {/* Tweet Stats */}
+        <div className="flex mt-4 text-sm text-gray-500 space-x-6">
+          <span>{repliesCount} {repliesCount === 1 ? 'Comment' : 'Comments'}</span>
+          <span>{tweet?.retweets_count || 0} {(tweet?.retweets_count || 0) === 1 ? 'Retweet' : 'Retweets'}</span>
+          <span>{tweet?.likes_count || 0} {(tweet?.likes_count || 0) === 1 ? 'Like' : 'Likes'}</span>
+        </div>
+
+        {/* Tweet Actions */}
+        <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
+          <button className="hover:text-crypto-blue focus:outline-none">
+            <MessageSquare className="inline-block h-5 w-5 mr-1" />
+          </button>
+          <button onClick={toggleLike} className={`hover:text-crypto-red focus:outline-none ${isLiked ? 'text-crypto-red' : ''}`}>
+            <Heart className={`inline-block h-5 w-5 mr-1 ${isLiked ? 'fill-current' : ''}`} />
+          </button>
+          <button className="hover:text-crypto-green focus:outline-none">
+            <Repeat className="inline-block h-5 w-5 mr-1" />
+          </button>
+          <button onClick={toggleBookmark} className={`hover:text-crypto-purple focus:outline-none ${isBookmarked ? 'text-crypto-purple' : ''}`}>
+            <Bookmark className={`inline-block h-5 w-5 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />
+          </button>
+          <button className="hover:text-crypto-blue focus:outline-none">
+            <Share2 className="inline-block h-5 w-5 mr-1" />
+          </button>
+        </div>
       </div>
 
       {/* Comment Form */}
-      {commentsVisible && (
-        <div className="mt-4">
-          <CommentForm tweetId={tweet?.id} onSubmit={handleCommentSubmit} />
-        </div>
-      )}
+      <div className="p-4 border-b border-gray-800">
+        <CommentForm tweetId={tweet?.id} onSubmit={handleCommentSubmit} />
+      </div>
 
-      {/* Comment List */}
-      <div ref={commentListRef}>
-        {commentsVisible && <CommentList tweetId={tweet?.id} />}
+      {/* Comment List - now in a scrollable container */}
+      <div className="overflow-y-auto flex-grow" ref={commentListRef}>
+        <div className="p-4">
+          <CommentList tweetId={tweet?.id} />
+        </div>
       </div>
     </div>
   );
