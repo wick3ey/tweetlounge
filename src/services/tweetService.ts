@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -250,6 +251,7 @@ export async function retweet(tweetId: string): Promise<boolean> {
       .eq('tweet_id', tweetId)
       .maybeSingle();
     
+    // Get the original tweet data to use when creating a retweet
     const { data: tweet } = await supabase
       .from('tweets')
       .select('author_id, content, image_url, retweets_count')

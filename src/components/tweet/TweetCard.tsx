@@ -145,6 +145,14 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
       className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
       onClick={handleTweetClick}
     >
+      {/* If this is a retweet, show who retweeted it */}
+      {tweet.is_retweet && (
+        <div className="flex items-center mb-2 text-gray-500 text-sm">
+          <Repeat className="h-4 w-4 mr-1" />
+          <span>Reposted by {tweet.author?.display_name || tweet.author?.username}</span>
+        </div>
+      )}
+
       <div className="flex space-x-3">
         <div className="flex-shrink-0">
           <Avatar className="h-10 w-10">
