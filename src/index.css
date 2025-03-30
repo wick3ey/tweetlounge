@@ -194,6 +194,24 @@
   .action-button {
     @apply rounded-full p-2 hover:bg-primary/10 transition-colors;
   }
+
+  /* Crypto-specific scrollbar */
+  .crypto-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  
+  .crypto-scrollbar::-webkit-scrollbar-track {
+    background: rgba(30, 30, 30, 0.5);
+  }
+  
+  .crypto-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.5);
+    border-radius: 10px;
+  }
+  
+  .crypto-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(120, 120, 120, 0.7);
+  }
 }
 
 @keyframes marquee {
