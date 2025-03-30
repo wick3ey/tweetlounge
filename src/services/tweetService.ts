@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { Tweet, TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -123,6 +124,7 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
             .single();
             
           if (originalTweetData && originalTweetData.profiles) {
+            // Korrigering: profiles är ett objekt, inte en array
             const profileData = originalTweetData.profiles;
             
             tweetData.original_author = {
