@@ -118,7 +118,6 @@ export const getTweets = async (limit = 10, offset = 0, userId?: string): Promis
           .single();
 
         if (!originalTweetError && originalTweetData) {
-          // Fixed: access properties correctly from the single object returned by .single()
           transformedTweet.original_author = {
             id: originalTweetData.profiles.id,
             username: originalTweetData.profiles.username,
@@ -308,17 +307,10 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Decrement likes_count in tweets table - fix number type error
-      const { error: decrementError } = await supabase
-        .from('tweets')
-        .update({ likes_count: supabase.rpc('decrement_counter', { row_id: tweetId }) })
-        .eq('id', tweetId);
+      // Decrement likes_count in tweets table
+      await supabase
+        .rpc('decrement_counter', { row_id: tweetId });
 
-      if (decrementError) {
-        console.error('Error decrementing likes_count:', decrementError);
-        return false;
-      }
-      
       return true;
     } else {
       // If the user has not liked the tweet, like it
@@ -333,16 +325,9 @@ export const likeTweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Increment likes_count in tweets table - fix number type error
-      const { error: incrementError } = await supabase
-        .from('tweets')
-        .update({ likes_count: supabase.rpc('increment_counter', { row_id: tweetId }) })
-        .eq('id', tweetId);
-
-      if (incrementError) {
-        console.error('Error incrementing likes_count:', incrementError);
-        return false;
-      }
+      // Increment likes_count in tweets table
+      await supabase
+        .rpc('increment_counter', { row_id: tweetId });
       
       // Create notification for the tweet author
       const { data: tweetData, error: tweetError } = await supabase
@@ -435,16 +420,9 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Decrement retweets_count in the original tweet - fixed using rpc instead of sql
-      const { error: decrementError } = await supabase
-        .from('tweets')
-        .update({ retweets_count: supabase.rpc('decrement_counter', { row_id: tweetId }) })
-        .eq('id', tweetId);
-
-      if (decrementError) {
-        console.error('Error decrementing retweets_count:', decrementError);
-        return false;
-      }
+      // Decrement retweets_count in the original tweet
+      await supabase
+        .rpc('decrement_counter', { row_id: tweetId });
       
       return true;
     } else {
@@ -476,16 +454,9 @@ export const retweet = async (tweetId: string): Promise<boolean> => {
         return false;
       }
 
-      // Increment retweets_count in the original tweet - fixed using rpc instead of sql
-      const { error: incrementError } = await supabase
-        .from('tweets')
-        .update({ retweets_count: supabase.rpc('increment_counter', { row_id: tweetId }) })
-        .eq('id', tweetId);
-
-      if (incrementError) {
-        console.error('Error incrementing retweets_count:', incrementError);
-        return false;
-      }
+      // Increment retweets_count in the original tweet
+      await supabase
+        .rpc('increment_counter', { row_id: tweetId });
       
       // Create notification for the tweet author, but only if it's not the same user retweeting their own tweet
       if (originalTweet && originalTweet.author_id !== userId) {
@@ -637,7 +608,6 @@ export const getUserRetweets = async (userId: string): Promise<TweetWithAuthor[]
 
     // Process the retweets the same way as in getTweets
     const transformedTweets: TweetWithAuthor[] = await Promise.all(data.map(async (tweet: any) => {
-      // ... same processing logic as in getTweets
       let transformedTweet: TweetWithAuthor = {
         id: tweet.id,
         content: tweet.content,
