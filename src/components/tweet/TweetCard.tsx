@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -137,6 +138,11 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
   
+  // Important: For retweets, we need to show the original tweet content with original author's info
+  let displayContent = tweet.content;
+  let displayImageUrl = tweet.image_url;
+  
+  // Show who reposted if this is a retweet
   const retweetedBy = tweet.is_retweet ? tweet.author : null;
   
   return (
@@ -198,12 +204,12 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelet
             )}
           </div>
           
-          <p className="mt-1 text-white">{tweet.content}</p>
+          <p className="mt-1 text-white">{displayContent}</p>
           
-          {tweet.image_url && (
+          {displayImageUrl && (
             <div className="mt-3">
               <img 
-                src={tweet.image_url} 
+                src={displayImageUrl} 
                 alt="Tweet image" 
                 className="rounded-md max-h-80 object-cover"
               />
