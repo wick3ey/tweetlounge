@@ -46,9 +46,26 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isUserFollowing, setIsUserFollowing] = useState(false);
   
-  const profile = isOwnProfile ? currentUserProfile : viewedProfile;
-  const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
-  const error = isOwnProfile ? currentProfileError : profileError;
+  // Create full profile object for own profile or use viewed profile
+  const fullProfileData: ProfileType | null = isOwnProfile && currentUserProfile ? {
+    id: user?.id || '',
+    username: currentUserProfile.username,
+    display_name: currentUserProfile.display_name,
+    bio: currentUserProfile.bio,
+    avatar_url: currentUserProfile.avatar_url,
+    cover_url: currentUserProfile.cover_url,
+    location: currentUserProfile.location,
+    website: currentUserProfile.website,
+    updated_at: currentUserProfile.updated_at || new Date().toISOString(),
+    created_at: userCreatedAt || new Date().toISOString(),
+    ethereum_address: currentUserProfile.ethereum_address,
+    solana_address: currentUserProfile.solana_address,
+    avatar_nft_id: currentUserProfile.avatar_nft_id,
+    avatar_nft_chain: currentUserProfile.avatar_nft_chain,
+    followers_count: currentUserProfile.followers_count || 0,
+    following_count: currentUserProfile.following_count || 0,
+    replies_sort_order: currentUserProfile.replies_sort_order
+  } : viewedProfile;
   
   useEffect(() => {
     const checkFollowStatus = async () => {
@@ -133,22 +150,22 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   
   useEffect(() => {
     const checkNFTVerification = async () => {
-      if (profile && user) {
-        console.log("Checking NFT verification for profile:", profile);
+      if (fullProfileData && user) {
+        console.log("Checking NFT verification for profile:", fullProfileData);
         const isVerified = await verifyNFTOwnership(
-          isOwnProfile ? user.id : profile.id,
-          profile.ethereum_address,
-          profile.solana_address
+          isOwnProfile ? user.id : fullProfileData.id,
+          fullProfileData.ethereum_address,
+          fullProfileData.solana_address
         );
         console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
     
-    if (!isLoading && profile) {
+    if (!isLoadingProfile && !currentProfileLoading && fullProfileData) {
       checkNFTVerification();
     }
-  }, [profile, isLoading, user, isOwnProfile]);
+  }, [fullProfileData, isLoadingProfile, currentProfileLoading, user, isOwnProfile]);
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -167,7 +184,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   };
 
   const handleOpenProfileImage = () => {
-    if (profile?.avatar_url) {
+    if (fullProfileData?.avatar_url) {
       setShowProfileImage(true);
     }
   };
@@ -176,7 +193,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     setIsUserFollowing(newFollowState);
   };
   
-  if (isLoading) {
+  if (isLoading || currentProfileLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
@@ -187,11 +204,11 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  if (error) {
+  if (error || currentProfileError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
-          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
+          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error || currentProfileError}</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
@@ -203,7 +220,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
-  if (!profile) {
+  if (!fullProfileData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
@@ -219,17 +236,19 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
-      <ProfileHeader
-        profile={profile}
-        isCurrentUser={isOwnProfile}
-        isFollowing={isUserFollowing}
-        onFollowChange={handleFollowAction}
-      />
+      {fullProfileData && (
+        <ProfileHeader
+          profile={fullProfileData}
+          isCurrentUser={isOwnProfile}
+          isFollowing={isUserFollowing}
+          onFollowChange={handleFollowAction}
+        />
+      )}
       
       <ProfileTabs 
-        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+        userId={isOwnProfile ? (user?.id || '') : (fullProfileData?.id || '')}
         isCurrentUser={isOwnProfile}
-        solanaAddress={profile?.solana_address}
+        solanaAddress={fullProfileData?.solana_address}
       />
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
@@ -246,10 +265,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           <DialogHeader>
             <DialogTitle className="text-crypto-blue">Choose NFT as Profile Picture</DialogTitle>
           </DialogHeader>
-          {profile && (
+          {fullProfileData && (
             <NFTBrowser 
-              ethereumAddress={profile.ethereum_address} 
-              solanaAddress={profile.solana_address}
+              ethereumAddress={fullProfileData.ethereum_address} 
+              solanaAddress={fullProfileData.solana_address}
               onNFTSelected={handleCloseNFTBrowser}
             />
           )}
@@ -259,10 +278,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
       <Dialog open={showProfileImage} onOpenChange={setShowProfileImage}>
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-hidden bg-crypto-darkgray border-crypto-gray p-0">
           <div className="relative w-full">
-            {profile?.avatar_url && (
+            {fullProfileData?.avatar_url && (
               <img 
-                src={profile.avatar_url} 
-                alt={profile.display_name || profile.username || 'Profile'} 
+                src={fullProfileData.avatar_url} 
+                alt={fullProfileData.display_name || fullProfileData.username || 'Profile'} 
                 className="w-full h-auto"
               />
             )}
