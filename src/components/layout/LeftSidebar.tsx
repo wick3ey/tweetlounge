@@ -38,7 +38,7 @@ const LeftSidebar = () => {
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
-    { icon: BarChart2, label: 'Analytics', path: '/analytics' },
+    { icon: BarChart2, label: 'Market', path: '/market' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Settings, label: 'Settings', path: '/settings' }
   ];

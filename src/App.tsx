@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
+import Market from "./pages/Market";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -71,6 +73,7 @@ const App = () => {
                       <Bookmarks />
                     </ProtectedRoute>
                   } />
+                  <Route path="/market" element={<Market />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <ProfilePage />
