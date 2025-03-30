@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
@@ -75,7 +76,7 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
     >
       <div className="flex items-center gap-3">
         <div className="relative">
-          <Avatar className="h-12 w-12 border-2" style={{ 
+          <Avatar className="h-10 w-10 border-2" style={{ 
             borderColor: type === 'gainer' 
               ? 'rgba(34, 197, 94, 0.4)' 
               : type === 'loser' 
@@ -88,12 +89,12 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
               type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
               'bg-gradient-to-br from-blue-800 to-blue-700'
             }`}>
-              {token.symbol.substring(0, 2)}
+              {token.symbol?.substring(0, 2) || '??'}
             </AvatarFallback>
           </Avatar>
           <Badge 
             variant={type === 'gainer' ? 'success' : type === 'loser' ? 'destructive' : 'default'} 
-            className={`absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 text-xs shadow-md ${
+            className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${
               type === 'gainer' ? 'bg-green-500 hover:bg-green-600' :
               type === 'loser' ? 'bg-red-500 hover:bg-red-600' :
               'bg-blue-500 hover:bg-blue-600'
@@ -102,16 +103,16 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             {token.rank}
           </Badge>
         </div>
-        <div>
-          <div className="font-semibold text-base flex items-center">
-            {token.symbol}
-            <span className="text-sm text-muted-foreground ml-2">{token.name.length > 15 ? token.name.substring(0, 15) + '...' : token.name}</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-base flex items-center truncate">
+            <span className="truncate">{token.symbol || '???'}</span>
+            <span className="text-sm text-muted-foreground ml-2 truncate">{token.name ? (token.name.length > 15 ? token.name.substring(0, 15) + '...' : token.name) : '???'}</span>
           </div>
-          <div className="text-xs text-muted-foreground mt-1">{token.exchange}</div>
+          <div className="text-xs text-muted-foreground mt-1 truncate">{token.exchange || 'Unknown'}</div>
         </div>
       </div>
       
-      <div className="text-right">
+      <div className="text-right flex-shrink-0 ml-2">
         {!isHot ? (
           <>
             <div className="font-medium text-base">${formatPrice(token.price)}</div>
@@ -121,7 +122,7 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             </div>
           </>
         ) : (
-          <div className="text-sm text-blue-400 font-medium">
+          <div className="text-sm text-blue-400 font-medium whitespace-nowrap">
             Created: {new Date(token.creationTime).toLocaleDateString()}
           </div>
         )}
@@ -151,26 +152,28 @@ const MarketSection = ({
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     transition={{ duration: 0.5 }}
-    className={`rounded-xl border border-gray-800 bg-black/80 backdrop-blur-md h-full shadow-lg`}
+    className={`rounded-xl border border-gray-800 bg-black/80 backdrop-blur-md flex flex-col h-full shadow-lg overflow-hidden`}
   >
-    <div className={`flex items-center gap-2 px-4 py-3 border-b border-gray-800/70 ${accentBg} rounded-t-xl`}>
+    <div className={`flex items-center gap-2 px-4 py-3 border-b border-gray-800/70 ${accentBg} rounded-t-xl flex-shrink-0`}>
       <div className="bg-black/30 p-1.5 rounded-full">
         <Icon className="h-4 w-4" style={{ color: accentColor }} />
       </div>
       <h2 className="text-lg font-bold">{title}</h2>
     </div>
     
-    <ScrollArea className="h-[calc(100vh-240px)]">
-      {loading ? (
-        <TokenCardSkeleton />
-      ) : tokens && tokens.length > 0 ? (
-        tokens.slice(0, 10).map((token, index) => (
-          <TokenRow key={type === 'hot' ? token.poolAddress : token.address} token={token} type={type} index={index} />
-        ))
-      ) : (
-        <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
-      )}
-    </ScrollArea>
+    <div className="flex-grow overflow-hidden">
+      <ScrollArea className="h-full max-h-[calc(100vh-240px)]">
+        {loading ? (
+          <TokenCardSkeleton />
+        ) : tokens && tokens.length > 0 ? (
+          tokens.slice(0, 10).map((token, index) => (
+            <TokenRow key={type === 'hot' ? token.poolAddress : token.address} token={token} type={type} index={index} />
+          ))
+        ) : (
+          <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
+        )}
+      </ScrollArea>
+    </div>
   </motion.div>
 );
 
@@ -188,7 +191,7 @@ const Market: React.FC = () => {
 
   return (
     <Layout>
-      <div className="h-screen p-6 overflow-hidden">
+      <div className="p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <motion.h1
@@ -237,7 +240,7 @@ const Market: React.FC = () => {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-240px)]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow min-h-0">
           <MarketSection
             title="Top Gainers"
             icon={TrendingUp}
