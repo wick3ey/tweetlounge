@@ -11,14 +11,23 @@ const REACTION_TYPES = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 interface MessageReactionsProps {
   messageId: string;
   compact?: boolean;
+  displayOnly?: boolean;
+  emoji?: string;
 }
 
-const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, compact = false }) => {
+const MessageReactions: React.FC<MessageReactionsProps> = ({ 
+  messageId, 
+  compact = false, 
+  displayOnly = false,
+  emoji
+}) => {
   const { reactions, loading, toggleReaction } = useMessageReactions(messageId);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const handleReaction = async (reactionType: string) => {
+    if (displayOnly) return;
+    
     try {
       await toggleReaction(reactionType);
     } catch (error) {
@@ -45,6 +54,12 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, compact 
     : [];
 
   if (loading) return null;
+
+  if (displayOnly && emoji) {
+    return (
+      <div className="text-4xl">{emoji}</div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap gap-1 mt-1">

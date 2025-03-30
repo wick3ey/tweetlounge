@@ -11,6 +11,7 @@ import { MessageSquare, Search, PlusCircle, Settings, Calendar, Mail, Plus } fro
 import { VerifiedBadge } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { supabase } from '@/lib/supabase';
 import {
   Dialog,
   DialogContent,

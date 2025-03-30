@@ -6,13 +6,13 @@ import ConversationList from '@/components/messages/ConversationList';
 import MessageChat from '@/components/messages/MessageChat';
 import { MessageSquareText, Info } from 'lucide-react';
 import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Messages: React.FC = () => {
   const { conversationId } = useParams<{ conversationId?: string }>();
   const { conversations, loading } = useRealtimeConversations();
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   // For mobile: If we have conversations but none selected, redirect to first one
   useEffect(() => {
