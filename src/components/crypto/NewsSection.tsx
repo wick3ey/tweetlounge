@@ -273,7 +273,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
 
   return (
     <Card 
-      className={`crypto-news-card border-crypto-gray shadow-md overflow-hidden bg-gradient-to-br from-black to-gray-900`}
+      className={`crypto-news-card border-crypto-gray shadow-md overflow-hidden bg-gradient-to-br from-black to-gray-900 ${compact ? "" : "w-full"}`}
       style={{ borderImage: `linear-gradient(to right, ${highlightColor}33, transparent) 1` }}
     >
       <CardHeader className="pb-2 border-b border-crypto-gray">
@@ -297,7 +297,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center text-xs" style={{ background: `${highlightColor}20`, color: highlightColor }} className="rounded-full px-2 py-0.5">
+                  <div className="flex items-center text-xs rounded-full px-2 py-0.5" style={{ background: `${highlightColor}20`, color: highlightColor }}>
                     {loading ? (
                       <span className="flex items-center">
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -336,7 +336,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
             </AlertDescription>
           </Alert>
         ) : (
-          <ScrollArea className={compact ? "h-[300px]" : "h-[500px]"}>
+          <div className={compact ? "max-h-[300px] overflow-auto" : "max-h-none"}>
             {loading ? (
               // Loading skeletons
               Array(compact ? 3 : 5).fill(0).map((_, index) => (
@@ -356,8 +356,8 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
                 <p className="text-xs text-crypto-lightgray/70 mb-3">We'll display news as soon as they're published</p>
               </div>
             ) : (
-              // Articles
-              <div className="p-2 space-y-1">
+              // Articles - Display in a grid for non-compact view
+              <div className={`p-2 ${compact ? "space-y-1" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"}`}>
                 <AnimatePresence>
                   {newsArticles.slice(0, compact ? 4 : newsArticles.length).map((article) => (
                     <NewsItem 
@@ -372,7 +372,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
                 
                 {!compact && (
                   <motion.div 
-                    className="p-3 flex justify-center"
+                    className="p-3 flex justify-center col-span-full"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
@@ -397,7 +397,7 @@ const NewsSection: React.FC<NewsSectionProps> = ({ compact = false }) => {
                 )}
               </div>
             )}
-          </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -1,3 +1,4 @@
+
 import { Search, TrendingUp, MoreHorizontal, LineChart, Newspaper, Users, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -144,7 +145,7 @@ const RightSidebar = () => {
   };
   
   return (
-    <div className="hidden lg:block w-80 border-l border-gray-800 overflow-y-auto">
+    <div className="hidden lg:block w-auto min-w-80 max-w-[400px] border-l border-gray-800 overflow-y-auto">
       <div className="p-4 sticky top-0 bg-black/95 backdrop-blur-sm z-10">
         <div className="relative mb-6">
           <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
