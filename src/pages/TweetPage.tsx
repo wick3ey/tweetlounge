@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import TweetDetail from '@/components/tweet/TweetDetail';
+import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, ArrowLeft, Calendar, Share2, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
