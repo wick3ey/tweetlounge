@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useMarketData } from '@/services/marketService';
+import { useMarketData, extractFinancialInfo } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -126,7 +126,10 @@ const TokenRow = ({
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
   
-  const dexScreenerUrl = `https://dexscreener.com/solana/${isHot ? token.poolAddress : token.address}`;
+  // Get the correct token address based on token type
+  const tokenAddress = isHot ? token.tokenAddress : token.address;
+  const poolAddress = isHot ? token.poolAddress : token.pool;
+  const dexScreenerUrl = `https://dexscreener.com/solana/${poolAddress || tokenAddress}`;
   
   const handleRowClick = () => {
     window.open(dexScreenerUrl, '_blank', 'noopener,noreferrer');
@@ -137,7 +140,8 @@ const TokenRow = ({
     onToggleExpand();
   };
   
-  const financialInfo = token.financialInfo || {};
+  // Extract financial info properly from either format
+  const financialInfo = extractFinancialInfo(token.financialInfo || {});
   
   return (
     <>
@@ -293,12 +297,14 @@ const TokenRow = ({
               value={formatNumber(financialInfo.holders)} 
               tooltipText="Number of unique wallet addresses holding this token"
             />
-            <FinancialDetail 
-              icon={Activity} 
-              label="Txns" 
-              value={formatNumber(financialInfo.transactions)} 
-              tooltipText="Total number of transactions for this token"
-            />
+            {financialInfo.transactions !== undefined && (
+              <FinancialDetail 
+                icon={Activity} 
+                label="Txns" 
+                value={formatNumber(financialInfo.transactions)} 
+                tooltipText="Total number of transactions for this token"
+              />
+            )}
           </div>
         </div>
       )}

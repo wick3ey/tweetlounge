@@ -8,7 +8,12 @@ export interface FinancialInfo {
   mcap: number;
   fdv: number;
   holders: number;
-  transactions: number;
+  transactions?: number;
+}
+
+export interface ApiFinancialResponse {
+  statusCode: number;
+  data: FinancialInfo;
 }
 
 export interface TokenData {
@@ -22,7 +27,7 @@ export interface TokenData {
   exchange: string;
   pool: string;
   logoUrl: string;
-  financialInfo: FinancialInfo;
+  financialInfo: FinancialInfo | ApiFinancialResponse;
 }
 
 export interface HotPool {
@@ -35,7 +40,7 @@ export interface HotPool {
   exchange: string;
   creationTime: string;
   logoUrl: string;
-  financialInfo: FinancialInfo;
+  financialInfo: FinancialInfo | ApiFinancialResponse;
 }
 
 export interface MarketData {
@@ -59,6 +64,14 @@ let marketDataCache: {
   timestamp: 0,
   isLoading: false,
   error: null
+};
+
+// Helper to extract financial info, handling both formats
+export const extractFinancialInfo = (financialInfo: FinancialInfo | ApiFinancialResponse): FinancialInfo => {
+  if ('statusCode' in financialInfo && financialInfo.data) {
+    return financialInfo.data;
+  }
+  return financialInfo as FinancialInfo;
 };
 
 // Fetch market data from API
