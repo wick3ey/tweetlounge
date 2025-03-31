@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useMarketData, extractFinancialInfo } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity } from 'lucide-react';
@@ -127,7 +126,6 @@ const TokenRow = ({
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
   
-  // Get the correct token address based on token type
   const tokenAddress = isHot ? token.tokenAddress : token.address;
   const poolAddress = isHot ? token.poolAddress : token.pool;
   const dexScreenerUrl = `https://dexscreener.com/solana/${poolAddress || tokenAddress}`;
@@ -141,12 +139,15 @@ const TokenRow = ({
     onToggleExpand();
   };
   
-  // Extract financial info properly from either format
   const financialInfo = extractFinancialInfo(token.financialInfo || {});
   
-  // Determine which market cap to display (from financialInfo or direct token property)
   const marketCap = financialInfo.mcap !== null ? financialInfo.mcap : token.mcap;
   
+  const getSymbolFallback = () => {
+    if (!token.symbol) return "??";
+    return token.symbol.substring(0, 2).toUpperCase();
+  };
+
   return (
     <>
       <motion.div 
@@ -167,13 +168,22 @@ const TokenRow = ({
                       type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
                       'rgba(59, 130, 246, 0.4)'
             }}>
-              <AvatarImage src={token.logoUrl} alt={token.symbol} />
+              <AvatarImage 
+                src={token.logoUrl} 
+                alt={token.symbol || 'Token'} 
+                className="object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" fill="${type === 'gainer' ? '#22c55e' : type === 'loser' ? '#ef4444' : '#3b82f6'}" opacity="0.8"/><text x="50%" y="50%" font-family="Arial" font-size="14" fill="white" text-anchor="middle" dy=".3em">${getSymbolFallback()}</text></svg>`;
+                }}
+              />
               <AvatarFallback className={`text-sm ${
                 type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
                 type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
                 'bg-gradient-to-br from-blue-800 to-blue-700'
               }`}>
-                {token.symbol?.substring(0, 2) || '??'}
+                {getSymbolFallback()}
               </AvatarFallback>
             </Avatar>
             <Badge variant={
