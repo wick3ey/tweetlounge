@@ -45,7 +45,13 @@ const CRYPTO_IDS = [
   'sui', // SUI
   'hype', // HYPE
   'pepe', // PEPE
-  'ondo-finance' // ONDO
+  'ondo-finance', // ONDO
+  'binancecoin', // BNB
+  'toncoin', // TON
+  'shiba-inu', // SHIB
+  'litecoin', // LTC
+  'aptos', // APT
+  'uniswap' // UNI
 ];
 
 // Function to fetch market stats from CoinGecko
@@ -167,7 +173,13 @@ async function fetchCryptoTokens() {
       { id: 'sui', name: 'Sui', symbol: 'SUI', price: 1.2, change: 0.3 },
       { id: 'hype', name: 'Hype', symbol: 'HYPE', price: 0.005, change: 3.1 },
       { id: 'pepe', name: 'Pepe', symbol: 'PEPE', price: 0.00001, change: 2.4 },
-      { id: 'ondo-finance', name: 'Ondo Finance', symbol: 'ONDO', price: 1.05, change: 0.8 }
+      { id: 'ondo-finance', name: 'Ondo Finance', symbol: 'ONDO', price: 1.05, change: 0.8 },
+      { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 540, change: -2.1 },
+      { id: 'toncoin', name: 'TON', symbol: 'TON', price: 6.12, change: 1.3 },
+      { id: 'shiba-inu', name: 'SHIBA INU', symbol: 'SHIB', price: 0.000027, change: -3.4 },
+      { id: 'litecoin', name: 'Litecoin', symbol: 'LTC', price: 86.50, change: -1.8 },
+      { id: 'aptos', name: 'Aptos', symbol: 'APT', price: 8.75, change: -2.9 },
+      { id: 'uniswap', name: 'Uniswap', symbol: 'UNI', price: 10.35, change: -0.7 }
     ];
   }
 }
