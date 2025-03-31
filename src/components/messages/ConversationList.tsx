@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useRealtimeConversations } from '@/hooks/useRealtimeConversations';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -9,10 +8,22 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Search, PlusCircle } from 'lucide-react';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { Badge } from '@/components/ui/badge';
+import { Conversation } from '@/services/messageService';
 
-const ConversationList: React.FC = () => {
+interface ConversationListProps {
+  conversations: Conversation[];
+  loading: boolean;
+  selectedConversationId?: string;
+  onSelectConversation: (id: string) => void;
+}
+
+const ConversationList: React.FC<ConversationListProps> = ({ 
+  conversations, 
+  loading, 
+  selectedConversationId,
+  onSelectConversation 
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { conversations, loading, error } = useRealtimeConversations();
   const { user } = useAuth();
   
   const truncateMessage = (message: string, length = 50) => 
@@ -29,10 +40,6 @@ const ConversationList: React.FC = () => {
 
   if (loading) {
     return <div className="text-center py-4">Loading conversations...</div>;
-  }
-
-  if (error) {
-    return <div className="text-center py-4 text-red-500">Error loading conversations</div>;
   }
 
   return (
@@ -70,14 +77,14 @@ const ConversationList: React.FC = () => {
 
         <div className="divide-y divide-crypto-gray">
           {filteredConversations.map(conv => {
-            const otherUser = conv.participants?.[0];
-            const isRead = true; // We'll add unread indicator later
+            const otherUser = conv.participants?.[0] || conv.other_user;
+            const isRead = conv.unread_count === 0; 
             
             return (
-              <Link 
+              <div 
                 key={conv.id} 
-                to={`/messages/${conv.id}`} 
-                className="block hover:bg-crypto-darkgray p-4 transition-colors"
+                onClick={() => onSelectConversation(conv.id)}
+                className={`block hover:bg-crypto-darkgray p-4 transition-colors cursor-pointer ${selectedConversationId === conv.id ? 'bg-crypto-darkgray' : ''}`}
               >
                 <div className="flex items-center space-x-4">
                   <Avatar>
@@ -92,20 +99,22 @@ const ConversationList: React.FC = () => {
                         <h3 className={`font-bold ${!isRead ? 'text-crypto-blue' : 'text-crypto-text'}`}>
                           {otherUser?.display_name || otherUser?.username}
                         </h3>
-                        {otherUser?.ethereum_address && (
+                        {otherUser?.avatar_nft_id && otherUser?.avatar_nft_chain && (
                           <VerifiedBadge className="ml-1" />
                         )}
                       </div>
                       <span className="text-xs text-crypto-lightgray">
-                        {new Date(conv.updated_at).toLocaleDateString()}
+                        {conv.last_message_time 
+                          ? new Date(conv.last_message_time).toLocaleDateString() 
+                          : new Date(conv.updated_at).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      {conv.lastMessage && (
+                      {(conv.lastMessage || conv.last_message) && (
                         <p className={`text-sm ${!isRead ? 'text-crypto-text font-semibold' : 'text-crypto-lightgray'}`}>
-                          {conv.lastMessage.is_deleted 
+                          {conv.lastMessage?.is_deleted || false
                             ? <span className="italic">Message was deleted</span>
-                            : truncateMessage(conv.lastMessage.content)
+                            : truncateMessage(conv.lastMessage?.content || conv.last_message || '')
                           }
                         </p>
                       )}
@@ -115,7 +124,7 @@ const ConversationList: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

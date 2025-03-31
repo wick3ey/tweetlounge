@@ -25,6 +25,19 @@ export interface Conversation {
   updated_at: string;
   participants?: Profile[];
   lastMessage?: Message;
+  last_message_time?: string;
+  last_message?: string;
+  sender_id?: string;
+  other_user?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+    avatar_nft_id: string | null;
+    avatar_nft_chain: string | null;
+    bio: string | null;
+  };
+  unread_count?: number;
 }
 
 export interface MessageSearchResult {
