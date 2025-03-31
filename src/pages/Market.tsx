@@ -230,7 +230,7 @@ const Market: React.FC = () => {
   };
   
   return (
-    <Layout hideRightSidebar={false} fullHeight={true} collapsedSidebar={true}>
+    <Layout hideRightSidebar={true} fullHeight={true} collapsedSidebar={true} fullWidth={true}>
       <div className="bg-black/95 min-h-screen">
         <div className="p-4 sm:p-6 flex flex-col min-h-[calc(100vh-76px)]">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
