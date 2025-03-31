@@ -125,6 +125,8 @@ const TokenRow = ({
   const isHot = type === 'hot';
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   const tokenAddress = isHot ? token.tokenAddress : token.address;
   const poolAddress = isHot ? token.poolAddress : token.pool;
@@ -148,6 +150,18 @@ const TokenRow = ({
     return token.symbol.substring(0, 2).toUpperCase();
   };
 
+  const getColorByType = () => {
+    if (type === 'gainer') return '#22c55e';
+    if (type === 'loser') return '#ef4444';
+    return '#3b82f6';
+  };
+
+  const generateFallbackSvg = () => {
+    const color = getColorByType();
+    const symbol = getSymbolFallback();
+    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='${color}' opacity='0.8'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='white' text-anchor='middle' dy='.3em'%3E${symbol}%3C/text%3E%3C/svg%3E`;
+  };
+
   return (
     <>
       <motion.div 
@@ -168,16 +182,16 @@ const TokenRow = ({
                       type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
                       'rgba(59, 130, 246, 0.4)'
             }}>
-              <AvatarImage 
-                src={token.logoUrl} 
-                alt={token.symbol || 'Token'} 
-                className="object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" fill="${type === 'gainer' ? '#22c55e' : type === 'loser' ? '#ef4444' : '#3b82f6'}" opacity="0.8"/><text x="50%" y="50%" font-family="Arial" font-size="14" fill="white" text-anchor="middle" dy=".3em">${getSymbolFallback()}</text></svg>`;
-                }}
-              />
+              {token.logoUrl && (
+                <AvatarImage 
+                  src={token.logoUrl} 
+                  alt={token.symbol || 'Token'} 
+                  className="object-contain"
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageError(true)}
+                  style={{ display: imageError ? 'none' : 'block' }}
+                />
+              )}
               <AvatarFallback className={`text-sm ${
                 type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
                 type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
