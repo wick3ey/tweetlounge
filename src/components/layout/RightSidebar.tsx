@@ -3,7 +3,6 @@ import React from 'react';
 import { TrendingHashtags } from '@/components/hashtag/TrendingHashtags';
 import NewsSection from '@/components/crypto/NewsSection';
 import { WhoToFollow } from '@/components/profile/WhoToFollow';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Search } from 'lucide-react';
 
@@ -57,4 +56,3 @@ const RightSidebar: React.FC = () => {
 };
 
 export default RightSidebar;
-
