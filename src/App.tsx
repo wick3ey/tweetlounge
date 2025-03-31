@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { initCacheCleanupService } from './utils/cacheCleanupService';
 import { useEffect } from 'react';
 
 // Pages
@@ -18,7 +17,6 @@ import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
 import Bookmarks from "./pages/Bookmarks";
-import Market from "./pages/Market";
 import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -40,26 +38,7 @@ const queryClient = new QueryClient({
 const App = () => {
   // Initialize cache cleanup service when the app starts
   useEffect(() => {
-    // Clean up expired cache entries every 15 minutes
-    const cleanup = initCacheCleanupService(15 * 60 * 1000);
-    
-    // Trigger an initial fetch when the app loads
-    const triggerInitialFetch = async () => {
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
-        await supabase.functions.invoke('fetchCryptoData', {
-          body: { trigger: 'initial' }
-        });
-      } catch (error) {
-        console.error('Failed to trigger initial data fetch:', error);
-      }
-    };
-    
-    triggerInitialFetch();
-    
-    return () => {
-      if (cleanup) cleanup();
-    };
+    // No need for cache cleanup as we've removed the cache service
   }, []);
 
   return (
@@ -87,7 +66,6 @@ const App = () => {
                         <Bookmarks />
                       </ProtectedRoute>
                     } />
-                    <Route path="/market" element={<Market />} />
                     <Route path="/tweet/:tweetId" element={<TweetPage />} />
                     <Route path="/hashtag/:name" element={<HashtagPage />} />
                     <Route path="/profile" element={
