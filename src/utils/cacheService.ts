@@ -27,7 +27,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
       .from('market_cache')
       .select('data, expires_at')
       .eq('cache_key', key)
-      .gt('expires_at', new Date().toISOString()) // Fixed: Use gt (greater than) instead of lt (less than)
+      .gt('expires_at', new Date().toISOString()) // Only get non-expired data
       .maybeSingle();
     
     if (error) {
@@ -78,13 +78,12 @@ export const setCachedData = async <T>(
       console.error(`Error clearing existing cache: ${deleteError.message}`);
     }
     
-    // Then insert the new cache entry - explicitly casting the data to any to satisfy the JSON type requirement
-    // This is safe because Supabase will serialize any data to JSON anyway
+    // Then insert the new cache entry
     const { error } = await supabase
       .from('market_cache')
       .insert({
         cache_key: key,
-        data: data as any, // Cast to any to bypass the TypeScript error
+        data: data as any, // Cast to any to bypass TypeScript error
         source,
         expires_at: expires.toISOString()
       });
