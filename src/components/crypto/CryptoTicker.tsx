@@ -1,9 +1,10 @@
 
 import React from 'react'
 import { useCryptoData, CryptoCurrency } from '@/utils/coingeckoService'
-import { Loader2, RefreshCcw, AlertTriangle } from 'lucide-react'
+import { Loader2, RefreshCcw, AlertTriangle, Info } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { CryptoButton } from '@/components/ui/crypto-button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface CryptoTickerItemProps {
   name: string
@@ -45,6 +46,7 @@ const CryptoTicker: React.FC = () => {
   const [retryCount, setRetryCount] = React.useState(0);
   const [lastRefreshAttempt, setLastRefreshAttempt] = React.useState(0);
   const [isManualRefresh, setIsManualRefresh] = React.useState(false);
+  const [isFallbackData, setIsFallbackData] = React.useState(false);
   
   // Auto-retry once if initial load fails
   React.useEffect(() => {
@@ -59,6 +61,18 @@ const CryptoTicker: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error, retryCount, lastRefreshAttempt, refreshData]);
+  
+  // Determine if we're using fallback data
+  React.useEffect(() => {
+    if (cryptoData.length > 0) {
+      // Quick check to see if the data matches fallback data
+      // This isn't perfect but gives us a good idea
+      const matchesFirstFallback = cryptoData[0]?.id === fallbackCryptoData[0]?.id && 
+                                 Math.abs(cryptoData[0]?.price - fallbackCryptoData[0]?.price) < 0.1;
+      
+      setIsFallbackData(matchesFirstFallback || error !== null);
+    }
+  }, [cryptoData, error]);
   
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -115,19 +129,44 @@ const CryptoTicker: React.FC = () => {
           ) : error ? (
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           ) : (
-            <CryptoButton 
-              variant="ghost" 
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing || loading}
-              className="h-6 w-6 p-0 hover:bg-crypto-gray/20"
-            >
-              <RefreshCcw 
-                className={`h-4 w-4 cursor-pointer hover:text-crypto-blue/80 transition-colors ${refreshing ? 'animate-spin' : ''}`} 
-              />
-            </CryptoButton>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <CryptoButton 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={refreshing || loading}
+                    className="h-6 w-6 p-0 hover:bg-crypto-gray/20"
+                  >
+                    <RefreshCcw 
+                      className={`h-4 w-4 cursor-pointer hover:text-crypto-blue/80 transition-colors ${refreshing ? 'animate-spin' : ''}`} 
+                    />
+                  </CryptoButton>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {refreshing ? "Refreshing prices..." : "Refresh crypto prices"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           CRYPTO
+          {isFallbackData && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Info className="h-3.5 w-3.5 text-amber-400" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[180px]">
+                    Using cached or fallback data due to connectivity issues. Click refresh to try again.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         
         {/* Always show some data - either real or fallback */}
