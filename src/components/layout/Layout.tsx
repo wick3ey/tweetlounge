@@ -36,6 +36,39 @@ const Layout: React.FC<LayoutProps> = ({
     }
   }, [isMobile, sidebarOpen]);
 
+  // Add touch event handlers for app-like swipe gestures
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    let touchStartX = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      const diffX = touchEndX - touchStartX;
+      
+      // If swipe from left edge, open sidebar
+      if (touchStartX < 30 && diffX > 70) {
+        setSidebarOpen(true);
+      }
+      
+      // If swipe from right to left, close sidebar
+      if (sidebarOpen && diffX < -70) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, sidebarOpen]);
+
   return (
     <div className="flex flex-col min-h-screen bg-black">
       <Navbar />
@@ -54,12 +87,15 @@ const Layout: React.FC<LayoutProps> = ({
           <div className="fixed bottom-16 left-4 z-50">
             <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
               <SheetTrigger asChild>
-                <button className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white shadow-lg">
+                <button 
+                  className="flex items-center justify-center w-12 h-12 rounded-full bg-primary text-white shadow-lg active:scale-95 transition-transform"
+                  aria-label="Open menu"
+                >
                   <Menu className="h-6 w-6" />
                 </button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 border-r border-gray-800 bg-black w-[85%] max-w-[300px]">
-                <div className="h-full">
+                <div className="h-full overflow-y-auto crypto-scrollbar">
                   <LeftSidebar collapsed={false} />
                 </div>
               </SheetContent>

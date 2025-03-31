@@ -98,7 +98,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
       </div>
       
       {/* Navigation Menu */}
-      <nav className="flex-1 px-2">
+      <nav className="flex-1 px-2 overflow-y-auto">
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const active = isActive(item.path);
@@ -111,21 +111,33 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                     active 
                       ? "bg-gray-900 text-white" 
                       : "text-gray-300 hover:bg-gray-800/50 hover:text-white",
-                    isCollapsed ? "justify-center" : ""
+                    isCollapsed ? "justify-center" : "",
+                    isMobile && active ? "bg-gray-900/90 shadow-lg" : ""
                   )}
                 >
                   <div className={cn(
                     "relative flex items-center justify-center",
                     active ? "text-white" : ""
                   )}>
-                    <item.icon className="h-5 w-5" />
+                    <item.icon className={cn(
+                      "h-5 w-5",
+                      active && isMobile ? "scale-110" : ""
+                    )} />
                     {item.badge && (
-                      <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                      <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
                         {item.badge > 99 ? '99+' : item.badge}
                       </div>
                     )}
                   </div>
-                  {!isCollapsed && <span className="text-base">{item.label}</span>}
+                  {!isCollapsed && (
+                    <span className={cn(
+                      "text-base transition-all",
+                      active ? "font-semibold" : ""
+                    )}>{item.label}</span>
+                  )}
+                  {isMobile && active && !isCollapsed && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+                  )}
                 </Link>
               </li>
             );
@@ -136,7 +148,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
       {/* Tweet Button */}
       <div className={`px-4 mt-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
         <Button 
-          className={`${isCollapsed ? 'w-12 h-12 rounded-full p-0' : 'w-full'} bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all`}
+          className={`${isCollapsed ? 'w-12 h-12 rounded-full p-0' : 'w-full'} bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all active:scale-95`}
         >
           {isCollapsed ? <MessageSquareIcon className="h-5 w-5" /> : "Tweet"}
         </Button>

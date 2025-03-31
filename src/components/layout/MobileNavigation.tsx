@@ -37,14 +37,23 @@ const MobileNavigation = () => {
               )}
             >
               <div className="relative">
-                <item.icon className="h-6 w-6" />
+                <item.icon className={cn(
+                  "h-6 w-6 transition-all",
+                  isActive ? "scale-110 opacity-100" : "opacity-70"
+                )} />
                 {item.badge && (
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
                     {item.badge > 99 ? '99+' : item.badge}
                   </div>
                 )}
               </div>
-              <span className="text-[10px] mt-1 font-medium">{item.label}</span>
+              <span className={cn(
+                "text-[10px] mt-1 font-medium transition-all",
+                isActive ? "opacity-100" : "opacity-70"
+              )}>{item.label}</span>
+              {isActive && (
+                <div className="absolute top-0 h-1 w-8 bg-primary rounded-full animate-fade-in" />
+              )}
             </Link>
           );
         })}

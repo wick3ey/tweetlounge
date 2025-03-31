@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react'
 import Layout from '@/components/layout/Layout'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
@@ -14,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { updateTweetCommentCount } from '@/services/commentService'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMediaQuery } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -22,6 +22,7 @@ const Home: React.FC = () => {
   const [feedKey, setFeedKey] = useState<number>(0);
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const channel = supabase
@@ -65,6 +66,44 @@ const Home: React.FC = () => {
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    let touchStartY = 0;
+    let touchMoveY = 0;
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+      if (scrollTop === 0) {
+        touchStartY = e.touches[0].clientY;
+      }
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (touchStartY > 0) {
+        touchMoveY = e.touches[0].clientY;
+      }
+    };
+    
+    const handleTouchEnd = () => {
+      if (touchStartY > 0 && touchMoveY > 0 && touchMoveY - touchStartY > 100) {
+        handleRefresh();
+      }
+      touchStartY = 0;
+      touchMoveY = 0;
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile]);
+
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
       toast({
@@ -105,7 +144,10 @@ const Home: React.FC = () => {
 
   const handleRefresh = () => {
     console.log('Manually refreshing feed in Home component');
-    queryClient.invalidateQueries({ queryKey: ['tweets'] });
+    setRefreshing(true);
+    queryClient.invalidateQueries({ queryKey: ['tweets'] }).then(() => {
+      setTimeout(() => setRefreshing(false), 800); // Add some delay for visual feedback
+    });
   };
 
   return (
@@ -121,8 +163,12 @@ const Home: React.FC = () => {
             <CryptoButton 
               variant="outline" 
               size={isMobile ? "sm" : "default"}
-              className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
+              className={cn(
+                "ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700",
+                refreshing && "animate-spin text-primary"
+              )}
               onClick={handleRefresh}
+              disabled={refreshing}
             >
               <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
               {!isMobile && "Refresh"}
@@ -138,6 +184,15 @@ const Home: React.FC = () => {
           <div className="border-b border-gray-800">
             <TweetFeedTabs />
           </div>
+          {refreshing && (
+            <div className="flex justify-center items-center py-4 text-primary">
+              <div className="crypto-loader">
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
+            </div>
+          )}
           <TweetFeed 
             key={feedKey} 
             limit={10} 
@@ -145,7 +200,6 @@ const Home: React.FC = () => {
           />
         </div>
         
-        {/* Add padding at the bottom for mobile navigation */}
         {isMobile && <div className="h-16"></div>}
       </div>
     </Layout>
