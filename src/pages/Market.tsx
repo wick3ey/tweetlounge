@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
@@ -195,7 +194,7 @@ const Market: React.FC = () => {
   };
 
   return (
-    <Layout hideRightSidebar={false} fullHeight={true}>
+    <Layout hideRightSidebar={false} fullHeight={true} collapsedSidebar={true}>
       <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>

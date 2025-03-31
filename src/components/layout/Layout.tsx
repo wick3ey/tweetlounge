@@ -10,13 +10,15 @@ type LayoutProps = {
   hideRightSidebar?: boolean;
   fullHeight?: boolean;
   pageTitle?: string;
+  collapsedSidebar?: boolean;
 };
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, 
   hideRightSidebar = false,
   fullHeight = true,
-  pageTitle
+  pageTitle,
+  collapsedSidebar = false
 }) => {
   return (
     <div className="flex flex-col h-screen bg-black">
@@ -26,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({
       </div>
       
       <div className="flex flex-1 w-full max-w-[1500px] mx-auto">
-        <LeftSidebar />
+        <LeftSidebar collapsed={collapsedSidebar} />
         
         <main className={`flex-1 ${fullHeight ? 'min-h-screen' : ''} ${
           // Set default max-width for feed, but override for market page
