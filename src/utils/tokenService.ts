@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
@@ -126,7 +127,8 @@ export const fetchWalletTokens = async (
     await setCachedData(
       cacheKey,
       result,
-      CACHE_DURATIONS.MEDIUM
+      CACHE_DURATIONS.MEDIUM,
+      'solana'
     );
     
     return result;
