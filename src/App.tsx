@@ -29,6 +29,7 @@ import MessageChat from './components/messages/MessageChat';
 // Mobile Pages
 import MobileHome from "./pages/MobileHome";
 import MobileMarket from "./pages/MobileMarket";
+import MobileSearch from "./pages/MobileSearch";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,12 @@ const App = () => {
                     <ResponsivePage 
                       mobile={<MobileMarket />} 
                       desktop={<Market />} 
+                    />
+                  } />
+                  <Route path="/search" element={
+                    <ResponsivePage 
+                      mobile={<MobileSearch />} 
+                      desktop={<Home />} 
                     />
                   } />
                   <Route path="/tweet/:tweetId" element={<TweetPage />} />

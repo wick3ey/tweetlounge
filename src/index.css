@@ -213,14 +213,15 @@
     background: rgba(120, 120, 120, 0.7);
   }
 
-  /* Mobile App-like UI Elements */
+  /* Mobile App-like UI Elements - Enhanced */
   .mobile-app-container {
     @apply min-h-screen overflow-hidden flex flex-col;
     overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
   }
   
   .mobile-header {
-    @apply sticky top-0 z-30 bg-crypto-black border-b border-crypto-gray/30 backdrop-blur-md bg-opacity-90 flex items-center h-14 px-4;
+    @apply sticky top-0 z-30 bg-crypto-black/95 border-b border-crypto-gray/30 backdrop-blur-md flex items-center h-14 px-4 shadow-sm;
   }
   
   .mobile-tab-bar {
@@ -232,7 +233,7 @@
   }
   
   .mobile-tab-active {
-    @apply bg-crypto-blue text-white;
+    @apply bg-crypto-blue text-white shadow-sm;
   }
   
   .mobile-tab-inactive {
@@ -240,7 +241,7 @@
   }
   
   .mobile-card {
-    @apply crypto-card rounded-xl p-3 mb-2 transition-transform active:scale-[0.99];
+    @apply bg-crypto-darkgray/90 backdrop-blur-md border border-crypto-gray/40 rounded-xl p-3 mb-2 transition-transform active:scale-[0.99] shadow-sm;
   }
   
   .mobile-section {
@@ -248,11 +249,11 @@
   }
   
   .mobile-bottom-nav {
-    @apply fixed bottom-0 w-full border-t border-crypto-gray/30 bg-crypto-black backdrop-blur-md bg-opacity-90 z-30 flex items-center justify-around h-16;
+    @apply fixed bottom-0 w-full border-t border-crypto-gray/30 bg-crypto-black/95 backdrop-blur-md z-30 flex items-center justify-around h-16 shadow-lg;
   }
   
   .mobile-nav-item {
-    @apply flex flex-col items-center justify-center h-full w-full;
+    @apply flex flex-col items-center justify-center h-full w-full active:bg-crypto-gray/10 transition-colors;
   }
   
   .mobile-nav-item-active {
@@ -264,58 +265,197 @@
   }
   
   .mobile-badge {
-    @apply absolute -top-1 -right-1 bg-crypto-blue text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center;
+    @apply absolute -top-1 -right-1 bg-crypto-blue text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center shadow-md;
+  }
+  
+  .mobile-stats-card {
+    @apply bg-crypto-darkgray/80 backdrop-blur-sm border border-crypto-gray/30 rounded-xl p-3 flex flex-col shadow-sm;
+  }
+  
+  .mobile-drawer {
+    @apply fixed inset-0 z-50 bg-black/80 backdrop-blur-sm transition-opacity;
+  }
+  
+  .mobile-drawer-content {
+    @apply fixed bottom-0 left-0 right-0 z-50 bg-crypto-black border-t border-crypto-gray/30 rounded-t-xl max-h-[90%] overflow-hidden shadow-xl transition-transform;
+  }
+  
+  .mobile-button {
+    @apply h-10 px-4 rounded-lg bg-crypto-blue text-white flex items-center justify-center font-medium text-sm transition-colors hover:bg-crypto-darkblue shadow-sm active:translate-y-[1px];
+  }
+  
+  .mobile-button-outline {
+    @apply h-10 px-4 rounded-lg border border-crypto-gray/40 text-white flex items-center justify-center font-medium text-sm transition-colors hover:bg-crypto-gray/20 active:translate-y-[1px];
+  }
+  
+  .mobile-action-icon {
+    @apply p-2 rounded-full hover:bg-crypto-gray/20 active:bg-crypto-gray/30 transition-colors;
   }
   
   .mobile-pull-to-refresh {
     @apply flex items-center justify-center p-2 text-sm text-crypto-lightgray;
   }
 
-  /* Mobile-specific animations */
+  /* Mobile-specific animations - Enhanced */
   .mobile-page-transition {
-    animation: mobile-slide-up 0.3s ease-out;
+    animation: mobile-slide-up 0.3s ease-out forwards;
   }
   
   .mobile-slide-in-right {
-    animation: mobile-slide-in-right 0.3s ease-out;
+    animation: mobile-slide-in-right 0.3s ease-out forwards;
   }
   
   .mobile-fade-in {
-    animation: mobile-fade-in 0.2s ease-out;
+    animation: mobile-fade-in 0.2s ease-out forwards;
   }
   
-  /* Disable blue highlight on tap in mobile Safari */
-  @media (max-width: 767px) {
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
+  .mobile-zoom-in {
+    animation: mobile-zoom-in 0.3s ease-out forwards;
+  }
+  
+  .mobile-bounce {
+    animation: mobile-bounce 0.5s ease-out forwards;
+  }
+  
+  /* Mobile-specific scrolling - Enhanced */
+  .mobile-scroll-area {
+    @apply scrollbar-none overflow-auto overscroll-behavior-y-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobile list styling */
+  .mobile-list-item {
+    @apply border-b border-crypto-gray/20 p-4 flex items-center active:bg-crypto-gray/10 transition-colors;
+  }
+  
+  .mobile-list-item-active {
+    @apply bg-crypto-gray/10;
+  }
+  
+  /* Mobile form elements */
+  .mobile-input {
+    @apply bg-crypto-gray/20 border border-crypto-gray/30 rounded-lg px-4 py-3 w-full text-white placeholder:text-crypto-lightgray/70 focus:outline-none focus:ring-2 focus:ring-crypto-blue/50 transition-all;
+  }
+  
+  .mobile-select {
+    @apply bg-crypto-gray/20 border border-crypto-gray/30 rounded-lg px-4 py-3 w-full text-white appearance-none focus:outline-none focus:ring-2 focus:ring-crypto-blue/50 transition-all;
+  }
+  
+  /* Mobile status indicators */
+  .mobile-status-online {
+    @apply h-2 w-2 rounded-full bg-crypto-green animate-pulse;
+  }
+  
+  .mobile-status-offline {
+    @apply h-2 w-2 rounded-full bg-crypto-gray;
+  }
+  
+  .mobile-status-away {
+    @apply h-2 w-2 rounded-full bg-amber-400;
+  }
+  
+  /* Mobile charts and graphs */
+  .mobile-chart-container {
+    @apply p-3 rounded-lg border border-crypto-gray/20 bg-crypto-darkgray/80 overflow-hidden;
+  }
+  
+  /* Mobile tooltips */
+  .mobile-tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs rounded bg-crypto-darkgray/90 border border-crypto-gray/30 text-white shadow-lg;
+  }
+  
+  /* Mobile widgets */
+  .mobile-widget {
+    @apply rounded-xl overflow-hidden border border-crypto-gray/30 bg-crypto-darkgray/80 backdrop-blur-md shadow-md;
+  }
+  
+  .mobile-widget-header {
+    @apply p-3 border-b border-crypto-gray/20 flex items-center justify-between;
+  }
+  
+  .mobile-widget-content {
+    @apply p-3;
+  }
+  
+  .mobile-widget-footer {
+    @apply p-3 border-t border-crypto-gray/20 flex items-center justify-between;
+  }
+  
+  /* Mobile swipeable actions */
+  .mobile-swipe-action {
+    @apply absolute top-0 bottom-0 flex items-center justify-center w-16;
+  }
+  
+  .mobile-swipe-action-left {
+    @apply left-0 bg-crypto-blue rounded-l-lg;
+  }
+  
+  .mobile-swipe-action-right {
+    @apply right-0 bg-crypto-red rounded-r-lg;
   }
   
   /* Active state for mobile taps */
   .mobile-tap-active {
     @apply transition-colors active:bg-white/10;
   }
-  
-  /* Mobile-specific scrolling */
-  .mobile-scroll-area {
-    @apply scrollbar-none overflow-auto overscroll-behavior-y-contain;
-    -webkit-overflow-scrolling: touch;
+}
+
+/* New Mobile-specific animations */
+@keyframes mobile-zoom-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
+@keyframes mobile-bounce {
+  0%, 100% {
+    transform: translateY(0);
   }
-  100% {
-    transform: translateX(-50%);
+  50% {
+    transform: translateY(-10px);
   }
 }
 
-.animate-marquee {
-  display: flex;
-  animation: marquee 30s linear infinite;
-  width: max-content;
+/* Enhanced glass effect for mobile UI */
+.mobile-glass {
+  @apply bg-crypto-darkgray/70 backdrop-blur-lg border border-crypto-gray/30 shadow-lg;
+}
+
+/* Mobile skeleton loading effects */
+.mobile-skeleton {
+  @apply animate-pulse bg-crypto-gray/20 rounded overflow-hidden;
+}
+
+.mobile-skeleton-text {
+  @apply h-4 rounded mobile-skeleton mb-2;
+}
+
+.mobile-skeleton-avatar {
+  @apply h-10 w-10 rounded-full mobile-skeleton;
+}
+
+.mobile-skeleton-button {
+  @apply h-8 w-20 rounded-full mobile-skeleton;
+}
+
+/* Mobile app menu indicator for active items */
+.mobile-menu-indicator {
+  @apply absolute left-0 w-1 h-6 bg-crypto-blue rounded-r transition-all;
+}
+
+/* Mobile search bar style */
+.mobile-search-bar {
+  @apply flex items-center bg-crypto-gray/20 border border-crypto-gray/30 rounded-full px-3 py-2 w-full;
+}
+
+/* Enhanced mobile tab indicators */
+.mobile-tab-indicator {
+  @apply absolute bottom-0 left-0 h-0.5 bg-crypto-blue transition-all duration-300;
 }
 
 /* Improved animation */
@@ -334,47 +474,20 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Mobile-specific animations */
-@keyframes mobile-slide-up {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes mobile-slide-in-right {
-  from {
-    transform: translateX(100%);
-  }
-  to {
+/* Improved animation */
+@keyframes marquee {
+  0% {
     transform: translateX(0);
   }
-}
-
-@keyframes mobile-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+  100% {
+    transform: translateX(-50%);
   }
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+.animate-marquee {
+  display: flex;
+  animation: marquee 30s linear infinite;
+  width: max-content;
 }
 
 /* Glasmorphism effects */
