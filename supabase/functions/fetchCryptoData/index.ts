@@ -18,6 +18,146 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 // Define cache duration - 30 minutes
 const CACHE_DURATION = 30 * 60 * 1000
 
+// Create 'token-logos' bucket if it doesn't exist
+async function ensureStorageBucketExists() {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error('Error checking buckets:', listError);
+      return false;
+    }
+    
+    const bucketExists = buckets?.some(bucket => bucket.name === 'token-logos');
+    
+    if (!bucketExists) {
+      console.log('Creating token-logos bucket');
+      const { error } = await supabase.storage.createBucket('token-logos', {
+        public: true
+      });
+      
+      if (error) {
+        console.error('Error creating bucket:', error);
+        return false;
+      }
+      
+      // Set bucket policy to be public
+      const { error: policyError } = await supabase.storage.from('token-logos').createSignedUrl(
+        'dummy.txt', 
+        60, 
+        { download: true }
+      );
+      
+      if (policyError && !policyError.message.includes('not found')) {
+        console.error('Error setting bucket policy:', policyError);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Unexpected error ensuring bucket exists:', error);
+    return false;
+  }
+}
+
+// Cache images to Supabase Storage
+async function cacheImageToStorage(imageUrl: string, symbol: string) {
+  try {
+    if (!imageUrl) return null;
+    
+    // Create a sanitized file name from the symbol
+    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    
+    // Check if the image already exists in storage
+    const { data: existingFiles } = await supabase.storage
+      .from('token-logos')
+      .list('', {
+        search: fileName
+      });
+      
+    if (existingFiles && existingFiles.length > 0) {
+      const { data: publicUrl } = supabase.storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+        
+      return publicUrl.publicUrl;
+    }
+    
+    // Fetch the image from the source
+    console.log(`Fetching image from ${imageUrl} for ${symbol}`);
+    const imageResponse = await fetch(imageUrl, {
+      headers: { 'Accept': 'image/*' },
+      cache: 'no-store'
+    });
+    
+    if (!imageResponse.ok) {
+      console.error(`Failed to fetch image for ${symbol}: ${imageResponse.statusText}`);
+      return null;
+    }
+    
+    // Get image as blob
+    const imageBlob = await imageResponse.blob();
+    
+    // Convert blob to array buffer for Supabase storage
+    const arrayBuffer = await imageBlob.arrayBuffer();
+    
+    // Upload the image to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('token-logos')
+      .upload(fileName, arrayBuffer, {
+        contentType: imageBlob.type,
+        cacheControl: '3600',
+        upsert: true
+      });
+      
+    if (uploadError) {
+      console.error(`Error uploading image for ${symbol}:`, uploadError);
+      return null;
+    }
+    
+    // Get the public URL for the cached image
+    const { data: publicUrl } = supabase.storage
+      .from('token-logos')
+      .getPublicUrl(fileName);
+      
+    console.log(`Successfully cached image for ${symbol}`);
+    return publicUrl.publicUrl;
+  } catch (error) {
+    console.error(`Error caching image for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Process and cache images for tokens
+async function processTokenImages(tokens: any[]) {
+  if (!tokens || !Array.isArray(tokens)) return tokens;
+  
+  // Process in batches to avoid overwhelming the system
+  const batchSize = 5;
+  const processedTokens = [...tokens]; // Create a copy to modify
+  
+  for (let i = 0; i < processedTokens.length; i += batchSize) {
+    const batch = processedTokens.slice(i, i + batchSize);
+    
+    // Process each token in the batch concurrently
+    await Promise.all(batch.map(async (token, index) => {
+      if (token.logoUrl) {
+        const cachedImageUrl = await cacheImageToStorage(token.logoUrl, token.symbol || `token${i + index}`);
+        if (cachedImageUrl) {
+          processedTokens[i + index] = {
+            ...token,
+            logoUrl: cachedImageUrl, // Replace with cached image URL
+            originalLogoUrl: token.logoUrl // Keep the original URL as reference
+          };
+        }
+      }
+    }));
+  }
+  
+  return processedTokens;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -62,6 +202,9 @@ Deno.serve(async (req) => {
 
     console.log('No valid cache found, fetching fresh data from API');
 
+    // Ensure the storage bucket exists
+    await ensureStorageBucketExists();
+
     // Fetch fresh data if no valid cache
     const response = await fetch(API_URL, {
       headers: { 'Accept': 'application/json' },
@@ -73,6 +216,15 @@ Deno.serve(async (req) => {
     }
 
     const marketData = await response.json();
+    
+    // Process and cache all images
+    console.log('Processing and caching token images...');
+    const processedData = {
+      ...marketData,
+      gainers: await processTokenImages(marketData.gainers),
+      losers: await processTokenImages(marketData.losers),
+      hotPools: await processTokenImages(marketData.hotPools)
+    };
     
     // Store in cache
     const expires = new Date(Date.now() + CACHE_DURATION);
@@ -92,7 +244,7 @@ Deno.serve(async (req) => {
       .from('market_cache')
       .insert({
         cache_key: cache_key,
-        data: marketData,
+        data: processedData,
         expires_at: expires.toISOString(),
         source: 'f3oci3ty.xyz'
       });
@@ -103,7 +255,7 @@ Deno.serve(async (req) => {
       console.log(`Successfully fetched and cached market data with key: ${cache_key}`);
     }
 
-    return new Response(JSON.stringify(marketData), {
+    return new Response(JSON.stringify(processedData), {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'application/json' 

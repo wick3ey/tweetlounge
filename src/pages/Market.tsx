@@ -12,26 +12,6 @@ import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-const TokenCardSkeleton = () => (
-  <div className="p-4">
-    {[1, 2, 3, 4].map(i => (
-      <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <div>
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-3 w-32 mt-1" />
-          </div>
-        </div>
-        <div className="text-right">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-3 w-12 mt-1" />
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
   if (price < 0.01 && price > 0) {
@@ -188,8 +168,16 @@ const TokenRow = ({
                   alt={token.symbol || 'Token'} 
                   className="object-contain"
                   onLoad={() => setImageLoaded(true)}
-                  onError={() => setImageError(true)}
-                  style={{ display: imageError ? 'none' : 'block' }}
+                  onError={(e) => {
+                    console.log(`Image error for ${token.symbol}:`, e);
+                    setImageError(true);
+                    
+                    if (token.originalLogoUrl && e.currentTarget.src !== token.originalLogoUrl) {
+                      e.currentTarget.src = token.originalLogoUrl;
+                    } else {
+                      e.currentTarget.src = generateFallbackSvg();
+                    }
+                  }}
                 />
               )}
               <AvatarFallback className={`text-sm ${

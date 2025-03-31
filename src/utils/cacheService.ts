@@ -102,11 +102,52 @@ export const setCachedData = async <T>(
 };
 
 /**
+ * Get a cached image URL or null if not found
+ * @param symbol Token symbol
+ * @returns The cached image URL or null
+ */
+export const getCachedImageUrl = async (symbol: string): Promise<string | null> => {
+  try {
+    if (!symbol) return null;
+    
+    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    
+    // Check if image exists in storage
+    const { data: fileExists, error } = await supabase
+      .storage
+      .from('token-logos')
+      .list('', {
+        search: fileName
+      });
+      
+    if (error) {
+      console.error(`Error checking cached image for ${symbol}:`, error);
+      return null;
+    }
+    
+    if (fileExists && fileExists.length > 0) {
+      const { data } = supabase
+        .storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+        
+      return data.publicUrl;
+    }
+    
+    return null;
+  } catch (err) {
+    console.error(`Error getting cached image for ${symbol}:`, err);
+    return null;
+  }
+};
+
+/**
  * Delete expired cache entries
  * This can be called periodically to clean up the cache
  */
 export const cleanupExpiredCache = async (): Promise<void> => {
   try {
+    // Clean up market_cache table
     const { error } = await supabase
       .from('market_cache')
       .delete()
@@ -117,6 +158,12 @@ export const cleanupExpiredCache = async (): Promise<void> => {
     } else {
       console.log('Successfully cleaned up expired cache entries');
     }
+    
+    // Clean up token-logos storage (files older than 30 minutes)
+    // Note: This requires a more complex implementation with a metadata table
+    // or using the list function to find files by created_at
+    // For now, we'll let the images accumulate as they don't take much space
+    
   } catch (err) {
     console.error(`Unexpected error in cleanupExpiredCache: ${err}`);
   }
