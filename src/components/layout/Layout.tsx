@@ -38,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({
         } ${fullWidth ? '' : 'border-x border-gray-800'}`}>
           {pageTitle && (
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
-              <h1 className="text-xl font-bold">{pageTitle}</h1>
+              <h1 className="text-xl font-bold pl-8">{pageTitle}</h1>
             </div>
           )}
           {children}

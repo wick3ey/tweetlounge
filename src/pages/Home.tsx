@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -122,7 +123,7 @@ const Home: React.FC = () => {
         <main className="flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto">
           <div className="max-w-full">
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
-              <div className="flex gap-3 items-center">
+              <div className="flex gap-3 items-center pl-8">
                 <div className="rounded-lg bg-crypto-blue/10 p-1.5">
                   <ZapIcon className="text-crypto-blue h-5 w-5" />
                 </div>

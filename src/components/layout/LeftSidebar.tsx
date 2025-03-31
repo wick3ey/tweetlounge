@@ -73,10 +73,10 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
   
   return (
     <aside className={`relative flex flex-col h-screen sticky top-0 ${isCollapsed ? 'min-w-[80px] max-w-[80px]' : 'min-w-[275px] max-w-[275px]'} py-4 bg-black border-r border-gray-800 transition-all duration-300 hidden md:flex`}>
-      {/* Toggle Button */}
+      {/* Toggle Button - Repositioned to avoid overlap with feed header */}
       <button 
         onClick={toggleCollapse}
-        className="absolute -right-3 top-10 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-10 hover:bg-gray-700 transition-colors"
+        className="absolute -right-3 top-20 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-20 hover:bg-gray-700 transition-colors"
       >
         <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
       </button>
