@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { TrendingHashtags } from '@/components/hashtag/TrendingHashtags';
-import { TrendingTopics } from '@/components/crypto/TrendingTopics';
+import TrendingTopics from '@/components/crypto/TrendingTopics';
 
 const RightSidebar: React.FC = () => {
   return (
