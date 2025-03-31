@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -42,19 +43,21 @@ export function formatTextWithHashtags(text: string, linkClassName: string = "te
       parts.push(text.substring(lastIndex, match.index));
     }
     
-    // Create a clickable link for the hashtag
+    // Create a clickable link for the hashtag using React.createElement instead of JSX
     const hashtag = match[0]; // Full hashtag with #
     const hashtagName = match[1]; // Hashtag name without #
     
     parts.push(
-      <Link 
-        key={`hashtag-${match.index}`}
-        to={`/hashtag/${hashtagName}`}
-        className={linkClassName}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {hashtag}
-      </Link>
+      React.createElement(
+        Link, 
+        {
+          key: `hashtag-${match.index}`,
+          to: `/hashtag/${hashtagName}`,
+          className: linkClassName,
+          onClick: (e: React.MouseEvent) => e.stopPropagation()
+        },
+        hashtag
+      )
     );
     
     lastIndex = match.index + match[0].length;
