@@ -8,8 +8,8 @@ interface TweetContentProps {
 
 const TweetContent: React.FC<TweetContentProps> = ({ content }) => {
   return (
-    <p className="text-white whitespace-pre-wrap">
-      {formatTextWithHashtags(content, "text-crypto-blue hover:underline")}
+    <p className="text-white whitespace-pre-wrap break-words">
+      {formatTextWithHashtags(content, "text-sky-400 hover:underline font-medium")}
     </p>
   );
 };
