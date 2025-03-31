@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
+
 const TokenCardSkeleton = () => <div className="p-4">
     {[1, 2, 3, 4].map(i => <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
         <div className="flex items-center gap-2">
@@ -25,6 +26,7 @@ const TokenCardSkeleton = () => <div className="p-4">
         </div>
       </div>)}
   </div>;
+
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
   if (price < 0.01 && price > 0) {
@@ -40,14 +42,17 @@ const formatPrice = (price: number) => {
     maximumFractionDigits: 2
   });
 };
+
 const formatPercentage = (percent: number) => {
   if (isNaN(percent)) return "0%";
   return `${percent > 0 ? '+' : ''}${percent.toFixed(2)}%`;
 };
+
 const formatTime = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleString();
 };
+
 const TokenRow = ({
   token,
   type,
@@ -60,26 +65,42 @@ const TokenRow = ({
   const isHot = type === 'hot';
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
-  return <motion.div initial={{
-    opacity: 0,
-    y: 10
-  }} animate={{
-    opacity: 1,
-    y: 0
-  }} transition={{
-    delay: index * 0.05
-  }} className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${type === 'gainer' ? 'hover:bg-green-950/20' : type === 'loser' ? 'hover:bg-red-950/20' : 'hover:bg-blue-950/20'}`}>
+  
+  return <motion.div 
+    initial={{ opacity: 0, y: 10 }} 
+    animate={{ opacity: 1, y: 0 }} 
+    transition={{ delay: index * 0.05 }} 
+    className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      type === 'gainer' ? 'hover:bg-green-950/20' : 
+      type === 'loser' ? 'hover:bg-red-950/20' : 
+      'hover:bg-blue-950/20'
+    }`}
+  >
       <div className="flex items-center gap-3 min-w-0 w-2/3">
         <div className="relative flex-shrink-0">
           <Avatar className="h-10 w-10 border-2" style={{
-          borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)'
-        }}>
+            borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : 
+                       type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
+                       'rgba(59, 130, 246, 0.4)'
+          }}>
             <AvatarImage src={token.logoUrl} alt={token.symbol} />
-            <AvatarFallback className={`text-xs ${type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 'bg-gradient-to-br from-blue-800 to-blue-700'}`}>
+            <AvatarFallback className={`text-xs ${
+              type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
+              type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
+              'bg-gradient-to-br from-blue-800 to-blue-700'
+            }`}>
               {token.symbol?.substring(0, 2) || '??'}
             </AvatarFallback>
           </Avatar>
-          <Badge variant={type === 'gainer' ? 'success' : type === 'loser' ? 'destructive' : 'default'} className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${type === 'gainer' ? 'bg-green-500 hover:bg-green-600' : type === 'loser' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'}`}>
+          <Badge variant={
+            type === 'gainer' ? 'success' : 
+            type === 'loser' ? 'destructive' : 
+            'default'
+          } className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${
+            type === 'gainer' ? 'bg-green-500 hover:bg-green-600' : 
+            type === 'loser' ? 'bg-red-500 hover:bg-red-600' : 
+            'bg-blue-500 hover:bg-blue-600'
+          }`}>
             {token.rank}
           </Badge>
         </div>
@@ -95,19 +116,28 @@ const TokenRow = ({
       </div>
       
       <div className="text-right flex-shrink-0 w-1/3 pl-2">
-        {!isHot ? <>
+        {!isHot ? (
+          <>
             <div className="font-medium text-base whitespace-nowrap">${formatPrice(token.price)}</div>
             <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
-              {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />}
+              {isPriceUp ? (
+                <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" />
+              ) : (
+                <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />
+              )}
               <span>{formatPercentage(token.variation24h)}</span>
             </div>
-          </> : <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center justify-end">
+          </>
+        ) : (
+          <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center justify-end">
             <span>{isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}</span>
             <ExternalLink className="ml-1 h-3 w-3 opacity-70" />
-          </div>}
+          </div>
+        )}
       </div>
     </motion.div>;
 };
+
 const MarketSection = ({
   title,
   icon: Icon,
@@ -146,16 +176,11 @@ const MarketSection = ({
       </ScrollArea>
     </div>
   </motion.div>;
+
 const Market: React.FC = () => {
-  const {
-    marketData,
-    loading,
-    error,
-    refreshData
-  } = useMarketData();
-  const {
-    toast
-  } = useToast();
+  const { marketData, loading, error, refreshData } = useMarketData();
+  const { toast } = useToast();
+  
   const handleRefresh = () => {
     refreshData();
     toast({
@@ -163,64 +188,96 @@ const Market: React.FC = () => {
       description: "Getting the latest crypto market information"
     });
   };
-  return <Layout hideRightSidebar={false} fullHeight={true} collapsedSidebar={true}>
+  
+  return (
+    <Layout hideRightSidebar={false} fullHeight={true} collapsedSidebar={true}>
       <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <motion.h1 initial={{
-            opacity: 0,
-            y: -20
-          }} animate={{
-            opacity: 1,
-            y: 0
-          }} transition={{
-            duration: 0.5
-          }} className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text">
+            <motion.h1 
+              initial={{ opacity: 0, y: -20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.5 }} 
+              className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
+            >
               Crypto Market Dashboard
             </motion.h1>
-            <motion.p initial={{
-            opacity: 0,
-            y: -10
-          }} animate={{
-            opacity: 1,
-            y: 0
-          }} transition={{
-            delay: 0.1,
-            duration: 0.5
-          }} className="text-muted-foreground text-base sm:text-lg">
+            <motion.p 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ delay: 0.1, duration: 0.5 }} 
+              className="text-muted-foreground text-base sm:text-lg"
+            >
               Latest movements, gainers, losers, and hot new tokens
             </motion.p>
           </div>
           
-          <Button onClick={handleRefresh} variant="outline" size="default" className="gap-2 self-start hover:bg-gray-800/50 transition-all">
+          <Button 
+            onClick={handleRefresh} 
+            variant="outline" 
+            size="default" 
+            className="gap-2 self-start hover:bg-gray-800/50 transition-all"
+          >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
             <span>Refresh Markets</span>
           </Button>
         </div>
 
-        {error && <motion.div initial={{
-        opacity: 0,
-        scale: 0.95
-      }} animate={{
-        opacity: 1,
-        scale: 1
-      }} className="rounded-lg border border-red-900/50 bg-red-950/30 p-4 mb-6">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="rounded-lg border border-red-900/50 bg-red-950/30 p-4 mb-6"
+          >
             <h3 className="text-red-500 font-semibold mb-1">Error Loading Data</h3>
             <p className="text-sm text-red-300">{error}</p>
-          </motion.div>}
+          </motion.div>
+        )}
 
-        {marketData && !loading && <div className="text-sm text-muted-foreground mb-4">
+        {marketData && !loading && (
+          <div className="text-sm text-muted-foreground mb-4">
             Last updated: {formatTime(marketData.lastUpdated)}
-          </div>}
+          </div>
+        )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 flex-grow min-h-0 rounded-md">
-          <MarketSection title="Top Gainers" icon={TrendingUp} tokens={marketData?.gainers?.slice(0, 10) || []} type="gainer" loading={loading} accentColor="#22c55e" accentBg="bg-green-500/10" />
+        <div className="flex flex-col gap-6 flex-grow min-h-0 rounded-md">
+          <div className="w-full">
+            <MarketSection 
+              title="Hot" 
+              icon={Zap} 
+              tokens={marketData?.hotPools?.slice(0, 10) || []} 
+              type="hot" 
+              loading={loading} 
+              accentColor="#3b82f6" 
+              accentBg="bg-blue-500/10" 
+            />
+          </div>
           
-          <MarketSection title="Top Losers" icon={TrendingDown} tokens={marketData?.losers?.slice(0, 10) || []} type="loser" loading={loading} accentColor="#ef4444" accentBg="bg-red-500/10" />
-          
-          <MarketSection title="Hot" icon={Zap} tokens={marketData?.hotPools?.slice(0, 10) || []} type="hot" loading={loading} accentColor="#3b82f6" accentBg="bg-blue-500/10" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
+            <MarketSection 
+              title="Top Gainers" 
+              icon={TrendingUp} 
+              tokens={marketData?.gainers?.slice(0, 10) || []} 
+              type="gainer" 
+              loading={loading} 
+              accentColor="#22c55e" 
+              accentBg="bg-green-500/10" 
+            />
+            
+            <MarketSection 
+              title="Top Losers" 
+              icon={TrendingDown} 
+              tokens={marketData?.losers?.slice(0, 10) || []} 
+              type="loser" 
+              loading={loading} 
+              accentColor="#ef4444" 
+              accentBg="bg-red-500/10" 
+            />
+          </div>
         </div>
       </div>
-    </Layout>;
+    </Layout>
+  );
 };
+
 export default Market;
