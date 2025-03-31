@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { Tweet, TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
+import { Tweet, TweetWithAuthor, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
 
@@ -99,14 +99,14 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: {
+        author: createPartialProfile({
           id: item.author_id,
           username: item.profile_username || item.username,
           display_name: item.profile_display_name || item.display_name || item.username,
           avatar_url: item.profile_avatar_url || item.avatar_url || '',
           avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
           avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        }
+        })
       };
       
       // Enhance the tweet data
@@ -124,7 +124,14 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
               ...enhancedTweet,
               content: cachedOriginalTweet.content,
               image_url: cachedOriginalTweet.image_url,
-              original_author: cachedOriginalTweet.author
+              original_author: createPartialProfile({
+                id: cachedOriginalTweet.author.id,
+                username: cachedOriginalTweet.author.username,
+                display_name: cachedOriginalTweet.author.display_name,
+                avatar_url: cachedOriginalTweet.author.avatar_url,
+                avatar_nft_id: cachedOriginalTweet.author.avatar_nft_id,
+                avatar_nft_chain: cachedOriginalTweet.author.avatar_nft_chain
+              })
             };
           }
           
@@ -145,14 +152,14 @@ export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor
               ...enhancedTweet,
               content: originalTweet.content,
               image_url: originalTweet.image_url,
-              original_author: {
+              original_author: createPartialProfile({
                 id: originalTweet.author_id,
                 username: originalTweet.username || 'user',
                 display_name: originalTweet.display_name || originalTweet.username || 'User',
                 avatar_url: originalTweet.avatar_url || '',
                 avatar_nft_id: originalTweet.avatar_nft_id,
                 avatar_nft_chain: originalTweet.avatar_nft_chain
-              }
+              })
             };
             
             // Cache the original tweet for future retweets
@@ -226,14 +233,14 @@ export async function getUserTweets(userId: string, limit = 20, offset = 0): Pro
         profile_avatar_url: item.profile_avatar_url || item.avatar_url,
         profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: {
+        author: createPartialProfile({
           id: item.author_id,
           username: item.profile_username || item.username,
           display_name: item.profile_display_name || item.display_name,
           avatar_url: item.profile_avatar_url || item.avatar_url || '',
           avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
           avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        }
+        })
       };
     });
     
@@ -718,14 +725,14 @@ export async function getUserRetweets(userId: string, limit = 20, offset = 0): P
         profile_avatar_url: profileData.avatar_url,
         profile_avatar_nft_id: profileData.avatar_nft_id,
         profile_avatar_nft_chain: profileData.avatar_nft_chain,
-        author: {
+        author: createPartialProfile({
           id: tweet.author_id,
           username: profileData.username,
           display_name: profileData.display_name,
           avatar_url: profileData.avatar_url || '',
           avatar_nft_id: profileData.avatar_nft_id,
           avatar_nft_chain: profileData.avatar_nft_chain
-        }
+        })
       };
     });
     

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -36,7 +36,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   const { toast } = useToast();
   const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Set up intersection observer for infinite scrolling
   const observer = useRef<IntersectionObserver | null>(null);
   const lastTweetElementRef = useCallback((node: HTMLDivElement | null) => {
     if (loading || loadingMore) return;
@@ -52,11 +51,9 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     if (node) observer.current.observe(node);
   }, [loading, loadingMore, hasMore]);
 
-  // Initial data fetch on component mount
   useEffect(() => {
     fetchTweets(true);
     
-    // Improved realtime subscriptions with specific event handling
     const tweetsChannel = supabase
       .channel('public:tweets')
       .on('postgres_changes', {
@@ -67,10 +64,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         console.log('Realtime update on tweets:', payload);
         
         if (payload.eventType === 'INSERT') {
-          // For new tweets, fetch just the new tweet and add it to the top
           fetchNewTweets();
         } else {
-          // For updates and deletes, refresh the current set
           refreshCurrentTweets();
         }
       })
@@ -84,11 +79,9 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         table: 'comments'
       }, (payload) => {
         console.log('Realtime update on comments:', payload);
-        // Type guard to ensure payload.new exists and has a tweet_id property
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const commentedTweetId = payload.new.tweet_id as string;
           updateTweetCommentCount(commentedTweetId).then(() => {
-            // After updating the database, refresh the tweet UI
             updateTweetCommentCountInUI(commentedTweetId);
           });
         }
@@ -102,10 +95,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     };
   }, [userId]);
 
-  // Function to fetch just new tweets and add them to the top
   const fetchNewTweets = async () => {
     try {
-      // Get the most recent tweets since our most recent one
       const newestTweetDate = tweets.length > 0 ? tweets[0].created_at : new Date().toISOString();
       
       const { data, error } = await supabase
@@ -118,14 +109,12 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       
       if (!data || data.length === 0) return;
       
-      // Process and filter for only tweets newer than our newest one
       const newTweets = (data as any[])
         .map(transformTweetData)
         .filter(tweet => tweet && new Date(tweet.created_at) > new Date(newestTweetDate));
         
       if (newTweets.length === 0) return;
       
-      // Add the new tweets to the top of our list
       setTweets(prev => [...newTweets, ...prev]);
       
     } catch (err) {
@@ -133,14 +122,12 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  // Function to refresh current tweets rather than reloading everything
   const refreshCurrentTweets = async () => {
     if (tweets.length === 0) return;
     
     try {
       const ids = tweets.map(t => t.id);
       
-      // For each tweet we have, get the latest data
       const freshTweets = await Promise.all(
         ids.map(async (id) => {
           try {
@@ -157,14 +144,12 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         })
       );
       
-      // Update our tweets, filtering out any that are now null (deleted)
       const validFreshTweets = freshTweets.filter(t => t !== null) as TweetWithAuthor[];
       
       if (validFreshTweets.length > 0) {
         setTweets(prev => {
           const updatedTweets = [...prev];
           
-          // Replace each existing tweet with the fresh data if available
           validFreshTweets.forEach(freshTweet => {
             const index = updatedTweets.findIndex(t => t.id === freshTweet.id);
             if (index !== -1) {
@@ -180,7 +165,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  // Transform raw tweet data from the database
   const transformTweetData = (item: any): TweetWithAuthor | null => {
     if (!item) return null;
     
@@ -200,20 +184,19 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       profile_avatar_url: item.profile_avatar_url || item.avatar_url,
       profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
       profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-      author: {
+      author: createPartialProfile({
         id: item.author_id,
         username: item.profile_username || item.username,
         display_name: item.profile_display_name || item.display_name || item.username,
         avatar_url: item.profile_avatar_url || item.avatar_url || '',
         avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
         avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-      }
+      })
     };
     
     return enhanceTweetData(transformedTweet);
   };
 
-  // New function to update a single tweet's comment count in the UI
   const updateTweetCommentCountInUI = async (tweetId: string) => {
     try {
       const { data, error } = await supabase
@@ -229,7 +212,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       
       console.log(`Updating tweet ${tweetId} comment count in UI to ${data.replies_count}`);
       
-      // Update the tweet in our state array
       setTweets(prevTweets => 
         prevTweets.map(tweet => 
           tweet.id === tweetId 
@@ -242,7 +224,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  // Function to load more tweets when scrolling
   const loadMoreTweets = async () => {
     if (loadingMore || !hasMore) return;
     
@@ -271,7 +252,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  // Main fetch function with optimizations
   const fetchTweets = async (showLoading = true) => {
     try {
       if (showLoading) {
@@ -280,7 +260,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       setError(null);
       setPage(0);
       
-      // Direct database call for better performance
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 
           limit_count: TWEETS_PER_PAGE, 
@@ -295,7 +274,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         return;
       }
       
-      // Process the tweets with optimized transformations
       const transformedTweets = (data as any[])
         .map(transformTweetData)
         .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
@@ -303,7 +281,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       setTweets(transformedTweets);
       setHasMore(transformedTweets.length === TWEETS_PER_PAGE);
       
-      // Prefetch the next batch of tweets for faster loading
       prefetchNextBatch();
       
     } catch (err) {
@@ -320,7 +297,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  // Prefetch the next batch of tweets
   const prefetchNextBatch = async () => {
     try {
       const { data } = await supabase
@@ -329,11 +305,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
           offset_count: TWEETS_PER_PAGE 
         });
       
-      // We don't need to do anything with the data here,
-      // just preload it into the browser's cache
       console.log(`Prefetched ${data ? data.length : 0} tweets for faster loading`);
     } catch (err) {
-      // Silently fail, this is just an optimization
       console.error('Error prefetching tweets:', err);
     }
   };
@@ -356,7 +329,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     setIsDetailOpen(false);
     
     if (selectedTweet) {
-      // Force update the tweet's comment count before closing the detail
       updateTweetCommentCount(selectedTweet.id);
     }
     
@@ -365,7 +337,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   };
 
   const handleCommentAdded = (tweetId: string) => {
-    // Always update comment count in UI and database when a comment is added
     updateTweetCommentCount(tweetId);
     
     if (onCommentAdded) {
@@ -442,7 +413,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       <div className="tweet-feed bg-black">
         {tweets.map((tweet, index) => {
           if (tweets.length === index + 1) {
-            // Last item gets a ref for infinite scrolling
             return (
               <div key={tweet.id} ref={lastTweetElementRef}>
                 <TweetCard

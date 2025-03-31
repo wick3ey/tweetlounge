@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
@@ -30,7 +29,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ onBackClick }) => {
   }, [conversationId, user]);
 
   useEffect(() => {
-    // Scroll to bottom on new messages
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
@@ -45,7 +43,6 @@ const MessageChat: React.FC<MessageChatProps> = ({ onBackClick }) => {
           inputRef.current.focus();
         }
       } else {
-        // Handle error (e.g., show a toast)
         console.error('Failed to send message');
       }
     }

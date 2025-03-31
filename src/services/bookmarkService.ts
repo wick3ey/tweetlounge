@@ -1,6 +1,5 @@
-
+import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
 import { supabase } from '@/lib/supabase';
-import { TweetWithAuthor } from '@/types/Tweet';
 
 // Add a bookmark
 export async function bookmarkTweet(tweetId: string): Promise<boolean> {
@@ -182,14 +181,14 @@ export async function getBookmarkedTweets(limit = 20, offset = 0): Promise<Tweet
         original_tweet_id: tweet.original_tweet_id,
         image_url: tweet.image_url,
         bookmarked_at: item.bookmarked_at,
-        author: {
+        author: createPartialProfile({
           id: profile.id,
           username: profile.username,
-          display_name: profile.display_name,
+          display_name: profile.display_name || profile.username,
           avatar_url: profile.avatar_url || '',
           avatar_nft_id: profile.avatar_nft_id,
           avatar_nft_chain: profile.avatar_nft_chain
-        }
+        })
       };
     });
     

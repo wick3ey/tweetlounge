@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TweetWithAuthor } from '@/types/Tweet';
+import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
@@ -71,14 +70,14 @@ const TweetPage = () => {
           is_retweet: tweetData.is_retweet,
           original_tweet_id: tweetData.original_tweet_id,
           image_url: tweetData.image_url,
-          author: {
+          author: createPartialProfile({
             id: tweetData.author_id,
             username: tweetData.username,
             display_name: tweetData.display_name,
             avatar_url: tweetData.avatar_url || '',
             avatar_nft_id: tweetData.avatar_nft_id,
             avatar_nft_chain: tweetData.avatar_nft_chain
-          }
+          })
         };
 
         if (tweetData.is_retweet && tweetData.original_tweet_id) {
@@ -89,14 +88,14 @@ const TweetPage = () => {
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
               
-              formattedTweet.original_author = {
+              formattedTweet.original_author = createPartialProfile({
                 id: originalTweet.author_id,
                 username: originalTweet.username,
                 display_name: originalTweet.display_name,
                 avatar_url: originalTweet.avatar_url || '',
                 avatar_nft_id: originalTweet.avatar_nft_id,
                 avatar_nft_chain: originalTweet.avatar_nft_chain
-              };
+              });
             }
           } catch (err) {
             console.error('Error fetching original tweet author:', err);
