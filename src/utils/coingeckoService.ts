@@ -290,7 +290,7 @@ export const useCryptoData = () => {
         // Trigger backend refresh
         await triggerDataRefresh();
         
-        // Wait a moment for processing
+        // Wait a moment for the backend to process
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Fetch the updated data
@@ -321,7 +321,7 @@ export const useMarketStats = (): {
   const [error, setError] = useState<string | null>(globalStatsCache.lastError);
   const lastFetchRef = useRef<number>(globalStatsCache.timestamp);
 
-  const fetchMarketStats = async () => {
+  const fetchMarketStatsData = async () => {
     setLoading(true);
     setError(null);
     
@@ -332,21 +332,30 @@ export const useMarketStats = (): {
       if (globalStatsCache.data && currentTime - globalStatsCache.timestamp < MEMORY_CACHE_DURATION) {
         console.log('Using in-memory cached market stats data');
         // Add lastUpdated property to the data when setting it
-        const dataWithTimestamp = globalStatsCache.data ? 
-          { ...globalStatsCache.data, lastUpdated: new Date(globalStatsCache.timestamp).toISOString() } : 
-          null;
-        setMarketStats(dataWithTimestamp);
+        if (globalStatsCache.data) {
+          const dataWithTimestamp = { 
+            ...globalStatsCache.data, 
+            lastUpdated: new Date(globalStatsCache.timestamp).toISOString() 
+          };
+          setMarketStats(dataWithTimestamp);
+        } else {
+          setMarketStats(null);
+        }
         setLoading(false);
         return;
       }
       
       // Fetch new data from Supabase cache
       const freshData = await fetchMarketStats();
-      // Add lastUpdated property when setting fresh data
-      const dataWithTimestamp = freshData ? 
-        { ...freshData, lastUpdated: new Date().toISOString() } : 
-        null;
-      setMarketStats(dataWithTimestamp);
+      if (freshData) {
+        const dataWithTimestamp = { 
+          ...freshData, 
+          lastUpdated: new Date().toISOString() 
+        };
+        setMarketStats(dataWithTimestamp);
+      } else {
+        setMarketStats(null);
+      }
       lastFetchRef.current = currentTime;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -355,15 +364,17 @@ export const useMarketStats = (): {
       
       // Fall back to memory cache if available, or use fallback data
       if (globalStatsCache.data) {
-        const dataWithTimestamp = globalStatsCache.data ? 
-          { ...globalStatsCache.data, lastUpdated: new Date(globalStatsCache.timestamp).toISOString() } : 
-          null;
+        const dataWithTimestamp = { 
+          ...globalStatsCache.data, 
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString() 
+        };
         setMarketStats(dataWithTimestamp);
       } else {
         const fallbackData = getFallbackMarketStats();
-        const fallbackWithTimestamp = fallbackData ? 
-          { ...fallbackData, lastUpdated: new Date().toISOString() } : 
-          null;
+        const fallbackWithTimestamp = { 
+          ...fallbackData, 
+          lastUpdated: new Date().toISOString() 
+        };
         setMarketStats(fallbackWithTimestamp);
       }
     } finally {
@@ -393,11 +404,13 @@ export const useMarketStats = (): {
       
       // Now fetch from the cache
       const freshData = await fetchMarketStats();
-      const dataWithTimestamp = {
-        ...freshData,
-        lastUpdated: new Date().toISOString()
-      };
-      setMarketStats(dataWithTimestamp);
+      if (freshData) {
+        const dataWithTimestamp = {
+          ...freshData,
+          lastUpdated: new Date().toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
+      }
       lastFetchRef.current = currentTime;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -411,8 +424,9 @@ export const useMarketStats = (): {
         };
         setMarketStats(dataWithTimestamp);
       } else {
+        const fallbackData = getFallbackMarketStats();
         const fallbackWithTimestamp = {
-          ...getFallbackMarketStats(),
+          ...fallbackData,
           lastUpdated: new Date().toISOString()
         };
         setMarketStats(fallbackWithTimestamp);
@@ -423,13 +437,13 @@ export const useMarketStats = (): {
   };
   
   useEffect(() => {
-    fetchMarketStats();
+    fetchMarketStatsData();
     
     // Set up a timer to refresh data periodically
     const intervalId = setInterval(() => {
       // Only refresh if the cache is stale
       if (Date.now() - lastFetchRef.current > MEMORY_CACHE_DURATION) {
-        fetchMarketStats();
+        fetchMarketStatsData();
       }
     }, 60 * 1000); // Check every minute
     
