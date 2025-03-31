@@ -4,7 +4,7 @@ import { getUserTweets, getUserRetweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
 import { TweetWithAuthor, isValidTweet, enhanceTweetData } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
-import { Loader, MessageSquare, Reply, FileImage, Coins, Sparkles } from 'lucide-react';
+import { Loader, MessageSquare, Reply, FileImage, Coins, Sparkles, RefreshCw } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import TweetCard from '@/components/tweet/TweetCard';
 import CommentCard from '@/components/comment/CommentCard';
@@ -58,8 +58,18 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
               username: originalTweet.username || 'user',
               display_name: originalTweet.display_name || 'User',
               avatar_url: originalTweet.avatar_url || '',
+              bio: null,
+              cover_url: null,
+              location: null,
+              website: null,
+              updated_at: null,
+              created_at: new Date().toISOString(),
+              ethereum_address: null,
+              solana_address: null,
               avatar_nft_id: originalTweet.avatar_nft_id,
               avatar_nft_chain: originalTweet.avatar_nft_chain,
+              followers_count: 0,
+              following_count: 0,
               replies_sort_order: originalTweet.replies_sort_order
             }
           };
@@ -338,7 +348,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
             onClick={handleRefresh}
             disabled={loading}
           >
-            <RefreshCwIcon className={`h-3 w-3 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3 w-3 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Loading...' : 'Refresh'}
           </CryptoButton>
           
