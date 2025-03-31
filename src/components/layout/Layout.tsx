@@ -25,10 +25,10 @@ const Layout: React.FC<LayoutProps> = ({
         <CryptoTicker />
       </div>
       
-      <div className="flex flex-1 w-full">
+      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
         <LeftSidebar />
         
-        <main className={`flex-1 border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-screen' : ''}`}>
+        <main className={`flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-screen' : ''}`}>
           {pageTitle && (
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <h1 className="text-xl font-bold">{pageTitle}</h1>

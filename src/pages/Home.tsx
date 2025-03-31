@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -25,9 +24,7 @@ const Home: React.FC = () => {
   const [feedKey, setFeedKey] = useState<number>(0);
   const queryClient = useQueryClient();
 
-  // Enhanced real-time subscriptions for instant updates
   useEffect(() => {
-    // Create a single channel for both tweet and comment changes
     const channel = supabase
       .channel('realtime:feed')
       .on('postgres_changes', {
@@ -37,10 +34,7 @@ const Home: React.FC = () => {
       }, (payload) => {
         console.log('Home page detected tweet change:', payload);
         
-        // Force an immediate refresh of the feed data through React Query
         queryClient.invalidateQueries({ queryKey: ['tweets'] });
-        
-        // Also invalidate trending hashtags when tweets change
         queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       })
       .on('postgres_changes', {
@@ -50,21 +44,15 @@ const Home: React.FC = () => {
       }, (payload) => {
         console.log('Home page detected comment change:', payload);
         
-        // Check if payload.new exists and has a tweet_id property
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const tweetId = payload.new.tweet_id as string;
           console.log(`Updating comment count for tweet ${tweetId} in Home page`);
           
-          // First update the count in the database
           updateTweetCommentCount(tweetId).then(() => {
-            // Invalidate specific tweet data to refresh its comment count
             queryClient.invalidateQueries({ queryKey: ['tweet', tweetId] });
-            
-            // Also invalidate the entire feed to ensure consistent UI state
             queryClient.invalidateQueries({ queryKey: ['tweets'] });
           });
         } else {
-          // If we can't get the tweet_id, refresh the whole feed anyway
           queryClient.invalidateQueries({ queryKey: ['tweets'] });
         }
       })
@@ -95,7 +83,6 @@ const Home: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Update feed by immediately invalidating relevant queries
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
       queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       
@@ -118,7 +105,6 @@ const Home: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    // Update feed by immediately invalidating relevant queries
     console.log('Manually refreshing feed in Home component');
     queryClient.invalidateQueries({ queryKey: ['tweets'] });
   };
@@ -130,10 +116,10 @@ const Home: React.FC = () => {
         <CryptoTicker />
       </div>
       
-      <div className="flex flex-1 w-full">
+      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
         <LeftSidebar />
         
-        <main className="flex-1 border-x border-gray-800 overflow-y-auto">
+        <main className="flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto">
           <div className="max-w-full">
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <div className="flex gap-3 items-center">
@@ -154,12 +140,10 @@ const Home: React.FC = () => {
               </div>
             </div>
             
-            {/* Tweet Composer */}
             <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
-            {/* Tweet Feed with Tabs */}
             <div>
               <div className="border-b border-gray-800">
                 <TweetFeedTabs />
