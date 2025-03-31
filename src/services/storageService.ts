@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export const createBucketsIfNotExist = async () => {
@@ -60,6 +59,10 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
     // Clean symbol name for use as filename (lowercase and remove special chars)
     const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
     
+    // Check if logo is from Solana Labs token list, modify URL if needed
+    const isSolanaTokenList = logoUrl.includes('raw.githubusercontent.com/solana-labs/token-list');
+    const safeLogoUrl = isSolanaTokenList ? logoUrl : logoUrl;
+
     // First check if we already have this logo cached
     const { data: existingFiles, error: listError } = await supabase
       .storage
@@ -83,16 +86,14 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
       return data.publicUrl;
     }
     
-    // If not cached, download the image
-    console.log(`Fetching and caching logo for ${symbol} from ${logoUrl}`);
+    console.log(`Fetching and caching logo for ${symbol} from ${safeLogoUrl}`);
     
     try {
       // Fetch the image with timeout and proper headers
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      // Fetch the image
-      const imageResponse = await fetch(logoUrl, {
+      const imageResponse = await fetch(safeLogoUrl, {
         headers: {
           'Accept': 'image/png,image/jpeg,image/gif,image/*',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -151,7 +152,7 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
       return null;
     }
   } catch (err) {
-    console.error(`Error in cacheTokenLogo for ${symbol}:`, err);
+    console.error(`Comprehensive error in cacheTokenLogo for ${symbol}:`, err);
     return null;
   }
 };
