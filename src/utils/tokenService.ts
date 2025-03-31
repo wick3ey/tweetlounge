@@ -17,6 +17,12 @@ export interface Token {
   priceChange24h?: number; // Added for price change percentage
 }
 
+// Define the missing TokensResponse interface
+export interface TokensResponse {
+  tokens: Token[];
+  solPrice?: number;
+}
+
 interface DexToolsTokenInfo {
   address: string;
   name: string;
