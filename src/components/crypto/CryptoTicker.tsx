@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback, memo } from 'react'
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react'
 import { useCryptoData, CryptoCurrency } from '@/utils/coingeckoService'
 import { Loader2, RefreshCcw, AlertTriangle, Info } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
@@ -55,6 +54,9 @@ const CryptoTicker: React.FC = () => {
   const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
   const [isManualRefresh, setIsManualRefresh] = useState(false);
   const [isFallbackData, setIsFallbackData] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(3); // Default number of times to repeat the ticker
+  const tickerContainerRef = useRef<HTMLDivElement>(null);
+  const tickerContentRef = useRef<HTMLDivElement>(null);
   
   // Auto-retry with smarter backoff
   useEffect(() => {
@@ -80,6 +82,33 @@ const CryptoTicker: React.FC = () => {
       setIsFallbackData(matchesFallback || error !== null);
     }
   }, [cryptoData, error]);
+
+  // Calculate how many times we need to repeat items to fill the container
+  useEffect(() => {
+    const calculateRepeatCount = () => {
+      if (!tickerContainerRef.current || !tickerContentRef.current) return;
+      
+      const containerWidth = tickerContainerRef.current.clientWidth;
+      const contentWidth = tickerContentRef.current.scrollWidth;
+      
+      // We want to fill at least 2x the container width to ensure continuous scrolling
+      const repeatsNeeded = Math.ceil((containerWidth * 2) / contentWidth);
+      
+      // Use at least 3 repeats or the calculated number, whichever is greater
+      setRepeatCount(Math.max(3, repeatsNeeded));
+    };
+
+    // Initial calculation
+    calculateRepeatCount();
+    
+    // Recalculate when window is resized
+    const handleResize = () => {
+      calculateRepeatCount();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [cryptoData.length]);
   
   // Memoize refresh handler
   const handleRefresh = useCallback(async () => {
@@ -142,9 +171,42 @@ const CryptoTicker: React.FC = () => {
     };
   }, []);
 
+  // Render the ticker items multiple times to ensure continuous scrolling
+  const renderTickerItems = () => {
+    // If loading with no data, show placeholders
+    if (loading && displayData.length === 0) {
+      return Array(5).fill(0).map((_, index) => (
+        <div key={`placeholder-${index}`} className="crypto-ticker-item animate-pulse">
+          <div className="h-4 w-10 bg-crypto-gray/30 rounded"></div>
+          <div className="h-3 w-16 bg-crypto-gray/20 rounded"></div>
+          <div className="h-4 w-14 bg-crypto-gray/30 rounded"></div>
+          <div className="h-3 w-12 bg-crypto-gray/20 rounded"></div>
+        </div>
+      ));
+    }
+
+    // Otherwise, render the actual data repeated
+    return Array(repeatCount).fill(0).map((_, repeat) => (
+      <React.Fragment key={`repeat-${repeat}`}>
+        {displayData.map((crypto, index) => (
+          <CryptoTickerItem 
+            key={`${repeat}-${index}`}
+            name={crypto.name}
+            symbol={crypto.symbol}
+            price={crypto.price}
+            change={crypto.change}
+          />
+        ))}
+      </React.Fragment>
+    ));
+  };
+
   return (
-    <div className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3">
-      <div className="flex items-center space-x-6 animate-marquee will-change-transform">
+    <div 
+      ref={tickerContainerRef}
+      className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3"
+    >
+      <div ref={tickerContentRef} className="flex items-center animate-marquee will-change-transform">
         <div className="font-display text-crypto-blue font-bold px-4 flex items-center gap-2">
           {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
@@ -191,31 +253,11 @@ const CryptoTicker: React.FC = () => {
           )}
         </div>
         
-        {/* Always show some data - either real or fallback */}
-        {displayData.map((crypto, index) => (
-          <CryptoTickerItem 
-            key={index}
-            name={crypto.name}
-            symbol={crypto.symbol}
-            price={crypto.price}
-            change={crypto.change}
-          />
-        ))}
-        
-        {/* If we're in a loading state and have no data yet, show loading placeholders */}
-        {loading && displayData.length === 0 && (
-          Array(5).fill(0).map((_, index) => (
-            <div key={index} className="crypto-ticker-item animate-pulse">
-              <div className="h-4 w-10 bg-crypto-gray/30 rounded"></div>
-              <div className="h-3 w-16 bg-crypto-gray/20 rounded"></div>
-              <div className="h-4 w-14 bg-crypto-gray/30 rounded"></div>
-              <div className="h-3 w-12 bg-crypto-gray/20 rounded"></div>
-            </div>
-          ))
-        )}
+        {/* Render ticker items with calculated repetition */}
+        {renderTickerItems()}
       </div>
     </div>
-  )
+  );
 }
 
 // Memoize the entire component to prevent unnecessary re-renders
