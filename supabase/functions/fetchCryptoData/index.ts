@@ -1,421 +1,134 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0'
-
-// Define the base URL for our API
-const API_URL = 'https://f3oci3ty.xyz/api/crypto'
-
-// Define the CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Create a Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL') as string
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-// Define cache duration - 30 minutes
-const CACHE_DURATION = 30 * 60 * 1000
-
-// Default fallback data to return when API is unreachable
-const FALLBACK_DATA = {
-  gainers: [
-    {
-      symbol: "BTC",
-      name: "Bitcoin",
-      address: "bitcoin-address",
-      price: 85000,
-      mcap: 1800000000000,
-      variation24h: 5.2,
-      rank: 1,
-      exchange: "Binance",
-      pool: "btc-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 19500000,
-        totalSupply: 21000000,
-        mcap: 1800000000000,
-        fdv: 1900000000000,
-        holders: 200000000
-      }
-    },
-    {
-      symbol: "ETH",
-      name: "Ethereum",
-      address: "ethereum-address",
-      price: 3200,
-      mcap: 380000000000,
-      variation24h: 4.8,
-      rank: 2,
-      exchange: "Binance",
-      pool: "eth-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 120000000,
-        totalSupply: 120000000,
-        mcap: 380000000000,
-        fdv: 380000000000,
-        holders: 90000000
-      }
-    },
-    {
-      symbol: "SOL",
-      name: "Solana",
-      address: "solana-address",
-      price: 160,
-      mcap: 75000000000,
-      variation24h: 8.5,
-      rank: 3,
-      exchange: "Binance",
-      pool: "sol-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 450000000,
-        totalSupply: 500000000,
-        mcap: 75000000000,
-        fdv: 80000000000,
-        holders: 25000000
-      }
-    }
-  ],
-  losers: [
-    {
-      symbol: "DOGE",
-      name: "Dogecoin",
-      address: "dogecoin-address",
-      price: 0.13,
-      mcap: 18000000000,
-      variation24h: -3.8,
-      rank: 1,
-      exchange: "Binance",
-      pool: "doge-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 140000000000,
-        totalSupply: 140000000000,
-        mcap: 18000000000,
-        fdv: 18000000000,
-        holders: 5000000
-      }
-    },
-    {
-      symbol: "SHIB",
-      name: "Shiba Inu",
-      address: "shiba-address",
-      price: 0.000018,
-      mcap: 10000000000,
-      variation24h: -2.5,
-      rank: 2,
-      exchange: "Binance",
-      pool: "shib-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 549000000000000,
-        totalSupply: 1000000000000000,
-        mcap: 10000000000,
-        fdv: 18000000000,
-        holders: 1200000
-      }
-    },
-    {
-      symbol: "XRP",
-      name: "Ripple",
-      address: "ripple-address",
-      price: 0.54,
-      mcap: 30000000000,
-      variation24h: -1.2,
-      rank: 3,
-      exchange: "Binance",
-      pool: "xrp-usdt",
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 55000000000,
-        totalSupply: 100000000000,
-        mcap: 30000000000,
-        fdv: 54000000000,
-        holders: 4000000
-      }
-    }
-  ],
-  hotPools: [
-    {
-      symbol: "NEW",
-      name: "NewToken",
-      tokenAddress: "new-token-address",
-      poolAddress: "new-token-pool",
-      mcap: 2000000,
-      rank: 1,
-      exchange: "Raydium",
-      creationTime: new Date().toISOString(),
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 10000000,
-        totalSupply: 100000000,
-        mcap: 2000000,
-        fdv: 20000000,
-        holders: 1500
-      }
-    },
-    {
-      symbol: "LAUNCH",
-      name: "LaunchToken",
-      tokenAddress: "launch-token-address",
-      poolAddress: "launch-token-pool",
-      mcap: 1500000,
-      rank: 2,
-      exchange: "Raydium",
-      creationTime: new Date().toISOString(),
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 5000000,
-        totalSupply: 50000000,
-        mcap: 1500000,
-        fdv: 15000000,
-        holders: 900
-      }
-    },
-    {
-      symbol: "FRESH",
-      name: "FreshToken",
-      tokenAddress: "fresh-token-address",
-      poolAddress: "fresh-token-pool",
-      mcap: 800000,
-      rank: 3,
-      exchange: "Orca",
-      creationTime: new Date().toISOString(),
-      logoUrl: null,
-      financialInfo: {
-        circulatingSupply: 2000000,
-        totalSupply: 20000000,
-        mcap: 800000,
-        fdv: 8000000,
-        holders: 450
-      }
-    }
-  ],
-  lastUpdated: new Date().toISOString()
 };
 
-// Create 'token-logos' bucket if it doesn't exist
-async function ensureStorageBucketExists() {
+// Duration in milliseconds - 10 minutes cache
+const CACHE_DURATION = 10 * 60 * 1000;
+
+// Define response type
+interface MarketStats {
+  total_market_cap: number;
+  total_volume: number;
+  btc_dominance: number;
+  eth_dominance: number;
+  active_cryptocurrencies: number;
+  market_cap_change_percentage_24h: number;
+  fear_greed_value?: number;
+  fear_greed_label?: string;
+}
+
+interface CryptoCurrency {
+  id: string;
+  name: string;
+  symbol: string;
+  price: number;
+  change: number;
+}
+
+// Function to fetch market stats from CoinGecko
+async function fetchMarketGlobal() {
   try {
-    // Check if bucket exists
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    console.log('Fetching global market data from CoinGecko');
+    const response = await fetch('https://api.coingecko.com/api/v3/global');
     
-    if (listError) {
-      console.error('Error checking buckets:', listError);
-      return false;
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status}`);
     }
     
-    const bucketExists = buckets?.some(bucket => bucket.name === 'token-logos');
+    const data = await response.json();
     
-    if (!bucketExists) {
-      console.log('Creating token-logos bucket');
-      const { error } = await supabase.storage.createBucket('token-logos', {
-        public: true
-      });
-      
-      if (error) {
-        console.error('Error creating bucket:', error);
-        return false;
-      }
-      
-      // Set bucket policy to be public
-      const { error: policyError } = await supabase.storage.from('token-logos').createSignedUrl(
-        'dummy.txt', 
-        60, 
-        { download: true }
-      );
-      
-      if (policyError && !policyError.message.includes('not found')) {
-        console.error('Error setting bucket policy:', policyError);
-      }
-    }
-    
-    return true;
+    return {
+      total_market_cap: data.data.total_market_cap.usd,
+      total_volume: data.data.total_volume.usd,
+      btc_dominance: data.data.market_cap_percentage.btc,
+      eth_dominance: data.data.market_cap_percentage.eth,
+      active_cryptocurrencies: data.data.active_cryptocurrencies,
+      market_cap_change_percentage_24h: data.data.market_cap_change_percentage_24h_usd,
+    };
   } catch (error) {
-    console.error('Unexpected error ensuring bucket exists:', error);
-    return false;
+    console.error('Error fetching market global data:', error);
+    // Return fallback data
+    return {
+      total_market_cap: 2800000000000,
+      total_volume: 110000000000,
+      btc_dominance: 58.5,
+      eth_dominance: 8.2,
+      active_cryptocurrencies: 17100,
+      market_cap_change_percentage_24h: -1.2,
+    };
   }
 }
 
-// Cache images to Supabase Storage
-async function cacheImageToStorage(imageUrl: string, symbol: string) {
+// Function to fetch fear and greed index
+async function fetchFearAndGreed() {
   try {
-    if (!imageUrl) return null;
+    console.log('Fetching fear and greed data');
+    const response = await fetch('https://api.alternative.me/fng/');
     
-    // Create a sanitized file name from the symbol
-    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
-    
-    // Check if the image already exists in storage
-    const { data: existingFiles } = await supabase.storage
-      .from('token-logos')
-      .list('', {
-        search: fileName
-      });
-      
-    if (existingFiles && existingFiles.length > 0) {
-      const { data: publicUrl } = supabase.storage
-        .from('token-logos')
-        .getPublicUrl(fileName);
-        
-      return publicUrl.publicUrl;
+    if (!response.ok) {
+      throw new Error(`Fear and Greed API error: ${response.status}`);
     }
     
-    // Fetch the image from the source
-    console.log(`Fetching image from ${imageUrl} for ${symbol}`);
-    const imageResponse = await fetch(imageUrl, {
-      headers: { 'Accept': 'image/*' },
-      cache: 'no-store'
-    });
+    const data = await response.json();
     
-    if (!imageResponse.ok) {
-      console.error(`Failed to fetch image for ${symbol}: ${imageResponse.statusText}`);
-      return null;
+    if (data.data && data.data.length > 0) {
+      return {
+        fear_greed_value: parseInt(data.data[0].value),
+        fear_greed_label: data.data[0].value_classification,
+      };
     }
     
-    // Get image as blob
-    const imageBlob = await imageResponse.blob();
-    
-    // Convert blob to array buffer for Supabase storage
-    const arrayBuffer = await imageBlob.arrayBuffer();
-    
-    // Upload the image to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('token-logos')
-      .upload(fileName, arrayBuffer, {
-        contentType: imageBlob.type,
-        cacheControl: '3600',
-        upsert: true
-      });
-      
-    if (uploadError) {
-      console.error(`Error uploading image for ${symbol}:`, uploadError);
-      return null;
-    }
-    
-    // Get the public URL for the cached image
-    const { data: publicUrl } = supabase.storage
-      .from('token-logos')
-      .getPublicUrl(fileName);
-      
-    console.log(`Successfully cached image for ${symbol}`);
-    return publicUrl.publicUrl;
+    throw new Error('Invalid fear and greed data format');
   } catch (error) {
-    console.error(`Error caching image for ${symbol}:`, error);
-    return null;
+    console.error('Error fetching fear and greed data:', error);
+    // Return fallback data
+    return {
+      fear_greed_value: 50,
+      fear_greed_label: 'Neutral',
+    };
   }
 }
 
-// Process and cache images for tokens
-async function processTokenImages(tokens: any[]) {
-  if (!tokens || !Array.isArray(tokens)) return tokens;
-  
-  // Process in batches to avoid overwhelming the system
-  const batchSize = 5;
-  const processedTokens = [...tokens]; // Create a copy to modify
-  
-  for (let i = 0; i < processedTokens.length; i += batchSize) {
-    const batch = processedTokens.slice(i, i + batchSize);
+// Function to fetch cryptocurrency prices
+async function fetchCryptoTokens() {
+  try {
+    console.log('Fetching crypto token prices');
+    const response = await fetch(
+      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=15&page=1&sparkline=false'
+    );
     
-    // Process each token in the batch concurrently
-    await Promise.all(batch.map(async (token, index) => {
-      if (token.logoUrl) {
-        const cachedImageUrl = await cacheImageToStorage(token.logoUrl, token.symbol || `token${i + index}`);
-        if (cachedImageUrl) {
-          processedTokens[i + index] = {
-            ...token,
-            logoUrl: cachedImageUrl, // Replace with cached image URL
-            originalLogoUrl: token.logoUrl // Keep the original URL as reference
-          };
-        }
-      }
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Format the data
+    return data.map((coin: any) => ({
+      id: coin.id,
+      name: coin.name,
+      symbol: coin.symbol.toUpperCase(),
+      price: coin.current_price,
+      change: coin.price_change_percentage_24h || 0,
     }));
-  }
-  
-  return processedTokens;
-}
-
-// Check if we have cached data before a specific timeout
-async function getValidCachedData(cache_key: string) {
-  try {
-    const { data: cachedData, error: cacheError } = await supabase
-      .from('market_cache')
-      .select('data, expires_at')
-      .eq('cache_key', cache_key)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (cacheError) {
-      console.error('Error checking cache:', cacheError);
-      return null;
-    }
-
-    if (cachedData) {
-      console.log('Returning cached market data');
-      return cachedData.data;
-    }
-    
-    return null;
   } catch (error) {
-    console.error('Error retrieving cached data:', error);
-    return null;
-  }
-}
-
-// Store data in cache with an expiration
-async function storeCacheData(cache_key: string, data: any, expiresIn: number) {
-  try {
-    const expires = new Date(Date.now() + expiresIn);
-    
-    // Delete any existing entries with this key first
-    const { error: deleteError } = await supabase
-      .from('market_cache')
-      .delete()
-      .eq('cache_key', cache_key);
-      
-    if (deleteError) {
-      console.error('Error deleting existing cache:', deleteError);
-    }
-    
-    // Insert the new cache entry
-    const { error: insertError } = await supabase
-      .from('market_cache')
-      .insert({
-        cache_key: cache_key,
-        data: data,
-        expires_at: expires.toISOString(),
-        source: 'f3oci3ty.xyz'
-      });
-
-    if (insertError) {
-      console.error('Error inserting cache:', insertError);
-      return false;
-    }
-    
-    console.log(`Successfully cached market data with key: ${cache_key}`);
-    return true;
-  } catch (error) {
-    console.error('Error storing cache data:', error);
-    return false;
-  }
-}
-
-// Fetch from external API with timeout
-async function fetchWithTimeout(url: string, options = {}, timeout = 10000) {
-  const controller = new AbortController();
-  const { signal } = controller;
-  
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  
-  try {
-    const response = await fetch(url, { ...options, signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+    console.error('Error fetching crypto token prices:', error);
+    // Return fallback data
+    return [
+      { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 83000, change: 0.9 },
+      { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1840, change: 1.8 },
+      { id: 'tether', name: 'Tether', symbol: 'USDT', price: 1, change: 0 },
+      { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.12, change: -0.7 },
+      { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 604, change: 0.5 },
+      { id: 'solana', name: 'Solana', symbol: 'SOL', price: 126, change: 1.3 },
+      { id: 'usd-coin', name: 'USDC', symbol: 'USDC', price: 1, change: 0 },
+      { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.16, change: -0.4 },
+      { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.65, change: -1.2 },
+      { id: 'tron', name: 'TRON', symbol: 'TRX', price: 0.23, change: 2.8 },
+    ];
   }
 }
 
@@ -426,111 +139,173 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Starting crypto data fetch...');
-
-    // Get the cache key from the request body or use default
-    let requestBody = {};
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      console.log('No valid JSON in request body, using default parameters');
+    // Get Supabase client from environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Parse request body if any
+    let requestParams = {};
+    if (req.method === 'POST') {
+      try {
+        requestParams = await req.json();
+        console.log('Request params:', requestParams);
+      } catch (e) {
+        console.log('No request body or invalid JSON');
+      }
     }
 
-    const { cache_key = 'market_data_v1' } = requestBody;
-    console.log(`Using cache key: ${cache_key}`);
+    // First, check if we have fresh cached data
+    let cachedMarketStats = null;
+    let cachedCryptoData = null;
+    const now = new Date();
 
-    // Try to get valid cached data
-    const cachedData = await getValidCachedData(cache_key);
-    if (cachedData) {
-      return new Response(JSON.stringify(cachedData), {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
+    // Check for market_stats in cache
+    const { data: marketStatsCache, error: marketStatsCacheError } = await supabase
+      .from('market_cache')
+      .select('data, expires_at')
+      .eq('cache_key', 'market_stats')
+      .gt('expires_at', now.toISOString())
+      .maybeSingle();
+
+    if (!marketStatsCacheError && marketStatsCache) {
+      console.log('Using cached market stats');
+      cachedMarketStats = marketStatsCache.data;
+    }
+
+    // Check for crypto_data in cache
+    const { data: cryptoDataCache, error: cryptoDataCacheError } = await supabase
+      .from('market_cache')
+      .select('data, expires_at')
+      .eq('cache_key', 'crypto_data')
+      .gt('expires_at', now.toISOString())
+      .maybeSingle();
+
+    if (!cryptoDataCacheError && cryptoDataCache) {
+      console.log('Using cached crypto data');
+      cachedCryptoData = cryptoDataCache.data;
+    }
+
+    // If we have both cached, return them
+    if (cachedMarketStats && cachedCryptoData && requestParams.trigger !== 'manual') {
+      console.log('Returning cached data for both market stats and crypto');
+      return new Response(
+        JSON.stringify({
+          marketStats: cachedMarketStats,
+          cryptoData: cachedCryptoData,
+          lastUpdated: now.toISOString(),
+          cached: true
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
         }
-      });
-    }
-
-    console.log('No valid cache found, fetching fresh data from API');
-
-    // Ensure the storage bucket exists
-    await ensureStorageBucketExists();
-
-    // Attempt to fetch fresh data with timeout
-    let marketData;
-    let processedData;
-    
-    try {
-      const response = await fetchWithTimeout(
-        API_URL, 
-        { headers: { 'Accept': 'application/json' }, cache: 'no-store' },
-        7000 // 7 second timeout
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.statusText}`);
-      }
-
-      marketData = await response.json();
-      
-      // Process and cache all images
-      console.log('Processing and caching token images...');
-      processedData = {
-        ...marketData,
-        gainers: await processTokenImages(marketData.gainers),
-        losers: await processTokenImages(marketData.losers),
-        hotPools: await processTokenImages(marketData.hotPools)
-      };
-      
-      // Store in cache
-      await storeCacheData(cache_key, processedData, CACHE_DURATION);
-      
-      console.log('Successfully fetched and processed market data');
-    } catch (fetchError) {
-      console.error('Error fetching from API:', fetchError.message);
-      
-      // Check if we have ANY expired cached data as a first fallback
-      const { data: expiredCache } = await supabase
-        .from('market_cache')
-        .select('data')
-        .eq('cache_key', cache_key)
-        .order('expires_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (expiredCache && expiredCache.data) {
-        console.log('Using expired cached data as fallback');
-        processedData = expiredCache.data;
-      } else {
-        // Use hardcoded fallback data as last resort
-        console.log('Using hardcoded fallback data');
-        processedData = FALLBACK_DATA;
-      }
-      
-      // Store the fallback data with a shorter expiration time
-      await storeCacheData(cache_key, processedData, 5 * 60 * 1000); // 5 minutes
     }
 
-    return new Response(JSON.stringify(processedData), {
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'application/json' 
-      }
-    });
-
-  } catch (error) {
-    console.error('Unhandled error in fetchCryptoData:', error.message, error.stack);
+    // Otherwise, fetch fresh data
+    console.log('Fetching fresh data');
     
-    // Return fallback data in case of any error
-    return new Response(JSON.stringify({ 
-      error: 'Failed to fetch market data', 
-      details: error.message,
-      fallbackData: FALLBACK_DATA
-    }), {
-      status: 200, // Return 200 instead of 500 to prevent client errors
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'application/json' 
+    // Use Promise.all to fetch all data in parallel
+    const [marketGlobal, fearAndGreed, cryptoTokens] = await Promise.all([
+      fetchMarketGlobal(),
+      fetchFearAndGreed(),
+      fetchCryptoTokens()
+    ]);
+    
+    // Combine market data
+    const marketStats: MarketStats = {
+      ...marketGlobal,
+      ...fearAndGreed
+    };
+    
+    // Calculate expiration time
+    const expiresAt = new Date(now.getTime() + CACHE_DURATION).toISOString();
+    
+    // Store market stats in cache
+    const { error: marketStatsError } = await supabase
+      .from('market_cache')
+      .upsert({
+        cache_key: 'market_stats',
+        data: marketStats,
+        expires_at: expiresAt,
+        source: 'edge-function'
+      });
+      
+    if (marketStatsError) {
+      console.error('Error storing market stats in cache:', marketStatsError);
+    }
+    
+    // Store crypto data in cache
+    const { error: cryptoDataError } = await supabase
+      .from('market_cache')
+      .upsert({
+        cache_key: 'crypto_data',
+        data: cryptoTokens,
+        expires_at: expiresAt,
+        source: 'edge-function'
+      });
+      
+    if (cryptoDataError) {
+      console.error('Error storing crypto data in cache:', cryptoDataError);
+    }
+    
+    return new Response(
+      JSON.stringify({
+        marketStats,
+        cryptoData: cryptoTokens,
+        lastUpdated: now.toISOString(),
+        cached: false
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
+  } catch (error) {
+    console.error('Error in fetchCryptoData function:', error);
+    
+    return new Response(
+      JSON.stringify({
+        error: error.message,
+        fallbackData: {
+          marketStats: {
+            total_market_cap: 2800000000000,
+            total_volume: 110000000000,
+            btc_dominance: 58.5,
+            eth_dominance: 8.2,
+            active_cryptocurrencies: 17100,
+            market_cap_change_percentage_24h: -1.2,
+            fear_greed_value: 50,
+            fear_greed_label: 'Neutral'
+          },
+          cryptoData: [
+            { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 83000, change: 0.9 },
+            { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1840, change: 1.8 },
+            { id: 'tether', name: 'Tether', symbol: 'USDT', price: 1, change: 0 },
+            { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.12, change: -0.7 },
+            { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 604, change: 0.5 },
+          ],
+          lastUpdated: new Date().toISOString(),
+          cached: false
+        }
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 });

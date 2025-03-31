@@ -401,3 +401,43 @@ export async function getFollowing(userId: string): Promise<any[]> {
     return [];
   }
 }
+
+export const searchUsers = async (query: string, limit = 10): Promise<Profile[]> => {
+  try {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const searchTerm = query.trim();
+    
+    // Use the optimized search_users RPC function that uses trigram similarity
+    const { data, error } = await supabase
+      .rpc('search_users', { 
+        search_term: searchTerm,
+        limit_count: limit
+      });
+
+    if (error) {
+      console.error('Error searching users:', error);
+      
+      // Fallback to basic search
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('username', `%${searchTerm}%`)
+        .limit(limit);
+        
+      if (fallbackError) {
+        console.error('Error in fallback user search:', fallbackError);
+        return [];
+      }
+      
+      return fallbackData as Profile[];
+    }
+
+    return data as Profile[];
+  } catch (err) {
+    console.error('Error in searchUsers:', err);
+    return [];
+  }
+};

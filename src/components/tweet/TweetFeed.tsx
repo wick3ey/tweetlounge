@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
 import { updateTweetCommentCount } from '@/services/commentService';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 interface TweetFeedProps {
   userId?: string;
@@ -27,33 +27,59 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   // Optimize query key for better cache management
   const queryKey = useMemo(() => ['tweets', userId, limit], [userId, limit]);
 
-  // Optimized React Query configuration for tweets
+  // Use infinite query instead of regular query for pagination
   const { 
-    data: tweets = [], 
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading, 
     error,
     refetch 
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey,
-    queryFn: async () => {
-      const rawTweets = await getTweets(limit, 0);
+    queryFn: async ({ pageParam = 0 }) => {
+      const rawTweets = await getTweets(limit, pageParam);
       return processTweets(rawTweets);
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      // If we got a full page of tweets, there might be more
+      return lastPage.length === limit ? allPages.length * limit : undefined;
+    },
     // Performance tuning
-    staleTime: 30 * 1000, // Data considered fresh for 30 seconds (increased from 10)
+    staleTime: 30 * 1000, // Data considered fresh for 30 seconds
     refetchOnWindowFocus: false,
     refetchInterval: false,
-    // Add placeholderData for instant loading when switching tabs
-    placeholderData: (previous) => previous || [],
-    // Improved error handling
-    retry: (failureCount, error) => {
-      return failureCount < 2; // Only retry once
-    }
   });
+
+  // Flatten all pages of tweets
+  const tweets = useMemo(() => 
+    (data?.pages ?? []).flat(), [data?.pages]
+  );
+
+  // Setup intersection observer for infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+    
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   // Optimized tweet processing with memoization
   const processTweets = async (rawTweets: TweetWithAuthor[]) => {
@@ -254,9 +280,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   };
 
   // More responsive refresh handling
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     refetch();
-  };
+  }, [refetch]);
 
   // More efficient click handling
   const handleTweetClick = (tweet: TweetWithAuthor) => {
@@ -281,14 +307,20 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   const handleCommentAdded = (tweetId: string) => {
     // Optimistic update for faster UI
-    queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
+    queryClient.setQueryData(queryKey, (oldData: any) => {
       if (!oldData) return oldData;
-      return oldData.map(tweet => {
-        if (tweet.id === tweetId) {
-          return { ...tweet, replies_count: (tweet.replies_count || 0) + 1 };
-        }
-        return tweet;
-      });
+      
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: TweetWithAuthor[]) => 
+          page.map(tweet => {
+            if (tweet.id === tweetId) {
+              return { ...tweet, replies_count: (tweet.replies_count || 0) + 1 };
+            }
+            return tweet;
+          })
+        )
+      };
     });
     
     // Update in background
@@ -303,10 +335,16 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   // More efficient tweet deletion logic
   const handleTweetDeleted = (deletedTweetId: string) => {
-    queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
-      if (!oldData) return [];
-      return oldData.filter(tweet => tweet.id !== deletedTweetId && 
-        !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId));
+    queryClient.setQueryData(queryKey, (oldData: any) => {
+      if (!oldData) return { pages: [], pageParams: [] };
+      
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: TweetWithAuthor[]) => 
+          page.filter(tweet => tweet.id !== deletedTweetId && 
+            !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId))
+        )
+      };
     });
     
     if (selectedTweet && selectedTweet.id === deletedTweetId) {
@@ -323,13 +361,19 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   // Optimized retweet removal
   const handleRetweetRemoved = (originalTweetId: string) => {
     if (user) {
-      queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.filter(tweet => 
-          !(tweet.is_retweet && 
-            tweet.original_tweet_id === originalTweetId && 
-            tweet.author_id === user.id)
-        );
+      queryClient.setQueryData(queryKey, (oldData: any) => {
+        if (!oldData) return { pages: [], pageParams: [] };
+        
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: TweetWithAuthor[]) => 
+            page.filter(tweet => 
+              !(tweet.is_retweet && 
+                tweet.original_tweet_id === originalTweetId && 
+                tweet.author_id === user.id)
+            )
+          )
+        };
       });
     }
   };
@@ -340,7 +384,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   };
 
   // Better loading state with skeleton UI
-  if (isLoading) {
+  if (isLoading && tweets.length === 0) {
     return (
       <div className="space-y-4 animate-in fade-in-50 duration-300 ease-in-out">
         {Array(5).fill(0).map((_, index) => (
@@ -365,7 +409,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   }
 
   // Show error state with retry
-  if (error) {
+  if (error && tweets.length === 0) {
     return (
       <div className="p-6 text-center animate-in fade-in-50 duration-300 ease-in-out">
         <p className="text-red-500 mb-4">Failed to load tweets. Please try again later.</p>
@@ -402,6 +446,21 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             onError={handleError}
           />
         ))}
+        
+        {/* Infinite scroll loading indicator */}
+        <div ref={loaderRef} className="p-4 flex justify-center">
+          {isFetchingNextPage ? (
+            <div className="crypto-loader">
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+          ) : hasNextPage ? (
+            <div className="h-10" /> // Just a spacer to trigger the observer
+          ) : tweets.length > 10 ? (
+            <p className="text-gray-500 text-sm py-2">No more tweets to load</p>
+          ) : null}
+        </div>
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>

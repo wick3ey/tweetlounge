@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/lib/supabase'
 import { updateTweetCommentCount } from '@/services/commentService'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMediaQuery } from '@/hooks/use-mobile'
@@ -20,7 +20,6 @@ const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [feedKey, setFeedKey] = useState<number>(0);
   const queryClient = useQueryClient();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [refreshing, setRefreshing] = useState(false);
@@ -169,16 +168,33 @@ const Home: React.FC = () => {
       };
       
       // Add to cache optimistically
-      queryClient.setQueryData(['tweets'], (old: any[] = []) => [tempTweet, ...old]);
+      queryClient.setQueryData(['tweets'], (old: any) => {
+        if (!old || !old.pages) return { pages: [[tempTweet]], pageParams: [0] };
+        return {
+          ...old,
+          pages: [
+            [tempTweet, ...old.pages[0]],
+            ...old.pages.slice(1)
+          ]
+        };
+      });
       
       // Create actual tweet in background
       const result = await createTweet(content, imageFile);
       
       if (!result) {
         // Remove temp tweet on failure
-        queryClient.setQueryData(['tweets'], (old: any[] = []) => 
-          old.filter(t => t.id !== tempId)
-        );
+        queryClient.setQueryData(['tweets'], (old: any) => {
+          if (!old || !old.pages) return { pages: [], pageParams: [] };
+          return {
+            ...old,
+            pages: old.pages.map((page: any[], pageIndex: number) => 
+              pageIndex === 0 
+                ? page.filter(t => t.id !== tempId)
+                : page
+            )
+          };
+        });
         throw new Error("Failed to create tweet");
       }
       
@@ -263,7 +279,6 @@ const Home: React.FC = () => {
             </div>
           )}
           <TweetFeed 
-            key={feedKey} 
             limit={10} 
             onCommentAdded={handleRefresh} 
           />
