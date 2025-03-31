@@ -306,15 +306,39 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
   const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
 
-  // Retweet specific rendering
-  if (tweet.is_retweet && tweet.original_author) {
+  // Special handling for retweets
+  if (tweet.is_retweet && tweet.original_tweet_id) {
+    if (!tweet.original_author) {
+      return (
+        <div className="p-4 border-b border-gray-800">
+          <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
+            <Repeat className="h-4 w-4 mr-1" />
+            <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
+              <span 
+                className="hover:underline cursor-pointer"
+                onClick={(e) => navigateToProfile(e, tweet.author?.username)}
+              >
+                {tweet.author?.display_name || 'User'} reposted
+              </span>
+            </ProfileHoverCard>
+          </div>
+          <div className="bg-gray-900/20 p-3 rounded-md">
+            <div className="flex items-center space-x-2 text-yellow-500">
+              <AlertCircle size={16} />
+              <span className="text-sm">Original content could not be loaded</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div 
         className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
         onClick={handleTweetClick}
       >
         <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-          <Repeat className="h-4 w-4 mr-1 text-gray-500" />
+          <Repeat className="h-4 w-4 mr-1" />
           <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
             <span 
               className="hover:underline cursor-pointer"
@@ -353,6 +377,9 @@ const TweetCard: React.FC<TweetCardProps> = ({
                       onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
                     >
                       {tweet.original_author.display_name}
+                      {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
+                        <VerifiedBadge className="ml-1" />
+                      )}
                     </span>
                   </ProfileHoverCard>
                   <span className="text-gray-500 mx-1">·</span>
@@ -368,9 +395,26 @@ const TweetCard: React.FC<TweetCardProps> = ({
                   <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
                 </div>
               </div>
+              
+              {user?.id === tweet.author_id && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-black border-gray-800">
+                    <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             
-            <p className="mt-1 text-white whitespace-pre-wrap">{tweet.content}</p>
+            <p className="mt-1 text-white">{tweet.content}</p>
             
             {tweet.image_url && (
               <div className="mt-3">
@@ -381,12 +425,54 @@ const TweetCard: React.FC<TweetCardProps> = ({
                 />
               </div>
             )}
+            
+            <div className="mt-3 flex justify-between text-gray-500">
+              <button 
+                className="flex items-center space-x-1 hover:text-crypto-blue"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>{tweet.replies_count || 0}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green transition-colors duration-100`}
+                onClick={toggleRetweet}
+                disabled={isRetweeting}
+              >
+                <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
+                <span>{localRetweetsCount}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red transition-colors duration-100`}
+                onClick={toggleLike}
+                disabled={isLiking}
+              >
+                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span>{localLikesCount}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple transition-colors duration-100`}
+                onClick={toggleBookmark}
+              >
+                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+              </button>
+              
+              <button 
+                className="flex items-center space-x-1 hover:text-crypto-blue"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
     );
   }
-
+  
   // Regular tweets (non-retweets)
   return (
     <div 
