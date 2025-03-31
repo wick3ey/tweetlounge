@@ -124,7 +124,7 @@ export default function MessageReactions({ messageId }: MessageReactionsProps) {
         </PopoverTrigger>
         <PopoverContent className="w-auto p-1 bg-gray-800 border-gray-700">
           <div className="flex space-x-2 p-1">
-            {reactionTypes.map(reaction => (
+            {reactionTypes.map((reaction) => (
               <Button
                 key={reaction.type}
                 variant="ghost"
