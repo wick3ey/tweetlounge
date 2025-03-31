@@ -10,8 +10,8 @@ import {
   Settings,
   Compass,
   ChevronRight,
-  Zap,
-  MessageSquare
+  Zap as ZapIcon,
+  MessageSquare as MessageSquareIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -85,7 +85,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
       <div className={`px-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
         <Link to="/home" className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
-            <Zap className="h-6 w-6 text-white" />
+            <ZapIcon className="h-6 w-6 text-white" />
           </div>
           {!isCollapsed && (
             <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TweetLounge</span>
@@ -134,7 +134,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
         <Button 
           className={`${isCollapsed ? 'w-12 h-12 rounded-full p-0' : 'w-full'} bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all`}
         >
-          {isCollapsed ? <MessageSquare className="h-5 w-5" /> : "Tweet"}
+          {isCollapsed ? <MessageSquareIcon className="h-5 w-5" /> : "Tweet"}
         </Button>
       </div>
       
