@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getProfileByUsername, followUser, unfollowUser, isFollowing } from '@/services/profileService';
+import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { UsersIcon } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface WhoToFollowProps {
   limit?: number;
@@ -20,27 +21,39 @@ export const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 3 }) => {
   const { data: suggestedProfiles, isLoading, refetch } = useQuery({
     queryKey: ['suggested-profiles', limit],
     queryFn: async () => {
-      // Simulating suggested profiles by fetching some known usernames
-      // In a real app, this would be based on user interests, connections, etc.
-      const suggestedUsernames = ['satoshi', 'vitalik', 'crypto_trader'];
-      const profiles = [];
-
-      for (const username of suggestedUsernames) {
-        const profile = await getProfileByUsername(username);
-        if (profile && (!user || profile.id !== user.id)) {
-          const isUserFollowing = user ? await isFollowing(profile.id) : false;
-          profiles.push({
-            ...profile,
-            isFollowing: isUserFollowing
-          });
+      try {
+        // Fetch random profiles from the database instead of using hardcoded usernames
+        const { data: profiles, error } = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url')
+          .limit(limit + 5); // Fetch a few extra in case we need to filter out the current user
+        
+        if (error) {
+          console.error('Error fetching profiles:', error);
+          return [];
         }
         
-        if (profiles.length >= limit) {
-          break;
-        }
+        // Filter out the current user and limit to the requested number
+        const filteredProfiles = profiles
+          .filter(profile => !user || profile.id !== user.id)
+          .slice(0, limit);
+        
+        // Check if the current user is following each profile
+        const profilesWithFollowStatus = await Promise.all(
+          filteredProfiles.map(async (profile) => {
+            const isUserFollowing = user ? await isFollowing(profile.id) : false;
+            return {
+              ...profile,
+              isFollowing: isUserFollowing
+            };
+          })
+        );
+        
+        return profilesWithFollowStatus;
+      } catch (error) {
+        console.error('Error in suggested profiles query:', error);
+        return [];
       }
-      
-      return profiles;
     },
     enabled: true,
   });
