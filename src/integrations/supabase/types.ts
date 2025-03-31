@@ -193,24 +193,6 @@ export type Database = {
         }
         Relationships: []
       }
-      hashtags: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
       likes: {
         Row: {
           created_at: string
@@ -516,42 +498,6 @@ export type Database = {
           },
         ]
       }
-      tweet_hashtags: {
-        Row: {
-          created_at: string | null
-          hashtag_id: string | null
-          id: string
-          tweet_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          hashtag_id?: string | null
-          id?: string
-          tweet_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          hashtag_id?: string | null
-          id?: string
-          tweet_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tweet_hashtags_hashtag_id_fkey"
-            columns: ["hashtag_id"]
-            isOneToOne: false
-            referencedRelation: "hashtags"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tweet_hashtags_tweet_id_fkey"
-            columns: ["tweet_id"]
-            isOneToOne: false
-            referencedRelation: "tweets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       tweets: {
         Row: {
           author_id: string
@@ -658,16 +604,6 @@ export type Database = {
           user2_id: string
         }
         Returns: string
-      }
-      get_trending_hashtags: {
-        Args: {
-          limit_count: number
-        }
-        Returns: {
-          hashtag_id: string
-          name: string
-          tweet_count: number
-        }[]
       }
       get_tweet_comments: {
         Args: {

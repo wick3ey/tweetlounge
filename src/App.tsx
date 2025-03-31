@@ -22,7 +22,6 @@ import Market from "./pages/Market";
 import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import HashtagPage from "./pages/HashtagPage";
 
 const queryClient = new QueryClient();
 
@@ -77,7 +76,6 @@ const App = () => {
                   } />
                   <Route path="/market" element={<Market />} />
                   <Route path="/tweet/:tweetId" element={<TweetPage />} />
-                  <Route path="/hashtag/:name" element={<HashtagPage />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <ProfilePage />
