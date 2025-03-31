@@ -32,10 +32,10 @@ const Layout: React.FC<LayoutProps> = ({
       <div className={`flex flex-1 w-full ${fullWidth ? 'max-w-[100%]' : 'max-w-[1500px]'} mx-auto`}>
         <LeftSidebar collapsed={collapsedSidebar} />
         
-        <main className={`flex-1 ${fullHeight ? 'min-h-screen' : ''} ${
+        <main className={`flex-1 overflow-auto ${fullHeight ? 'min-h-screen' : ''} ${
           // Set default max-width for feed, but override for market page and full width pages
           !hideRightSidebar && !fullWidth ? 'max-w-[600px]' : ''
-        } ${fullWidth ? '' : 'border-x border-gray-800'} overflow-y-auto`}>
+        } ${fullWidth ? '' : 'border-x border-gray-800'}`}>
           {pageTitle && (
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <h1 className="text-xl font-bold">{pageTitle}</h1>

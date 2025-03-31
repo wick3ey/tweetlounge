@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon } from 'lucide-react';
@@ -7,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
@@ -97,7 +95,7 @@ const TokenRow = ({
       initial={{ opacity: 0, y: 10 }} 
       animate={{ opacity: 1, y: 0 }} 
       transition={{ delay: index * 0.05 }} 
-      className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      className={`flex items-center justify-between py-2 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
         type === 'gainer' ? 'hover:bg-green-950/20' : 
         type === 'loser' ? 'hover:bg-red-950/20' : 
         'hover:bg-blue-950/20'
@@ -105,7 +103,7 @@ const TokenRow = ({
     >
       <div className="flex items-center gap-3 min-w-0 w-2/3">
         <div className="relative flex-shrink-0">
-          <Avatar className="h-12 w-12 border-2 shadow-md" style={{
+          <Avatar className="h-10 w-10 border-2 shadow-md" style={{
             borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : 
                      type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
                      'rgba(59, 130, 246, 0.4)'
@@ -133,8 +131,8 @@ const TokenRow = ({
         </div>
         <div className="min-w-0 w-full overflow-hidden">
           <div className="font-medium">
-            <span className="font-semibold block text-base text-white">{token.symbol || '???'}</span>
-            <span className="text-sm text-muted-foreground block truncate max-w-full">
+            <span className="font-semibold block text-sm text-white">{token.symbol || '???'}</span>
+            <span className="text-xs text-muted-foreground block truncate max-w-full">
               {token.name || '???'}
             </span>
           </div>
@@ -161,7 +159,7 @@ const TokenRow = ({
       <div className="text-right flex-shrink-0 w-1/3 pl-2">
         {!isHot ? (
           <>
-            <div className="font-medium text-base whitespace-nowrap">${formatPrice(token.price)}</div>
+            <div className="font-medium text-sm whitespace-nowrap">${formatPrice(token.price)}</div>
             <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
               {isPriceUp ? (
                 <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" />
@@ -219,22 +217,22 @@ const HotTokensSection = ({ tokens, loading }: { tokens: any[]; loading: boolean
       </div>
       
       <div className="p-0">
-        <ScrollArea className="h-[320px]">
-          {loading ? (
-            <TokenCardSkeleton />
-          ) : tokens?.length > 0 ? (
-            tokens.slice(0, 10).map((token, index) => (
+        {loading ? (
+          <TokenCardSkeleton />
+        ) : tokens?.length > 0 ? (
+          <div className="max-h-full">
+            {tokens.slice(0, 10).map((token, index) => (
               <TokenRow 
                 key={token.poolAddress} 
                 token={token} 
                 type="hot" 
                 index={index} 
               />
-            ))
-          ) : (
-            <div className="p-6 text-center text-muted-foreground">No hot tokens to display</div>
-          )}
-        </ScrollArea>
+            ))}
+          </div>
+        ) : (
+          <div className="p-6 text-center text-muted-foreground">No hot tokens to display</div>
+        )}
       </div>
       
       <div className="p-2 border-t border-blue-900/20 flex justify-end bg-blue-950/10">
@@ -311,22 +309,22 @@ const MarketSection = ({
     </div>
     
     <div className="flex-grow overflow-hidden">
-      <ScrollArea className="h-full max-h-[370px]">
-        {loading ? (
-          <TokenCardSkeleton />
-        ) : tokens && tokens.length > 0 ? (
-          tokens.slice(0, 10).map((token, index) => (
+      {loading ? (
+        <TokenCardSkeleton />
+      ) : tokens && tokens.length > 0 ? (
+        <div className="max-h-full">
+          {tokens.slice(0, 10).map((token, index) => (
             <TokenRow 
               key={type === 'hot' ? token.poolAddress : token.address} 
               token={token} 
               type={type} 
               index={index} 
             />
-          ))
-        ) : (
-          <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
-        )}
-      </ScrollArea>
+          ))}
+        </div>
+      ) : (
+        <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
+      )}
     </div>
     
     <div className="p-2 border-t flex justify-end" style={{ 
