@@ -19,6 +19,8 @@ export function TrendingHashtags({ limit = 5 }: { limit?: number }) {
     const fetchTrendingHashtags = async () => {
       try {
         setLoading(true);
+        // This will now return already filtered hashtags with 15+ tweets
+        // and sorted by tweet count (highest first)
         const data = await getTrendingHashtags(limit);
         setHashtags(data);
       } catch (error) {
@@ -55,7 +57,7 @@ export function TrendingHashtags({ limit = 5 }: { limit?: number }) {
           <Sparkles className="h-4 w-4 mr-2 text-crypto-blue" />
           <h3 className="font-medium">Trending Hashtags</h3>
         </div>
-        <p className="text-gray-500 text-sm">No trending hashtags yet.</p>
+        <p className="text-gray-500 text-sm">No trending hashtags with 15+ tweets found.</p>
       </div>
     );
   }

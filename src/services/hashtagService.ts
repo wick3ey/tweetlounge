@@ -103,7 +103,7 @@ export async function getTweetsByHashtag(hashtagName: string, limit = 20, offset
 }
 
 /**
- * Get trending hashtags
+ * Get trending hashtags with more than 15 tweets, sorted by count
  */
 export async function getTrendingHashtags(limit = 5): Promise<any[]> {
   try {
@@ -115,7 +115,13 @@ export async function getTrendingHashtags(limit = 5): Promise<any[]> {
       return [];
     }
     
-    return data || [];
+    // Filter hashtags with more than 15 tweets
+    const filteredHashtags = (data || []).filter(tag => tag.tweet_count >= 15);
+    
+    // Sort by tweet count (highest first)
+    filteredHashtags.sort((a, b) => b.tweet_count - a.tweet_count);
+    
+    return filteredHashtags;
   } catch (error) {
     console.error('Error getting trending hashtags:', error);
     return [];
