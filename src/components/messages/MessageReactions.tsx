@@ -19,7 +19,12 @@ interface Reaction {
   created_at: string;
 }
 
-const reactionTypes = [
+type ReactionType = {
+  type: string;
+  icon: React.ReactNode;
+}
+
+const reactionTypes: ReactionType[] = [
   { type: '👍', icon: <ThumbsUp className="h-4 w-4" /> },
   { type: '❤️', icon: <Heart className="h-4 w-4" /> },
   { type: '😊', icon: <Smile className="h-4 w-4" /> },

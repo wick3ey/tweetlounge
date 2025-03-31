@@ -161,8 +161,8 @@ const Home: React.FC = () => {
       <div className="flex flex-1 overflow-hidden">
         <LeftSidebar />
         
-        <div className="flex-1 border-x border-gray-800 overflow-y-auto">
-          <main className="max-w-xl mx-auto">
+        <div className="flex-1 border-x border-gray-800 overflow-hidden flex flex-col">
+          <main className="max-w-xl mx-auto w-full flex flex-col flex-1 overflow-hidden">
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <div className="flex gap-3 items-center">
                 <div className="rounded-lg bg-crypto-blue/10 p-1.5">
@@ -184,19 +184,21 @@ const Home: React.FC = () => {
             </div>
             
             {/* Tweet Composer */}
-            <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
+            <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black shrink-0">
               <TweetComposer onTweetSubmit={handleTweetSubmit} />
             </div>
             
             {/* Tweet Feed with Tabs */}
-            <div className="min-h-0">
-              <div className="border-b border-gray-800">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+              <div className="border-b border-gray-800 shrink-0">
                 <TweetFeedTabs />
               </div>
-              <TweetFeed 
-                key={feedKey} 
-                onCommentAdded={handleRefresh} 
-              />
+              <div className="flex-1 overflow-y-auto">
+                <TweetFeed 
+                  key={feedKey} 
+                  onCommentAdded={handleRefresh} 
+                />
+              </div>
             </div>
           </main>
         </div>

@@ -16,12 +16,12 @@ const Layout: React.FC<LayoutProps> = ({
   fullHeight = true
 }) => {
   return (
-    <div className="flex flex-col min-h-screen bg-crypto-black text-crypto-text">
+    <div className="flex flex-col min-h-screen bg-crypto-black text-crypto-text overflow-hidden">
       <Navbar />
-      <div className="flex flex-1 w-full container mx-auto">
+      <div className="flex flex-1 w-full container mx-auto overflow-hidden">
         <LeftSidebar />
         
-        <main className={`flex-1 border-x border-crypto-gray/30 ${fullHeight ? 'min-h-screen' : ''}`}>
+        <main className={`flex-1 border-x border-crypto-gray/30 ${fullHeight ? 'min-h-screen' : ''} overflow-hidden flex flex-col`}>
           {children}
         </main>
         
