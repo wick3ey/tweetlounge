@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react'
-import { BellIcon, Search, Wallet } from 'lucide-react'
+import { BellIcon, Wallet } from 'lucide-react'
 import { CryptoButton } from '../ui/crypto-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -11,6 +11,7 @@ import {
   updateWalletAddress 
 } from '@/utils/walletConnector'
 import { useToast } from '@/components/ui/use-toast'
+import UserSearchBar from '../search/UserSearchBar'
 
 const Header: React.FC = () => {
   const { user } = useAuth()
@@ -77,14 +78,7 @@ const Header: React.FC = () => {
     <div className="w-full bg-crypto-darkgray border-b border-crypto-gray p-3 flex items-center justify-between">
       <div className="flex items-center">
         <h1 className="text-xl text-crypto-blue font-display font-bold mr-4">KryptoSphere</h1>
-        <div className="bg-crypto-black rounded-full border border-crypto-gray flex items-center px-3 py-1.5 w-64">
-          <Search className="w-4 h-4 text-crypto-lightgray mr-2" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="bg-transparent border-none text-sm focus:outline-none w-full"
-          />
-        </div>
+        <UserSearchBar />
       </div>
       
       <div className="flex items-center space-x-4">
