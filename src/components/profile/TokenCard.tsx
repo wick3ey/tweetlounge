@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Token } from '@/utils/tokenService';
 import { Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { getTokenLogo, generateFallbackLogoUrl } from '@/services/storageService';
 
 interface TokenCardProps {
   token: Token;
@@ -13,6 +14,28 @@ interface TokenCardProps {
 
 export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact = false }) => {
   const { toast } = useToast();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        if (token.logo) {
+          const cachedLogo = await getTokenLogo(token.symbol, token.logo);
+          setLogoUrl(cachedLogo);
+        } else if (token.logoURI) {
+          const cachedLogo = await getTokenLogo(token.symbol, token.logoURI);
+          setLogoUrl(cachedLogo); 
+        } else {
+          setLogoUrl(generateFallbackLogoUrl(token.symbol));
+        }
+      } catch (error) {
+        console.error(`Error fetching logo for ${token.symbol}:`, error);
+        setLogoUrl(generateFallbackLogoUrl(token.symbol));
+      }
+    };
+    
+    fetchLogo();
+  }, [token.symbol, token.logo, token.logoURI]);
 
   const copyAddress = () => {
     navigator.clipboard.writeText(token.address);
@@ -23,35 +46,29 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
     });
   };
 
-  // Format address to show first 4 and last 5 chars
   const formatAddress = (address: string): string => {
     if (address.length < 10) return address;
     return `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
   };
-  
-  // Format balance with appropriate commas/decimals
+
   const formatBalance = (amount: string, decimals: number): string => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum)) return '0';
     
-    // For very small numbers, use scientific notation
     if (amountNum < 0.0001 && amountNum > 0) {
       return amountNum.toExponential(2);
     }
     
-    // Otherwise use toLocaleString
     return amountNum.toLocaleString(undefined, { 
       maximumFractionDigits: decimals > 6 ? 4 : decimals
     });
   };
 
-  // Format USD value
   const formatUsdValue = (value?: string): string => {
     if (!value) return 'N/A';
     const num = parseFloat(value);
     if (isNaN(num)) return 'N/A';
     
-    // Different formatting based on the value
     if (num >= 1000000) {
       return `$${(num / 1000000).toFixed(2)}M`;
     } else if (num >= 1000) {
@@ -63,7 +80,6 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
     }
   };
 
-  // Calculate SOL value for the native SOL token
   const getSolUsdValue = (): string => {
     if (token.symbol === 'SOL' && solPrice && token.amount) {
       const solAmount = parseFloat(token.amount);
@@ -72,15 +88,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
     }
     return formatUsdValue(token.usdValue);
   };
-  
-  // Get token logo or use a placeholder
-  const getTokenLogo = (): string => {
-    if (token.logo) return token.logo;
-    if (token.symbol === 'SOL') return 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png';
-    return `https://placehold.co/40x40/8b5cf6/ffffff?text=${token.symbol?.substring(0,2) || '??'}`;
-  };
-  
-  // Determine which link to use
+
   const getTokenLink = (): string => {
     if (token.symbol === 'UNKNOWN' || !token.symbol) {
       return token.dexScreenerUrl || token.explorerUrl || '#';
@@ -94,11 +102,11 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
-              src={getTokenLogo()} 
+              src={logoUrl || generateFallbackLogoUrl(token.symbol)} 
               alt={token.name || 'Token'} 
               className="w-6 h-6 rounded-full"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://placehold.co/40x40/8b5cf6/ffffff?text=${token.symbol?.substring(0,2) || '??'}`;
+                (e.target as HTMLImageElement).src = generateFallbackLogoUrl(token.symbol);
               }}
             />
             <div>
@@ -119,11 +127,11 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img 
-            src={getTokenLogo()} 
+            src={logoUrl || generateFallbackLogoUrl(token.symbol)} 
             alt={token.name || 'Token'} 
             className="w-10 h-10 rounded-full"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = `https://placehold.co/40x40/8b5cf6/ffffff?text=${token.symbol?.substring(0,2) || '??'}`;
+              (e.target as HTMLImageElement).src = generateFallbackLogoUrl(token.symbol);
             }}
           />
           <div>

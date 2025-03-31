@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMarketData, extractFinancialInfo } from '@/services/marketService';
 import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cacheTokenLogo, getTokenLogo, generateFallbackLogoUrl } from '@/services/storageService';
 
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
@@ -132,10 +133,29 @@ const TokenRow = ({
   const isMobile = useIsMobile();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
   const tokenAddress = isHot ? token.tokenAddress : token.address;
   const poolAddress = isHot ? token.poolAddress : token.pool;
   const dexScreenerUrl = `https://dexscreener.com/solana/${poolAddress || tokenAddress}`;
+  
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        if (token.logoUrl) {
+          const cachedLogo = await getTokenLogo(token.symbol, token.logoUrl);
+          setLogoUrl(cachedLogo);
+        } else {
+          setLogoUrl(generateFallbackLogoUrl(token.symbol));
+        }
+      } catch (error) {
+        console.error(`Error fetching logo for ${token.symbol}:`, error);
+        setLogoUrl(generateFallbackLogoUrl(token.symbol));
+      }
+    };
+    
+    fetchLogo();
+  }, [token.symbol, token.logoUrl]);
   
   const handleRowClick = () => {
     window.open(dexScreenerUrl, '_blank', 'noopener,noreferrer');
@@ -161,12 +181,6 @@ const TokenRow = ({
     return '#3b82f6';
   };
 
-  const generateFallbackSvg = () => {
-    const color = getColorByType();
-    const symbol = getSymbolFallback();
-    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='${color}' opacity='0.8'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='white' text-anchor='middle' dy='.3em'%3E${symbol}%3C/text%3E%3C/svg%3E`;
-  };
-
   return (
     <>
       <motion.div 
@@ -187,9 +201,9 @@ const TokenRow = ({
                       type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
                       'rgba(59, 130, 246, 0.4)'
             }}>
-              {token.logoUrl && (
+              {logoUrl && (
                 <AvatarImage 
-                  src={token.logoUrl} 
+                  src={logoUrl} 
                   alt={token.symbol || 'Token'} 
                   className="object-contain"
                   onLoad={() => setImageLoaded(true)}
@@ -200,7 +214,7 @@ const TokenRow = ({
                     if (token.originalLogoUrl && e.currentTarget.src !== token.originalLogoUrl) {
                       e.currentTarget.src = token.originalLogoUrl;
                     } else {
-                      e.currentTarget.src = generateFallbackSvg();
+                      e.currentTarget.src = generateFallbackLogoUrl(token.symbol);
                     }
                   }}
                 />
@@ -225,6 +239,7 @@ const TokenRow = ({
               {token.rank}
             </Badge>
           </div>
+          
           <div className="min-w-0 w-full overflow-hidden">
             <div className="font-medium">
               <span className="font-semibold block text-sm text-white">{token.symbol || '???'}</span>

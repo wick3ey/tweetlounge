@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
+import { cacheTokenLogo, getTokenLogo } from '@/services/storageService';
 
 export interface Token {
   name: string;
@@ -15,11 +15,6 @@ export interface Token {
   dexScreenerUrl?: string;
   logoURI?: string; // Added for compatibility
   priceChange24h?: number; // Added for price change percentage
-}
-
-export interface TokensResponse {
-  tokens: Token[];
-  solPrice?: number;
 }
 
 interface DexToolsTokenInfo {
@@ -88,13 +83,21 @@ export const fetchWalletTokens = async (
       return { tokens: [] };
     }
     
-    // Process the tokens with enhanced information from DexTools API
+    // Process the tokens with enhanced information from DexTools API and logo caching
     const processedTokensPromises = data.tokens.map(async (token: any) => {
       const tokenAddress = token.address || address;
       
       try {
         // Try to fetch additional token information from DexTools API
         const enrichedToken = await enrichTokenWithDexToolsInfo(token);
+        
+        // Cache the token logo if available
+        if (enrichedToken.logo) {
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logo).catch(console.error);
+        } else if (enrichedToken.logoURI) {
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logoURI).catch(console.error);
+        }
+        
         return enrichedToken;
       } catch (error) {
         console.warn(`Could not fetch DexTools data for token ${tokenAddress}:`, error);
@@ -159,6 +162,11 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
   
   // Skip API calls for known tokens like SOL that we already have good data for
   if (token.symbol === 'SOL' && token.name === 'Solana' && token.logo) {
+    // Cache the SOL logo
+    if (token.logo) {
+      cacheTokenLogo('SOL', token.logo).catch(console.error);
+    }
+    
     return {
       ...token,
       chain: 'solana',
@@ -185,11 +193,22 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
     }
   }
   
+  // Cache the token logo if available
+  let logoUrl = tokenInfo?.logo || token.logo;
+  if (logoUrl) {
+    try {
+      // Cache the token logo in background
+      cacheTokenLogo(tokenInfo?.symbol || token.symbol, logoUrl).catch(console.error);
+    } catch (logoError) {
+      console.warn(`Error caching logo for ${token.symbol}:`, logoError);
+    }
+  }
+  
   return {
     name: tokenInfo?.name || formatTokenName(tokenAddress, token.name),
     symbol: tokenInfo?.symbol || (token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress, token.name)),
-    logo: tokenInfo?.logo || token.logo,
-    logoURI: tokenInfo?.logo || token.logo,
+    logo: logoUrl,
+    logoURI: logoUrl,
     amount: token.amount,
     usdValue: usdValue,
     decimals: tokenInfo?.decimals || token.decimals,

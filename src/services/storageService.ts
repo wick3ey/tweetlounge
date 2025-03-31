@@ -40,5 +40,126 @@ export const createBucketsIfNotExist = async () => {
   return !errors;
 };
 
+// Enhanced function to handle token logo caching and retrieval
+export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<string | null> => {
+  try {
+    if (!symbol || !logoUrl) return null;
+    
+    // Clean symbol name for use as filename (lowercase and remove special chars)
+    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    
+    // First check if we already have this logo cached
+    const { data: existingFiles } = await supabase
+      .storage
+      .from('token-logos')
+      .list('', {
+        search: fileName
+      });
+    
+    // If image already exists, return its public URL
+    if (existingFiles && existingFiles.length > 0) {
+      const { data } = supabase
+        .storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+      
+      console.log(`Using cached logo for ${symbol}: ${data.publicUrl}`);
+      return data.publicUrl;
+    }
+    
+    // If not cached, download the image
+    console.log(`Fetching and caching logo for ${symbol} from ${logoUrl}`);
+    
+    try {
+      // Fetch the image
+      const imageResponse = await fetch(logoUrl, {
+        headers: {
+          'Accept': 'image/png,image/jpeg,image/gif,image/*',
+        }
+      });
+      
+      if (!imageResponse.ok) {
+        console.warn(`Failed to fetch logo for ${symbol}: ${imageResponse.status}`);
+        return null;
+      }
+      
+      // Get image as blob
+      const imageBlob = await imageResponse.blob();
+      
+      // Upload to Supabase
+      const { data, error } = await supabase
+        .storage
+        .from('token-logos')
+        .upload(fileName, imageBlob, {
+          cacheControl: '1800', // 30 minutes cache
+          contentType: imageBlob.type,
+          upsert: true
+        });
+      
+      if (error) {
+        console.error(`Error uploading ${symbol} logo:`, error);
+        return null;
+      }
+      
+      // Get public URL
+      const { data: urlData } = supabase
+        .storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+      
+      console.log(`Successfully cached logo for ${symbol}: ${urlData.publicUrl}`);
+      return urlData.publicUrl;
+    } catch (fetchError) {
+      console.error(`Error downloading logo for ${symbol}:`, fetchError);
+      return null;
+    }
+  } catch (err) {
+    console.error(`Error in cacheTokenLogo for ${symbol}:`, err);
+    return null;
+  }
+};
+
+// Get cached token logo or return the original URL if not cached
+export const getTokenLogo = async (symbol: string, originalUrl: string): Promise<string> => {
+  try {
+    if (!symbol || !originalUrl) return generateFallbackLogoUrl(symbol);
+    
+    // Try to get from cache
+    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+    
+    const { data: existingFiles } = await supabase
+      .storage
+      .from('token-logos')
+      .list('', {
+        search: fileName
+      });
+    
+    // If image exists in cache, return its public URL
+    if (existingFiles && existingFiles.length > 0) {
+      const { data } = supabase
+        .storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+      
+      return data.publicUrl;
+    }
+    
+    // If not in cache, start caching process in background and return original for now
+    cacheTokenLogo(symbol, originalUrl).catch(console.error);
+    
+    return originalUrl;
+  } catch (err) {
+    console.error(`Error getting logo for ${symbol}:`, err);
+    return generateFallbackLogoUrl(symbol);
+  }
+};
+
+// Generate a fallback logo URL based on symbol
+export const generateFallbackLogoUrl = (symbol: string = '??'): string => {
+  const symbolText = symbol ? symbol.substring(0, 2).toUpperCase() : '??';
+  // Create a colored background with the symbol's first two letters
+  return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='20' fill='%233b82f6' opacity='0.8'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='white' text-anchor='middle' dy='.3em'%3E${symbolText}%3C/text%3E%3C/svg%3E`;
+};
+
 // Call this function when your app initializes
 createBucketsIfNotExist();
