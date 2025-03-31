@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Token } from '@/utils/tokenService';
 import { Copy, ExternalLink } from 'lucide-react';
@@ -15,10 +16,14 @@ interface TokenCardProps {
 export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact = false }) => {
   const { toast } = useToast();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchLogo = async () => {
       try {
+        // Reset error state on new fetch
+        setImageError(false);
+        
         if (token.logo) {
           const cachedLogo = await getTokenLogo(token.symbol, token.logo);
           setLogoUrl(cachedLogo);
@@ -30,6 +35,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
         }
       } catch (error) {
         console.error(`Error fetching logo for ${token.symbol}:`, error);
+        setImageError(true);
         setLogoUrl(generateFallbackLogoUrl(token.symbol));
       }
     };
@@ -96,18 +102,21 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
     return token.explorerUrl || token.dexScreenerUrl || '#';
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+    setLogoUrl(generateFallbackLogoUrl(token.symbol));
+  };
+
   if (isCompact) {
     return (
       <div className="glass-card p-3 transition-all hover:shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
-              src={logoUrl || generateFallbackLogoUrl(token.symbol)} 
+              src={imageError ? generateFallbackLogoUrl(token.symbol) : (logoUrl || generateFallbackLogoUrl(token.symbol))} 
               alt={token.name || 'Token'} 
               className="w-6 h-6 rounded-full"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = generateFallbackLogoUrl(token.symbol);
-              }}
+              onError={handleImageError}
             />
             <div>
               <h3 className="font-medium text-sm">{token.symbol || formatAddress(token.address)}</h3>
@@ -127,12 +136,10 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img 
-            src={logoUrl || generateFallbackLogoUrl(token.symbol)} 
+            src={imageError ? generateFallbackLogoUrl(token.symbol) : (logoUrl || generateFallbackLogoUrl(token.symbol))} 
             alt={token.name || 'Token'} 
             className="w-10 h-10 rounded-full"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = generateFallbackLogoUrl(token.symbol);
-            }}
+            onError={handleImageError}
           />
           <div>
             <h3 className="font-medium">{token.name || 'Unknown Token'}</h3>

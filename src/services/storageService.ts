@@ -71,20 +71,41 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
     console.log(`Fetching and caching logo for ${symbol} from ${logoUrl}`);
     
     try {
+      // Fetch the image with timeout and proper headers
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       // Fetch the image
       const imageResponse = await fetch(logoUrl, {
         headers: {
           'Accept': 'image/png,image/jpeg,image/gif,image/*',
-        }
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!imageResponse.ok) {
         console.warn(`Failed to fetch logo for ${symbol}: ${imageResponse.status}`);
         return null;
       }
       
+      // Check content type
+      const contentType = imageResponse.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('image/')) {
+        console.warn(`Response for ${symbol} is not an image (${contentType})`);
+        return null;
+      }
+      
       // Get image as blob
       const imageBlob = await imageResponse.blob();
+      
+      // Check blob size
+      if (imageBlob.size === 0) {
+        console.warn(`Received empty image for ${symbol}`);
+        return null;
+      }
       
       // Upload to Supabase
       const { data, error } = await supabase
@@ -92,7 +113,7 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
         .from('token-logos')
         .upload(fileName, imageBlob, {
           cacheControl: '1800', // 30 minutes cache
-          contentType: imageBlob.type,
+          contentType: imageBlob.type || 'image/png',
           upsert: true
         });
       

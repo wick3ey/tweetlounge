@@ -61,22 +61,29 @@ async function ensureStorageBucketExists() {
   }
 }
 
-// Cache images to Supabase Storage
-async function cacheImageToStorage(imageUrl: string, symbol: string) {
+// Cache images to Supabase Storage with improved error handling and retries
+async function cacheImageToStorage(imageUrl: string, symbol: string, retries = 2) {
   try {
     if (!imageUrl) return null;
     
     // Create a sanitized file name from the symbol
     const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
     
+    console.log(`Processing image for ${symbol}, fileName: ${fileName}`);
+    
     // Check if the image already exists in storage
-    const { data: existingFiles } = await supabase.storage
+    const { data: existingFiles, error: listError } = await supabase.storage
       .from('token-logos')
       .list('', {
         search: fileName
       });
+    
+    if (listError) {
+      console.error(`Error checking if image exists for ${symbol}:`, listError);
+    }
       
     if (existingFiles && existingFiles.length > 0) {
+      console.log(`Image for ${symbol} already exists, returning public URL`);
       const { data: publicUrl } = supabase.storage
         .from('token-logos')
         .getPublicUrl(fileName);
@@ -86,75 +93,159 @@ async function cacheImageToStorage(imageUrl: string, symbol: string) {
     
     // Fetch the image from the source
     console.log(`Fetching image from ${imageUrl} for ${symbol}`);
-    const imageResponse = await fetch(imageUrl, {
-      headers: { 'Accept': 'image/*' },
-      cache: 'no-store'
-    });
     
-    if (!imageResponse.ok) {
-      console.error(`Failed to fetch image for ${symbol}: ${imageResponse.statusText}`);
-      return null;
-    }
+    // Add timeout and proper error handling for fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
-    // Get image as blob
-    const imageBlob = await imageResponse.blob();
-    
-    // Convert blob to array buffer for Supabase storage
-    const arrayBuffer = await imageBlob.arrayBuffer();
-    
-    // Upload the image to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('token-logos')
-      .upload(fileName, arrayBuffer, {
-        contentType: imageBlob.type,
-        cacheControl: '3600',
-        upsert: true
+    try {
+      const imageResponse = await fetch(imageUrl, {
+        headers: { 
+          'Accept': 'image/*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        signal: controller.signal,
+        cache: 'no-store'
       });
       
-    if (uploadError) {
-      console.error(`Error uploading image for ${symbol}:`, uploadError);
+      clearTimeout(timeoutId);
+      
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
+      }
+      
+      // Check content type to ensure it's an image
+      const contentType = imageResponse.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('image/')) {
+        console.warn(`Response for ${symbol} is not an image (${contentType}), skipping`);
+        return null;
+      }
+      
+      // Get image as blob
+      const imageBlob = await imageResponse.blob();
+      
+      // Ensure we received actual data
+      if (imageBlob.size === 0) {
+        console.warn(`Received empty image for ${symbol}, skipping`);
+        return null;
+      }
+      
+      console.log(`Successfully fetched image for ${symbol} (${imageBlob.size} bytes, ${contentType})`);
+      
+      // Convert blob to array buffer for Supabase storage
+      const arrayBuffer = await imageBlob.arrayBuffer();
+      
+      // Upload the image to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('token-logos')
+        .upload(fileName, arrayBuffer, {
+          contentType: imageBlob.type || 'image/png',
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (uploadError) {
+        console.error(`Error uploading image for ${symbol}:`, uploadError);
+        return null;
+      }
+      
+      console.log(`Successfully uploaded image for ${symbol}`);
+      
+      // Get the public URL for the cached image
+      const { data: publicUrl } = supabase.storage
+        .from('token-logos')
+        .getPublicUrl(fileName);
+        
+      console.log(`Successfully cached image for ${symbol}: ${publicUrl.publicUrl}`);
+      return publicUrl.publicUrl;
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      console.error(`Error fetching image for ${symbol}:`, fetchError.message);
+      
+      // Retry logic for retriable errors
+      if (retries > 0 && (
+        fetchError.message.includes('fetch failed') || 
+        fetchError.message.includes('network') ||
+        fetchError.message.includes('timeout')
+      )) {
+        console.log(`Retrying image fetch for ${symbol} (${retries} retries left)`);
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return cacheImageToStorage(imageUrl, symbol, retries - 1);
+      }
+      
       return null;
     }
-    
-    // Get the public URL for the cached image
-    const { data: publicUrl } = supabase.storage
-      .from('token-logos')
-      .getPublicUrl(fileName);
-      
-    console.log(`Successfully cached image for ${symbol}`);
-    return publicUrl.publicUrl;
   } catch (error) {
-    console.error(`Error caching image for ${symbol}:`, error);
+    console.error(`Error in cacheImageToStorage for ${symbol}:`, error);
     return null;
   }
 }
 
-// Process and cache images for tokens
+// Process and cache images for tokens with improved reliability
 async function processTokenImages(tokens: any[]) {
   if (!tokens || !Array.isArray(tokens)) return tokens;
   
+  console.log(`Processing images for ${tokens.length} tokens`);
+  
   // Process in batches to avoid overwhelming the system
-  const batchSize = 5;
+  const batchSize = 3;
   const processedTokens = [...tokens]; // Create a copy to modify
   
   for (let i = 0; i < processedTokens.length; i += batchSize) {
     const batch = processedTokens.slice(i, i + batchSize);
+    console.log(`Processing batch ${i / batchSize + 1} (${batch.length} tokens)`);
     
     // Process each token in the batch concurrently
-    await Promise.all(batch.map(async (token, index) => {
-      if (token.logoUrl) {
+    const results = await Promise.allSettled(batch.map(async (token, index) => {
+      if (!token.logoUrl) {
+        console.log(`No logo URL for token ${token.symbol || `at index ${i + index}`}, skipping`);
+        return { success: false, index };
+      }
+      
+      console.log(`Processing logo for ${token.symbol}: ${token.logoUrl}`);
+      try {
         const cachedImageUrl = await cacheImageToStorage(token.logoUrl, token.symbol || `token${i + index}`);
+        
         if (cachedImageUrl) {
-          processedTokens[i + index] = {
-            ...token,
-            logoUrl: cachedImageUrl, // Replace with cached image URL
-            originalLogoUrl: token.logoUrl // Keep the original URL as reference
+          console.log(`Successfully cached logo for ${token.symbol}`);
+          return { 
+            success: true, 
+            index,
+            originalUrl: token.logoUrl,
+            cachedUrl: cachedImageUrl 
           };
+        } else {
+          console.log(`Failed to cache logo for ${token.symbol}`);
+          return { success: false, index };
         }
+      } catch (error) {
+        console.error(`Error processing logo for ${token.symbol}:`, error);
+        return { success: false, index };
       }
     }));
+    
+    // Apply the results to the processed tokens
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.success) {
+        const { index, cachedUrl, originalUrl } = result.value;
+        processedTokens[i + index] = {
+          ...processedTokens[i + index],
+          logoUrl: cachedUrl,
+          originalLogoUrl: originalUrl
+        };
+      }
+    });
+    
+    // Add a small delay between batches to avoid rate limiting
+    if (i + batchSize < processedTokens.length) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
   
+  console.log(`Finished processing images for all tokens`);
   return processedTokens;
 }
 
@@ -207,7 +298,10 @@ Deno.serve(async (req) => {
 
     // Fetch fresh data if no valid cache
     const response = await fetch(API_URL, {
-      headers: { 'Accept': 'application/json' },
+      headers: { 
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
       cache: 'no-store'
     });
 
@@ -217,13 +311,26 @@ Deno.serve(async (req) => {
 
     const marketData = await response.json();
     
-    // Process and cache all images
+    // Process and cache all images with improved logging
     console.log('Processing and caching token images...');
+    
+    // Process images for different token categories
+    console.log('Processing gainers...');
+    const processedGainers = await processTokenImages(marketData.gainers || []);
+    
+    console.log('Processing losers...');
+    const processedLosers = await processTokenImages(marketData.losers || []);
+    
+    console.log('Processing hot pools...');
+    const processedHotPools = await processTokenImages(marketData.hotPools || []);
+    
+    // Combine processed data
     const processedData = {
       ...marketData,
-      gainers: await processTokenImages(marketData.gainers),
-      losers: await processTokenImages(marketData.losers),
-      hotPools: await processTokenImages(marketData.hotPools)
+      gainers: processedGainers,
+      losers: processedLosers,
+      hotPools: processedHotPools,
+      lastUpdated: new Date().toISOString()
     };
     
     // Store in cache
