@@ -13,12 +13,12 @@ const RightSidebar: React.FC = () => {
 
   return (
     <motion.aside 
-      className="hidden lg:block w-[350px] h-screen overflow-hidden sticky top-0 bg-black border-l border-gray-800"
+      className="hidden lg:block w-[350px] h-screen overflow-hidden sticky top-0 bg-black"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
-      <ScrollArea className="h-screen py-3 pr-1">
+      <ScrollArea className="h-[calc(100vh-60px)] py-3 pr-1">
         <div className="px-4 mb-4">
           <div className="relative">
             <div className="flex items-center w-full bg-gray-900 rounded-full overflow-hidden">

@@ -154,7 +154,7 @@ const CryptoTicker: React.FC = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default CryptoTicker
+export default CryptoTicker;
