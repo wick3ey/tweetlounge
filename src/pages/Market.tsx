@@ -597,6 +597,12 @@ const Market: React.FC = () => {
   
   useEffect(() => {
     if (marketData && !loading) {
+      handleDownloadAllTokenIcons(true);
+    }
+  }, [marketData, loading]);
+  
+  useEffect(() => {
+    if (marketData && !loading) {
       const cacheAllLogos = async () => {
         console.log('Pre-caching all market token logos...');
         
@@ -631,7 +637,7 @@ const Market: React.FC = () => {
     }
   }, [marketData, loading]);
   
-  const handleDownloadAllTokenIcons = async () => {
+  const handleDownloadAllTokenIcons = async (silent: boolean = false) => {
     if (!marketData || downloadingLogos) return;
     
     setDownloadingLogos(true);
@@ -649,15 +655,17 @@ const Market: React.FC = () => {
     
     setDownloadProgress(prev => ({ ...prev, total: tokensToProcess.length }));
     
-    toast({
-      title: "Starting logo download",
-      description: `Will download ${tokensToProcess.length} token logos to Supabase storage`,
-    });
+    if (!silent) {
+      toast({
+        title: "Starting logo download",
+        description: `Will download ${tokensToProcess.length} token logos to Supabase storage`,
+      });
+    }
     
     let successCount = 0;
     let failCount = 0;
     
-    const batchSize = 2;
+    const batchSize = 3;
     for (let i = 0; i < tokensToProcess.length; i += batchSize) {
       const batch = tokensToProcess.slice(i, i + batchSize);
       
@@ -681,15 +689,17 @@ const Market: React.FC = () => {
       }));
       
       if (i + batchSize < tokensToProcess.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
-    toast({
-      title: `Logo download complete`,
-      description: `Successfully downloaded ${successCount} logos. Failed: ${failCount}.`,
-      variant: failCount > 0 ? "destructive" : "default",
-    });
+    if (!silent) {
+      toast({
+        title: `Logo download complete`,
+        description: `Successfully downloaded ${successCount} logos. Failed: ${failCount}.`,
+        variant: failCount > 0 ? "destructive" : "default",
+      });
+    }
     
     setDownloadingLogos(false);
     

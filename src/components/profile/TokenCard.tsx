@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Token } from '@/utils/tokenService';
 import { Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { getTokenLogo, generateFallbackLogoUrl } from '@/services/storageService';
+import { getTokenLogo, generateFallbackLogoUrl, cacheTokenLogo } from '@/services/storageService';
 
 interface TokenCardProps {
   token: Token;
@@ -17,6 +16,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
   const { toast } = useToast();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -28,9 +28,27 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
         if (token.logo) {
           const cachedLogo = await getTokenLogo(token.symbol, token.logo);
           setLogoUrl(cachedLogo);
+          
+          // If we got a fallback image but have a logo URL, try to force cache it
+          if (cachedLogo === generateFallbackLogoUrl(token.symbol) && retryCount < 2) {
+            console.log(`TokenCard: Force caching logo for ${token.symbol}: ${token.logo}`);
+            const forceCachedLogo = await cacheTokenLogo(token.symbol, token.logo, true);
+            if (forceCachedLogo && forceCachedLogo !== generateFallbackLogoUrl(token.symbol)) {
+              setLogoUrl(forceCachedLogo);
+            }
+          }
         } else if (token.logoURI) {
           const cachedLogo = await getTokenLogo(token.symbol, token.logoURI);
           setLogoUrl(cachedLogo); 
+          
+          // Similar logic for logoURI
+          if (cachedLogo === generateFallbackLogoUrl(token.symbol) && retryCount < 2) {
+            console.log(`TokenCard: Force caching logoURI for ${token.symbol}: ${token.logoURI}`);
+            const forceCachedLogo = await cacheTokenLogo(token.symbol, token.logoURI, true);
+            if (forceCachedLogo && forceCachedLogo !== generateFallbackLogoUrl(token.symbol)) {
+              setLogoUrl(forceCachedLogo);
+            }
+          }
         } else {
           setLogoUrl(generateFallbackLogoUrl(token.symbol));
         }
@@ -42,7 +60,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
     };
     
     fetchLogo();
-  }, [token.symbol, token.logo, token.logoURI]);
+  }, [token.symbol, token.logo, token.logoURI, retryCount]);
 
   const copyAddress = () => {
     navigator.clipboard.writeText(token.address);
@@ -105,7 +123,13 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
 
   const handleImageError = () => {
     setImageError(true);
-    setLogoUrl(generateFallbackLogoUrl(token.symbol));
+    
+    // On error, increment retry count to trigger useEffect to try again with forceUpdate=true
+    if (retryCount < 2 && (token.logo || token.logoURI)) {
+      setRetryCount(prev => prev + 1);
+    } else {
+      setLogoUrl(generateFallbackLogoUrl(token.symbol));
+    }
   };
 
   if (isCompact) {
