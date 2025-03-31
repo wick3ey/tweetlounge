@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -26,11 +25,24 @@ const Home: React.FC = () => {
   const [feedKey, setFeedKey] = useState<number>(0);
   const queryClient = useQueryClient();
 
-  // Listen for realtime comment updates to refresh the feed
+  // Enhanced real-time subscriptions for instant updates
   useEffect(() => {
-    // Setup realtime subscription for comments with improved error handling
+    // Create a single channel for both tweet and comment changes
     const channel = supabase
-      .channel('public:comments:home')
+      .channel('realtime:feed')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweets'
+      }, (payload) => {
+        console.log('Home page detected tweet change:', payload);
+        
+        // Force an immediate refresh of the feed data through React Query
+        queryClient.invalidateQueries({ queryKey: ['tweets'] });
+        
+        // Also invalidate trending hashtags when tweets change
+        queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
+      })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -45,43 +57,24 @@ const Home: React.FC = () => {
           
           // First update the count in the database
           updateTweetCommentCount(tweetId).then(() => {
-            // Then force a refresh of the feed to show the updated count
-            handleRefresh();
+            // Invalidate specific tweet data to refresh its comment count
+            queryClient.invalidateQueries({ queryKey: ['tweet', tweetId] });
             
-            // Invalidate trending hashtags cache when comments change
-            queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
+            // Also invalidate the entire feed to ensure consistent UI state
+            queryClient.invalidateQueries({ queryKey: ['tweets'] });
           });
         } else {
           // If we can't get the tweet_id, refresh the whole feed anyway
-          handleRefresh();
+          queryClient.invalidateQueries({ queryKey: ['tweets'] });
         }
       })
-      .subscribe();
+      .subscribe(status => {
+        console.log('Realtime subscription status:', status);
+      });
       
     return () => {
+      console.log('Cleaning up realtime subscription in Home');
       supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
-  // Also listen for changes to the tweets table to refresh the feed
-  useEffect(() => {
-    const tweetsChannel = supabase
-      .channel('public:tweets:home')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tweets'
-      }, (payload) => {
-        console.log('Home page detected tweet change:', payload);
-        handleRefresh();
-        
-        // Invalidate trending hashtags cache when tweets change
-        queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(tweetsChannel);
     };
   }, [queryClient]);
 
@@ -102,11 +95,15 @@ const Home: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Update feed by incrementing key instead of reloading the page
-      setFeedKey(prevKey => prevKey + 1);
-      
-      // Invalidate caches when posting new tweet
+      // Update feed by immediately invalidating relevant queries
+      queryClient.invalidateQueries({ queryKey: ['tweets'] });
       queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
+      
+      toast({
+        title: "Tweet Posted",
+        description: "Your tweet has been posted successfully.",
+        variant: "default"
+      });
       
       return Promise.resolve();
     } catch (error) {
@@ -121,9 +118,9 @@ const Home: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    // Update feed by incrementing key
+    // Update feed by immediately invalidating relevant queries
     console.log('Manually refreshing feed in Home component');
-    setFeedKey(prevKey => prevKey + 1);
+    queryClient.invalidateQueries({ queryKey: ['tweets'] });
   };
 
   return (

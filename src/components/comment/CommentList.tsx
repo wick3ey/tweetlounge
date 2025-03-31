@@ -5,6 +5,7 @@ import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { updateTweetCommentCount } from '@/services/commentService';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface CommentListProps {
   tweetId?: string;
@@ -13,17 +14,27 @@ interface CommentListProps {
 }
 
 const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated, onAction }) => {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [totalComments, setTotalComments] = useState(0);
-
+  const queryClient = useQueryClient();
+  
+  // Use React Query for fetching comments
+  const { data: comments = [], isLoading, refetch } = useQuery({
+    queryKey: ['comments', tweetId],
+    queryFn: async () => {
+      if (!tweetId) return [];
+      return fetchComments();
+    },
+    enabled: !!tweetId,
+    staleTime: 5 * 1000, // Consider data fresh for 5 seconds
+    refetchOnWindowFocus: false
+  });
+  
+  // Set up real-time updates for comments
   useEffect(() => {
     if (tweetId) {
-      fetchComments();
-      
-      // Setup realtime subscription for comments with improved channel name
+      // Setup realtime subscription with a unique channel name
       const channel = supabase
-        .channel(`comments_for_tweet_${tweetId}_list`)
+        .channel(`rt:comments:${tweetId}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -31,23 +42,32 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           filter: `tweet_id=eq.${tweetId}`
         }, (payload) => {
           console.log('CommentList detected realtime comment update:', payload);
-          fetchComments();
           
-          // Always update the tweet count in the database and notify parent components
+          // Invalidate React Query cache for this tweet's comments
+          queryClient.invalidateQueries({ queryKey: ['comments', tweetId] });
+          
+          // Also update the tweet's comment count in the database
           updateTweetCommentCount(tweetId).then((success) => {
             console.log(`CommentList: updated tweet ${tweetId} comment count in database: ${success}`);
             
-            // Also force refresh the comments count in the UI immediately
+            // Force refresh the comments count in the UI immediately
             getExactCommentCount();
+            
+            // Also invalidate parent tweet's data in the cache
+            queryClient.invalidateQueries({ queryKey: ['tweet', tweetId] });
+            queryClient.invalidateQueries({ queryKey: ['tweets'] });
           });
         })
-        .subscribe();
+        .subscribe(status => {
+          console.log(`Comment subscription for tweet ${tweetId} status:`, status);
+        });
         
       return () => {
+        console.log(`Cleaning up comment subscription for tweet ${tweetId}`);
         supabase.removeChannel(channel);
       };
     }
-  }, [tweetId]);
+  }, [tweetId, queryClient]);
 
   const getExactCommentCount = async () => {
     if (!tweetId) return;
@@ -71,16 +91,27 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         if (onCommentCountUpdated) {
           onCommentCountUpdated(commentCount);
         }
+        
+        // Update tweet replies_count in the database for consistency
+        await supabase
+          .from('tweets')
+          .update({ replies_count: commentCount })
+          .eq('id', tweetId);
+          
+        // Update the tweet data in the React Query cache
+        queryClient.setQueryData(['tweet', tweetId], (oldTweet: any) => {
+          if (!oldTweet) return oldTweet;
+          return { ...oldTweet, replies_count: commentCount };
+        });
       }
     } catch (err) {
       console.error('Failed to get exact comment count:', err);
     }
   };
 
-  const fetchComments = async () => {
-    if (!tweetId) return;
+  const fetchComments = async (): Promise<Comment[]> => {
+    if (!tweetId) return [];
     
-    setLoading(true);
     try {
       // Fetch parent comments
       const { data, error } = await supabase
@@ -107,14 +138,11 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         
       if (error) {
         console.error('Error fetching comments:', error);
-        return;
+        return [];
       }
       
       // Get exact comment count
       await getExactCommentCount();
-      
-      // Always update the tweet's replies_count in the database for consistency
-      await updateTweetCommentCount(tweetId);
       
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
@@ -134,24 +162,25 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           }
         }));
         
-        setComments(formattedComments);
+        return formattedComments;
       }
+      
+      return [];
     } catch (error) {
       console.error('Failed to fetch comments:', error);
-    } finally {
-      setLoading(false);
+      return [];
     }
   };
 
   // Refresh comments when an action occurs (like a like)
   const handleCommentAction = () => {
-    fetchComments();
+    queryClient.invalidateQueries({ queryKey: ['comments', tweetId] });
     if (onAction) {
       onAction();
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center py-4">
         <Loader2 className="h-6 w-6 animate-spin text-crypto-blue" />

@@ -1,10 +1,11 @@
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getTrendingHashtags } from '@/services/hashtagService';
 import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 type TrendingHashtag = {
   hashtag_id: string;
@@ -14,12 +15,43 @@ type TrendingHashtag = {
 
 export function TrendingHashtags({ limit = 5 }: { limit?: number }) {
   // Use React Query for automatic caching and revalidation
-  const { data: hashtags = [], isLoading } = useQuery({
+  const { 
+    data: hashtags = [], 
+    isLoading,
+    refetch 
+  } = useQuery({
     queryKey: ['trending-hashtags', limit],
     queryFn: () => getTrendingHashtags(limit),
     staleTime: 5 * 60 * 1000, // 5 minutes before refetching
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
+
+  // Listen for changes to hashtags or tweets that might affect trending hashtags
+  useEffect(() => {
+    const hashtagsChannel = supabase
+      .channel('realtime:trending-hashtags')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweet_hashtags'
+      }, () => {
+        console.log('Detected hashtag change, refreshing trending hashtags');
+        refetch();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'tweets'
+      }, () => {
+        console.log('Detected new tweet, refreshing trending hashtags');
+        refetch();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(hashtagsChannel);
+    };
+  }, [refetch]);
 
   if (isLoading) {
     return (
