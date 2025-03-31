@@ -24,7 +24,17 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import HashtagPage from "./pages/HashtagPage";
 
-const queryClient = new QueryClient();
+// Configure React Query client with optimized settings
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      retry: 1, // Only retry failed queries once
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
+    },
+  },
+});
 
 const App = () => {
   // Initialize cache cleanup service when the app starts

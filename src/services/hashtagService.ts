@@ -1,5 +1,6 @@
 
 import { supabase } from '@/lib/supabase';
+import { getCachedData, setCachedData, CACHE_DURATIONS } from '@/utils/cacheService';
 
 /**
  * Save hashtags extracted from tweet content and create relations
@@ -52,6 +53,15 @@ export async function saveHashtagsForTweet(tweetId: string, hashtags: string[]):
  */
 export async function getTweetsByHashtag(hashtagName: string, limit = 20, offset = 0): Promise<any[]> {
   try {
+    // Check cache first
+    const cacheKey = `hashtag-tweets:${hashtagName}:${limit}:${offset}`;
+    const cachedData = await getCachedData<any[]>(cacheKey);
+    
+    if (cachedData) {
+      console.log('Using cached hashtag tweets data');
+      return cachedData;
+    }
+    
     // First find the hashtag ID
     const { data: hashtag, error: hashtagError } = await supabase
       .from('hashtags')
@@ -95,6 +105,9 @@ export async function getTweetsByHashtag(hashtagName: string, limit = 20, offset
       tweetIds.includes(tweet.id)
     );
     
+    // Cache the result
+    await setCachedData(cacheKey, filteredTweets, CACHE_DURATIONS.SHORT);
+    
     return filteredTweets;
   } catch (error) {
     console.error('Error getting tweets by hashtag:', error);
@@ -107,6 +120,15 @@ export async function getTweetsByHashtag(hashtagName: string, limit = 20, offset
  */
 export async function getTrendingHashtags(limit = 5): Promise<any[]> {
   try {
+    // Check cache first
+    const cacheKey = `trending-hashtags:${limit}`;
+    const cachedData = await getCachedData<any[]>(cacheKey);
+    
+    if (cachedData) {
+      console.log('Using cached trending hashtags data');
+      return cachedData;
+    }
+    
     const { data, error } = await supabase
       .rpc('get_trending_hashtags', { limit_count: limit });
     
@@ -120,6 +142,9 @@ export async function getTrendingHashtags(limit = 5): Promise<any[]> {
     
     // Sort by tweet count (highest first)
     filteredHashtags.sort((a, b) => b.tweet_count - a.tweet_count);
+    
+    // Cache the result
+    await setCachedData(cacheKey, filteredHashtags, CACHE_DURATIONS.MEDIUM);
     
     return filteredHashtags;
   } catch (error) {

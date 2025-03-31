@@ -17,12 +17,14 @@ import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { updateTweetCommentCount } from '@/services/commentService'
+import { useQueryClient } from '@tanstack/react-query'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
+  const [feedKey, setFeedKey] = useState<number>(0);
+  const queryClient = useQueryClient();
 
   // Listen for realtime comment updates to refresh the feed
   useEffect(() => {
@@ -45,6 +47,9 @@ const Home: React.FC = () => {
           updateTweetCommentCount(tweetId).then(() => {
             // Then force a refresh of the feed to show the updated count
             handleRefresh();
+            
+            // Invalidate trending hashtags cache when comments change
+            queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
           });
         } else {
           // If we can't get the tweet_id, refresh the whole feed anyway
@@ -56,7 +61,7 @@ const Home: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryClient]);
 
   // Also listen for changes to the tweets table to refresh the feed
   useEffect(() => {
@@ -69,13 +74,16 @@ const Home: React.FC = () => {
       }, (payload) => {
         console.log('Home page detected tweet change:', payload);
         handleRefresh();
+        
+        // Invalidate trending hashtags cache when tweets change
+        queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       })
       .subscribe();
       
     return () => {
       supabase.removeChannel(tweetsChannel);
     };
-  }, []);
+  }, [queryClient]);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
     if (!user) {
@@ -96,6 +104,9 @@ const Home: React.FC = () => {
       
       // Update feed by incrementing key instead of reloading the page
       setFeedKey(prevKey => prevKey + 1);
+      
+      // Invalidate caches when posting new tweet
+      queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       
       return Promise.resolve();
     } catch (error) {

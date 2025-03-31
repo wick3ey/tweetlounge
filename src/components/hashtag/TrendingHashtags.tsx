@@ -1,9 +1,10 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getTrendingHashtags } from '@/services/hashtagService';
 import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 
 type TrendingHashtag = {
   hashtag_id: string;
@@ -12,28 +13,15 @@ type TrendingHashtag = {
 };
 
 export function TrendingHashtags({ limit = 5 }: { limit?: number }) {
-  const [hashtags, setHashtags] = useState<TrendingHashtag[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Use React Query for automatic caching and revalidation
+  const { data: hashtags = [], isLoading } = useQuery({
+    queryKey: ['trending-hashtags', limit],
+    queryFn: () => getTrendingHashtags(limit),
+    staleTime: 5 * 60 * 1000, // 5 minutes before refetching
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
 
-  useEffect(() => {
-    const fetchTrendingHashtags = async () => {
-      try {
-        setLoading(true);
-        // This will now return already filtered hashtags with 15+ tweets
-        // and sorted by tweet count (highest first)
-        const data = await getTrendingHashtags(limit);
-        setHashtags(data);
-      } catch (error) {
-        console.error('Failed to fetch trending hashtags:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTrendingHashtags();
-  }, [limit]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="rounded-lg border border-gray-800 bg-black p-4">
         <div className="flex items-center mb-4">
