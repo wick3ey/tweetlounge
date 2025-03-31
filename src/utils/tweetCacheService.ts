@@ -4,7 +4,7 @@ import { TweetWithAuthor } from '@/types/Tweet';
 import { CACHE_DURATIONS } from './cacheService';
 
 // Cache keys
-const CACHE_KEYS = {
+export const CACHE_KEYS = {
   HOME_FEED: 'home-feed',
   USER_TWEETS: 'user-tweets',
   TWEET_DETAIL: 'tweet-detail',
