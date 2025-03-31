@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * Utility functions for extracting and handling hashtags
@@ -26,44 +26,43 @@ export function extractHashtags(text: string): string[] {
 }
 
 /**
- * Format text by converting hashtags into JSX elements
+ * Format text by converting hashtags into clickable links
  */
-export function formatTextWithHashtags(text: string, linkClassName: string = "text-crypto-blue hover:underline"): React.ReactNode[] {
+export function formatTextWithHashtags(text: string, linkClassName: string = "text-sky-400 hover:underline font-medium"): React.ReactNode[] {
   if (!text) return [];
   
   const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
   const hashtagRegex = /#(\w+)/g;
+  let lastIndex = 0;
   let match;
   
-  // Clone the text to avoid modifying the original
-  const textString = String(text);
-  
-  while ((match = hashtagRegex.exec(textString)) !== null) {
+  while ((match = hashtagRegex.exec(text)) !== null) {
     // Add text before the hashtag
     if (match.index > lastIndex) {
-      parts.push(textString.substring(lastIndex, match.index));
+      parts.push(text.substring(lastIndex, match.index));
     }
     
-    // Add the hashtag as a link
-    const hashtag = match[0]; // Complete hashtag (#example)
-    const hashtagName = match[1]; // Just the name (example)
+    // Create a clickable link for the hashtag
+    const hashtag = match[0]; // Full hashtag with #
+    const hashtagName = match[1]; // Hashtag name without #
     
     parts.push(
-      React.createElement("a", {
-        key: `hashtag-${match.index}`,
-        href: `/hashtag/${hashtagName}`,
-        className: linkClassName,
-        onClick: (e: React.MouseEvent) => e.stopPropagation()
-      }, hashtag)
+      <Link 
+        key={`hashtag-${match.index}`}
+        to={`/hashtag/${hashtagName}`}
+        className={linkClassName}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {hashtag}
+      </Link>
     );
     
     lastIndex = match.index + match[0].length;
   }
   
-  // Add the remaining text
-  if (lastIndex < textString.length) {
-    parts.push(textString.substring(lastIndex));
+  // Add remaining text after the last hashtag
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
   }
   
   return parts;
