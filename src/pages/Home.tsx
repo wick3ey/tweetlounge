@@ -1,22 +1,19 @@
 
 import React, { useState, useEffect } from 'react'
-import Header from '@/components/layout/Header'
-import CryptoTicker from '@/components/crypto/CryptoTicker'
+import Layout from '@/components/layout/Layout'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import { Separator } from '@/components/ui/separator'
 import TweetComposer from '@/components/tweet/TweetComposer'
 import TweetFeed from '@/components/tweet/TweetFeed'
 import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
-import LeftSidebar from '@/components/layout/LeftSidebar'
-import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { updateTweetCommentCount } from '@/services/commentService'
 import { useQueryClient } from '@tanstack/react-query'
+import { useMediaQuery } from '@/hooks/use-mobile'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +21,7 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [feedKey, setFeedKey] = useState<number>(0);
   const queryClient = useQueryClient();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   useEffect(() => {
     const channel = supabase
@@ -111,56 +109,46 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
-      <Header />
-      <div className="hidden sm:block">
-        <CryptoTicker />
-      </div>
-      
-      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
-        <LeftSidebar />
-        
-        <main className="flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto">
-          <div className="max-w-full">
-            <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
-              <div className="flex gap-3 items-center pl-8">
-                <div className="rounded-lg bg-crypto-blue/10 p-1.5">
-                  <ZapIcon className="text-crypto-blue h-5 w-5" />
-                </div>
-                <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
-                
-                <CryptoButton 
-                  variant="outline" 
-                  size="sm" 
-                  className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
-                  onClick={handleRefresh}
-                >
-                  <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Refresh
-                </CryptoButton>
-              </div>
+    <Layout>
+      <div className="max-w-full">
+        <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
+          <div className="flex gap-3 items-center pl-8 md:pl-3">
+            <div className="rounded-lg bg-crypto-blue/10 p-1.5">
+              <ZapIcon className="text-crypto-blue h-5 w-5" />
             </div>
+            <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
             
-            <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
-              <TweetComposer onTweetSubmit={handleTweetSubmit} />
-            </div>
-            
-            <div>
-              <div className="border-b border-gray-800">
-                <TweetFeedTabs />
-              </div>
-              <TweetFeed 
-                key={feedKey} 
-                limit={10} 
-                onCommentAdded={handleRefresh} 
-              />
-            </div>
+            <CryptoButton 
+              variant="outline" 
+              size={isMobile ? "sm" : "default"}
+              className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
+              onClick={handleRefresh}
+            >
+              <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
+              {!isMobile && "Refresh"}
+            </CryptoButton>
           </div>
-        </main>
+        </div>
         
-        <RightSidebar />
+        <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
+          <TweetComposer onTweetSubmit={handleTweetSubmit} />
+        </div>
+        
+        <div>
+          <div className="border-b border-gray-800">
+            <TweetFeedTabs />
+          </div>
+          <TweetFeed 
+            key={feedKey} 
+            limit={10} 
+            onCommentAdded={handleRefresh} 
+          />
+        </div>
+        
+        {/* Add padding at the bottom for mobile navigation */}
+        {isMobile && <div className="h-16"></div>}
       </div>
-    </div>
+    </Layout>
   );
 };
 

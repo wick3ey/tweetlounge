@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useState, useEffect } from 'react';
+import { useMediaQuery } from '@/hooks/use-mobile';
 
 interface LeftSidebarProps {
   collapsed?: boolean;
@@ -31,6 +32,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
   const { profile } = useProfile();
   const { unreadCount } = useNotifications();
   const [isCollapsed, setIsCollapsed] = useState(collapsed);
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   // Update internal state when prop changes
   useEffect(() => {
@@ -72,14 +74,16 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
   };
   
   return (
-    <aside className={`relative flex flex-col h-screen sticky top-0 ${isCollapsed ? 'min-w-[80px] max-w-[80px]' : 'min-w-[275px] max-w-[275px]'} py-4 bg-black border-r border-gray-800 transition-all duration-300 hidden md:flex`}>
+    <aside className={`relative flex flex-col h-screen sticky top-0 ${isCollapsed ? 'min-w-[80px] max-w-[80px]' : isMobile ? 'w-full' : 'min-w-[275px] max-w-[275px]'} py-4 bg-black border-r border-gray-800 transition-all duration-300 ${isMobile ? '' : 'hidden md:flex'}`}>
       {/* Toggle Button - Repositioned to avoid overlap with feed header */}
-      <button 
-        onClick={toggleCollapse}
-        className="absolute -right-3 top-20 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-20 hover:bg-gray-700 transition-colors"
-      >
-        <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
-      </button>
+      {!isMobile && (
+        <button 
+          onClick={toggleCollapse}
+          className="absolute -right-3 top-20 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-20 hover:bg-gray-700 transition-colors"
+        >
+          <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
+        </button>
+      )}
 
       {/* Logo */}
       <div className={`px-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
@@ -163,32 +167,6 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
           </div>
         </div>
       )}
-
-      {/* Mobile Navigation - Hidden on desktop */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-gray-800">
-        <div className="flex justify-around items-center p-2">
-          {menuItems.slice(0, 5).map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "p-2 rounded-full flex flex-col items-center justify-center",
-                isActive(item.path) ? "text-blue-400" : "text-gray-400"
-              )}
-            >
-              <div className="relative">
-                <item.icon className="h-6 w-6" />
-                {item.badge && (
-                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
-                    {item.badge > 9 ? '9+' : item.badge}
-                  </div>
-                )}
-              </div>
-              <span className="text-xs mt-1">{item.label}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
     </aside>
   );
 };
