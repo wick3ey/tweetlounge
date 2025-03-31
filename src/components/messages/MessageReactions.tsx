@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Smile, ThumbsUp, Heart, X } from 'lucide-react';
+import { Smile, ThumbsUp, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
