@@ -1,10 +1,19 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0'
 
-// Define the base URL for our API
-const API_URL = 'https://f3oci3ty.xyz/api/crypto'
+// Define the base URL for CoinGecko
+const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3'
 
-// Define the CORS headers
+// Cache keys for storage
+const CACHE_KEYS = {
+  CRYPTO_DATA: 'crypto_data',
+  MARKET_STATS: 'market_stats'
+}
+
+// Define the duration for data caching - 30 minutes in milliseconds
+const CACHE_DURATION = 30 * 60 * 1000
+
+// Define CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -15,368 +24,365 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') as string
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Define cache duration - 30 minutes
-const CACHE_DURATION = 30 * 60 * 1000
+// Interface for the cryptocurrency data
+interface CryptoCurrency {
+  id: string;
+  name: string;
+  symbol: string;
+  price: number;
+  change: number;
+}
 
-// Create 'token-logos' bucket if it doesn't exist
-async function ensureStorageBucketExists() {
+// Interface for market statistics data
+interface MarketStats {
+  total_market_cap: number;
+  total_volume: number;
+  btc_dominance: number;
+  eth_dominance: number;
+  active_cryptocurrencies: number;
+  market_cap_change_percentage_24h: number;
+  fear_greed_value?: number;
+  fear_greed_label?: string;
+}
+
+// Helper function to fetch data with retries
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<any> {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt + 1}: Fetching ${url}`)
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json'
+        },
+        cache: 'no-cache'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Successfully fetched data from ${url}`)
+      return data;
+    } catch (error) {
+      console.error(`Attempt ${attempt + 1} failed:`, error);
+      lastError = error;
+      // Wait longer between retries
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  
+  throw lastError || new Error(`Failed to fetch ${url} after ${maxRetries} attempts`);
+}
+
+// Function to safely parse API response data with fallbacks
+function safelyParseCoinsData(data: any): CryptoCurrency[] {
+  if (!data || !Array.isArray(data)) {
+    console.error('Invalid data format received for crypto coins:', data);
+    return getFallbackCryptoData();
+  }
+  
   try {
-    // Check if bucket exists
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    return data.map((coin: any) => ({
+      id: coin.id || '',
+      name: coin.name || '',
+      symbol: (coin.symbol || '').toUpperCase(),
+      price: typeof coin.current_price === 'number' ? coin.current_price : 0,
+      change: typeof coin.price_change_percentage_24h === 'number' ? coin.price_change_percentage_24h : 0
+    }));
+  } catch (error) {
+    console.error('Error parsing coin data:', error);
+    return getFallbackCryptoData();
+  }
+}
+
+// Function to safely parse global market data with fallbacks
+function safelyParseGlobalData(data: any): MarketStats {
+  if (!data || !data.data) {
+    console.error('Invalid global market data format received:', data);
+    return getFallbackMarketStats();
+  }
+  
+  try {
+    const marketData = data.data;
+    return {
+      total_market_cap: marketData.total_market_cap?.usd || 0,
+      total_volume: marketData.total_volume?.usd || 0,
+      btc_dominance: marketData.market_cap_percentage?.btc || 0,
+      eth_dominance: marketData.market_cap_percentage?.eth || 0,
+      active_cryptocurrencies: marketData.active_cryptocurrencies || 0,
+      market_cap_change_percentage_24h: marketData.market_cap_change_percentage_24h_usd || 0
+    };
+  } catch (error) {
+    console.error('Error parsing global market data:', error);
+    return getFallbackMarketStats();
+  }
+}
+
+// Fallback data to use when the API fails
+function getFallbackCryptoData(): CryptoCurrency[] {
+  return [
+    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 62364, change: -1.67 },
+    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 3015, change: -3.04 },
+    { id: 'tether', name: 'Tether', symbol: 'USDT', price: 0.999, change: 0.02 },
+    { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 600, change: -3.62 },
+    { id: 'solana', name: 'Solana', symbol: 'SOL', price: 124, change: -3.28 },
+    { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 0.52, change: -2.90 },
+    { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.44, change: -3.91 },
+    { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.12, change: -6.48 },
+    { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -4.2 },
+    { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', price: 0.00002, change: -5.3 }
+  ];
+}
+
+// Fallback market stats
+function getFallbackMarketStats(): MarketStats {
+  return {
+    total_market_cap: 2821150162185,
+    total_volume: 110950262631,
+    btc_dominance: 58.86,
+    eth_dominance: 8.00,
+    active_cryptocurrencies: 17159,
+    market_cap_change_percentage_24h: -5.83,
+    fear_greed_value: 50,
+    fear_greed_label: 'Neutral'
+  };
+}
+
+// Function to fetch fear and greed index
+async function fetchFearGreedIndex(): Promise<{value: number, value_classification: string}> {
+  try {
+    const url = 'https://api.alternative.me/fng/';
     
-    if (listError) {
-      console.error('Error checking buckets:', listError);
+    const data = await fetchWithRetry(url);
+    
+    if (data && data.data && data.data[0]) {
+      return {
+        value: parseInt(data.data[0].value, 10),
+        value_classification: data.data[0].value_classification
+      };
+    }
+    
+    throw new Error('Unexpected Fear & Greed API response structure');
+  } catch (error) {
+    console.error('Error fetching Fear & Greed index:', error);
+    return { value: 50, value_classification: 'Neutral' };
+  }
+}
+
+// Function to store data in cache
+async function setCachedData(key: string, data: any, duration: number = CACHE_DURATION, source?: string): Promise<boolean> {
+  try {
+    console.log(`Setting cache for key: ${key}, duration: ${duration}ms`);
+    
+    // Calculate expiration time
+    const expires = new Date(Date.now() + duration);
+    
+    // First, remove any existing entries with this key
+    const { error: deleteError } = await supabase
+      .from('market_cache')
+      .delete()
+      .eq('cache_key', key);
+    
+    if (deleteError) {
+      console.error(`Error clearing existing cache: ${deleteError.message}`);
+    }
+    
+    // Then insert the new cache entry
+    const { error } = await supabase
+      .from('market_cache')
+      .insert({
+        cache_key: key,
+        data: data,
+        source,
+        expires_at: expires.toISOString()
+      });
+    
+    if (error) {
+      console.error(`Error setting cache: ${error.message}`);
       return false;
     }
     
-    const bucketExists = buckets?.some(bucket => bucket.name === 'token-logos');
-    
-    if (!bucketExists) {
-      console.log('Creating token-logos bucket');
-      const { error } = await supabase.storage.createBucket('token-logos', {
-        public: true
-      });
-      
-      if (error) {
-        console.error('Error creating bucket:', error);
-        return false;
-      }
-      
-      // Make bucket public
-      const { error: policyError } = await supabase.storage.from('token-logos').createSignedUrl(
-        'dummy.txt', 
-        60, 
-        { download: true }
-      );
-      
-      if (policyError && !policyError.message.includes('not found')) {
-        console.error('Error setting bucket policy:', policyError);
-      }
-    }
-    
+    console.log(`Successfully cached data for key: ${key}, expires: ${expires.toISOString()}`);
     return true;
-  } catch (error) {
-    console.error('Unexpected error ensuring bucket exists:', error);
+  } catch (err) {
+    console.error(`Unexpected error in setCachedData: ${err}`);
     return false;
   }
 }
 
-// Cache images to Supabase Storage with improved error handling and retries
-async function cacheImageToStorage(imageUrl: string, symbol: string, retries = 2) {
+// Cleanup expired cache entries
+async function cleanupExpiredCache(): Promise<void> {
   try {
-    if (!imageUrl) return null;
+    const { error } = await supabase
+      .from('market_cache')
+      .delete()
+      .lt('expires_at', new Date().toISOString());
     
-    // Create a sanitized file name from the symbol
-    const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
-    
-    console.log(`Processing image for ${symbol}, fileName: ${fileName}`);
-    
-    // Check if the image already exists in storage
-    const { data: existingFiles, error: listError } = await supabase.storage
-      .from('token-logos')
-      .list('', {
-        search: fileName
-      });
-    
-    if (listError) {
-      console.error(`Error checking if image exists for ${symbol}:`, listError);
+    if (error) {
+      console.error(`Error cleaning up cache: ${error.message}`);
+    } else {
+      console.log('Successfully cleaned up expired cache entries');
     }
-      
-    if (existingFiles && existingFiles.length > 0) {
-      console.log(`Image for ${symbol} already exists, returning public URL`);
-      const { data: publicUrl } = supabase.storage
-        .from('token-logos')
-        .getPublicUrl(fileName);
-        
-      return publicUrl.publicUrl;
-    }
-    
-    // Fetch the image from the source
-    console.log(`Fetching image from ${imageUrl} for ${symbol}`);
-    
-    // Add timeout and proper error handling for fetch
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  } catch (err) {
+    console.error(`Unexpected error in cleanupExpiredCache: ${err}`);
+  }
+}
+
+// Main function to fetch crypto data
+async function fetchCryptoData(): Promise<CryptoCurrency[]> {
+  try {
+    console.info('Fetching fresh crypto data from API');
+    // CoinGecko API endpoint for top cryptocurrencies
+    const url = `${COINGECKO_API_URL}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h`;
     
     try {
-      const imageResponse = await fetch(imageUrl, {
-        headers: { 
-          'Accept': 'image/*',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        signal: controller.signal,
-        cache: 'no-store'
-      });
+      const data = await fetchWithRetry(url);
+      const cryptoData = safelyParseCoinsData(data);
       
-      clearTimeout(timeoutId);
-      
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.status} ${imageResponse.statusText}`);
-      }
-      
-      // Check content type to ensure it's an image
-      const contentType = imageResponse.headers.get('content-type');
-      if (!contentType || !contentType.startsWith('image/')) {
-        console.warn(`Response for ${symbol} is not an image (${contentType}), skipping`);
-        return null;
-      }
-      
-      // Get image as blob
-      const imageBlob = await imageResponse.blob();
-      
-      // Ensure we received actual data
-      if (imageBlob.size === 0) {
-        console.warn(`Received empty image for ${symbol}, skipping`);
-        return null;
-      }
-      
-      console.log(`Successfully fetched image for ${symbol} (${imageBlob.size} bytes, ${contentType})`);
-      
-      // Convert blob to array buffer for Supabase storage
-      const arrayBuffer = await imageBlob.arrayBuffer();
-      
-      // Upload the image to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('token-logos')
-        .upload(fileName, arrayBuffer, {
-          contentType: imageBlob.type || 'image/png',
-          cacheControl: '3600',
-          upsert: true
-        });
+      if (cryptoData.length > 0) {
+        // Store in database cache
+        await setCachedData(
+          CACHE_KEYS.CRYPTO_DATA, 
+          cryptoData, 
+          CACHE_DURATION, 
+          'coingecko'
+        );
         
-      if (uploadError) {
-        console.error(`Error uploading image for ${symbol}:`, uploadError);
-        return null;
+        return cryptoData;
+      } else {
+        throw new Error('API returned empty or invalid data');
       }
-      
-      console.log(`Successfully uploaded image for ${symbol}`);
-      
-      // Get the public URL for the cached image
-      const { data: publicUrl } = supabase.storage
-        .from('token-logos')
-        .getPublicUrl(fileName);
-        
-      console.log(`Successfully cached image for ${symbol}: ${publicUrl.publicUrl}`);
-      return publicUrl.publicUrl;
-      
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      console.error(`Error fetching image for ${symbol}:`, fetchError.message);
-      
-      // Retry logic for retriable errors
-      if (retries > 0 && (
-        fetchError.message.includes('fetch failed') || 
-        fetchError.message.includes('network') ||
-        fetchError.message.includes('timeout')
-      )) {
-        console.log(`Retrying image fetch for ${symbol} (${retries} retries left)`);
-        // Wait a bit before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return cacheImageToStorage(imageUrl, symbol, retries - 1);
-      }
-      
-      return null;
+    } catch (error) {
+      console.error('Error fetching crypto data, using fallback data:', error);
+      // Return and cache fallback data
+      const fallbackData = getFallbackCryptoData();
+      await setCachedData(
+        CACHE_KEYS.CRYPTO_DATA, 
+        fallbackData, 
+        CACHE_DURATION, 
+        'fallback'
+      );
+      return fallbackData;
     }
   } catch (error) {
-    console.error(`Error in cacheImageToStorage for ${symbol}:`, error);
-    return null;
+    console.error('Error in fetchCryptoData:', error);
+    return getFallbackCryptoData();
   }
 }
 
-// Process and cache images for tokens with improved reliability
-async function processTokenImages(tokens: any[]) {
-  if (!tokens || !Array.isArray(tokens)) return tokens;
-  
-  console.log(`Processing images for ${tokens.length} tokens`);
-  
-  // Process in batches to avoid overwhelming the system
-  const batchSize = 3;
-  const processedTokens = [...tokens]; // Create a copy to modify
-  
-  for (let i = 0; i < processedTokens.length; i += batchSize) {
-    const batch = processedTokens.slice(i, i + batchSize);
-    console.log(`Processing batch ${i / batchSize + 1} (${batch.length} tokens)`);
+// Function to fetch global market stats
+async function fetchMarketStats(): Promise<MarketStats> {
+  try {
+    console.info('Fetching fresh market stats data from API');
+    // Fetch global market data
+    const url = `${COINGECKO_API_URL}/global`;
     
-    // Process each token in the batch concurrently
-    const results = await Promise.allSettled(batch.map(async (token, index) => {
-      if (!token.logoUrl) {
-        console.log(`No logo URL for token ${token.symbol || `at index ${i + index}`}, skipping`);
-        return { success: false, index };
-      }
+    let marketStats: MarketStats;
+    try {
+      const data = await fetchWithRetry(url);
+      marketStats = safelyParseGlobalData(data);
       
-      console.log(`Processing logo for ${token.symbol}: ${token.logoUrl}`);
-      try {
-        const cachedImageUrl = await cacheImageToStorage(token.logoUrl, token.symbol || `token${i + index}`);
-        
-        if (cachedImageUrl) {
-          console.log(`Successfully cached logo for ${token.symbol}`);
-          return { 
-            success: true, 
-            index,
-            originalUrl: token.logoUrl,
-            cachedUrl: cachedImageUrl 
-          };
-        } else {
-          console.log(`Failed to cache logo for ${token.symbol}`);
-          return { success: false, index };
-        }
-      } catch (error) {
-        console.error(`Error processing logo for ${token.symbol}:`, error);
-        return { success: false, index };
+      if (marketStats.total_market_cap === 0 && marketStats.total_volume === 0) {
+        console.warn('API returned zeros for market stats, using fallback data');
+        marketStats = getFallbackMarketStats();
       }
-    }));
-    
-    // Apply the results to the processed tokens
-    results.forEach((result) => {
-      if (result.status === 'fulfilled' && result.value.success) {
-        const { index, cachedUrl, originalUrl } = result.value;
-        processedTokens[i + index] = {
-          ...processedTokens[i + index],
-          logoUrl: cachedUrl,
-          originalLogoUrl: originalUrl
-        };
-      }
-    });
-    
-    // Add a small delay between batches to avoid rate limiting
-    if (i + batchSize < processedTokens.length) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Error fetching global market data, using fallback:', error);
+      marketStats = getFallbackMarketStats();
     }
+    
+    // Get Fear & Greed index
+    let fearGreedData;
+    try {
+      fearGreedData = await fetchFearGreedIndex();
+      
+      // Add fear and greed data to market stats
+      marketStats.fear_greed_value = fearGreedData.value;
+      marketStats.fear_greed_label = fearGreedData.value_classification;
+    } catch (err) {
+      console.warn('Could not fetch Fear & Greed index, continuing without it');
+      marketStats.fear_greed_value = 50;
+      marketStats.fear_greed_label = 'Neutral';
+    }
+    
+    // Store in database cache
+    await setCachedData(
+      CACHE_KEYS.MARKET_STATS, 
+      marketStats, 
+      CACHE_DURATION, 
+      'coingecko'
+    );
+    
+    return marketStats;
+  } catch (error) {
+    console.error('Error in fetchMarketStats:', error);
+    
+    // Return and cache fallback data
+    const fallbackStats = getFallbackMarketStats();
+    await setCachedData(
+      CACHE_KEYS.MARKET_STATS, 
+      fallbackStats, 
+      CACHE_DURATION, 
+      'fallback'
+    );
+    return fallbackStats;
   }
-  
-  console.log(`Finished processing images for all tokens`);
-  return processedTokens;
 }
 
+// Function to handle the HTTP request
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
+  
+  // Clean up expired cache
+  await cleanupExpiredCache();
+  
   try {
-    console.log('Starting crypto data fetch...');
-
-    // Get the cache key from the request body or use default
-    let requestBody = {};
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      console.log('No valid JSON in request body, using default parameters');
-    }
-
-    const { cache_key = 'market_data_v1' } = requestBody;
-    console.log(`Using cache key: ${cache_key}`);
-
-    // Find existing valid cache entry
-    const { data: cachedData, error: cacheError } = await supabase
-      .from('market_cache')
-      .select('data, expires_at')
-      .eq('cache_key', cache_key)
-      .gt('expires_at', new Date().toISOString())
-      .maybeSingle();
-
-    if (cacheError) {
-      console.error('Error checking cache:', cacheError);
-    }
-
-    if (cachedData) {
-      console.log('Returning cached market data');
-      return new Response(JSON.stringify(cachedData.data), {
+    // Start fetching data
+    console.log('Starting to fetch crypto data...');
+    const cryptoData = await fetchCryptoData();
+    console.log('Successfully fetched and cached crypto data. Items:', cryptoData.length);
+    
+    console.log('Starting to fetch market stats...');
+    const marketStats = await fetchMarketStats();
+    console.log('Successfully fetched and cached market stats.');
+    
+    // Respond with success
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Data fetched and cached successfully', 
+        timestamp: new Date().toISOString(),
+        cryptoCount: cryptoData.length,
+        hasMarketStats: !!marketStats
+      }),
+      { 
         headers: { 
-          ...corsHeaders, 
+          ...corsHeaders,
           'Content-Type': 'application/json' 
-        }
-      });
-    }
-
-    console.log('No valid cache found, fetching fresh data from API');
-
-    // Ensure the storage bucket exists
-    await ensureStorageBucketExists();
-
-    // Fetch fresh data if no valid cache
-    const response = await fetch(API_URL, {
-      headers: { 
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      cache: 'no-store'
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.statusText}`);
-    }
-
-    const marketData = await response.json();
-    
-    // Process and cache all images with improved logging
-    console.log('Processing and caching token images...');
-    
-    // Process images for different token categories
-    console.log('Processing gainers...');
-    const processedGainers = await processTokenImages(marketData.gainers || []);
-    
-    console.log('Processing losers...');
-    const processedLosers = await processTokenImages(marketData.losers || []);
-    
-    console.log('Processing hot pools...');
-    const processedHotPools = await processTokenImages(marketData.hotPools || []);
-    
-    // Combine processed data
-    const processedData = {
-      ...marketData,
-      gainers: processedGainers,
-      losers: processedLosers,
-      hotPools: processedHotPools,
-      lastUpdated: new Date().toISOString()
-    };
-    
-    // Store in cache
-    const expires = new Date(Date.now() + CACHE_DURATION);
-    
-    // Delete any existing entries with this key first
-    const { error: deleteError } = await supabase
-      .from('market_cache')
-      .delete()
-      .eq('cache_key', cache_key);
-      
-    if (deleteError) {
-      console.error('Error deleting existing cache:', deleteError);
-    }
-    
-    // Insert the new cache entry
-    const { error: insertError } = await supabase
-      .from('market_cache')
-      .insert({
-        cache_key: cache_key,
-        data: processedData,
-        expires_at: expires.toISOString(),
-        source: 'f3oci3ty.xyz'
-      });
-
-    if (insertError) {
-      console.error('Error inserting cache:', insertError);
-    } else {
-      console.log(`Successfully fetched and cached market data with key: ${cache_key}`);
-    }
-
-    return new Response(JSON.stringify(processedData), {
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'application/json' 
+        } 
       }
-    });
-
+    );
   } catch (error) {
-    console.error('Error in fetchCryptoData:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch market data', details: error.message }), {
-      status: 500,
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'application/json' 
+    console.error('Error in fetchCryptoData handler:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        message: `Failed to fetch data: ${error.message}` 
+      }),
+      { 
+        status: 500,
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        } 
       }
-    });
+    );
   }
-});
+})

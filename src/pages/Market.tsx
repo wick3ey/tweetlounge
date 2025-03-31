@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useMarketData, extractFinancialInfo } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity } from 'lucide-react';
+import React, { useState } from 'react';
+import { useMarketData } from '@/services/marketService';
+import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +11,26 @@ import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cacheTokenLogo, getTokenLogo, generateFallbackLogoUrl } from '@/services/storageService';
+
+const TokenCardSkeleton = () => (
+  <div className="p-4">
+    {[1, 2, 3, 4].map(i => (
+      <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div>
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-32 mt-1" />
+          </div>
+        </div>
+        <div className="text-right">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-3 w-12 mt-1" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
@@ -27,21 +46,6 @@ const formatPrice = (price: number) => {
   return price.toLocaleString('en-US', {
     maximumFractionDigits: 2
   });
-};
-
-const formatNumber = (num: number | null | undefined) => {
-  if (num === null || num === undefined || isNaN(Number(num))) return "N/A";
-  
-  const numVal = Number(num);
-  if (numVal >= 1_000_000_000) {
-    return `${(numVal / 1_000_000_000).toFixed(2)}B`;
-  } else if (numVal >= 1_000_000) {
-    return `${(numVal / 1_000_000).toFixed(2)}M`;
-  } else if (numVal >= 1_000) {
-    return `${(numVal / 1_000).toFixed(2)}K`;
-  }
-  
-  return numVal.toLocaleString();
 };
 
 const formatPercentage = (percent: number) => {
@@ -73,314 +77,118 @@ const formatTimeAgo = (dateString: string) => {
   }
 };
 
-const FinancialDetail = ({ icon: Icon, label, value, tooltipText }: { icon: any, label: string, value: string, tooltipText: string }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="flex items-center gap-1 text-xs text-gray-400">
-          <Icon className="h-3 w-3 opacity-70" />
-          <span>{label}:</span>
-          <span className="font-medium text-gray-300">{value}</span>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p className="text-xs">{tooltipText}</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-);
-
-const TokenCardSkeleton = () => {
-  return (
-    <div className="animate-pulse">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex items-center justify-between py-2 px-4 border-b border-gray-800/40">
-          <div className="flex items-center gap-3 min-w-0 w-2/3">
-            <div className="relative">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <Skeleton className="absolute -top-2 -right-2 h-5 w-5 rounded-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-          </div>
-          <div className="text-right space-y-2 w-1/3">
-            <Skeleton className="h-4 w-24 ml-auto" />
-            <Skeleton className="h-3 w-32 ml-auto" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const TokenRow = ({
   token,
   type,
-  index,
-  expanded,
-  onToggleExpand
+  index
 }: {
   token: any;
   type: 'gainer' | 'loser' | 'hot';
   index: number;
-  expanded: boolean;
-  onToggleExpand: () => void;
 }) => {
   const isHot = type === 'hot';
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
-  const tokenAddress = isHot ? token.tokenAddress : token.address;
-  const poolAddress = isHot ? token.poolAddress : token.pool;
-  const dexScreenerUrl = `https://dexscreener.com/solana/${poolAddress || tokenAddress}`;
-  
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        setImageError(false);
-        
-        if (token.logoUrl) {
-          const cachedLogo = await getTokenLogo(token.symbol, token.logoUrl);
-          setLogoUrl(cachedLogo);
-          
-          if (cachedLogo === token.logoUrl) {
-            console.log(`Market: Force caching logo for ${token.symbol}`);
-            cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-              console.warn(`Market: Logo cache attempt failed for ${token.symbol}:`, err);
-            });
-          }
-        } else {
-          setLogoUrl(generateFallbackLogoUrl(token.symbol));
-        }
-      } catch (error) {
-        console.error(`Market: Error fetching logo for ${token.symbol}:`, error);
-        setImageError(true);
-        setLogoUrl(generateFallbackLogoUrl(token.symbol));
-      }
-    };
-    
-    fetchLogo();
-  }, [token.symbol, token.logoUrl]);
+  const dexScreenerUrl = `https://dexscreener.com/solana/${isHot ? token.poolAddress : token.address}`;
   
   const handleRowClick = () => {
     window.open(dexScreenerUrl, '_blank', 'noopener,noreferrer');
   };
   
-  const handleExpandClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleExpand();
-  };
-  
-  const handleImageError = () => {
-    setImageError(true);
-    setLogoUrl(generateFallbackLogoUrl(token.symbol));
-  };
-  
-  const financialInfo = extractFinancialInfo(token.financialInfo || {});
-  
-  const marketCap = financialInfo.mcap !== null ? financialInfo.mcap : token.mcap;
-  
-  const getSymbolFallback = () => {
-    if (!token.symbol) return "??";
-    return token.symbol.substring(0, 2).toUpperCase();
-  };
-
-  const getColorByType = () => {
-    if (type === 'gainer') return '#22c55e';
-    if (type === 'loser') return '#ef4444';
-    return '#3b82f6';
-  };
-
   return (
-    <>
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ delay: index * 0.05 }} 
-        className={`flex items-center justify-between py-2 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors cursor-pointer ${
-          type === 'gainer' ? 'hover:bg-green-950/20' : 
-          type === 'loser' ? 'hover:bg-red-950/20' : 
-          'hover:bg-blue-950/20'
-        }`}
-        onClick={handleRowClick}
-      >
-        <div className="flex items-center gap-3 min-w-0 w-2/3">
-          <div className="relative flex-shrink-0">
-            <Avatar className="h-10 w-10 border-2 shadow-md" style={{
-              borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : 
-                      type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
-                      'rgba(59, 130, 246, 0.4)'
-            }}>
-              {logoUrl && (
-                <AvatarImage 
-                  src={logoUrl} 
-                  alt={token.symbol || 'Token'} 
-                  className="object-contain"
-                  onLoad={() => setImageLoaded(true)}
-                  onError={handleImageError}
-                />
-              )}
-              <AvatarFallback className={`text-sm ${
-                type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
-                type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
-                'bg-gradient-to-br from-blue-800 to-blue-700'
-              }`}>
-                {getSymbolFallback()}
-              </AvatarFallback>
-            </Avatar>
-            <Badge variant={
-              type === 'gainer' ? 'success' : 
-              type === 'loser' ? 'destructive' : 
-              'default'
-            } className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${
-              type === 'gainer' ? 'bg-green-500 hover:bg-green-600' : 
-              type === 'loser' ? 'bg-red-500 hover:bg-red-600' : 
-              'bg-blue-500 hover:bg-blue-600'
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ delay: index * 0.05 }} 
+      className={`flex items-center justify-between py-2 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors cursor-pointer ${
+        type === 'gainer' ? 'hover:bg-green-950/20' : 
+        type === 'loser' ? 'hover:bg-red-950/20' : 
+        'hover:bg-blue-950/20'
+      }`}
+      onClick={handleRowClick}
+    >
+      <div className="flex items-center gap-3 min-w-0 w-2/3">
+        <div className="relative flex-shrink-0">
+          <Avatar className="h-10 w-10 border-2 shadow-md" style={{
+            borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : 
+                     type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
+                     'rgba(59, 130, 246, 0.4)'
+          }}>
+            <AvatarImage src={token.logoUrl} alt={token.symbol} />
+            <AvatarFallback className={`text-sm ${
+              type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
+              type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
+              'bg-gradient-to-br from-blue-800 to-blue-700'
             }`}>
-              {token.rank}
-            </Badge>
-          </div>
-          
-          <div className="min-w-0 w-full overflow-hidden">
-            <div className="font-medium">
-              <span className="font-semibold block text-sm text-white">{token.symbol || '???'}</span>
-              <span className="text-xs text-muted-foreground block truncate max-w-full">
-                {token.name || '???'}
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground truncate">
-              {token.exchange || 'Unknown'}
-              {isHot && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="ml-1 inline-flex items-center">
-                        <Info className="h-3 w-3 opacity-70" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">New pool created on {token.exchange}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          </div>
+              {token.symbol?.substring(0, 2) || '??'}
+            </AvatarFallback>
+          </Avatar>
+          <Badge variant={
+            type === 'gainer' ? 'success' : 
+            type === 'loser' ? 'destructive' : 
+            'default'
+          } className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${
+            type === 'gainer' ? 'bg-green-500 hover:bg-green-600' : 
+            type === 'loser' ? 'bg-red-500 hover:bg-red-600' : 
+            'bg-blue-500 hover:bg-blue-600'
+          }`}>
+            {token.rank}
+          </Badge>
         </div>
-        
-        <div className="text-right flex-shrink-0 w-1/3 pl-2">
-          {!isHot ? (
-            <>
-              <div className="font-medium text-sm whitespace-nowrap flex items-center justify-end gap-1">
-                <DollarSign className="h-3 w-3 opacity-70" />
-                {formatPrice(token.price)}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-5 w-5 ml-1 hover:bg-gray-800/50" 
-                  onClick={handleExpandClick}
-                >
-                  <Info className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
-                {isPriceUp ? (
-                  <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" />
-                ) : (
-                  <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />
-                )}
-                <span>{formatPercentage(token.variation24h)}</span>
-                <span className="ml-2 text-gray-400">MCap: ${formatNumber(marketCap)}</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-xs font-medium whitespace-nowrap flex items-center justify-end gap-1">
-                <DollarSign className="h-3 w-3 opacity-70" />
-                MCap: ${formatNumber(marketCap)}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-5 w-5 ml-1 hover:bg-gray-800/50"
-                  onClick={handleExpandClick}
-                >
-                  <Info className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center justify-end">
-                <Clock className="mr-1 h-3 w-3 opacity-70" />
-                <span>{formatTimeAgo(token.creationTime)}</span>
-                <ExternalLink className="ml-1 h-3 w-3 opacity-70" />
-              </div>
-            </>
-          )}
-        </div>
-      </motion.div>
-      
-      {expanded && (
-        <div className={`px-4 py-2 text-xs border-b ${
-          type === 'gainer' ? 'bg-green-950/10 border-green-900/20' : 
-          type === 'loser' ? 'bg-red-950/10 border-red-900/20' : 
-          'bg-blue-950/10 border-blue-900/20'
-        }`}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <FinancialDetail 
-              icon={Coins} 
-              label="Circ. Supply" 
-              value={formatNumber(financialInfo.circulatingSupply)} 
-              tooltipText="Circulating Supply: Total tokens in circulation"
-            />
-            <FinancialDetail 
-              icon={Coins} 
-              label="Total Supply" 
-              value={formatNumber(financialInfo.totalSupply)} 
-              tooltipText="Total Supply: Maximum tokens that will ever exist"
-            />
-            <FinancialDetail 
-              icon={DollarSign} 
-              label="MCap" 
-              value={`$${formatNumber(financialInfo.mcap)}`} 
-              tooltipText="Market Capitalization: Current value of all circulating tokens"
-            />
-            <FinancialDetail 
-              icon={DollarSign} 
-              label="FDV" 
-              value={`$${formatNumber(financialInfo.fdv)}`} 
-              tooltipText="Fully Diluted Valuation: Theoretical value if all tokens were in circulation"
-            />
-            <FinancialDetail 
-              icon={Users} 
-              label="Holders" 
-              value={formatNumber(financialInfo.holders)} 
-              tooltipText="Number of unique wallet addresses holding this token"
-            />
-            {financialInfo.transactions !== undefined && (
-              <FinancialDetail 
-                icon={Activity} 
-                label="Txns" 
-                value={formatNumber(financialInfo.transactions)} 
-                tooltipText="Total number of transactions for this token"
-              />
+        <div className="min-w-0 w-full overflow-hidden">
+          <div className="font-medium">
+            <span className="font-semibold block text-sm text-white">{token.symbol || '???'}</span>
+            <span className="text-xs text-muted-foreground block truncate max-w-full">
+              {token.name || '???'}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            {token.exchange || 'Unknown'}
+            {isHot && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-1 inline-flex items-center">
+                      <Info className="h-3 w-3 opacity-70" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">New pool created on {token.exchange}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
-      )}
-    </>
+      </div>
+      
+      <div className="text-right flex-shrink-0 w-1/3 pl-2">
+        {!isHot ? (
+          <>
+            <div className="font-medium text-sm whitespace-nowrap">${formatPrice(token.price)}</div>
+            <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
+              {isPriceUp ? (
+                <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" />
+              ) : (
+                <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />
+              )}
+              <span>{formatPercentage(token.variation24h)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center justify-end">
+            <Clock className="mr-1 h-3 w-3 opacity-70" />
+            <span>{formatTimeAgo(token.creationTime)}</span>
+            <ExternalLink className="ml-1 h-3 w-3 opacity-70" />
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
 const HotTokensSection = ({ tokens, loading }: { tokens: any[]; loading: boolean }) => {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  
-  const handleToggleExpand = (index: number) => {
-    setExpandedIndex(expandedIndex === index ? null : index);
-  };
-  
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -420,14 +228,12 @@ const HotTokensSection = ({ tokens, loading }: { tokens: any[]; loading: boolean
           <TokenCardSkeleton />
         ) : tokens?.length > 0 ? (
           <div className="max-h-full">
-            {tokens.slice(0, 20).map((token, index) => (
+            {tokens.slice(0, 10).map((token, index) => (
               <TokenRow 
                 key={token.poolAddress} 
                 token={token} 
                 type="hot" 
-                index={index}
-                expanded={expandedIndex === index}
-                onToggleExpand={() => handleToggleExpand(index)}
+                index={index} 
               />
             ))}
           </div>
@@ -471,136 +277,84 @@ const MarketSection = ({
   borderColor: string;
   tooltipText: string;
   className?: string;
-}) => {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  
-  const handleToggleExpand = (index: number) => {
-    setExpandedIndex(expandedIndex === index ? null : index);
-  };
-  
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: type === 'gainer' ? 0.1 : 0.2 }}
-      className={`glass-card border rounded-xl flex flex-col h-full shadow-lg overflow-hidden ${className}`}
-      style={{ borderColor }}
-    >
-      <div className={`flex items-center justify-between p-4 border-b`} style={{ 
-        background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`,
-        borderColor
-      }}>
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full" style={{ backgroundColor: accentBg }}>
-            <Icon className="h-5 w-5" style={{ color: accentColor }} />
-          </div>
-          <h2 className="text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent" style={{
-            backgroundImage: `linear-gradient(to right, ${accentColor}, white)`
-          }}>
-            {title}
-          </h2>
+}) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, delay: type === 'gainer' ? 0.1 : 0.2 }}
+    className={`glass-card border rounded-xl flex flex-col h-full shadow-lg overflow-hidden ${className}`}
+    style={{ borderColor }}
+  >
+    <div className={`flex items-center justify-between p-4 border-b`} style={{ 
+      background: `linear-gradient(to right, ${gradientFrom}, ${gradientTo})`,
+      borderColor
+    }}>
+      <div className="flex items-center gap-2">
+        <div className="p-2 rounded-full" style={{ backgroundColor: accentBg }}>
+          <Icon className="h-5 w-5" style={{ color: accentColor }} />
         </div>
-        
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:bg-gray-800/20">
-                <Info className="h-3.5 w-3.5 mr-1" />
-                Info
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="text-sm max-w-[250px]">{tooltipText}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <h2 className="text-xl font-bold bg-gradient-to-r bg-clip-text text-transparent" style={{
+          backgroundImage: `linear-gradient(to right, ${accentColor}, white)`
+        }}>
+          {title}
+        </h2>
       </div>
       
-      <div className="flex-grow overflow-hidden">
-        {loading ? (
-          <TokenCardSkeleton />
-        ) : tokens && tokens.length > 0 ? (
-          <div className="max-h-full">
-            {tokens.slice(0, 20).map((token, index) => (
-              <TokenRow 
-                key={type === 'hot' ? token.poolAddress : token.address} 
-                token={token} 
-                type={type} 
-                index={index}
-                expanded={expandedIndex === index}
-                onToggleExpand={() => handleToggleExpand(index)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
-        )}
-      </div>
-      
-      <div className="p-2 border-t flex justify-end" style={{ 
-        borderColor,
-        backgroundColor: type === 'gainer' ? 'rgba(22, 101, 52, 0.1)' : 
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:bg-gray-800/20">
+              <Info className="h-3.5 w-3.5 mr-1" />
+              Info
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-sm max-w-[250px]">{tooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+    
+    <div className="flex-grow overflow-hidden">
+      {loading ? (
+        <TokenCardSkeleton />
+      ) : tokens && tokens.length > 0 ? (
+        <div className="max-h-full">
+          {tokens.slice(0, 10).map((token, index) => (
+            <TokenRow 
+              key={type === 'hot' ? token.poolAddress : token.address} 
+              token={token} 
+              type={type} 
+              index={index} 
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
+      )}
+    </div>
+    
+    <div className="p-2 border-t flex justify-end" style={{ 
+      borderColor,
+      backgroundColor: type === 'gainer' ? 'rgba(22, 101, 52, 0.1)' : 
                         type === 'loser' ? 'rgba(127, 29, 29, 0.1)' : 
                         'rgba(30, 58, 138, 0.1)'
-      }}>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs hover:bg-opacity-20 transition-all"
-          style={{ color: accentColor }}
-        >
-          View All <ChevronRight className="ml-1 h-3 w-3" />
-        </Button>
-      </div>
-    </motion.div>
-  );
-};
+    }}>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="text-xs hover:bg-opacity-20 transition-all"
+        style={{ color: accentColor }}
+      >
+        View All <ChevronRight className="ml-1 h-3 w-3" />
+      </Button>
+    </div>
+  </motion.div>
+);
 
 const Market: React.FC = () => {
   const { marketData, loading, error, refreshData } = useMarketData();
   const { toast } = useToast();
-  
-  useEffect(() => {
-    if (marketData && !loading) {
-      const cacheAllLogos = async () => {
-        console.log('Pre-caching all market token logos...');
-        
-        if (marketData.gainers && marketData.gainers.length > 0) {
-          marketData.gainers.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache gainer logo for ${token.symbol}:`, err);
-              });
-            }
-          });
-        }
-        
-        if (marketData.losers && marketData.losers.length > 0) {
-          marketData.losers.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache loser logo for ${token.symbol}:`, err);
-              });
-            }
-          });
-        }
-        
-        if (marketData.hotPools && marketData.hotPools.length > 0) {
-          marketData.hotPools.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache hot pool logo for ${token.symbol}:`, err);
-              });
-            }
-          });
-        }
-        
-        console.log('Pre-caching of market logos completed');
-      };
-      
-      cacheAllLogos();
-    }
-  }, [marketData, loading]);
   
   const handleRefresh = () => {
     refreshData();
