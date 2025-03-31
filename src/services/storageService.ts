@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export const createBucketsIfNotExist = async () => {
@@ -49,7 +50,7 @@ export const createBucketsIfNotExist = async () => {
 };
 
 // Enhanced function to handle token logo caching and retrieval
-export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<string | null> => {
+export const cacheTokenLogo = async (symbol: string, logoUrl: string, forceUpdate: boolean = false): Promise<string | null> => {
   try {
     if (!symbol || !logoUrl) {
       console.log(`Invalid inputs for cacheTokenLogo: symbol=${symbol}, logoUrl=${logoUrl}`);
@@ -63,27 +64,29 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
     const isSolanaTokenList = logoUrl.includes('raw.githubusercontent.com/solana-labs/token-list');
     const safeLogoUrl = isSolanaTokenList ? logoUrl : logoUrl;
 
-    // First check if we already have this logo cached
-    const { data: existingFiles, error: listError } = await supabase
-      .storage
-      .from('token-logos')
-      .list('', {
-        search: fileName
-      });
-    
-    if (listError) {
-      console.error(`Error checking if logo exists for ${symbol}:`, listError);
-    }
-    
-    // If image already exists, return its public URL
-    if (existingFiles && existingFiles.length > 0) {
-      const { data } = supabase
+    // Check if we already have this logo cached (unless forceUpdate is true)
+    if (!forceUpdate) {
+      const { data: existingFiles, error: listError } = await supabase
         .storage
         .from('token-logos')
-        .getPublicUrl(fileName);
+        .list('', {
+          search: fileName
+        });
       
-      console.log(`Using cached logo for ${symbol}: ${data.publicUrl}`);
-      return data.publicUrl;
+      if (listError) {
+        console.error(`Error checking if logo exists for ${symbol}:`, listError);
+      }
+      
+      // If image already exists, return its public URL
+      if (existingFiles && existingFiles.length > 0) {
+        const { data } = supabase
+          .storage
+          .from('token-logos')
+          .getPublicUrl(fileName);
+        
+        console.log(`Using cached logo for ${symbol}: ${data.publicUrl}`);
+        return data.publicUrl;
+      }
     }
     
     console.log(`Fetching and caching logo for ${symbol} from ${safeLogoUrl}`);
@@ -98,7 +101,8 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
           'Accept': 'image/png,image/jpeg,image/gif,image/*',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        signal: controller.signal
+        signal: controller.signal,
+        cache: 'no-store' // Force fresh fetch
       });
       
       clearTimeout(timeoutId);

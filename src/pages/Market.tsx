@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMarketData, extractFinancialInfo } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3, Clock, Info, DollarSign, PercentIcon, FolderOpen, Droplets, Flame, FlameIcon, Users, Coins, Activity, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -559,6 +559,8 @@ const MarketSection = ({
 const Market: React.FC = () => {
   const { marketData, loading, error, refreshData } = useMarketData();
   const { toast } = useToast();
+  const [downloadingLogos, setDownloadingLogos] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ total: 0, completed: 0 });
   
   useEffect(() => {
     if (marketData && !loading) {
@@ -602,6 +604,65 @@ const Market: React.FC = () => {
     }
   }, [marketData, loading]);
   
+  const handleDownloadAllTokenIcons = async () => {
+    if (!marketData || downloadingLogos) return;
+    
+    setDownloadingLogos(true);
+    setDownloadProgress({ total: 0, completed: 0 });
+    
+    const tokensToProcess = [
+      ...(marketData.gainers || []),
+      ...(marketData.losers || []),
+      ...(marketData.hotPools || [])
+    ].filter(token => token.logoUrl && token.symbol);
+    
+    setDownloadProgress(prev => ({ ...prev, total: tokensToProcess.length }));
+    
+    toast({
+      title: "Starting logo download",
+      description: `Will download ${tokensToProcess.length} token logos to Supabase storage`,
+    });
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    const batchSize = 3;
+    for (let i = 0; i < tokensToProcess.length; i += batchSize) {
+      const batch = tokensToProcess.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async (token) => {
+        try {
+          const result = await cacheTokenLogo(token.symbol, token.logoUrl);
+          if (result) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to download logo for ${token.symbol}:`, err);
+          failCount++;
+        } finally {
+          setDownloadProgress(prev => ({ 
+            ...prev, 
+            completed: prev.completed + 1 
+          }));
+        }
+      }));
+      
+      if (i + batchSize < tokensToProcess.length) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
+    
+    toast({
+      title: "Logo download complete",
+      description: `Successfully downloaded ${successCount} logos. Failed: ${failCount}.`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+    
+    setDownloadingLogos(false);
+  };
+  
   const handleRefresh = () => {
     refreshData();
     toast({
@@ -639,6 +700,7 @@ const Market: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
+              className="flex gap-2 flex-wrap"
             >
               <Button 
                 onClick={handleRefresh} 
@@ -648,6 +710,21 @@ const Market: React.FC = () => {
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-blue-400' : ''}`} /> 
                 <span>Refresh Markets</span>
+              </Button>
+              
+              <Button 
+                onClick={handleDownloadAllTokenIcons} 
+                variant="outline" 
+                size="default" 
+                disabled={downloadingLogos || loading || !marketData}
+                className="gap-2 self-start hover:bg-purple-800/30 transition-all border-purple-900/50 hover:border-purple-700"
+              >
+                <Download className={`h-4 w-4 ${downloadingLogos ? 'animate-pulse text-purple-400' : ''}`} /> 
+                <span>
+                  {downloadingLogos 
+                    ? `Downloading (${downloadProgress.completed}/${downloadProgress.total})` 
+                    : 'Download All Logos'}
+                </span>
               </Button>
             </motion.div>
           </div>
