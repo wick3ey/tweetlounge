@@ -1,6 +1,8 @@
+
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 // Interface for the cryptocurrency data
 export interface CryptoCurrency {
@@ -231,7 +233,6 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
 const triggerDataRefresh = async (): Promise<void> => {
   try {
     console.log('Triggering backend data refresh...');
-    const { supabase } = await import('@/integrations/supabase/client');
     await supabase.functions.invoke('fetchCryptoData', {
       body: { trigger: 'manual' }
     });
@@ -286,7 +287,8 @@ export const useCryptoData = () => {
           
         if (cacheData?.data) {
           console.log('Using cached crypto price data');
-          const cachedCryptoData = cacheData.data as CryptoCurrency[];
+          // FIX: Add proper type assertion for cached data
+          const cachedCryptoData = cacheData.data as unknown as CryptoCurrency[];
           setCryptoData(cachedCryptoData);
           setLoading(false);
           setError(null);
@@ -329,11 +331,12 @@ export const useCryptoData = () => {
           lastFetchRef.current = now;
           
           // Store in database cache
+          // FIX: Cast formattedData to Json type for Supabase
           await supabase
             .from('market_cache')
             .upsert({
               cache_key: 'crypto_data',
-              data: formattedData,
+              data: formattedData as unknown as Json,
               expires_at: new Date(now + 15 * 60 * 1000).toISOString() // 15 minutes
             });
           
@@ -356,7 +359,8 @@ export const useCryptoData = () => {
               
             if (expiredCache?.data) {
               console.log('Using expired crypto price data');
-              const expiredData = expiredCache.data as CryptoCurrency[];
+              // FIX: Add proper type assertion for expired cache data
+              const expiredData = expiredCache.data as unknown as CryptoCurrency[];
               setCryptoData(expiredData);
               setLoading(false);
               setError(new Error('Using expired data'));
