@@ -70,13 +70,13 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`flex items-center justify-between py-3 px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
         type === 'gainer' ? 'hover:bg-green-950/20' : 
         type === 'loser' ? 'hover:bg-red-950/20' : 
         'hover:bg-blue-950/20'
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex items-center gap-3 min-w-0 w-3/5">
         <div className="relative flex-shrink-0">
           <Avatar className="h-9 w-9 border-2" style={{ 
             borderColor: type === 'gainer' 
@@ -105,10 +105,10 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             {token.rank}
           </Badge>
         </div>
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="font-medium text-sm sm:text-base flex items-center space-x-1">
-            <span className="font-semibold truncate max-w-full block">{token.symbol || '???'}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-full block ml-1">
+        <div className="min-w-0 w-full overflow-hidden">
+          <div className="font-medium text-sm sm:text-base">
+            <span className="font-semibold truncate max-w-[150px] inline-block mr-1">{token.symbol || '???'}</span>
+            <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] inline-block">
               {token.name || '???'}
             </span>
           </div>
@@ -116,7 +116,7 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
         </div>
       </div>
       
-      <div className="text-right flex-shrink-0 ml-2">
+      <div className="text-right flex-shrink-0 w-2/5 pl-2">
         {!isHot ? (
           <>
             <div className="font-medium text-sm sm:text-base whitespace-nowrap">${formatPrice(token.price)}</div>
@@ -126,7 +126,7 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             </div>
           </>
         ) : (
-          <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center">
+          <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center justify-end">
             <span>{isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}</span>
             <ExternalLink className="ml-1 h-3 w-3 opacity-70" />
           </div>

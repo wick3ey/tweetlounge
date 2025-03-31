@@ -25,7 +25,7 @@ const Layout: React.FC<LayoutProps> = ({
         <CryptoTicker />
       </div>
       
-      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
+      <div className="flex flex-1 w-full max-w-[1500px] mx-auto">
         <LeftSidebar />
         
         <main className={`flex-1 ${fullHeight ? 'min-h-screen' : ''} ${
