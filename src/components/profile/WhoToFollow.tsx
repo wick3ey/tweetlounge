@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { UsersIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { VerifiedBadge } from '@/components/ui/badge';
 
 interface WhoToFollowProps {
   limit?: number;
@@ -25,7 +26,7 @@ export const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 3 }) => {
         // Fetch random profiles from the database instead of using hardcoded usernames
         const { data: profiles, error } = await supabase
           .from('profiles')
-          .select('id, username, display_name, avatar_url')
+          .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
           .limit(limit + 5); // Fetch a few extra in case we need to filter out the current user
         
         if (error) {
@@ -122,8 +123,11 @@ export const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 3 }) => {
             </Avatar>
           </Link>
           <div className="flex-1 min-w-0">
-            <Link to={`/profile/${profile.username}`} className="font-medium text-sm hover:underline block truncate">
+            <Link to={`/profile/${profile.username}`} className="font-medium text-sm hover:underline block truncate flex items-center">
               {profile.display_name || profile.username}
+              {(profile.avatar_nft_id && profile.avatar_nft_chain) && (
+                <VerifiedBadge className="ml-1" />
+              )}
             </Link>
             <Link to={`/profile/${profile.username}`} className="text-gray-500 text-xs hover:underline block truncate">
               @{profile.username}
