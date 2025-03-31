@@ -17,6 +17,7 @@ import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { updateTweetCommentCount } from '@/services/commentService'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -189,16 +190,16 @@ const Home: React.FC = () => {
             </div>
             
             {/* Tweet Feed with Tabs */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="border-b border-gray-800 shrink-0">
                 <TweetFeedTabs />
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <ScrollArea className="flex-1">
                 <TweetFeed 
                   key={feedKey} 
                   onCommentAdded={handleRefresh} 
                 />
-              </div>
+              </ScrollArea>
             </div>
           </main>
         </div>
