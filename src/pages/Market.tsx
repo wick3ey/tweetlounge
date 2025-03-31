@@ -105,10 +105,10 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             {token.rank}
           </Badge>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="font-medium text-sm sm:text-base flex items-center space-x-1">
-            <span className="font-semibold">{token.symbol || '???'}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground truncate">
+            <span className="font-semibold truncate max-w-full block">{token.symbol || '???'}</span>
+            <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-full block ml-1">
               {token.name || '???'}
             </span>
           </div>
@@ -167,7 +167,7 @@ const MarketSection = ({
     </div>
     
     <div className="flex-grow overflow-hidden">
-      <ScrollArea className="h-full max-h-[calc(100vh-240px)]">
+      <ScrollArea className="h-full max-h-[calc(100vh-240px)] pr-2">
         {loading ? (
           <TokenCardSkeleton />
         ) : tokens && tokens.length > 0 ? (
