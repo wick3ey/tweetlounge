@@ -88,15 +88,15 @@
   }
   
   .crypto-ticker-item {
-    @apply flex items-center space-x-2 whitespace-nowrap font-medium;
+    @apply flex flex-col items-center justify-center px-6 whitespace-nowrap;
   }
   
   .crypto-price-up {
-    @apply text-crypto-green font-medium;
+    @apply text-green-500;
   }
   
   .crypto-price-down {
-    @apply text-crypto-red font-medium;
+    @apply text-red-500;
   }
   
   .crypto-sidebar-item {
@@ -267,12 +267,6 @@
   }
 }
 
-.animate-marquee {
-  display: flex;
-  animation: marquee 30s linear infinite;
-  width: max-content;
-}
-
 /* Improved animation */
 @keyframes pulse-glow {
   0%, 100% {
@@ -368,4 +362,14 @@
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Slower marquee animation */
+.animate-marquee-slow {
+  animation: marquee 30s linear infinite;
+}
+
+/* Standard speed marquee for reference */
+.animate-marquee {
+  animation: marquee 20s linear infinite;
 }
