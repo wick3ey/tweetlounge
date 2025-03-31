@@ -4,60 +4,181 @@ import { TrendingHashtags } from '@/components/hashtag/TrendingHashtags';
 import NewsSection from '@/components/crypto/NewsSection';
 import { WhoToFollow } from '@/components/profile/WhoToFollow';
 import { Separator } from '@/components/ui/separator';
-import { Search } from 'lucide-react';
+import { Search, X, Sparkles, ChevronUp, Users, Newspaper } from 'lucide-react';
 import MarketStats from '@/components/crypto/MarketStats';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const RightSidebar: React.FC = () => {
+  const [showSearch, setShowSearch] = React.useState(false);
+  const [minimizedSections, setMinimizedSections] = React.useState<Record<string, boolean>>({
+    marketStats: false,
+    trending: false,
+    whoToFollow: false,
+    news: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setMinimizedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const SectionHeader = ({ 
+    title, 
+    icon: Icon, 
+    section 
+  }: { 
+    title: string; 
+    icon: React.ComponentType<any>; 
+    section: string 
+  }) => (
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 rounded-full bg-gray-800 text-blue-400">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <h2 className="font-bold text-white">{title}</h2>
+      </div>
+      <button
+        onClick={() => toggleSection(section)}
+        className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+      >
+        <ChevronUp className={`h-4 w-4 transition-transform ${minimizedSections[section] ? 'rotate-180' : ''}`} />
+      </button>
+    </div>
+  );
+
   return (
-    <aside className="hidden lg:block min-w-[350px] max-w-[350px] h-screen overflow-y-auto sticky top-0 bg-black border-l border-gray-800 py-3">
-      {/* Search Bar */}
-      <div className="px-4 mb-4">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500" />
+    <motion.aside 
+      className="hidden lg:block w-[350px] h-screen overflow-hidden sticky top-0 bg-black border-l border-gray-800 shadow-xl"
+      initial={{ opacity: 0, x: 50 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
+      <ScrollArea className="h-screen py-3 pr-1">
+        <div className="px-4 mb-4">
+          <div className="relative">
+            {showSearch ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center w-full bg-gray-900 rounded-full overflow-hidden"
+              >
+                <Search className="h-4 w-4 text-gray-500 ml-3" />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  autoFocus
+                  className="w-full bg-transparent border-none py-2.5 pl-2 pr-4 text-sm focus:ring-0 focus:outline-none"
+                />
+                <button
+                  onClick={() => setShowSearch(false)}
+                  className="p-2 mr-1 text-gray-500 hover:text-gray-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                onClick={() => setShowSearch(true)}
+                className="w-full flex items-center gap-2 bg-gray-900/70 hover:bg-gray-900 border border-gray-800 rounded-full py-2.5 px-4 transition-colors"
+              >
+                <Search className="h-4 w-4 text-gray-500" />
+                <span className="text-gray-500 text-sm">Search</span>
+              </motion.button>
+            )}
           </div>
-          <input
-            type="text"
-            placeholder="Search"
-            className="w-full bg-gray-900 border-none rounded-full py-2.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
-          />
         </div>
-      </div>
-      
-      {/* Market Stats */}
-      <div className="px-4 mb-4">
-        <MarketStats />
-      </div>
-      
-      {/* Trending Section */}
-      <div className="bg-gray-900 rounded-xl mb-4 mx-4">
-        <div className="p-3 pb-0">
-          <h2 className="font-bold text-xl mb-4">What's happening</h2>
+        
+        <div className="space-y-4 px-4">
+          {/* Market Stats */}
+          <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
+            <div className="p-3">
+              <SectionHeader title="Market Stats" icon={Sparkles} section="marketStats" />
+              <AnimatePresence>
+                {!minimizedSections.marketStats && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <MarketStats />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          
+          {/* Trending Section */}
+          <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
+            <div className="p-3">
+              <SectionHeader title="What's happening" icon={Newspaper} section="trending" />
+              <AnimatePresence>
+                {!minimizedSections.trending && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <TrendingHashtags limit={5} />
+                    <div className="pt-2 hover:bg-gray-800/50 transition-colors cursor-pointer rounded-lg">
+                      <span className="text-blue-400 text-sm px-3">Show more</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          
+          {/* Who to Follow */}
+          <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
+            <div className="p-3">
+              <SectionHeader title="Who to follow" icon={Users} section="whoToFollow" />
+              <AnimatePresence>
+                {!minimizedSections.whoToFollow && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <WhoToFollow limit={3} />
+                    <div className="pt-2 hover:bg-gray-800/50 transition-colors cursor-pointer rounded-lg">
+                      <span className="text-blue-400 text-sm px-3">Show more</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          
+          {/* News Section */}
+          <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50 mb-4">
+            <div className="p-3">
+              <SectionHeader title="Latest News" icon={Newspaper} section="news" />
+              <AnimatePresence>
+                {!minimizedSections.news && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <NewsSection compact={true} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
-        <div className="px-4">
-          <TrendingHashtags limit={5} />
-        </div>
-        <div className="p-4 hover:bg-gray-800/50 transition-colors cursor-pointer">
-          <span className="text-blue-400 text-sm">Show more</span>
-        </div>
-      </div>
-      
-      {/* Who to Follow */}
-      <div className="bg-gray-900 rounded-xl mb-4 mx-4">
-        <div className="p-3 pb-0">
-          <h2 className="font-bold text-xl mb-4">Who to follow</h2>
-        </div>
-        <WhoToFollow limit={3} />
-        <div className="p-4 hover:bg-gray-800/50 transition-colors cursor-pointer">
-          <span className="text-blue-400 text-sm">Show more</span>
-        </div>
-      </div>
-      
-      {/* News Section - Compact version */}
-      <div className="px-4">
-        <NewsSection compact={true} />
-      </div>
-    </aside>
+      </ScrollArea>
+    </motion.aside>
   );
 };
 

@@ -44,7 +44,7 @@ export const setCachedData = async <T>(
       .upsert(
         {
           cache_key: cacheKey,
-          data,
+          data: data as any, // Cast to any to resolve type conflict
           expires_at: new Date(Date.now() + expirySeconds * 1000).toISOString(),
         },
         { onConflict: 'cache_key' }

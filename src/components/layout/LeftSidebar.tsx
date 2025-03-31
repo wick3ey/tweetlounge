@@ -1,75 +1,110 @@
 
 import React from 'react';
-import { Home, Bell, Bookmark, User, Hash, Mail } from 'lucide-react';
+import { Home, Bell, Bookmark, User, Hash, Mail, Settings, Compass, Shield, Search, ChevronRight } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useProfile } from '@/contexts/ProfileContext';
+import { motion } from 'framer-motion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const LeftSidebar = () => {
   const location = useLocation();
   const { signOut } = useAuth();
   const { profile } = useProfile();
+  const [collapsed, setCollapsed] = React.useState(false);
+
+  const menuItems = [
+    { icon: Home, label: 'Home', path: '/home' },
+    { icon: Bell, label: 'Notifications', path: '/notifications' },
+    { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
+    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: Hash, label: 'Trending', path: '/hashtag/trending' },
+    { icon: Mail, label: 'Messages', path: '/messages' },
+    { icon: Compass, label: 'Explore', path: '/explore' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: Shield, label: 'Security', path: '/security' },
+  ];
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
+  const toggleSidebar = () => {
+    setCollapsed(!collapsed);
+  };
+
+  const sidebarWidth = collapsed ? 'w-[70px]' : 'w-[240px]';
+
   return (
-    <div className="fixed left-0 top-0 h-full w-60 bg-black border-r border-gray-800 py-4 px-2 flex flex-col">
-      <nav className="flex-grow">
-        <ul>
-          <li>
-            <NavLink to="/home" className={`flex items-center p-2 rounded-lg hover:bg-gray-900 transition-colors ${isActive('/home') ? 'font-semibold text-white' : 'text-gray-400'}`}>
-              <Home className="mr-2 h-5 w-5" />
-              <span>Home</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/notifications" className={`flex items-center p-2 rounded-lg hover:bg-gray-900 transition-colors ${isActive('/notifications') ? 'font-semibold text-white' : 'text-gray-400'}`}>
-              <Bell className="mr-2 h-5 w-5" />
-              <span>Notifications</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/bookmarks" className={`flex items-center p-2 rounded-lg hover:bg-gray-900 transition-colors ${isActive('/bookmarks') ? 'font-semibold text-white' : 'text-gray-400'}`}>
-              <Bookmark className="mr-2 h-5 w-5" />
-              <span>Bookmarks</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/profile" className={`flex items-center p-2 rounded-lg hover:bg-gray-900 transition-colors ${isActive('/profile') ? 'font-semibold text-white' : 'text-gray-400'}`}>
-              <User className="mr-2 h-5 w-5" />
-              <span>Profile</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to={`/hashtag/trending`} className={`flex items-center p-2 rounded-lg hover:bg-gray-900 transition-colors ${isActive('/hashtag/trending') ? 'font-semibold text-white' : 'text-gray-400'}`}>
-              <Hash className="mr-2 h-5 w-5" />
-              <span>Trending</span>
-            </NavLink>
-          </li>
-        </ul>
-      </nav>
+    <motion.div 
+      className={`fixed left-0 top-0 h-full ${sidebarWidth} bg-gradient-to-b from-gray-900 to-black border-r border-gray-800 py-4 flex flex-col transition-all duration-300 z-20`}
+      initial={false}
+      animate={{ width: collapsed ? 70 : 240 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+    >
+      <div className="relative">
+        <button 
+          onClick={toggleSidebar} 
+          className="absolute -right-3 top-12 bg-gray-800 rounded-full p-1 border border-gray-700 shadow-md hover:bg-gray-700 transition-colors z-30"
+        >
+          <motion.div
+            animate={{ rotate: collapsed ? 180 : 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ChevronRight className="h-4 w-4 text-gray-300" />
+          </motion.div>
+        </button>
+      </div>
       
-      {/* User Info and Logout */}
-      <div className="mt-auto pt-4 border-t border-gray-800">
-        <div className="pb-3">
-          <Avatar className="h-8 w-8">
+      <ScrollArea className="flex-grow">
+        <nav className="pl-2 pr-1">
+          <ul className="space-y-1">
+            {menuItems.map((item) => (
+              <li key={item.path}>
+                <NavLink 
+                  to={item.path} 
+                  className={({ isActive }) => `
+                    flex items-center p-2 rounded-lg transition-all
+                    ${isActive ? 'bg-gray-800 text-white font-medium' : 'text-gray-400 hover:bg-gray-900/50 hover:text-gray-200'}
+                  `}
+                >
+                  <item.icon className={`${collapsed ? 'mx-auto' : 'mr-3'} h-5 w-5`} />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </ScrollArea>
+      
+      <div className="mt-auto px-3 pt-4 border-t border-gray-800">
+        <div className="flex items-center gap-2 pb-3">
+          <Avatar className="h-9 w-9 border border-gray-700 shadow-md">
             <AvatarImage src={profile?.avatar_url || ""} alt={profile?.username} />
-            <AvatarFallback>{profile?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-600 text-white">
+              {profile?.username?.substring(0, 2).toUpperCase() || "?"}
+            </AvatarFallback>
           </Avatar>
-          <div className="ml-3">
-            <p className="text-sm font-semibold text-white">{profile?.username}</p>
-            <p className="text-xs text-gray-500">@{profile?.username}</p>
-          </div>
+          
+          {!collapsed && (
+            <div className="truncate">
+              <p className="text-sm font-semibold text-white truncate">{profile?.username}</p>
+              <p className="text-xs text-gray-500 truncate">@{profile?.username}</p>
+            </div>
+          )}
         </div>
-        <Button variant="outline" className="w-full" onClick={signOut}>
-          Logout
+        
+        <Button 
+          variant="outline" 
+          className={`${collapsed ? 'w-10 p-2' : 'w-full'} bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300`} 
+          onClick={signOut}
+        >
+          {collapsed ? <Settings className="h-4 w-4" /> : "Logout"}
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
