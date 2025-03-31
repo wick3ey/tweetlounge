@@ -212,6 +212,95 @@
   .crypto-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(120, 120, 120, 0.7);
   }
+
+  /* Mobile App-like UI Elements */
+  .mobile-app-container {
+    @apply min-h-screen overflow-hidden flex flex-col;
+    overscroll-behavior: none;
+  }
+  
+  .mobile-header {
+    @apply sticky top-0 z-30 bg-crypto-black border-b border-crypto-gray/30 backdrop-blur-md bg-opacity-90 flex items-center h-14 px-4;
+  }
+  
+  .mobile-tab-bar {
+    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 p-1 bg-crypto-darkgray rounded-lg;
+  }
+  
+  .mobile-tab {
+    @apply text-xs font-medium rounded-md py-1.5 px-2 transition-colors flex items-center justify-center;
+  }
+  
+  .mobile-tab-active {
+    @apply bg-crypto-blue text-white;
+  }
+  
+  .mobile-tab-inactive {
+    @apply text-crypto-lightgray hover:bg-crypto-gray/20;
+  }
+  
+  .mobile-card {
+    @apply crypto-card rounded-xl p-3 mb-2 transition-transform active:scale-[0.99];
+  }
+  
+  .mobile-section {
+    @apply py-3 px-4 border-b border-crypto-gray/20;
+  }
+  
+  .mobile-bottom-nav {
+    @apply fixed bottom-0 w-full border-t border-crypto-gray/30 bg-crypto-black backdrop-blur-md bg-opacity-90 z-30 flex items-center justify-around h-16;
+  }
+  
+  .mobile-nav-item {
+    @apply flex flex-col items-center justify-center h-full w-full;
+  }
+  
+  .mobile-nav-item-active {
+    @apply text-crypto-blue;
+  }
+  
+  .mobile-nav-item-inactive {
+    @apply text-crypto-lightgray;
+  }
+  
+  .mobile-badge {
+    @apply absolute -top-1 -right-1 bg-crypto-blue text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center;
+  }
+  
+  .mobile-pull-to-refresh {
+    @apply flex items-center justify-center p-2 text-sm text-crypto-lightgray;
+  }
+
+  /* Mobile-specific animations */
+  .mobile-page-transition {
+    animation: mobile-slide-up 0.3s ease-out;
+  }
+  
+  .mobile-slide-in-right {
+    animation: mobile-slide-in-right 0.3s ease-out;
+  }
+  
+  .mobile-fade-in {
+    animation: mobile-fade-in 0.2s ease-out;
+  }
+  
+  /* Disable blue highlight on tap in mobile Safari */
+  @media (max-width: 767px) {
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+  
+  /* Active state for mobile taps */
+  .mobile-tap-active {
+    @apply transition-colors active:bg-white/10;
+  }
+  
+  /* Mobile-specific scrolling */
+  .mobile-scroll-area {
+    @apply scrollbar-none overflow-auto overscroll-behavior-y-contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @keyframes marquee {
@@ -243,6 +332,36 @@
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Mobile-specific animations */
+@keyframes mobile-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes mobile-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mobile-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes float {

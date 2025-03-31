@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +9,7 @@ import { ProfileProvider } from "@/contexts/ProfileContext";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { initCacheCleanupService } from './utils/cacheCleanupService';
 import { useEffect } from 'react';
+import { useMediaQuery } from '@/hooks/use-mobile';
 
 // Pages
 import Login from "./pages/Login";
@@ -24,7 +26,17 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Messages from './pages/Messages';
 import MessageChat from './components/messages/MessageChat';
 
+// Mobile Pages
+import MobileHome from "./pages/MobileHome";
+import MobileMarket from "./pages/MobileMarket";
+
 const queryClient = new QueryClient();
+
+// Page with device detection
+const ResponsivePage = ({ mobile, desktop }: { mobile: React.ReactNode, desktop: React.ReactNode }) => {
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  return isMobile ? <>{mobile}</> : <>{desktop}</>;
+};
 
 const App = () => {
   // Initialize cache cleanup service when the app starts
@@ -62,7 +74,12 @@ const App = () => {
               <BrowserRouter>
                 <Routes>
                   <Route path="/" element={<Navigate to="/home" replace />} />
-                  <Route path="/home" element={<Home />} />
+                  <Route path="/home" element={
+                    <ResponsivePage 
+                      mobile={<MobileHome />} 
+                      desktop={<Home />} 
+                    />
+                  } />
                   <Route path="/login" element={<Login />} />
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/notifications" element={
@@ -75,7 +92,12 @@ const App = () => {
                       <Bookmarks />
                     </ProtectedRoute>
                   } />
-                  <Route path="/market" element={<Market />} />
+                  <Route path="/market" element={
+                    <ResponsivePage 
+                      mobile={<MobileMarket />} 
+                      desktop={<Market />} 
+                    />
+                  } />
                   <Route path="/tweet/:tweetId" element={<TweetPage />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>
