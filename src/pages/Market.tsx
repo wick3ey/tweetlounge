@@ -90,16 +90,23 @@ const TokenRow = ({
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
   
+  const dexScreenerUrl = `https://dexscreener.com/solana/${isHot ? token.poolAddress : token.address}`;
+  
+  const handleRowClick = () => {
+    window.open(dexScreenerUrl, '_blank', 'noopener,noreferrer');
+  };
+  
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }} 
       animate={{ opacity: 1, y: 0 }} 
       transition={{ delay: index * 0.05 }} 
-      className={`flex items-center justify-between py-2 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      className={`flex items-center justify-between py-2 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors cursor-pointer ${
         type === 'gainer' ? 'hover:bg-green-950/20' : 
         type === 'loser' ? 'hover:bg-red-950/20' : 
         'hover:bg-blue-950/20'
       }`}
+      onClick={handleRowClick}
     >
       <div className="flex items-center gap-3 min-w-0 w-2/3">
         <div className="relative flex-shrink-0">
@@ -423,10 +430,8 @@ const Market: React.FC = () => {
           )}
           
           <div className="flex flex-col gap-6 flex-grow">
-            {/* Hot Tokens Section - Full Width */}
             <HotTokensSection tokens={marketData?.hotPools || []} loading={loading} />
             
-            {/* Gainers and Losers - Side by Side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <MarketSection 
                 title="Top Gainers" 
