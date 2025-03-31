@@ -1,4 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
+
+import { supabase } from '@/lib/supabase';
 
 /**
  * Generic cache service for storing and retrieving data from the database
@@ -175,3 +176,6 @@ export const cleanupExpiredCache = async (): Promise<void> => {
     console.error(`Unexpected error in cleanupExpiredCache: ${err}`);
   }
 };
+
+// Setup automatic cache cleanup every 15 minutes
+setInterval(cleanupExpiredCache, 15 * 60 * 1000);

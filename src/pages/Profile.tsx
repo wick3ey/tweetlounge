@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileEditForm from '@/components/profile/ProfileEditForm';
 import ProfileTabs from '@/components/profile/ProfileTabs';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader, Settings, Image } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Loader, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,11 @@ import {
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import { getProfileByUsername, isFollowing } from '@/services/profileService';
+import { getUserTweets } from '@/services/tweetService';
+import { fetchProfileDataWithCache } from '@/utils/profileCacheService';
+import { CACHE_DURATIONS } from '@/utils/cacheService';
 
-const CryptoTag = ({ children }: { children: React.ReactNode }) => (
-  <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
-    {children}
-  </div>
-);
+const prefetchMap = new Map<string, boolean>();
 
 interface ProfileProps {
   username?: string;
@@ -48,6 +47,30 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
   const error = isOwnProfile ? currentProfileError : profileError;
   
+  const prefetchProfileData = useCallback(async (userId: string) => {
+    if (prefetchMap.get(userId)) return;
+    
+    prefetchMap.set(userId, true);
+    
+    console.log(`Prefetching data for user ${userId}`);
+    
+    try {
+      fetchProfileDataWithCache(
+        userId,
+        'posts',
+        async () => {
+          console.log(`Prefetching posts for user ${userId}`);
+          return await getUserTweets(userId);
+        },
+        { limit: 20, offset: 0 },
+        CACHE_DURATIONS.MEDIUM,
+        false
+      ).catch(err => console.warn('Prefetch error (non-critical):', err));
+    } catch (error) {
+      console.warn('Prefetch error (non-critical):', error);
+    }
+  }, []);
+  
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (isOwnProfile || !user || !viewedProfile) return;
@@ -70,9 +93,14 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           setIsLoadingProfile(true);
           setProfileError(null);
           
+          console.time('fetchProfileDetails');
           const profileData = await getProfileByUsername(username);
+          console.timeEnd('fetchProfileDetails');
+          
           if (profileData) {
             setViewedProfile(profileData);
+            
+            prefetchProfileData(profileData.id);
             
             try {
               const { data, error } = await supabase
@@ -100,7 +128,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     };
     
     fetchViewedProfile();
-  }, [username, isOwnProfile]);
+  }, [username, isOwnProfile, prefetchProfileData]);
   
   useEffect(() => {
     const fetchUserCreationDate = async () => {
@@ -120,6 +148,8 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           if (data && 'created_at' in data) {
             setUserCreatedAt(data.created_at);
           }
+          
+          prefetchProfileData(user.id);
         } catch (error) {
           console.error("Error in fetchUserCreationDate:", error);
         }
@@ -127,18 +157,16 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     };
     
     fetchUserCreationDate();
-  }, [user, isOwnProfile]);
+  }, [user, isOwnProfile, prefetchProfileData]);
   
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
-        console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
           isOwnProfile ? user.id : profile.id,
           profile.ethereum_address,
           profile.solana_address
         );
-        console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
@@ -147,32 +175,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
       checkNFTVerification();
     }
   }, [profile, isLoading, user, isOwnProfile]);
-  
-  const handleEditProfile = () => {
-    setIsEditing(true);
-  };
-  
-  const handleCloseEditForm = () => {
-    setIsEditing(false);
-  };
-
-  const handleOpenNFTBrowser = () => {
-    setShowNFTBrowser(true);
-  };
-
-  const handleCloseNFTBrowser = () => {
-    setShowNFTBrowser(false);
-  };
-
-  const handleOpenProfileImage = () => {
-    if (profile?.avatar_url) {
-      setShowProfileImage(true);
-    }
-  };
-  
-  const handleFollowAction = () => {
-    setIsUserFollowing(!isUserFollowing);
-  };
   
   if (isLoading) {
     return (
@@ -215,6 +217,32 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     );
   }
   
+  const handleEditProfile = () => {
+    setIsEditing(true);
+  };
+  
+  const handleCloseEditForm = () => {
+    setIsEditing(false);
+  };
+
+  const handleOpenNFTBrowser = () => {
+    setShowNFTBrowser(true);
+  };
+
+  const handleCloseNFTBrowser = () => {
+    setShowNFTBrowser(false);
+  };
+
+  const handleOpenProfileImage = () => {
+    if (profile?.avatar_url) {
+      setShowProfileImage(true);
+    }
+  };
+  
+  const handleFollowAction = () => {
+    setIsUserFollowing(!isUserFollowing);
+  };
+  
   const formatWebsiteUrl = (url: string | null): string | null => {
     if (!url) return null;
     
@@ -246,11 +274,17 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
         onAvatarClick={handleOpenProfileImage}
       />
       
-      <ProfileTabs 
-        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-        isCurrentUser={isOwnProfile}
-        solanaAddress={profile?.solana_address}
-      />
+      <Suspense fallback={
+        <div className="flex justify-center items-center py-16">
+          <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
+        </div>
+      }>
+        <ProfileTabs 
+          userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+          isCurrentUser={isOwnProfile}
+          solanaAddress={profile?.solana_address}
+        />
+      </Suspense>
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
