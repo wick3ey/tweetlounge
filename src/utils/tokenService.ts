@@ -97,11 +97,17 @@ export const fetchWalletTokens = async (
         // Try to fetch additional token information from DexTools API
         const enrichedToken = await enrichTokenWithDexToolsInfo(token);
         
-        // Cache the token logo if available
+        // Cache the token logo if available - ensure we prioritize this
         if (enrichedToken.logo) {
-          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logo).catch(console.error);
+          console.log(`Prioritizing logo caching for ${enrichedToken.symbol}: ${enrichedToken.logo}`);
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logo).catch(error => {
+            console.warn(`Failed initial logo caching for ${enrichedToken.symbol}:`, error);
+          });
         } else if (enrichedToken.logoURI) {
-          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logoURI).catch(console.error);
+          console.log(`Prioritizing logoURI caching for ${enrichedToken.symbol}: ${enrichedToken.logoURI}`);
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logoURI).catch(error => {
+            console.warn(`Failed initial logoURI caching for ${enrichedToken.symbol}:`, error);
+          });
         }
         
         return enrichedToken;
@@ -199,14 +205,17 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
     }
   }
   
-  // Cache the token logo if available
-  let logoUrl = tokenInfo?.logo || token.logo;
+  // Cache the token logo if available - force immediate caching
+  let logoUrl = tokenInfo?.logo || token.logo || token.logoURI;
   if (logoUrl) {
     try {
-      // Cache the token logo in background
-      cacheTokenLogo(tokenInfo?.symbol || token.symbol, logoUrl).catch(console.error);
+      // Attempt to immediately cache the logo 
+      console.log(`Attempting immediate logo cache for ${token.symbol || tokenInfo?.symbol}: ${logoUrl}`);
+      await cacheTokenLogo(tokenInfo?.symbol || token.symbol, logoUrl).catch(logoError => {
+        console.warn(`Error in immediate logo caching for ${token.symbol}:`, logoError);
+      });
     } catch (logoError) {
-      console.warn(`Error caching logo for ${token.symbol}:`, logoError);
+      console.warn(`Error in outer logo caching for ${token.symbol}:`, logoError);
     }
   }
   

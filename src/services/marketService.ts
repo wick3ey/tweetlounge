@@ -1,6 +1,6 @@
-
 import { supabase } from '@/lib/supabase';
 import { CACHE_DURATIONS, getCachedData, setCachedData } from '@/utils/cacheService';
+import { cacheTokenLogo } from '@/services/storageService';
 
 // Types for the market data
 export interface FinancialInfo {
@@ -75,6 +75,45 @@ export const extractFinancialInfo = (financialInfo: FinancialInfo | ApiFinancial
   return financialInfo as FinancialInfo;
 };
 
+// Process logos from market data
+const processLogos = async (marketData: MarketData) => {
+  console.log('Processing logos from market data...');
+  
+  try {
+    // Process in batches to avoid overwhelming the system
+    const processTokenBatch = async (tokens: Array<TokenData | HotPool>) => {
+      for (const token of tokens) {
+        if (token.logoUrl && token.symbol) {
+          try {
+            await cacheTokenLogo(token.symbol, token.logoUrl);
+          } catch (err) {
+            console.warn(`Failed to cache logo for ${token.symbol}:`, err);
+          }
+        }
+      }
+    };
+    
+    // Process gainers
+    if (marketData.gainers && marketData.gainers.length > 0) {
+      await processTokenBatch(marketData.gainers);
+    }
+    
+    // Process losers
+    if (marketData.losers && marketData.losers.length > 0) {
+      await processTokenBatch(marketData.losers);
+    }
+    
+    // Process hot pools
+    if (marketData.hotPools && marketData.hotPools.length > 0) {
+      await processTokenBatch(marketData.hotPools);
+    }
+    
+    console.log('Market logo processing complete');
+  } catch (error) {
+    console.error('Error processing market logos:', error);
+  }
+};
+
 // Fetch market data from API
 export const fetchMarketData = async (): Promise<MarketData> => {
   try {
@@ -82,6 +121,12 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     const cachedData = await getCachedData<MarketData>(MARKET_DATA_CACHE_KEY);
     if (cachedData) {
       console.log('Using cached market data from database');
+      
+      // Process logos from cached data in the background
+      processLogos(cachedData).catch(err => {
+        console.warn('Background logo processing failed:', err);
+      });
+      
       return cachedData;
     }
 
@@ -104,6 +149,11 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     marketDataCache.data = data as MarketData;
     marketDataCache.timestamp = Date.now();
     marketDataCache.error = null;
+
+    // Process logos from new data in the background
+    processLogos(data as MarketData).catch(err => {
+      console.warn('Background logo processing failed for new data:', err);
+    });
 
     // Data from the Edge Function is already cached in the database
     return data as MarketData;

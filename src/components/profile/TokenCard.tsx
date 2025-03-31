@@ -24,6 +24,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ token, solPrice, isCompact
         // Reset error state on new fetch
         setImageError(false);
         
+        // Try to get a logo URL in this order: token.logo, token.logoURI, fallback
         if (token.logo) {
           const cachedLogo = await getTokenLogo(token.symbol, token.logo);
           setLogoUrl(cachedLogo);

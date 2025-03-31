@@ -142,14 +142,24 @@ const TokenRow = ({
   useEffect(() => {
     const fetchLogo = async () => {
       try {
+        setImageError(false);
+        
         if (token.logoUrl) {
           const cachedLogo = await getTokenLogo(token.symbol, token.logoUrl);
           setLogoUrl(cachedLogo);
+          
+          if (cachedLogo === token.logoUrl) {
+            console.log(`Market: Force caching logo for ${token.symbol}`);
+            cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+              console.warn(`Market: Logo cache attempt failed for ${token.symbol}:`, err);
+            });
+          }
         } else {
           setLogoUrl(generateFallbackLogoUrl(token.symbol));
         }
       } catch (error) {
-        console.error(`Error fetching logo for ${token.symbol}:`, error);
+        console.error(`Market: Error fetching logo for ${token.symbol}:`, error);
+        setImageError(true);
         setLogoUrl(generateFallbackLogoUrl(token.symbol));
       }
     };
@@ -164,6 +174,11 @@ const TokenRow = ({
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleExpand();
+  };
+  
+  const handleImageError = () => {
+    setImageError(true);
+    setLogoUrl(generateFallbackLogoUrl(token.symbol));
   };
   
   const financialInfo = extractFinancialInfo(token.financialInfo || {});
@@ -207,16 +222,7 @@ const TokenRow = ({
                   alt={token.symbol || 'Token'} 
                   className="object-contain"
                   onLoad={() => setImageLoaded(true)}
-                  onError={(e) => {
-                    console.log(`Image error for ${token.symbol}:`, e);
-                    setImageError(true);
-                    
-                    if (token.originalLogoUrl && e.currentTarget.src !== token.originalLogoUrl) {
-                      e.currentTarget.src = token.originalLogoUrl;
-                    } else {
-                      e.currentTarget.src = generateFallbackLogoUrl(token.symbol);
-                    }
-                  }}
+                  onError={handleImageError}
                 />
               )}
               <AvatarFallback className={`text-sm ${
@@ -553,6 +559,48 @@ const MarketSection = ({
 const Market: React.FC = () => {
   const { marketData, loading, error, refreshData } = useMarketData();
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (marketData && !loading) {
+      const cacheAllLogos = async () => {
+        console.log('Pre-caching all market token logos...');
+        
+        if (marketData.gainers && marketData.gainers.length > 0) {
+          marketData.gainers.forEach(token => {
+            if (token.logoUrl && token.symbol) {
+              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+                console.warn(`Failed to pre-cache gainer logo for ${token.symbol}:`, err);
+              });
+            }
+          });
+        }
+        
+        if (marketData.losers && marketData.losers.length > 0) {
+          marketData.losers.forEach(token => {
+            if (token.logoUrl && token.symbol) {
+              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+                console.warn(`Failed to pre-cache loser logo for ${token.symbol}:`, err);
+              });
+            }
+          });
+        }
+        
+        if (marketData.hotPools && marketData.hotPools.length > 0) {
+          marketData.hotPools.forEach(token => {
+            if (token.logoUrl && token.symbol) {
+              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+                console.warn(`Failed to pre-cache hot pool logo for ${token.symbol}:`, err);
+              });
+            }
+          });
+        }
+        
+        console.log('Pre-caching of market logos completed');
+      };
+      
+      cacheAllLogos();
+    }
+  }, [marketData, loading]);
   
   const handleRefresh = () => {
     refreshData();
