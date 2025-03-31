@@ -49,6 +49,47 @@ const WALLET_TOKENS_CACHE_KEY_PREFIX = 'wallet_tokens_';
 const inMemoryCache: Record<string, { data: TokensResponse, timestamp: number }> = {};
 const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+// Track API rate limiting to avoid excessive retries
+const apiFailures = {
+  dexTools: {
+    failures: 0,
+    lastFailure: 0,
+    backoffPeriod: 10000 // Initial 10 second backoff
+  }
+};
+
+// Reset the backoff period when API starts working again
+const resetBackoff = (api: 'dexTools') => {
+  apiFailures[api].failures = 0;
+  apiFailures[api].backoffPeriod = 10000;
+};
+
+// Increase backoff period exponentially
+const increaseBackoff = (api: 'dexTools') => {
+  apiFailures[api].failures += 1;
+  apiFailures[api].lastFailure = Date.now();
+  // Exponential backoff with a cap at 5 minutes
+  apiFailures[api].backoffPeriod = Math.min(apiFailures[api].backoffPeriod * 2, 5 * 60 * 1000);
+};
+
+// Check if we should skip API calls due to recent failures
+const shouldSkipApiCall = (api: 'dexTools'): boolean => {
+  const now = Date.now();
+  const { failures, lastFailure, backoffPeriod } = apiFailures[api];
+  
+  // If we have recent failures and we're still in the backoff period
+  if (failures > 0 && (now - lastFailure) < backoffPeriod) {
+    return true;
+  }
+  
+  // If too many consecutive failures, back off more
+  if (failures > 5) {
+    return true;
+  }
+  
+  return false;
+};
+
 /**
  * Fetch tokens from a wallet address
  * @param address The wallet address
@@ -134,12 +175,17 @@ export const fetchWalletTokens = async (
     };
     
     // Cache the basic processed tokens data
-    await setCachedData(
-      cacheKey,
-      result,
-      CACHE_DURATIONS.MEDIUM,
-      'solana'
-    );
+    try {
+      await setCachedData(
+        cacheKey,
+        result,
+        CACHE_DURATIONS.MEDIUM,
+        'solana'
+      );
+    } catch (cacheError) {
+      console.warn(`Error caching token data: ${cacheError}`);
+      // Continue despite cache error - we still have the data
+    }
     
     // Store in memory cache
     inMemoryCache[memoryCacheKey] = {
@@ -170,6 +216,12 @@ const enrichTokensInBackground = async (
   memoryCacheKey: string
 ) => {
   try {
+    // If we've had multiple API failures, skip enrichment temporarily
+    if (shouldSkipApiCall('dexTools')) {
+      console.log(`Skipping DexTools enrichment due to recent API failures. Will retry later.`);
+      return;
+    }
+
     const enrichedTokensPromises = basicTokens.map(async (token) => {
       try {
         // Skip extra API calls for SOL
@@ -191,7 +243,12 @@ const enrichTokensInBackground = async (
     // Update caches with enriched data
     const result = { tokens: enrichedTokens, solPrice };
     
-    await setCachedData(cacheKey, result, CACHE_DURATIONS.MEDIUM, 'solana');
+    try {
+      await setCachedData(cacheKey, result, CACHE_DURATIONS.MEDIUM, 'solana');
+    } catch (cacheError) {
+      console.warn(`Error updating cache with enriched tokens: ${cacheError}`);
+      // Continue despite cache error
+    }
     
     inMemoryCache[memoryCacheKey] = {
       data: result,
@@ -227,32 +284,46 @@ const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
     return token;
   }
   
-  // Get token metadata from DexTools
-  const tokenInfo = await fetchDexToolsTokenInfo(tokenAddress);
-  
-  // Get token price data from DexTools
-  const priceData = await fetchDexToolsTokenPrice(tokenAddress);
-  
-  // Calculate USD value based on token amount and price
-  let usdValue: string | undefined = token.usdValue;
-  if (priceData && priceData.price) {
-    const amount = parseFloat(token.amount);
-    // Ensure we have a valid number for the calculation
-    if (!isNaN(amount)) {
-      usdValue = (amount * priceData.price).toFixed(2);
-    }
+  // Check if we should skip API calls due to rate limiting
+  if (shouldSkipApiCall('dexTools')) {
+    return token;
   }
   
-  return {
-    ...token,
-    name: tokenInfo?.name || token.name,
-    symbol: tokenInfo?.symbol || token.symbol,
-    logo: tokenInfo?.logo || token.logo,
-    logoURI: tokenInfo?.logo || token.logoURI,
-    usdValue: usdValue,
-    decimals: tokenInfo?.decimals || token.decimals,
-    priceChange24h: priceData?.variation24h || token.priceChange24h || 0
-  };
+  try {
+    // Get token metadata from DexTools
+    const tokenInfo = await fetchDexToolsTokenInfo(tokenAddress);
+    
+    // Get token price data from DexTools
+    const priceData = await fetchDexToolsTokenPrice(tokenAddress);
+    
+    // If both API calls succeed, reset backoff
+    resetBackoff('dexTools');
+    
+    // Calculate USD value based on token amount and price
+    let usdValue: string | undefined = token.usdValue;
+    if (priceData && priceData.price) {
+      const amount = parseFloat(token.amount);
+      // Ensure we have a valid number for the calculation
+      if (!isNaN(amount)) {
+        usdValue = (amount * priceData.price).toFixed(2);
+      }
+    }
+    
+    return {
+      ...token,
+      name: tokenInfo?.name || token.name,
+      symbol: tokenInfo?.symbol || token.symbol,
+      logo: tokenInfo?.logo || token.logo,
+      logoURI: tokenInfo?.logo || token.logoURI,
+      usdValue: usdValue,
+      decimals: tokenInfo?.decimals || token.decimals,
+      priceChange24h: priceData?.variation24h || token.priceChange24h || 0
+    };
+  } catch (error) {
+    // If we get an error, increase backoff period
+    increaseBackoff('dexTools');
+    return token;
+  }
 };
 
 /**
@@ -261,12 +332,17 @@ const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
 const fetchDexToolsTokenInfo = async (tokenAddress: string): Promise<DexToolsTokenInfo | null> => {
   try {
     console.log(`Fetching DexTools info for token: ${tokenAddress}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
     const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}`, {
       method: 'GET',
       headers: {
         'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
-      }
-    });
+      },
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
     
     if (!response.ok) {
       console.warn(`DexTools API returned status ${response.status} for token ${tokenAddress}`);
@@ -292,12 +368,17 @@ const fetchDexToolsTokenInfo = async (tokenAddress: string): Promise<DexToolsTok
 const fetchDexToolsTokenPrice = async (tokenAddress: string): Promise<DexToolsTokenPrice | null> => {
   try {
     console.log(`Fetching DexTools price for token: ${tokenAddress}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
     const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}/price`, {
       method: 'GET',
       headers: {
         'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
-      }
-    });
+      },
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
     
     if (!response.ok) {
       console.warn(`DexTools API returned status ${response.status} for token price ${tokenAddress}`);

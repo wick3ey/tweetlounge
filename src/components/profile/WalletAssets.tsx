@@ -16,11 +16,16 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   const [solPrice, setSolPrice] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<string>("grid");
   const [totalValue, setTotalValue] = useState<string>("$0.00");
+  const [retryCount, setRetryCount] = useState(0);
   const cacheKey = useRef(`wallet-tokens-${solanaAddress}`);
   const { toast } = useToast();
+  const initialLoadComplete = useRef(false);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use cached data from localStorage first for instant display
   useEffect(() => {
+    if (!solanaAddress) return;
+    
     try {
       const cachedData = localStorage.getItem(cacheKey.current);
       if (cachedData) {
@@ -35,9 +40,12 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
           }
           calculateTotalWalletValue(parsedData.tokens, parsedData.solPrice);
           setLoading(false);
+          initialLoadComplete.current = true;
           
-          // Still fetch fresh data after using cache
-          setTimeout(() => fetchTokens(true), 100);
+          // Still fetch fresh data after using cache, but give UI time to render first
+          setTimeout(() => fetchTokens(true), 300);
+        } else {
+          fetchTokens(false);
         }
       } else {
         fetchTokens(false);
@@ -46,7 +54,32 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       console.error('Error loading cached token data:', err);
       fetchTokens(false);
     }
+    
+    return () => {
+      // Clean up any pending timeouts on unmount
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
   }, [solanaAddress]);
+  
+  // Auto-retry if initial fetch fails
+  useEffect(() => {
+    if (error && retryCount < 3 && !initialLoadComplete.current) {
+      console.log(`Auto-retrying wallet token fetch (attempt ${retryCount + 1}/3)...`);
+      
+      fetchTimeoutRef.current = setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        fetchTokens(false);
+      }, Math.min(2000 * (retryCount + 1), 5000)); // Exponential backoff with a max of 5 seconds
+      
+      return () => {
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+      };
+    }
+  }, [error, retryCount]);
   
   const fetchTokens = async (isBackground = false) => {
     if (!solanaAddress) return;
@@ -93,7 +126,10 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
         } catch (err) {
           console.error('Error caching token data:', err);
         }
-      } else {
+        
+        initialLoadComplete.current = true;
+      } else if (tokens.length === 0) {
+        // Only set empty tokens if we don't already have some
         setTokens([]);
         setTotalValue("$0.00");
       }
@@ -101,11 +137,13 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error fetching tokens:', err);
-      setError('Failed to load tokens. Please try again later.');
-      if (!isBackground) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load tokens';
+      setError(errorMessage);
+      
+      if (!isBackground && !initialLoadComplete.current) {
         toast({
-          title: "Error loading assets",
-          description: "Could not load wallet assets. Using cached data if available.",
+          title: "Error loading wallet assets",
+          description: "Could not load assets. Using cached data if available.",
           variant: "destructive"
         });
       }
@@ -118,6 +156,11 @@ const WalletAssets = ({ solanaAddress }: WalletAssetsProps) => {
   
   const handleRefresh = () => {
     fetchTokens(false);
+    
+    toast({
+      title: "Refreshing wallet data",
+      description: "Loading latest asset information..."
+    });
   };
   
   // Calculate total wallet value in USD
