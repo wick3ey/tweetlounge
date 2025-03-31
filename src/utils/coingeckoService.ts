@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
+import { supabase } from '@/integrations/supabase/client';
 
 // Interface for the cryptocurrency data
 export interface CryptoCurrency {

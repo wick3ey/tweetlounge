@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
@@ -76,12 +75,17 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
           try {
             // Use cached data if available
             const cachedOriginalTweet = queryClient.getQueryData(['tweet', enhancedTweet.original_tweet_id]);
-            if (cachedOriginalTweet) {
+            if (cachedOriginalTweet && 
+                typeof cachedOriginalTweet === 'object' && 
+                'content' in cachedOriginalTweet && 
+                'image_url' in cachedOriginalTweet && 
+                'author' in cachedOriginalTweet) {
+              const typedCachedTweet = cachedOriginalTweet as TweetWithAuthor;
               return {
                 ...enhancedTweet,
-                content: cachedOriginalTweet.content,
-                image_url: cachedOriginalTweet.image_url,
-                original_author: cachedOriginalTweet.author
+                content: typedCachedTweet.content,
+                image_url: typedCachedTweet.image_url,
+                original_author: typedCachedTweet.author
               };
             }
             
