@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -7,11 +6,8 @@ import {
   Mail, 
   User, 
   Bookmark, 
-  BarChart2,
-  MessageSquare,
   Settings,
   Compass,
-  Zap,
   ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
-import { Card } from '@/components/ui/card';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useState, useEffect } from 'react';
 
@@ -50,8 +45,8 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
-    { icon: BarChart2, label: 'Market', path: '/market' },
     { icon: Compass, label: 'Discover', path: '/discover' },
+    { icon: User, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' }
   ];
   
