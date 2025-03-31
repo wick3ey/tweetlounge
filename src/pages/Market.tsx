@@ -76,9 +76,9 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
         'hover:bg-blue-950/20'
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0 w-3/5">
+      <div className="flex items-center gap-3 min-w-0 w-2/3">
         <div className="relative flex-shrink-0">
-          <Avatar className="h-9 w-9 border-2" style={{ 
+          <Avatar className="h-10 w-10 border-2" style={{ 
             borderColor: type === 'gainer' 
               ? 'rgba(34, 197, 94, 0.4)' 
               : type === 'loser' 
@@ -106,9 +106,9 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
           </Badge>
         </div>
         <div className="min-w-0 w-full overflow-hidden">
-          <div className="font-medium text-sm sm:text-base">
-            <span className="font-semibold truncate max-w-[150px] inline-block mr-1">{token.symbol || '???'}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] inline-block">
+          <div className="font-medium text-base">
+            <span className="font-semibold block text-white">{token.symbol || '???'}</span>
+            <span className="text-sm text-muted-foreground block truncate max-w-full">
               {token.name || '???'}
             </span>
           </div>
@@ -116,10 +116,10 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
         </div>
       </div>
       
-      <div className="text-right flex-shrink-0 w-2/5 pl-2">
+      <div className="text-right flex-shrink-0 w-1/3 pl-2">
         {!isHot ? (
           <>
-            <div className="font-medium text-sm sm:text-base whitespace-nowrap">${formatPrice(token.price)}</div>
+            <div className="font-medium text-base whitespace-nowrap">${formatPrice(token.price)}</div>
             <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
               {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />}
               <span>{formatPercentage(token.variation24h)}</span>
