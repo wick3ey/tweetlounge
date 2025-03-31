@@ -1,7 +1,10 @@
+
 import { supabase } from '@/lib/supabase';
 import { Tweet, TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
+import { extractHashtags } from '@/utils/hashtagUtils';
+import { saveHashtagsForTweet } from '@/services/hashtagService';
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
   try {
@@ -48,6 +51,12 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
     if (error) {
       console.error('Error creating tweet:', error);
       throw error;
+    }
+    
+    // Extract and save hashtags
+    const hashtags = extractHashtags(content);
+    if (hashtags.length > 0) {
+      await saveHashtagsForTweet(data.id, hashtags);
     }
     
     return data as Tweet;
