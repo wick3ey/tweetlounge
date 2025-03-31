@@ -1,279 +1,303 @@
 
-import React, { useState } from 'react';
-import { useMarketData } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '@/components/layout/Layout';
-import { motion } from 'framer-motion';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, TrendingUp, ArrowDownUp, Download } from 'lucide-react';
+import MarketStats from '@/components/crypto/MarketStats';
+import TokenCard from '@/components/market/TokenCard';
+import TrendingTopics from '@/components/crypto/TrendingTopics';
+import { useToast } from '@/components/ui/use-toast';
+import { getMarketData } from '@/services/marketService';
+import { cacheAllTokenLogos } from '@/services/storageService';
 
-const TokenCardSkeleton = () => (
-  <div className="p-4">
-    {[1, 2, 3, 4].map((i) => (
-      <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-8 rounded-full" />
-          <div>
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-3 w-32 mt-1" />
-          </div>
-        </div>
-        <div className="text-right">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-3 w-12 mt-1" />
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-const formatPrice = (price: number) => {
-  if (isNaN(price)) return "N/A";
-  
-  if (price < 0.01 && price > 0) {
-    return price.toFixed(6);
-  }
-  
-  if (price < 1) {
-    return price.toFixed(3);
-  }
-  
-  if (price < 1000) {
-    return price.toFixed(2);
-  }
-  
-  return price.toLocaleString('en-US', { maximumFractionDigits: 2 });
-};
-
-const formatPercentage = (percent: number) => {
-  if (isNaN(percent)) return "0%";
-  return `${percent > 0 ? '+' : ''}${percent.toFixed(2)}%`;
-};
-
-const formatTime = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleString();
-};
-
-const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser' | 'hot', index: number }) => {
-  const isHot = type === 'hot';
-  const isPriceUp = !isHot ? token.variation24h > 0 : false;
-  const isMobile = useIsMobile();
-  
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className={`flex items-center justify-between py-3 px-2 sm:px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
-        type === 'gainer' ? 'hover:bg-green-950/20' : 
-        type === 'loser' ? 'hover:bg-red-950/20' : 
-        'hover:bg-blue-950/20'
-      }`}
-    >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className="relative flex-shrink-0">
-          <Avatar className="h-8 w-8 border-2" style={{ 
-            borderColor: type === 'gainer' 
-              ? 'rgba(34, 197, 94, 0.4)' 
-              : type === 'loser' 
-                ? 'rgba(239, 68, 68, 0.4)' 
-                : 'rgba(59, 130, 246, 0.4)' 
-          }}>
-            <AvatarImage src={token.logoUrl} alt={token.symbol} />
-            <AvatarFallback className={`text-xs ${
-              type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
-              type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
-              'bg-gradient-to-br from-blue-800 to-blue-700'
-            }`}>
-              {token.symbol?.substring(0, 2) || '??'}
-            </AvatarFallback>
-          </Avatar>
-          <Badge 
-            variant={type === 'gainer' ? 'success' : type === 'loser' ? 'destructive' : 'default'} 
-            className={`absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs shadow-md ${
-              type === 'gainer' ? 'bg-green-500 hover:bg-green-600' :
-              type === 'loser' ? 'bg-red-500 hover:bg-red-600' :
-              'bg-blue-500 hover:bg-blue-600'
-            }`}
-          >
-            {token.rank}
-          </Badge>
-        </div>
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="font-semibold text-sm flex items-center overflow-hidden">
-            <span className="truncate max-w-[80px] inline-block">{token.symbol || '???'}</span>
-            <span className="text-xs text-muted-foreground ml-1 truncate inline-block max-w-[80px]">
-              {token.name ? (token.name.length > 12 ? token.name.substring(0, 10) + '...' : token.name) : '???'}
-            </span>
-          </div>
-          <div className="text-xs text-muted-foreground truncate">{token.exchange || 'Unknown'}</div>
-        </div>
-      </div>
-      
-      <div className="text-right flex-shrink-0 ml-1">
-        {!isHot ? (
-          <>
-            <div className="font-medium text-sm whitespace-nowrap">${formatPrice(token.price)}</div>
-            <div className={`text-xs ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium flex items-center justify-end`}>
-              {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />}
-              <span className="whitespace-nowrap">{formatPercentage(token.variation24h)}</span>
-            </div>
-          </>
-        ) : (
-          <div className="text-xs text-blue-400 font-medium whitespace-nowrap">
-            {isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-};
-
-const MarketSection = ({ 
-  title, 
-  icon: Icon, 
-  tokens, 
-  type, 
-  loading, 
-  accentColor,
-  accentBg
-}: { 
-  title: string, 
-  icon: any, 
-  tokens: any[], 
-  type: 'gainer' | 'loser' | 'hot', 
-  loading: boolean,
-  accentColor: string,
-  accentBg: string
-}) => (
-  <motion.div 
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.5 }}
-    className={`rounded-xl border border-gray-800 bg-black/80 backdrop-blur-md flex flex-col h-full shadow-lg overflow-hidden`}
-  >
-    <div className={`flex items-center gap-2 px-4 py-3 border-b border-gray-800/70 ${accentBg} rounded-t-xl flex-shrink-0`}>
-      <div className="bg-black/30 p-1.5 rounded-full">
-        <Icon className="h-4 w-4" style={{ color: accentColor }} />
-      </div>
-      <h2 className="text-lg font-bold">{title}</h2>
-    </div>
-    
-    <div className="flex-grow overflow-hidden">
-      <ScrollArea className="h-full max-h-[calc(100vh-240px)]">
-        {loading ? (
-          <TokenCardSkeleton />
-        ) : tokens && tokens.length > 0 ? (
-          tokens.slice(0, 10).map((token, index) => (
-            <TokenRow key={type === 'hot' ? token.poolAddress : token.address} token={token} type={type} index={index} />
-          ))
-        ) : (
-          <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
-        )}
-      </ScrollArea>
-    </div>
-  </motion.div>
-);
-
-const Market: React.FC = () => {
-  const { marketData, loading, error, refreshData } = useMarketData();
+const Market = () => {
   const { toast } = useToast();
-  
-  const handleRefresh = () => {
-    refreshData();
-    toast({
-      title: "Refreshing market data",
-      description: "Getting the latest crypto market information"
+  const [marketData, setMarketData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'marketCap',
+    direction: 'desc'
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [downloadingLogos, setDownloadingLogos] = useState(false);
+  const [downloadStats, setDownloadStats] = useState({ total: 0, completed: 0, success: 0, failed: 0 });
+
+  // Fetch market data
+  const fetchMarketData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getMarketData();
+      if (data && Array.isArray(data)) {
+        setMarketData(data);
+        setFilteredData(sortData(data, sortConfig.key, sortConfig.direction));
+      } else {
+        toast({
+          title: 'Failed to load market data',
+          description: 'Please try again later',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching market data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch market data',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, sortConfig.key, sortConfig.direction]);
+
+  // Automatically download token logos when the page loads
+  useEffect(() => {
+    if (marketData.length > 0 && !downloadingLogos) {
+      // Auto-download logos in the background
+      const downloadLogos = async () => {
+        try {
+          setDownloadingLogos(true);
+          const tokensWithLogos = marketData.filter(token => token.logo);
+          
+          setDownloadStats({
+            total: tokensWithLogos.length,
+            completed: 0,
+            success: 0,
+            failed: 0
+          });
+          
+          // Process in smaller batches
+          const results = await cacheAllTokenLogos(tokensWithLogos, 3);
+          
+          setDownloadStats({
+            total: results.total,
+            completed: results.total,
+            success: results.success,
+            failed: results.failed
+          });
+          
+          console.log('Logo download results:', results);
+        } catch (error) {
+          console.error('Error auto-downloading logos:', error);
+        } finally {
+          setDownloadingLogos(false);
+        }
+      };
+      
+      downloadLogos();
+    }
+  }, [marketData, downloadingLogos]);
+
+  useEffect(() => {
+    fetchMarketData();
+  }, [fetchMarketData]);
+
+  // Handle search
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredData(sortData(marketData, sortConfig.key, sortConfig.direction));
+    } else {
+      const filtered = marketData.filter(
+        (crypto) =>
+          crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredData(sortData(filtered, sortConfig.key, sortConfig.direction));
+    }
+  }, [searchTerm, marketData, sortConfig]);
+
+  // Handle tab changes
+  useEffect(() => {
+    let filteredByTab = [...marketData];
+    
+    if (activeTab === 'trending') {
+      filteredByTab = marketData.filter(crypto => crypto.change > 5);
+    } else if (activeTab === 'gainers') {
+      filteredByTab = marketData.filter(crypto => crypto.change > 0);
+    } else if (activeTab === 'losers') {
+      filteredByTab = marketData.filter(crypto => crypto.change < 0);
+    }
+    
+    if (searchTerm.trim() !== '') {
+      filteredByTab = filteredByTab.filter(
+        (crypto) =>
+          crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    setFilteredData(sortData(filteredByTab, sortConfig.key, sortConfig.direction));
+  }, [activeTab, marketData, searchTerm, sortConfig]);
+
+  // Download all token logos manually
+  const handleDownloadAllLogos = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    try {
+      event.preventDefault();
+      setDownloadingLogos(true);
+      
+      toast({
+        title: 'Downloading token logos',
+        description: 'This process may take a minute or two...'
+      });
+      
+      const tokensWithLogos = marketData.filter(token => token.logo);
+      
+      setDownloadStats({
+        total: tokensWithLogos.length,
+        completed: 0,
+        success: 0,
+        failed: 0
+      });
+      
+      const results = await cacheAllTokenLogos(tokensWithLogos, 3);
+      
+      setDownloadStats({
+        total: results.total,
+        completed: results.total,
+        success: results.success,
+        failed: results.failed
+      });
+      
+      toast({
+        title: 'Logo download completed',
+        description: `Successfully cached ${results.success} of ${results.total} logos.`
+      });
+      
+      // Trigger a refresh to show the cached logos
+      fetchMarketData();
+    } catch (error) {
+      console.error('Error downloading logos:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download some token logos',
+        variant: 'destructive'
+      });
+    } finally {
+      setDownloadingLogos(false);
+    }
+  };
+
+  // Sort data
+  const sortData = (data: any[], key: string, direction: 'asc' | 'desc') => {
+    return [...data].sort((a, b) => {
+      if (a[key] === undefined || a[key] === null) return direction === 'asc' ? -1 : 1;
+      if (b[key] === undefined || b[key] === null) return direction === 'asc' ? 1 : -1;
+      
+      const compareResult = a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0;
+      return direction === 'asc' ? compareResult : -compareResult;
     });
   };
 
+  // Handle sort
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+    setFilteredData(sortData(filteredData, key, direction));
+  };
+
   return (
-    <Layout>
-      <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <motion.h1
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
-            >
-              Crypto Market Dashboard
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-muted-foreground text-base sm:text-lg"
-            >
-              Latest movements, gainers, losers, and hot new tokens
-            </motion.p>
-          </div>
+    <Layout pageTitle="Market" hideRightSidebar={false}>
+      <div className="p-4">
+        <MarketStats />
+        
+        <div className="flex justify-between items-center mt-6 mb-4">
+          <h2 className="text-xl font-bold">Cryptocurrencies</h2>
           
-          <Button 
-            onClick={handleRefresh} 
-            variant="outline" 
-            size="default" 
-            className="gap-2 self-start hover:bg-gray-800/50 transition-all"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            <span>Refresh Markets</span>
-          </Button>
+          <div className="flex gap-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search coins..."
+                className="pl-8 bg-gray-950 border-gray-800"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => requestSort('price')}
+              className="hidden sm:flex"
+            >
+              <ArrowDownUp className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleDownloadAllLogos}
+              disabled={downloadingLogos}
+              className="hidden sm:flex"
+              title="Download all token logos"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="rounded-lg border border-red-900/50 bg-red-950/30 p-4 mb-6"
-          >
-            <h3 className="text-red-500 font-semibold mb-1">Error Loading Data</h3>
-            <p className="text-sm text-red-300">{error}</p>
-          </motion.div>
-        )}
-
-        {marketData && !loading && (
-          <div className="text-sm text-muted-foreground mb-4">
-            Last updated: {formatTime(marketData.lastUpdated)}
+        
+        {downloadingLogos && downloadStats.total > 0 && (
+          <div className="mb-4 p-3 bg-gray-900 rounded-md border border-gray-800">
+            <p className="text-sm text-gray-400">
+              Downloading token logos: {downloadStats.success + downloadStats.failed}/{downloadStats.total} 
+              ({Math.round(((downloadStats.success + downloadStats.failed) / downloadStats.total) * 100)}%)
+            </p>
+            <div className="w-full bg-gray-800 rounded-full h-2 mt-1">
+              <div 
+                className="bg-blue-600 h-2 rounded-full" 
+                style={{ width: `${Math.round(((downloadStats.success + downloadStats.failed) / downloadStats.total) * 100)}%` }}
+              ></div>
+            </div>
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 flex-grow min-h-0">
-          <MarketSection
-            title="Top Gainers"
-            icon={TrendingUp}
-            tokens={marketData?.gainers?.slice(0, 10) || []}
-            type="gainer"
-            loading={loading}
-            accentColor="#22c55e"
-            accentBg="bg-green-500/10"
-          />
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="all">All Coins</TabsTrigger>
+            <TabsTrigger value="trending">
+              <TrendingUp className="mr-1 h-4 w-4" /> Trending
+            </TabsTrigger>
+            <TabsTrigger value="gainers">Gainers</TabsTrigger>
+            <TabsTrigger value="losers">Losers</TabsTrigger>
+          </TabsList>
           
-          <MarketSection
-            title="Top Losers"
-            icon={TrendingDown}
-            tokens={marketData?.losers?.slice(0, 10) || []}
-            type="loser"
-            loading={loading}
-            accentColor="#ef4444"
-            accentBg="bg-red-500/10"
-          />
-          
-          <MarketSection
-            title="Hot"
-            icon={Zap}
-            tokens={marketData?.hotPools?.slice(0, 10) || []}
-            type="hot"
-            loading={loading}
-            accentColor="#3b82f6"
-            accentBg="bg-blue-500/10"
-          />
+          <TabsContent value={activeTab} className="space-y-4">
+            {isLoading ? (
+              // Loading skeletons
+              Array(10)
+                .fill(0)
+                .map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4 p-4 border border-gray-800 rounded-lg">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-[150px]" />
+                      <Skeleton className="h-4 w-[100px]" />
+                    </div>
+                  </div>
+                ))
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No cryptocurrencies found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredData.map((crypto) => (
+                  <TokenCard key={crypto.id} token={crypto} showMarketData={true} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+        
+        <div className="mt-8">
+          <TrendingTopics />
         </div>
       </div>
     </Layout>
