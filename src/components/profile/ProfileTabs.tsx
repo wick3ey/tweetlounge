@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserTweets, getUserRetweets } from '@/services/tweetService';
@@ -11,7 +12,6 @@ import CommentCard from '@/components/comment/CommentCard';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
-import { import } from 'node:module';
 
 interface ProfileTabsProps {
   userId: string;
