@@ -10,13 +10,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !session) {
+      console.log('Not authenticated, redirecting to login');
       toast({
         title: "Authentication Required",
         description: "You must be logged in to access this page",
@@ -28,7 +29,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         state: { from: location.pathname } 
       });
     }
-  }, [user, loading, navigate, location, toast]);
+  }, [user, session, loading, navigate, location, toast]);
 
   if (loading) {
     return (
@@ -38,7 +39,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  return user ? <>{children}</> : null;
+  return (user || session) ? <>{children}</> : null;
 };
 
 export default ProtectedRoute;

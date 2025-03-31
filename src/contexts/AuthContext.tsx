@@ -2,9 +2,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { Session, User } from '@supabase/supabase-js';
 
 type AuthContextType = {
-  user: any | null;
+  user: User | null;
+  session: Session | null;
   signUp: (email: string, password: string, metadata?: object) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
@@ -16,24 +18,19 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get current user
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    fetchUser();
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log('Auth state change event:', event);
-      setUser(session?.user || null);
+      
+      // Set the session and user state
+      setSession(newSession);
+      setUser(newSession?.user || null);
       setLoading(false);
       
       // Show toasts for auth events
@@ -54,6 +51,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     });
+
+    // THEN check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error retrieving session:', error);
+        } else {
+          setSession(data.session);
+          setUser(data.session?.user || null);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Unexpected error during auth initialization:', error);
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     return () => {
       subscription.unsubscribe();
@@ -152,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
+    session,
     signUp,
     signInWithEmail,
     signOut,

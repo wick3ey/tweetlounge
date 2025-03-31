@@ -1,14 +1,13 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import LoginForm from '@/components/auth/LoginForm';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
 const Login = () => {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -17,15 +16,16 @@ const Login = () => {
   const from = location.state?.from || '/home';
 
   useEffect(() => {
-    if (user && !loading) {
+    if (!loading && (user || session)) {
       // If user is already logged in, redirect them to the home page or the page they were trying to access
+      console.log('User is logged in, redirecting to:', from);
       toast({
         title: 'Already logged in',
         description: 'You are already logged in.',
       });
       navigate(from);
     }
-  }, [user, loading, navigate, from, toast]);
+  }, [user, session, loading, navigate, from, toast]);
 
   return (
     <div className="flex min-h-screen bg-black text-white">
