@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Home, Bell, Bookmark, User, Hash, Mail } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -9,7 +8,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 
 const LeftSidebar = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { logout } = useAuth();
   const { profile } = useProfile();
 
   const isActive = (path: string) => {
@@ -65,7 +64,7 @@ const LeftSidebar = () => {
             <p className="text-xs text-gray-500">@{profile?.username}</p>
           </div>
         </div>
-        <Button variant="outline" className="w-full" onClick={signOut}>
+        <Button variant="outline" className="w-full" onClick={logout}>
           Logout
         </Button>
       </div>

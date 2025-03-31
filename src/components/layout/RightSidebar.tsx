@@ -2,6 +2,7 @@
 import React from 'react';
 import { TrendingHashtags } from '@/components/hashtag/TrendingHashtags';
 import TrendingTopics from '@/components/crypto/TrendingTopics';
+import MarketStats from '@/components/crypto/MarketStats';
 import NewsSection from '@/components/crypto/NewsSection';
 import { WhoToFollow } from '@/components/profile/WhoToFollow';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -23,6 +24,11 @@ const RightSidebar: React.FC = () => {
             className="w-full bg-gray-900 border-none rounded-full py-2.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
           />
         </div>
+      </div>
+      
+      {/* Market Stats */}
+      <div className="px-4 mb-4">
+        <MarketStats />
       </div>
       
       {/* Trending Section */}
