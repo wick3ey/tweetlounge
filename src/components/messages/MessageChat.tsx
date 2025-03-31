@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, Send, PaperclipIcon, SmileIcon } from 'lucide-react';
 import { VerifiedBadge } from '@/components/ui/badge';
 import { createMessage, markConversationAsRead } from '@/services/messageService';
-import { MessageReactions } from './MessageReactions';
+import MessageReactions from './MessageReactions';
 
 interface MessageChatProps {
   onBackClick?: () => void;
