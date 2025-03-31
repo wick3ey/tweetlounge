@@ -1,5 +1,5 @@
-
-import { CACHE_DURATIONS, getCachedData, setCachedData } from "@/utils/cacheService";
+import { supabase } from '@/lib/supabase';
+import { CACHE_DURATIONS, getCachedData, setCachedData } from '@/utils/cacheService';
 
 // Types for the market data
 export interface FinancialInfo {
@@ -51,7 +51,7 @@ export interface MarketData {
 }
 
 // Cache key
-const MARKET_DATA_CACHE_KEY = 'market_data';
+const MARKET_DATA_CACHE_KEY = 'market_data_v1';
 
 // In-memory cache
 let marketDataCache: {
@@ -76,60 +76,25 @@ export const extractFinancialInfo = (financialInfo: FinancialInfo | ApiFinancial
 
 // Fetch market data from API
 export const fetchMarketData = async (): Promise<MarketData> => {
-  if (marketDataCache.isLoading) {
-    console.log('Market data is already being fetched, waiting...');
-    return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        if (!marketDataCache.isLoading) {
-          clearInterval(checkInterval);
-          if (marketDataCache.error) {
-            reject(new Error(marketDataCache.error));
-          } else if (marketDataCache.data) {
-            resolve(marketDataCache.data);
-          } else {
-            reject(new Error('No market data available'));
-          }
-        }
-      }, 100);
-    });
-  }
-
-  marketDataCache.isLoading = true;
-  marketDataCache.error = null;
-
   try {
-    // First try to get data from database cache
+    // First, try to get cached data
     const cachedData = await getCachedData<MarketData>(MARKET_DATA_CACHE_KEY);
     if (cachedData) {
       console.log('Using cached market data');
-      marketDataCache.data = cachedData;
-      marketDataCache.timestamp = Date.now();
       return cachedData;
     }
 
-    console.log('Fetching fresh market data from API');
-    const response = await fetch('https://f3oci3ty.xyz/api/crypto');
-    
-    if (!response.ok) {
-      throw new Error(`API response error: ${response.status} ${response.statusText}`);
-    }
+    console.log('Fetching fresh market data from cache service');
+    const { data, error } = await supabase.functions.invoke('fetchCryptoData', {
+      body: JSON.stringify({ cache_key: MARKET_DATA_CACHE_KEY })
+    });
 
-    const data: MarketData = await response.json();
-    
-    // Cache the data
-    await setCachedData(MARKET_DATA_CACHE_KEY, data, CACHE_DURATIONS.SHORT);
-    
-    marketDataCache.data = data;
-    marketDataCache.timestamp = Date.now();
-    return data;
+    if (error) throw error;
+
+    // Data from the Edge Function is already cached
+    return data as MarketData;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('Error fetching market data:', errorMessage);
-    marketDataCache.error = errorMessage;
-    
-    if (marketDataCache.data) {
-      return marketDataCache.data;
-    }
+    console.error('Error fetching market data:', error);
     
     // Return empty data structure if nothing is available
     return {
@@ -138,8 +103,6 @@ export const fetchMarketData = async (): Promise<MarketData> => {
       hotPools: [],
       lastUpdated: new Date().toISOString()
     };
-  } finally {
-    marketDataCache.isLoading = false;
   }
 };
 
