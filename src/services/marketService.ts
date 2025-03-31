@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { CACHE_DURATIONS, getCachedData, setCachedData } from '@/utils/cacheService';
 
@@ -50,7 +51,7 @@ export interface MarketData {
   lastUpdated: string;
 }
 
-// Cache key
+// Cache key - must match the one used in the Edge Function
 const MARKET_DATA_CACHE_KEY = 'market_data_v1';
 
 // In-memory cache
@@ -80,21 +81,35 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     // First, try to get cached data
     const cachedData = await getCachedData<MarketData>(MARKET_DATA_CACHE_KEY);
     if (cachedData) {
-      console.log('Using cached market data');
+      console.log('Using cached market data from database');
       return cachedData;
     }
 
-    console.log('Fetching fresh market data from cache service');
+    console.log('Fetching fresh market data from edge function');
     const { data, error } = await supabase.functions.invoke('fetchCryptoData', {
       body: JSON.stringify({ cache_key: MARKET_DATA_CACHE_KEY })
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error from edge function:', error);
+      throw error;
+    }
 
-    // Data from the Edge Function is already cached
+    if (!data) {
+      console.error('No data returned from edge function');
+      throw new Error('No data returned from edge function');
+    }
+
+    // Store in local memory cache as well
+    marketDataCache.data = data as MarketData;
+    marketDataCache.timestamp = Date.now();
+    marketDataCache.error = null;
+
+    // Data from the Edge Function is already cached in the database
     return data as MarketData;
   } catch (error) {
     console.error('Error fetching market data:', error);
+    marketDataCache.error = error.message;
     
     // Return empty data structure if nothing is available
     return {
@@ -113,17 +128,24 @@ export const useMarketData = () => {
   const [error, setError] = React.useState<string | null>(marketDataCache.error);
 
   const fetchData = React.useCallback(async () => {
+    if (marketDataCache.isLoading) {
+      return; // Prevent multiple simultaneous fetches
+    }
+    
     setLoading(true);
-    setError(null);
+    marketDataCache.isLoading = true;
     
     try {
       const freshData = await fetchMarketData();
       setData(freshData);
+      setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
+      console.error('Error in useMarketData:', errorMessage);
     } finally {
       setLoading(false);
+      marketDataCache.isLoading = false;
     }
   }, []);
 

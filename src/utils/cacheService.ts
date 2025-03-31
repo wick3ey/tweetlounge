@@ -40,7 +40,7 @@ export const getCachedData = async <T>(key: string): Promise<T | null> => {
       return null;
     }
     
-    console.log(`Cache hit for key: ${key}`);
+    console.log(`Cache hit for key: ${key}, expires at: ${data.expires_at}`);
     return data.data as T;
   } catch (err) {
     console.error(`Unexpected error in getCachedData: ${err}`);

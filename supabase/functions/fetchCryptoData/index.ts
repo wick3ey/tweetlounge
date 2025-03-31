@@ -27,8 +27,16 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting crypto data fetch...');
 
-    // Attempt to get the cache key from the request body
-    const { cache_key = 'market_data_v1' } = await req.json() || {};
+    // Get the cache key from the request body or use default
+    let requestBody = {};
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.log('No valid JSON in request body, using default parameters');
+    }
+
+    const { cache_key = 'market_data_v1' } = requestBody;
+    console.log(`Using cache key: ${cache_key}`);
 
     // Find existing valid cache entry
     const { data: cachedData, error: cacheError } = await supabase
@@ -37,6 +45,10 @@ Deno.serve(async (req) => {
       .eq('cache_key', cache_key)
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
+
+    if (cacheError) {
+      console.error('Error checking cache:', cacheError);
+    }
 
     if (cachedData) {
       console.log('Returning cached market data');
@@ -47,6 +59,8 @@ Deno.serve(async (req) => {
         }
       });
     }
+
+    console.log('No valid cache found, fetching fresh data from API');
 
     // Fetch fresh data if no valid cache
     const response = await fetch(API_URL, {
@@ -62,15 +76,32 @@ Deno.serve(async (req) => {
     
     // Store in cache
     const expires = new Date(Date.now() + CACHE_DURATION);
-    await supabase.from('market_cache').delete().eq('cache_key', cache_key);
-    await supabase.from('market_cache').insert({
-      cache_key: cache_key,
-      data: marketData,
-      expires_at: expires.toISOString(),
-      source: 'f3oci3ty.xyz'
-    });
+    
+    // Delete any existing entries with this key first
+    const { error: deleteError } = await supabase
+      .from('market_cache')
+      .delete()
+      .eq('cache_key', cache_key);
+      
+    if (deleteError) {
+      console.error('Error deleting existing cache:', deleteError);
+    }
+    
+    // Insert the new cache entry
+    const { error: insertError } = await supabase
+      .from('market_cache')
+      .insert({
+        cache_key: cache_key,
+        data: marketData,
+        expires_at: expires.toISOString(),
+        source: 'f3oci3ty.xyz'
+      });
 
-    console.log('Successfully fetched and cached market data');
+    if (insertError) {
+      console.error('Error inserting cache:', insertError);
+    } else {
+      console.log(`Successfully fetched and cached market data with key: ${cache_key}`);
+    }
 
     return new Response(JSON.stringify(marketData), {
       headers: { 
@@ -81,7 +112,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in fetchCryptoData:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch market data' }), {
+    return new Response(JSON.stringify({ error: 'Failed to fetch market data', details: error.message }), {
       status: 500,
       headers: { 
         ...corsHeaders, 
