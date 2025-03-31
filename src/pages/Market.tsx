@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,15 +70,15 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`flex items-center justify-between py-3 px-2 sm:px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+      className={`flex items-center justify-between py-3 px-3 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
         type === 'gainer' ? 'hover:bg-green-950/20' : 
         type === 'loser' ? 'hover:bg-red-950/20' : 
         'hover:bg-blue-950/20'
       }`}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="relative flex-shrink-0">
-          <Avatar className="h-8 w-8 border-2" style={{ 
+          <Avatar className="h-9 w-9 border-2" style={{ 
             borderColor: type === 'gainer' 
               ? 'rgba(34, 197, 94, 0.4)' 
               : type === 'loser' 
@@ -105,29 +105,30 @@ const TokenRow = ({ token, type, index }: { token: any, type: 'gainer' | 'loser'
             {token.rank}
           </Badge>
         </div>
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="font-semibold text-sm flex items-center overflow-hidden">
-            <span className="truncate max-w-[80px] inline-block">{token.symbol || '???'}</span>
-            <span className="text-xs text-muted-foreground ml-1 truncate inline-block max-w-[80px]">
-              {token.name ? (token.name.length > 12 ? token.name.substring(0, 10) + '...' : token.name) : '???'}
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-sm sm:text-base flex items-center space-x-1">
+            <span className="font-semibold">{token.symbol || '???'}</span>
+            <span className="text-xs sm:text-sm text-muted-foreground truncate">
+              {token.name || '???'}
             </span>
           </div>
           <div className="text-xs text-muted-foreground truncate">{token.exchange || 'Unknown'}</div>
         </div>
       </div>
       
-      <div className="text-right flex-shrink-0 ml-1">
+      <div className="text-right flex-shrink-0 ml-2">
         {!isHot ? (
           <>
-            <div className="font-medium text-sm whitespace-nowrap">${formatPrice(token.price)}</div>
-            <div className={`text-xs ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium flex items-center justify-end`}>
+            <div className="font-medium text-sm sm:text-base whitespace-nowrap">${formatPrice(token.price)}</div>
+            <div className={`text-xs flex items-center justify-end ${isPriceUp ? 'text-green-500' : 'text-red-500'} font-medium`}>
               {isPriceUp ? <TrendingUp className="w-3 h-3 mr-1 flex-shrink-0" /> : <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />}
-              <span className="whitespace-nowrap">{formatPercentage(token.variation24h)}</span>
+              <span>{formatPercentage(token.variation24h)}</span>
             </div>
           </>
         ) : (
-          <div className="text-xs text-blue-400 font-medium whitespace-nowrap">
-            {isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}
+          <div className="text-xs font-medium text-blue-400 whitespace-nowrap flex items-center">
+            <span>{isMobile ? new Date(token.creationTime).toLocaleDateString() : `Created: ${new Date(token.creationTime).toLocaleDateString()}`}</span>
+            <ExternalLink className="ml-1 h-3 w-3 opacity-70" />
           </div>
         )}
       </div>
@@ -194,7 +195,7 @@ const Market: React.FC = () => {
   };
 
   return (
-    <Layout>
+    <Layout hideRightSidebar={false} fullHeight={true}>
       <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
