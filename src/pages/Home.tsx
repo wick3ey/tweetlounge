@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+
+import React, { useState, useEffect, useCallback } from 'react'
 import Layout from '@/components/layout/Layout'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
@@ -24,57 +25,50 @@ const Home: React.FC = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Optimize realtime subscriptions with reduced scope
   useEffect(() => {
     const channel = supabase
-      .channel('realtime:feed')
+      .channel('realtime:feed:home')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',  // Only listen for new tweets
         schema: 'public',
         table: 'tweets'
-      }, (payload) => {
-        console.log('Home page detected tweet change:', payload);
-        
+      }, () => {
         queryClient.invalidateQueries({ queryKey: ['tweets'] });
         queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       })
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',  // Only listen for new comments
         schema: 'public',
         table: 'comments'
       }, (payload) => {
-        console.log('Home page detected comment change:', payload);
-        
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const tweetId = payload.new.tweet_id as string;
-          console.log(`Updating comment count for tweet ${tweetId} in Home page`);
           
+          // Update in background for better performance
           updateTweetCommentCount(tweetId).then(() => {
             queryClient.invalidateQueries({ queryKey: ['tweet', tweetId] });
-            queryClient.invalidateQueries({ queryKey: ['tweets'] });
           });
-        } else {
-          queryClient.invalidateQueries({ queryKey: ['tweets'] });
         }
       })
-      .subscribe(status => {
-        console.log('Realtime subscription status:', status);
-      });
+      .subscribe();
       
     return () => {
-      console.log('Cleaning up realtime subscription in Home');
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
+  // Optimize mobile pull to refresh
   useEffect(() => {
     if (!isMobile) return;
     
     let touchStartY = 0;
     let touchMoveY = 0;
+    let isRefreshing = false;
     
     const handleTouchStart = (e: TouchEvent) => {
       const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-      if (scrollTop === 0) {
+      if (scrollTop <= 5) {
         touchStartY = e.touches[0].clientY;
       }
     };
@@ -82,29 +76,67 @@ const Home: React.FC = () => {
     const handleTouchMove = (e: TouchEvent) => {
       if (touchStartY > 0) {
         touchMoveY = e.touches[0].clientY;
+        
+        // Add visual pull indicator
+        if (touchMoveY - touchStartY > 50 && !isRefreshing) {
+          const indicator = document.getElementById('pull-refresh-indicator');
+          if (indicator) {
+            indicator.style.transform = `translateY(${Math.min(touchMoveY - touchStartY, 100)}px)`;
+            indicator.style.opacity = `${Math.min((touchMoveY - touchStartY) / 100, 1)}`;
+          }
+        }
       }
     };
     
     const handleTouchEnd = () => {
-      if (touchStartY > 0 && touchMoveY > 0 && touchMoveY - touchStartY > 100) {
+      if (touchStartY > 0 && touchMoveY > 0 && touchMoveY - touchStartY > 70) {
+        isRefreshing = true;
         handleRefresh();
+        
+        // Reset indicator with animation
+        const indicator = document.getElementById('pull-refresh-indicator');
+        if (indicator) {
+          indicator.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+          indicator.style.transform = 'translateY(0)';
+          indicator.style.opacity = '0';
+          
+          setTimeout(() => {
+            if (indicator) {
+              indicator.style.transition = '';
+              isRefreshing = false;
+            }
+          }, 300);
+        }
       }
       touchStartY = 0;
       touchMoveY = 0;
     };
     
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
     document.addEventListener('touchend', handleTouchEnd);
+    
+    // Add pull indicator element
+    const indicator = document.createElement('div');
+    indicator.id = 'pull-refresh-indicator';
+    indicator.className = 'fixed top-0 left-0 right-0 z-50 flex justify-center items-center h-16 pointer-events-none';
+    indicator.innerHTML = '<div class="h-6 w-6 rounded-full border-2 border-crypto-blue border-t-transparent animate-spin"></div>';
+    indicator.style.transform = 'translateY(0)';
+    indicator.style.opacity = '0';
+    document.body.appendChild(indicator);
     
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleTouchEnd);
+      if (indicator && indicator.parentNode) {
+        indicator.parentNode.removeChild(indicator);
+      }
     };
   }, [isMobile]);
 
-  const handleTweetSubmit = async (content: string, imageFile?: File) => {
+  // Memoize to prevent re-renders
+  const handleTweetSubmit = useCallback(async (content: string, imageFile?: File) => {
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -116,11 +148,41 @@ const Home: React.FC = () => {
     }
 
     try {
+      // Use optimistic updates for faster UI response
+      // Show temporary tweet immediately
+      const tempId = `temp-${Date.now()}`;
+      const tempTweet = {
+        id: tempId,
+        content,
+        author_id: user.id,
+        created_at: new Date().toISOString(),
+        likes_count: 0,
+        retweets_count: 0,
+        replies_count: 0,
+        is_retweet: false,
+        author: {
+          id: user.id,
+          username: user.email?.split('@')[0] || 'user',
+          display_name: user.email?.split('@')[0] || 'User',
+          avatar_url: '',
+        }
+      };
+      
+      // Add to cache optimistically
+      queryClient.setQueryData(['tweets'], (old: any[] = []) => [tempTweet, ...old]);
+      
+      // Create actual tweet in background
       const result = await createTweet(content, imageFile);
+      
       if (!result) {
+        // Remove temp tweet on failure
+        queryClient.setQueryData(['tweets'], (old: any[] = []) => 
+          old.filter(t => t.id !== tempId)
+        );
         throw new Error("Failed to create tweet");
       }
       
+      // Replace temp with real tweet
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
       queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] });
       
@@ -140,15 +202,22 @@ const Home: React.FC = () => {
       });
       throw error;
     }
-  };
+  }, [user, toast, navigate, queryClient]);
 
-  const handleRefresh = () => {
+  // Optimized refresh function
+  const handleRefresh = useCallback(() => {
     console.log('Manually refreshing feed in Home component');
     setRefreshing(true);
-    queryClient.invalidateQueries({ queryKey: ['tweets'] }).then(() => {
-      setTimeout(() => setRefreshing(false), 800); // Add some delay for visual feedback
+    
+    // Invalidate only what's needed
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['tweets'] }),
+      queryClient.invalidateQueries({ queryKey: ['trending-hashtags'] })
+    ]).then(() => {
+      // Add slight delay for visual feedback
+      setTimeout(() => setRefreshing(false), 600);
     });
-  };
+  }, [queryClient]);
 
   return (
     <Layout>

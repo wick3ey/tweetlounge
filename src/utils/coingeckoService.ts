@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 
 // Interface for the cryptocurrency data
@@ -239,99 +239,174 @@ const triggerDataRefresh = async (): Promise<void> => {
   }
 };
 
-// Custom hook to get cryptocurrency data with caching
-export const useCryptoData = (): { 
-  cryptoData: CryptoCurrency[]; 
-  loading: boolean; 
-  error: string | null;
-  refreshData: () => Promise<void>;
-} => {
-  const [cryptoData, setCryptoData] = useState<CryptoCurrency[]>(globalCryptoCache.data);
-  const [loading, setLoading] = useState<boolean>(!globalCryptoCache.data.length);
-  const [error, setError] = useState<string | null>(globalCryptoCache.lastError);
+// Create a more efficient data fetching hook with better caching
+export const useCryptoData = () => {
+  const [cryptoData, setCryptoData] = useState<CryptoCurrency[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const lastFetchRef = useRef<number>(0);
+  const fetchPromiseRef = useRef<Promise<CryptoCurrency[]> | null>(null);
+  const cacheTimeRef = useRef<number>(60 * 1000); // Default 1 minute cache
   
-  const getCryptoData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const currentTime = Date.now();
-      
-      // Check if memory cache is valid (less than memory cache duration)
-      if (globalCryptoCache.data.length > 0 && currentTime - globalCryptoCache.timestamp < MEMORY_CACHE_DURATION) {
-        console.log('Using in-memory cached crypto data');
-        setCryptoData(globalCryptoCache.data);
-      } else {
-        // Fetch new data from Supabase cache
-        const freshData = await fetchCryptoData();
-        setCryptoData(freshData);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
-      console.error('Error in getCryptoData:', errorMessage);
-      
-      // Fall back to memory cache if available, or use fallback data
-      if (globalCryptoCache.data.length > 0) {
-        setCryptoData(globalCryptoCache.data);
-      } else {
-        setCryptoData(getFallbackCryptoData());
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Static fallback data to use when API fails
+  const fallbackData: CryptoCurrency[] = useMemo(() => [
+    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 84000, change: -2.1 },
+    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1900, change: -3.5 },
+    { id: 'solana', name: 'Solana', symbol: 'SOL', price: 130, change: -4.2 },
+    { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.2, change: -1.8 },
+    { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.70, change: -2.4 }
+  ], []);
   
-  // Function to manually refresh data, but with rate limiting
-  const refreshData = async () => {
-    const currentTime = Date.now();
-    
-    // Rate limit refreshes to prevent API spam
-    if (currentTime - globalCryptoCache.timestamp < MIN_REFRESH_INTERVAL) {
-      console.log('Refresh rate limited - using cached data');
-      setCryptoData(globalCryptoCache.data.length > 0 ? globalCryptoCache.data : getFallbackCryptoData());
-      return;
+  // Optimized fetch function with caching and deduplication
+  const fetchCryptoData = useCallback(async (forceFresh = false): Promise<CryptoCurrency[]> => {
+    // Use cached data if it's fresh enough and not forced
+    const now = Date.now();
+    if (!forceFresh && now - lastFetchRef.current < cacheTimeRef.current && cryptoData.length > 0) {
+      return cryptoData;
     }
     
-    // Force refresh by triggering backend data fetch and then fetching from cache
-    try {
-      setLoading(true);
-      
-      // Trigger the backend to refresh data
-      await triggerDataRefresh();
-      
-      // Wait a moment for the backend to process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Now fetch from the cache
-      const freshData = await fetchCryptoData();
-      setCryptoData(freshData);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
-      
-      // Fall back to existing data or fallback
-      if (globalCryptoCache.data.length > 0) {
-        setCryptoData(globalCryptoCache.data);
-      } else {
-        setCryptoData(getFallbackCryptoData());
-      }
-    } finally {
-      setLoading(false);
+    // If already fetching, return existing promise
+    if (fetchPromiseRef.current) {
+      return fetchPromiseRef.current;
     }
-  };
+    
+    // Create a new fetch promise
+    const fetchPromise = new Promise<CryptoCurrency[]>(async (resolve, reject) => {
+      try {
+        setLoading(true);
+        
+        // Try to get from database cache first
+        const { data: cacheData } = await supabase
+          .from('market_cache')
+          .select('data, expires_at')
+          .eq('cache_key', 'crypto_data')
+          .gt('expires_at', new Date().toISOString())
+          .maybeSingle();
+          
+        if (cacheData?.data) {
+          console.log('Using cached crypto price data');
+          const cachedCryptoData = cacheData.data as CryptoCurrency[];
+          setCryptoData(cachedCryptoData);
+          setLoading(false);
+          setError(null);
+          lastFetchRef.current = now;
+          resolve(cachedCryptoData);
+          return;
+        }
+        
+        // If cache miss, fetch from API with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        try {
+          const response = await fetch(
+            'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=24h',
+            { signal: controller.signal }
+          );
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          // Format the data
+          const formattedData: CryptoCurrency[] = data.map((coin: any) => ({
+            id: coin.id,
+            name: coin.name,
+            symbol: coin.symbol.toUpperCase(),
+            price: coin.current_price,
+            change: coin.price_change_percentage_24h || 0
+          }));
+          
+          // Cache the data
+          setCryptoData(formattedData);
+          setLoading(false);
+          setError(null);
+          lastFetchRef.current = now;
+          
+          // Store in database cache
+          await supabase
+            .from('market_cache')
+            .upsert({
+              cache_key: 'crypto_data',
+              data: formattedData,
+              expires_at: new Date(now + 15 * 60 * 1000).toISOString() // 15 minutes
+            });
+          
+          // Adaptive cache time based on market volatility
+          const volatility = formattedData.reduce((sum, coin) => sum + Math.abs(coin.change), 0) / formattedData.length;
+          cacheTimeRef.current = Math.max(30 * 1000, Math.min(5 * 60 * 1000, 5 * 60 * 1000 / volatility));
+          
+          resolve(formattedData);
+        } catch (err) {
+          console.error('Error fetching crypto data:', err);
+          clearTimeout(timeoutId);
+          
+          // Try to get expired cache as fallback
+          try {
+            const { data: expiredCache } = await supabase
+              .from('market_cache')
+              .select('data')
+              .eq('cache_key', 'crypto_data')
+              .single();
+              
+            if (expiredCache?.data) {
+              console.log('Using expired crypto price data');
+              const expiredData = expiredCache.data as CryptoCurrency[];
+              setCryptoData(expiredData);
+              setLoading(false);
+              setError(new Error('Using expired data'));
+              lastFetchRef.current = now - cacheTimeRef.current + 30 * 1000; // Try again in 30s
+              resolve(expiredData);
+              return;
+            }
+          } catch (cacheErr) {
+            console.error('Failed to get expired cache:', cacheErr);
+          }
+          
+          // Last resort fallback
+          setCryptoData(fallbackData);
+          setLoading(false);
+          setError(new Error('Using fallback data'));
+          lastFetchRef.current = now - cacheTimeRef.current + 30 * 1000; // Try again in 30s
+          resolve(fallbackData);
+        }
+      } catch (err) {
+        console.error('Unexpected error in crypto data fetch:', err);
+        setLoading(false);
+        setError(err instanceof Error ? err : new Error(String(err)));
+        setCryptoData(fallbackData);
+        lastFetchRef.current = now - cacheTimeRef.current + 30 * 1000; // Try again in 30s
+        resolve(fallbackData);
+      } finally {
+        fetchPromiseRef.current = null;
+      }
+    });
+    
+    // Store the promise for deduplication
+    fetchPromiseRef.current = fetchPromise;
+    return fetchPromise;
+  }, [cryptoData, fallbackData]);
   
+  // Load data on mount
   useEffect(() => {
-    getCryptoData();
+    fetchCryptoData();
     
-    // Set up a timer to refresh data periodically (once every memory cache duration)
+    // Setup periodic refresh
     const intervalId = setInterval(() => {
-      getCryptoData();
-    }, MEMORY_CACHE_DURATION);
+      fetchCryptoData();
+    }, 60 * 1000); // Check every minute
     
-    // Clean up interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [fetchCryptoData]);
+  
+  // Create memoized refresh function
+  const refreshData = useCallback(async () => {
+    return fetchCryptoData(true);
+  }, [fetchCryptoData]);
   
   return { cryptoData, loading, error, refreshData };
 };

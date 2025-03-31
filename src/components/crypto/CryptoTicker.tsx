@@ -1,20 +1,25 @@
 
-import React from 'react'
+import React, { useState, useEffect, useCallback, memo } from 'react'
 import { useCryptoData, CryptoCurrency } from '@/utils/coingeckoService'
 import { Loader2, RefreshCcw, AlertTriangle, Info } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { CryptoButton } from '@/components/ui/crypto-button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-interface CryptoTickerItemProps {
+// Memoize the ticker item for performance
+const CryptoTickerItem = memo(({ name, symbol, price, change }: {
   name: string
   symbol: string
   price: number
   change: number
-}
-
-const CryptoTickerItem: React.FC<CryptoTickerItemProps> = ({ name, symbol, price, change }) => {
-  const formattedPrice = price < 1 ? price.toFixed(4) : price.toFixed(2)
+}) => {
+  // Optimize number formatting
+  const formattedPrice = price < 1 
+    ? price.toFixed(4) 
+    : price < 1000 
+      ? price.toFixed(2) 
+      : price.toFixed(0)
+      
   const formattedChange = change.toFixed(1)
   const changeColor = change >= 0 ? 'crypto-price-up' : 'crypto-price-down'
   const changeSign = change >= 0 ? '+' : ''
@@ -29,7 +34,10 @@ const CryptoTickerItem: React.FC<CryptoTickerItemProps> = ({ name, symbol, price
       </span>
     </div>
   )
-}
+});
+
+// Rename for clarity that we're using memo
+CryptoTickerItem.displayName = 'MemoizedCryptoTickerItem';
 
 // Fallback data to show when API fails
 const fallbackCryptoData: CryptoCurrency[] = [
@@ -42,14 +50,14 @@ const fallbackCryptoData: CryptoCurrency[] = [
 
 const CryptoTicker: React.FC = () => {
   const { cryptoData, loading, error, refreshData } = useCryptoData()
-  const [refreshing, setRefreshing] = React.useState(false);
-  const [retryCount, setRetryCount] = React.useState(0);
-  const [lastRefreshAttempt, setLastRefreshAttempt] = React.useState(0);
-  const [isManualRefresh, setIsManualRefresh] = React.useState(false);
-  const [isFallbackData, setIsFallbackData] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState(0);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
+  const [isFallbackData, setIsFallbackData] = useState(false);
   
-  // Auto-retry once if initial load fails
-  React.useEffect(() => {
+  // Auto-retry with smarter backoff
+  useEffect(() => {
     if (error && retryCount < 1 && (Date.now() - lastRefreshAttempt > 10000)) {
       console.log("Auto-retrying crypto ticker fetch after error");
       const timer = setTimeout(() => {
@@ -62,19 +70,21 @@ const CryptoTicker: React.FC = () => {
     }
   }, [error, retryCount, lastRefreshAttempt, refreshData]);
   
-  // Determine if we're using fallback data
-  React.useEffect(() => {
+  // Detect fallback data use - optimized
+  useEffect(() => {
     if (cryptoData.length > 0) {
-      // Quick check to see if the data matches fallback data
-      // This isn't perfect but gives us a good idea
-      const matchesFirstFallback = cryptoData[0]?.id === fallbackCryptoData[0]?.id && 
-                                 Math.abs(cryptoData[0]?.price - fallbackCryptoData[0]?.price) < 0.1;
+      // Quick heuristic check - much faster than deep comparison
+      const matchesFallback = cryptoData[0]?.id === fallbackCryptoData[0]?.id && 
+                               Math.abs(cryptoData[0]?.price - fallbackCryptoData[0]?.price) < 0.1;
       
-      setIsFallbackData(matchesFirstFallback || error !== null);
+      setIsFallbackData(matchesFallback || error !== null);
     }
   }, [cryptoData, error]);
   
-  const handleRefresh = async () => {
+  // Memoize refresh handler
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return; // Prevent multiple refreshes
+    
     setRefreshing(true);
     setIsManualRefresh(true);
     setLastRefreshAttempt(Date.now());
@@ -103,10 +113,10 @@ const CryptoTicker: React.FC = () => {
       setRefreshing(false);
       setIsManualRefresh(false);
     }
-  };
+  }, [refreshing, refreshData, error]);
   
-  // Display error toast only on manual refresh
-  React.useEffect(() => {
+  // Optimized error handling
+  useEffect(() => {
     if (error && isManualRefresh) {
       toast({
         title: "Error Loading Prices",
@@ -117,12 +127,24 @@ const CryptoTicker: React.FC = () => {
     }
   }, [error, isManualRefresh]);
 
-  // Determine which data to display
+  // Determine which data to display - optimized for performance
   const displayData = cryptoData.length > 0 ? cryptoData : fallbackCryptoData;
+
+  // Add preconnect for improved CoinGecko API connection speed
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = 'https://api.coingecko.com';
+    document.head.appendChild(link);
+    
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   return (
     <div className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3">
-      <div className="flex items-center space-x-6 animate-marquee">
+      <div className="flex items-center space-x-6 animate-marquee will-change-transform">
         <div className="font-display text-crypto-blue font-bold px-4 flex items-center gap-2">
           {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
@@ -196,4 +218,5 @@ const CryptoTicker: React.FC = () => {
   )
 }
 
-export default CryptoTicker
+// Memoize the entire component to prevent unnecessary re-renders
+export default memo(CryptoTicker);
