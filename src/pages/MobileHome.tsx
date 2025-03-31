@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ZapIcon, Bookmark, RefreshCw, BarChart3, TrendingUp } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
@@ -33,13 +32,11 @@ const MobileHome: React.FC = () => {
   const { cryptoData } = useCryptoData();
   const { marketData } = useMarketData();
   const { newsArticles } = useNewsData();
-  
-  // Optimized listener with improved debounce for performance
+
   useEffect(() => {
     isMounted.current = true;
     let pendingRefreshes = 0;
 
-    // Function to handle debounced refresh
     const debouncedRefresh = () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
@@ -55,7 +52,6 @@ const MobileHome: React.FC = () => {
       }, 2000);
     };
 
-    // Listen for realtime comment updates to refresh the feed
     const commentsChannel = supabase
       .channel('public:comments:home')
       .on('postgres_changes', {
@@ -63,21 +59,17 @@ const MobileHome: React.FC = () => {
         schema: 'public',
         table: 'comments'
       }, (payload) => {
-        // Check if payload.new exists and has a tweet_id property
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const tweetId = payload.new.tweet_id as string;
           
-          // First update the count in the database
           updateTweetCommentCount(tweetId)
             .catch(err => console.error('Error updating comment count:', err));
 
-          // Use debounced refresh
           debouncedRefresh();
         }
       })
       .subscribe();
     
-    // Also listen for changes to the tweets table with same debounce mechanism
     const tweetsChannel = supabase
       .channel('public:tweets:home')
       .on('postgres_changes', {
@@ -117,7 +109,6 @@ const MobileHome: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Update feed by incrementing key instead of reloading the page
       if (isMounted.current) {
         setFeedKey(prevKey => prevKey + 1);
       }
@@ -137,15 +128,12 @@ const MobileHome: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    // Prevent multiple simultaneous refreshes
     if (isRefreshing || !isMounted.current) return;
     
     setIsRefreshing(true);
     
-    // Update feed by incrementing key
     setFeedKey(prevKey => prevKey + 1);
     
-    // Reset refreshing state after a short delay
     setTimeout(() => {
       if (isMounted.current) {
         setIsRefreshing(false);
@@ -154,13 +142,12 @@ const MobileHome: React.FC = () => {
   };
 
   if (!isMobile) {
-    return null; // Don't render on non-mobile devices
+    return null;
   }
 
   return (
     <MobileLayout title="Home" showHeader={true} showBottomNav={true}>
       <div className="flex flex-col min-h-full">
-        {/* Market Highlights Section */}
         <div className="px-4 py-3 bg-crypto-darkgray/50">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-semibold text-white">Market Highlights</h2>
@@ -175,7 +162,7 @@ const MobileHome: React.FC = () => {
             </CryptoButton>
           </div>
           
-          <ScrollArea className="pb-2" orientation="horizontal">
+          <ScrollArea className="pb-2">
             <div className="flex space-x-3 pb-2 w-max">
               {cryptoData.slice(0, 5).map((crypto, index) => (
                 <div 
@@ -201,17 +188,14 @@ const MobileHome: React.FC = () => {
           </ScrollArea>
         </div>
         
-        {/* Tweet Composer */}
         <div className="px-4 pt-3 pb-2 border-b border-gray-800 shrink-0 bg-crypto-black">
           <TweetComposer onTweetSubmit={handleTweetSubmit} />
         </div>
         
-        {/* Tweet Feed Tabs */}
         <div className="border-b border-gray-800 shrink-0">
           <TweetFeedTabs />
         </div>
         
-        {/* Feed Refresh Button */}
         <div className="sticky top-0 z-10 bg-crypto-black/80 backdrop-blur-sm py-2 px-4 border-b border-gray-800/50 flex justify-between items-center">
           <div className="flex items-center">
             <div className="rounded-lg bg-crypto-blue/10 p-1 mr-2">
@@ -232,7 +216,6 @@ const MobileHome: React.FC = () => {
           </CryptoButton>
         </div>
         
-        {/* Tweet Feed */}
         <div className="flex-1">
           <TweetFeed key={feedKey} onCommentAdded={handleRefresh} />
         </div>
