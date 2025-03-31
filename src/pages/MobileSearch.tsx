@@ -46,7 +46,7 @@ interface CryptoCurrency {
   change: number;
   marketCap: number;
   volume: number;
-  image?: string; // Add this for the icon
+  image: string; // Change to required property instead of optional
 }
 
 const MobileSearch: React.FC = () => {
@@ -107,9 +107,9 @@ const MobileSearch: React.FC = () => {
         content: tweet.content,
         created_at: tweet.created_at,
         user_id: tweet.user_id,
-        username: tweet.profiles?.username || 'unknown',
-        avatar_url: tweet.profiles?.avatar_url || '',
-        display_name: tweet.profiles?.display_name || 'Unknown User',
+        username: tweet.profiles ? tweet.profiles.username || 'unknown' : 'unknown',
+        avatar_url: tweet.profiles ? tweet.profiles.avatar_url || '' : '',
+        display_name: tweet.profiles ? tweet.profiles.display_name || 'Unknown User' : 'Unknown User',
         likes_count: tweet.likes_count || 0,
         comments_count: tweet.comments_count || 0
       }));
