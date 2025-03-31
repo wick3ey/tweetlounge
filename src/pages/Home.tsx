@@ -1,17 +1,14 @@
+
 import React, { useState, useEffect } from 'react'
-import Header from '@/components/layout/Header'
-import CryptoTicker from '@/components/crypto/CryptoTicker'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import { Separator } from '@/components/ui/separator'
 import TweetComposer from '@/components/tweet/TweetComposer'
 import TweetFeed from '@/components/tweet/TweetFeed'
 import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
-import LeftSidebar from '@/components/layout/LeftSidebar'
-import RightSidebar from '@/components/layout/RightSidebar'
+import Layout from '@/components/layout/Layout'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { updateTweetCommentCount } from '@/services/commentService'
@@ -110,56 +107,43 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
-      <Header />
-      <div className="hidden sm:block">
-        <CryptoTicker />
-      </div>
-      
-      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
-        <LeftSidebar />
-        
-        <main className="flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto">
-          <div className="max-w-full">
-            <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
-              <div className="flex gap-3 items-center">
-                <div className="rounded-lg bg-crypto-blue/10 p-1.5">
-                  <ZapIcon className="text-crypto-blue h-5 w-5" />
-                </div>
-                <h1 className="text-xl font-display font-semibold crypto-gradient-text">Feed</h1>
-                
-                <CryptoButton 
-                  variant="outline" 
-                  size="sm" 
-                  className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
-                  onClick={handleRefresh}
-                >
-                  <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Refresh
-                </CryptoButton>
-              </div>
+    <Layout>
+      <div className="max-w-full">
+        <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
+          <div className="flex gap-3 items-center">
+            <div className="rounded-lg bg-crypto-blue/10 p-1.5">
+              <ZapIcon className="text-crypto-blue h-5 w-5" />
             </div>
+            <h1 className="text-xl font-display font-semibold text-white">Feed</h1>
             
-            <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
-              <TweetComposer onTweetSubmit={handleTweetSubmit} />
-            </div>
-            
-            <div>
-              <div className="border-b border-gray-800">
-                <TweetFeedTabs />
-              </div>
-              <TweetFeed 
-                key={feedKey} 
-                limit={10} 
-                onCommentAdded={handleRefresh} 
-              />
-            </div>
+            <CryptoButton 
+              variant="outline" 
+              size="sm" 
+              className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
+              onClick={handleRefresh}
+            >
+              <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
+              Refresh
+            </CryptoButton>
           </div>
-        </main>
+        </div>
         
-        <RightSidebar />
+        <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black">
+          <TweetComposer onTweetSubmit={handleTweetSubmit} />
+        </div>
+        
+        <div>
+          <div className="border-b border-gray-800">
+            <TweetFeedTabs />
+          </div>
+          <TweetFeed 
+            key={feedKey} 
+            limit={10} 
+            onCommentAdded={handleRefresh} 
+          />
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

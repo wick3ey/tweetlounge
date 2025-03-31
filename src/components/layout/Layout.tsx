@@ -22,15 +22,15 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="flex flex-col min-h-screen bg-black">
       <Navbar />
-      <div className="hidden sm:block sticky top-[60px] z-10 w-full bg-black/80 backdrop-blur-md">
+      <div className="sticky top-[60px] z-10 w-full bg-black/80 backdrop-blur-md border-b border-gray-800">
         <CryptoTicker />
       </div>
       
-      <div className="flex flex-1 w-full">
+      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
         <LeftSidebar />
         
         <motion.main 
-          className={`relative flex-1 ml-[70px] md:ml-[240px] max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-[calc(100vh-100px)]' : ''}`}
+          className={`relative flex-1 ml-64 max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-[calc(100vh-100px)]' : ''}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
