@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 const RightSidebar: React.FC = () => {
   const [showSearch, setShowSearch] = React.useState(false);
   const [minimizedSections, setMinimizedSections] = React.useState<Record<string, boolean>>({
-    marketStats: false,
     trending: false,
     whoToFollow: false,
     news: false,
@@ -102,10 +101,10 @@ const RightSidebar: React.FC = () => {
             </div>
           </div>
           
-          {/* Trending Section */}
+          {/* Trending Section - What's happening */}
           <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
             <div className="p-3">
-              <SectionHeader title="What's happening" icon={Sparkles} section="trending" />
+              <h2 className="font-bold text-xl text-white mb-3">What's happening</h2>
               <AnimatePresence>
                 {!minimizedSections.trending && (
                   <motion.div
