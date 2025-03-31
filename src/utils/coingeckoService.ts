@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 import { supabase } from '@/integrations/supabase/client';
@@ -333,10 +332,9 @@ export const useMarketStats = (): {
       if (globalStatsCache.data && currentTime - globalStatsCache.timestamp < MEMORY_CACHE_DURATION) {
         console.log('Using in-memory cached market stats data');
         // Add lastUpdated property to the data when setting it
-        const dataWithTimestamp = {
-          ...globalStatsCache.data,
-          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
-        };
+        const dataWithTimestamp = globalStatsCache.data ? 
+          { ...globalStatsCache.data, lastUpdated: new Date(globalStatsCache.timestamp).toISOString() } : 
+          null;
         setMarketStats(dataWithTimestamp);
         setLoading(false);
         return;
@@ -345,10 +343,9 @@ export const useMarketStats = (): {
       // Fetch new data from Supabase cache
       const freshData = await fetchMarketStats();
       // Add lastUpdated property when setting fresh data
-      const dataWithTimestamp = {
-        ...freshData,
-        lastUpdated: new Date().toISOString()
-      };
+      const dataWithTimestamp = freshData ? 
+        { ...freshData, lastUpdated: new Date().toISOString() } : 
+        null;
       setMarketStats(dataWithTimestamp);
       lastFetchRef.current = currentTime;
     } catch (err) {
@@ -358,16 +355,15 @@ export const useMarketStats = (): {
       
       // Fall back to memory cache if available, or use fallback data
       if (globalStatsCache.data) {
-        const dataWithTimestamp = {
-          ...globalStatsCache.data,
-          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
-        };
+        const dataWithTimestamp = globalStatsCache.data ? 
+          { ...globalStatsCache.data, lastUpdated: new Date(globalStatsCache.timestamp).toISOString() } : 
+          null;
         setMarketStats(dataWithTimestamp);
       } else {
-        const fallbackWithTimestamp = {
-          ...getFallbackMarketStats(),
-          lastUpdated: new Date().toISOString()
-        };
+        const fallbackData = getFallbackMarketStats();
+        const fallbackWithTimestamp = fallbackData ? 
+          { ...fallbackData, lastUpdated: new Date().toISOString() } : 
+          null;
         setMarketStats(fallbackWithTimestamp);
       }
     } finally {

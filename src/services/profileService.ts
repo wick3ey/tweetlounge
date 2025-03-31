@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, ProfileUpdatePayload } from '@/lib/supabase';
 import { createNotification, deleteNotification } from './notificationService';
@@ -435,7 +436,9 @@ export const searchUsers = async (query: string, limit = 10): Promise<Profile[]>
       return fallbackData as Profile[];
     }
 
-    return data as Profile[];
+    // Type cast the search results to Profile[] to ensure TypeScript compatibility
+    // The search results have a similarity score but are missing some Profile properties
+    return data as unknown as Profile[];
   } catch (err) {
     console.error('Error in searchUsers:', err);
     return [];
