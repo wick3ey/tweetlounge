@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '@/components/layout/Layout';
 import { Input } from '@/components/ui/input';
@@ -10,7 +9,7 @@ import MarketStats from '@/components/crypto/MarketStats';
 import TokenCard from '@/components/market/TokenCard';
 import TrendingTopics from '@/components/crypto/TrendingTopics';
 import { useToast } from '@/components/ui/use-toast';
-import { getMarketData } from '@/services/marketService';
+import { fetchMarketData } from '@/services/marketService';
 import { cacheAllTokenLogos } from '@/services/storageService';
 
 const Market = () => {
@@ -28,10 +27,10 @@ const Market = () => {
   const [downloadStats, setDownloadStats] = useState({ total: 0, completed: 0, success: 0, failed: 0 });
 
   // Fetch market data
-  const fetchMarketData = useCallback(async () => {
+  const loadMarketData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getMarketData();
+      const data = await fetchMarketData();
       if (data && Array.isArray(data)) {
         setMarketData(data);
         setFilteredData(sortData(data, sortConfig.key, sortConfig.direction));
@@ -93,8 +92,8 @@ const Market = () => {
   }, [marketData, downloadingLogos]);
 
   useEffect(() => {
-    fetchMarketData();
-  }, [fetchMarketData]);
+    loadMarketData();
+  }, [loadMarketData]);
 
   // Handle search
   useEffect(() => {
@@ -168,7 +167,7 @@ const Market = () => {
       });
       
       // Trigger a refresh to show the cached logos
-      fetchMarketData();
+      loadMarketData();
     } catch (error) {
       console.error('Error downloading logos:', error);
       toast({
