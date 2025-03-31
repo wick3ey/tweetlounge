@@ -2,16 +2,27 @@
 import { CACHE_DURATIONS, getCachedData, setCachedData } from "@/utils/cacheService";
 
 // Types for the market data
+export interface FinancialInfo {
+  circulatingSupply: number;
+  totalSupply: number;
+  mcap: number;
+  fdv: number;
+  holders: number;
+  transactions: number;
+}
+
 export interface TokenData {
   symbol: string;
   name: string;
   address: string;
   price: number;
+  mcap: number;
   variation24h: number;
   rank: number;
   exchange: string;
   pool: string;
   logoUrl: string;
+  financialInfo: FinancialInfo;
 }
 
 export interface HotPool {
@@ -19,10 +30,12 @@ export interface HotPool {
   name: string;
   tokenAddress: string;
   poolAddress: string;
+  mcap: number;
   rank: number;
   exchange: string;
   creationTime: string;
   logoUrl: string;
+  financialInfo: FinancialInfo;
 }
 
 export interface MarketData {
