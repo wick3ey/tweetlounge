@@ -49,18 +49,19 @@ const formatPrice = (price: number) => {
   });
 };
 
-const formatNumber = (num: number) => {
-  if (isNaN(num)) return "N/A";
+const formatNumber = (num: number | null | undefined) => {
+  if (num === null || num === undefined || isNaN(Number(num))) return "N/A";
   
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(2)}B`;
-  } else if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(2)}M`;
-  } else if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(2)}K`;
+  const numVal = Number(num);
+  if (numVal >= 1_000_000_000) {
+    return `${(numVal / 1_000_000_000).toFixed(2)}B`;
+  } else if (numVal >= 1_000_000) {
+    return `${(numVal / 1_000_000).toFixed(2)}M`;
+  } else if (numVal >= 1_000) {
+    return `${(numVal / 1_000).toFixed(2)}K`;
   }
   
-  return num.toLocaleString();
+  return numVal.toLocaleString();
 };
 
 const formatPercentage = (percent: number) => {
@@ -142,6 +143,9 @@ const TokenRow = ({
   
   // Extract financial info properly from either format
   const financialInfo = extractFinancialInfo(token.financialInfo || {});
+  
+  // Determine which market cap to display (from financialInfo or direct token property)
+  const marketCap = financialInfo.mcap !== null ? financialInfo.mcap : token.mcap;
   
   return (
     <>
@@ -233,14 +237,14 @@ const TokenRow = ({
                   <TrendingDown className="w-3 h-3 mr-1 flex-shrink-0" />
                 )}
                 <span>{formatPercentage(token.variation24h)}</span>
-                <span className="ml-2 text-gray-400">MCap: ${formatNumber(token.mcap)}</span>
+                <span className="ml-2 text-gray-400">MCap: ${formatNumber(marketCap)}</span>
               </div>
             </>
           ) : (
             <>
               <div className="text-xs font-medium whitespace-nowrap flex items-center justify-end gap-1">
                 <DollarSign className="h-3 w-3 opacity-70" />
-                MCap: ${formatNumber(token.mcap)}
+                MCap: ${formatNumber(marketCap)}
                 <Button 
                   variant="ghost" 
                   size="icon" 

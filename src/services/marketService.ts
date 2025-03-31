@@ -3,9 +3,9 @@ import { CACHE_DURATIONS, getCachedData, setCachedData } from "@/utils/cacheServ
 
 // Types for the market data
 export interface FinancialInfo {
-  circulatingSupply: number;
+  circulatingSupply: number | null;
   totalSupply: number;
-  mcap: number;
+  mcap: number | null;
   fdv: number;
   holders: number;
   transactions?: number;
