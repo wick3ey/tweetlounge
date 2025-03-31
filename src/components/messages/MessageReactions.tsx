@@ -11,6 +11,14 @@ interface MessageReactionsProps {
   messageId: string;
 }
 
+interface Reaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  reaction_type: string;
+  created_at: string;
+}
+
 const reactionTypes = [
   { type: '👍', icon: <ThumbsUp className="h-4 w-4" /> },
   { type: '❤️', icon: <Heart className="h-4 w-4" /> },
@@ -18,7 +26,7 @@ const reactionTypes = [
 ];
 
 export default function MessageReactions({ messageId }: MessageReactionsProps) {
-  const [reactions, setReactions] = useState<any[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
