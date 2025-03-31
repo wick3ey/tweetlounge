@@ -16,8 +16,9 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Only redirect if the auth state has finished loading and there's no user or session
     if (!loading && !user && !session) {
-      console.log('Not authenticated, redirecting to login');
+      console.log('Not authenticated, redirecting to login', { user, session, loading });
       toast({
         title: "Authentication Required",
         description: "You must be logged in to access this page",
@@ -31,6 +32,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
   }, [user, session, loading, navigate, location, toast]);
 
+  // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -39,6 +41,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // Only render children if user is authenticated
   return (user || session) ? <>{children}</> : null;
 };
 

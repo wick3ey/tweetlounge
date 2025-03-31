@@ -16,9 +16,9 @@ const Login = () => {
   const from = location.state?.from || '/home';
 
   useEffect(() => {
+    // Check if user is already logged in
     if (!loading && (user || session)) {
-      // If user is already logged in, redirect them to the home page or the page they were trying to access
-      console.log('User is logged in, redirecting to:', from);
+      console.log('User is logged in, redirecting to:', from, { user, session });
       toast({
         title: 'Already logged in',
         description: 'You are already logged in.',

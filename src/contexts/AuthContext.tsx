@@ -24,14 +24,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener FIRST to prevent missing auth events during initialization
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log('Auth state change event:', event);
       
       // Set the session and user state
       setSession(newSession);
       setUser(newSession?.user || null);
-      setLoading(false);
+      
+      if (event !== 'INITIAL_SESSION') {
+        setLoading(false);
+      }
       
       // Show toasts for auth events
       if (event === 'SIGNED_IN') {
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error('Error retrieving session:', error);
         } else {
+          console.log('Retrieved session:', data.session ? 'exists' : 'none');
           setSession(data.session);
           setUser(data.session?.user || null);
         }
@@ -114,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       if (error) throw error;
-      
+      console.log('Sign in successful:', data);
       return { error: null };
     } catch (error) {
       console.error('Error signing in:', error);
@@ -138,12 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/home`,
         }
       });
       
       if (error) throw error;
-      
+      console.log('Google sign in initiated:', data);
       return { error: null };
     } catch (error) {
       console.error('Error signing in with Google:', error);
