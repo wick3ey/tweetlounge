@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -47,7 +46,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
-// Animation variants for notifications
 const notificationVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -62,18 +60,16 @@ const notificationVariants = {
   exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
 };
 
-// Filter options for notifications
 const filterOptions = [
-  { value: 'all', label: 'Alla notiser' },
-  { value: 'unread', label: 'Olästa' },
-  { value: 'mentions', label: 'Omnämnanden' },
-  { value: 'likes', label: 'Gillningar' },
-  { value: 'comments', label: 'Kommentarer' },
+  { value: 'all', label: 'All Notifications' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'mentions', label: 'Mentions' },
+  { value: 'likes', label: 'Likes' },
+  { value: 'comments', label: 'Comments' },
   { value: 'retweets', label: 'Retweets' },
-  { value: 'follows', label: 'Följare' },
+  { value: 'follows', label: 'Followers' },
 ];
 
-// Group notifications by date
 const groupNotificationsByDate = (notifications: Notification[]) => {
   const groups: { [key: string]: Notification[] } = {};
   
@@ -86,15 +82,15 @@ const groupNotificationsByDate = (notifications: Notification[]) => {
     let dateKey;
     
     if (date.toDateString() === today.toDateString()) {
-      dateKey = 'Idag';
+      dateKey = 'Today';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      dateKey = 'Igår';
+      dateKey = 'Yesterday';
     } else if (today.getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
-      dateKey = 'Denna vecka';
+      dateKey = 'This Week';
     } else if (today.getMonth() === date.getMonth() && today.getFullYear() === date.getFullYear()) {
-      dateKey = 'Denna månad';
+      dateKey = 'This Month';
     } else {
-      dateKey = 'Tidigare';
+      dateKey = 'Earlier';
     }
     
     if (!groups[dateKey]) {
@@ -123,7 +119,6 @@ const Notifications = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
-  // Filter notifications based on selected filter
   const filteredNotifications = useMemo(() => {
     let filtered = [...notifications];
     
@@ -153,7 +148,6 @@ const Notifications = () => {
     return filtered;
   }, [notifications, filter, tab]);
   
-  // Group notifications by date
   const groupedNotifications = useMemo(() => {
     return groupNotificationsByDate(filteredNotifications);
   }, [filteredNotifications]);
@@ -162,13 +156,13 @@ const Notifications = () => {
     try {
       await fetchNotifications();
       toast({
-        title: "Uppdaterad",
-        description: "Notifikationerna har uppdaterats",
+        title: "Updated",
+        description: "Notifications have been updated",
       });
     } catch (error) {
       toast({
-        title: "Fel",
-        description: "Det gick inte att uppdatera notifikationerna",
+        title: "Error",
+        description: "Failed to update notifications",
         variant: "destructive"
       });
     }
@@ -212,19 +206,19 @@ const Notifications = () => {
     switch (type) {
       case 'like':
         if (commentId) {
-          return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} gillade din kommentar</>;
+          return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} liked your comment</>;
         }
-        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} gillade din tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} liked your tweet</>;
       case 'comment':
-        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} kommenterade din tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} commented on your tweet</>;
       case 'retweet':
-        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} retweetade din tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} retweeted your tweet</>;
       case 'follow':
-        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} började följa dig</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} started following you</>;
       case 'mention':
-        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} omnämnde dig i en tweet</>;
+        return <><span className="font-semibold">{actor.displayName}</span>{actor.isVerified && <VerifiedBadge className="ml-1" />} mentioned you in a tweet</>;
       default:
-        return 'Ny notifikation';
+        return 'New notification';
     }
   };
 
@@ -242,7 +236,7 @@ const Notifications = () => {
       >
         {notification.type === 'comment' && (
           <div className="flex items-center space-x-1 mb-1 text-xs text-gray-500">
-            <span>Svar till</span>
+            <span>Say to</span>
             <span className="text-blue-400">{notification.actor.displayName}</span>
           </div>
         )}
@@ -256,7 +250,7 @@ const Notifications = () => {
               }}
               className="ml-1 text-blue-400 hover:text-blue-300 text-xs"
             >
-              visa mer
+              show more
             </button>
           )}
         </div>
@@ -270,7 +264,7 @@ const Notifications = () => {
               }}
               className="text-blue-400 hover:text-blue-300"
             >
-              visa mindre
+              show less
             </button>
           </div>
         )}
@@ -283,9 +277,9 @@ const Notifications = () => {
       <div className="mx-auto w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
         <Bell className="h-8 w-8 text-gray-500" />
       </div>
-      <h3 className="text-xl font-semibold text-white mb-2">Inga notifikationer</h3>
+      <h3 className="text-xl font-semibold text-white mb-2">No Notifications</h3>
       <p className="text-gray-500 max-w-md mx-auto">
-        När någon interagerar med dina tweets eller din profil kommer det att visas här
+        When someone interacts with your tweets or profile, it will show up here
       </p>
       <Button 
         variant="outline" 
@@ -293,7 +287,7 @@ const Notifications = () => {
         onClick={handleRefresh}
       >
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        Uppdatera
+        Refresh
       </Button>
     </div>
   );
@@ -306,10 +300,10 @@ const Notifications = () => {
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-xl font-bold flex items-center">
                 <Bell className="h-5 w-5 mr-2 text-blue-400" />
-                Notifikationer
+                Notifications
                 {filteredNotifications.filter(n => !n.read).length > 0 && (
                   <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500 text-white rounded-full">
-                    {filteredNotifications.filter(n => !n.read).length} nya
+                    {filteredNotifications.filter(n => !n.read).length} new
                   </span>
                 )}
               </h1>
@@ -328,7 +322,7 @@ const Notifications = () => {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Uppdatera notifikationer</p>
+                      <p>Refresh Notifications</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -344,11 +338,11 @@ const Notifications = () => {
                         disabled={!filteredNotifications.some(n => !n.read)}
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
-                        Markera alla som lästa
+                        Mark All as Read
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Markera alla notifikationer som lästa</p>
+                      <p>Mark All Notifications as Read</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -395,19 +389,19 @@ const Notifications = () => {
                   value="all" 
                   className="flex-1 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-400"
                 >
-                  Alla
+                  All
                 </TabsTrigger>
                 <TabsTrigger 
                   value="mentions" 
                   className="flex-1 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-400"
                 >
-                  Omnämnanden
+                  Mentions
                 </TabsTrigger>
                 <TabsTrigger 
                   value="verified" 
                   className="flex-1 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-400"
                 >
-                  Verifierade
+                  Verified
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -425,7 +419,7 @@ const Notifications = () => {
                 className="flex justify-center items-center p-12"
               >
                 <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
-                <span className="ml-3 text-gray-400 text-lg">Laddar notifikationer...</span>
+                <span className="ml-3 text-gray-400 text-lg">Loading Notifications...</span>
               </motion.div>
             ) : filteredNotifications.length === 0 ? (
               <motion.div
@@ -444,7 +438,7 @@ const Notifications = () => {
                 exit={{ opacity: 0 }}
               >
                 <VisuallyHidden asChild>
-                  <h2>Alla notifikationer</h2>
+                  <h2>All Notifications</h2>
                 </VisuallyHidden>
                 
                 {Object.entries(groupedNotifications).map(([dateGroup, groupNotifications]) => (
@@ -553,7 +547,7 @@ const Notifications = () => {
                                                 className="text-blue-400 hover:text-blue-300 cursor-pointer"
                                               >
                                                 <CheckCircle className="h-4 w-4 mr-2" />
-                                                Markera som läst
+                                                Mark as Read
                                               </DropdownMenuItem>
                                             ) : (
                                               <DropdownMenuItem 
@@ -561,7 +555,7 @@ const Notifications = () => {
                                                 onClick={(e) => e.stopPropagation()}
                                               >
                                                 <Pin className="h-4 w-4 mr-2" />
-                                                Fäst överst
+                                                Pin to Top
                                               </DropdownMenuItem>
                                             )}
                                             
@@ -572,7 +566,7 @@ const Notifications = () => {
                                               onClick={(e) => e.stopPropagation()}
                                             >
                                               <Trash2 className="h-4 w-4 mr-2" />
-                                              Ta bort
+                                              Delete
                                             </DropdownMenuItem>
                                           </DropdownMenuContent>
                                         </DropdownMenu>
@@ -605,7 +599,7 @@ const Notifications = () => {
                     <CardContent className="p-4 flex items-center">
                       <Info className="h-5 w-5 text-blue-400 mr-3 flex-shrink-0" />
                       <p className="text-sm text-gray-400">
-                        Du ser alla dina notifikationer. Vi sparar notifikationer från de senaste 30 dagarna.
+                        You can see all your notifications. We save notifications from the last 30 days.
                       </p>
                     </CardContent>
                   </Card>
