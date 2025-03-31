@@ -30,7 +30,7 @@ const CryptoTickerItem = memo(({ symbol, price, change }: {
         {changeSign}{formattedChange}%
       </span>
     </div>
-  )
+  );
 });
 
 // Rename for clarity that we're using memo
