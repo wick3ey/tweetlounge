@@ -45,6 +45,10 @@ interface DexToolsTokenPrice {
 // Cache key prefix for wallet tokens
 const WALLET_TOKENS_CACHE_KEY_PREFIX = 'wallet_tokens_';
 
+// In-memory cache for faster repeat access
+const inMemoryCache: Record<string, { data: TokensResponse, timestamp: number }> = {};
+const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 /**
  * Fetch tokens from a wallet address
  * @param address The wallet address
@@ -56,12 +60,29 @@ export const fetchWalletTokens = async (
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
     
-    // Check if we have cached data for this wallet
+    // Check in-memory cache first for fastest possible response
+    const memoryCacheKey = `${WALLET_TOKENS_CACHE_KEY_PREFIX}${address}`;
+    const now = Date.now();
+    
+    if (inMemoryCache[memoryCacheKey] && 
+        (now - inMemoryCache[memoryCacheKey].timestamp) < MEMORY_CACHE_DURATION) {
+      console.log(`Using in-memory cached wallet tokens for address: ${address}`);
+      return inMemoryCache[memoryCacheKey].data;
+    }
+    
+    // Then check persistent cache
     const cacheKey = `${WALLET_TOKENS_CACHE_KEY_PREFIX}${address}`;
     const cachedData = await getCachedData<TokensResponse>(cacheKey);
     
     if (cachedData && cachedData.tokens.length > 0) {
       console.log(`Using cached wallet tokens for address: ${address}`);
+      
+      // Store in memory cache for future use
+      inMemoryCache[memoryCacheKey] = {
+        data: cachedData,
+        timestamp: now
+      };
+      
       return cachedData;
     }
     
@@ -81,49 +102,38 @@ export const fetchWalletTokens = async (
       return { tokens: [] };
     }
     
-    console.log(`Solana tokens raw response:`, data);
-    
     if (!data.tokens || !Array.isArray(data.tokens)) {
       console.error(`Invalid token data response structure for Solana:`, data);
       return { tokens: [] };
     }
     
-    // Process the tokens with enhanced information from DexTools API
-    const processedTokensPromises = data.tokens.map(async (token: any) => {
+    // For initial fast loading, let's create a simplified version first without full DexTools enrichment
+    const basicProcessedTokens = data.tokens.map((token: any) => {
       const tokenAddress = token.address || address;
+      const formattedName = formatTokenName(tokenAddress, token.name);
       
-      try {
-        // Try to fetch additional token information from DexTools API
-        const enrichedToken = await enrichTokenWithDexToolsInfo(token);
-        return enrichedToken;
-      } catch (error) {
-        console.warn(`Could not fetch DexTools data for token ${tokenAddress}:`, error);
-        
-        // Fallback to basic formatting if DexTools API fails
-        const formattedName = formatTokenName(tokenAddress, token.name);
-        
-        return {
-          ...token,
-          name: formattedName,
-          symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
-          chain: 'solana',
-          explorerUrl: getExplorerUrl(tokenAddress),
-          dexScreenerUrl: getDexScreenerUrl(tokenAddress),
-          logoURI: token.logo, // Map logo to logoURI for compatibility
-          priceChange24h: token.priceChange24h || 0 // Default to 0 if not provided
-        };
-      }
+      return {
+        name: formattedName,
+        symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
+        logo: token.logo,
+        logoURI: token.logo,
+        amount: token.amount,
+        usdValue: token.usdValue,
+        decimals: token.decimals,
+        address: tokenAddress,
+        chain: 'solana' as const,
+        explorerUrl: getExplorerUrl(tokenAddress),
+        dexScreenerUrl: getDexScreenerUrl(tokenAddress),
+        priceChange24h: token.priceChange24h || 0
+      };
     });
     
-    const processedTokens = await Promise.all(processedTokensPromises);
-    console.log(`Successfully processed ${processedTokens.length} Solana tokens`);
-    
     const result = { 
-      tokens: processedTokens,
+      tokens: basicProcessedTokens,
       solPrice: data.solPrice 
     };
     
-    // Cache the processed tokens data
+    // Cache the basic processed tokens data
     await setCachedData(
       cacheKey,
       result,
@@ -131,11 +141,66 @@ export const fetchWalletTokens = async (
       'solana'
     );
     
+    // Store in memory cache
+    inMemoryCache[memoryCacheKey] = {
+      data: result,
+      timestamp: now
+    };
+    
+    // In the background, start the enrichment process for more complete data
+    setTimeout(() => {
+      enrichTokensInBackground(basicProcessedTokens, data.solPrice, cacheKey, memoryCacheKey);
+    }, 100);
+    
     return result;
     
   } catch (error) {
     console.error(`Error in fetchWalletTokens for Solana:`, error);
     return { tokens: [] }; // Return empty array in case of error
+  }
+};
+
+/**
+ * Enrich tokens in the background without blocking the UI
+ */
+const enrichTokensInBackground = async (
+  basicTokens: Token[], 
+  solPrice: number | undefined, 
+  cacheKey: string,
+  memoryCacheKey: string
+) => {
+  try {
+    const enrichedTokensPromises = basicTokens.map(async (token) => {
+      try {
+        // Skip extra API calls for SOL
+        if (token.symbol === 'SOL' && token.name === 'Solana') {
+          return token;
+        }
+        
+        // Try to enrich with DexTools data
+        const enrichedToken = await enrichTokenWithDexToolsInfo(token);
+        return enrichedToken;
+      } catch (error) {
+        console.warn(`Error enriching token ${token.address}:`, error);
+        return token; // Keep original on error
+      }
+    });
+    
+    const enrichedTokens = await Promise.all(enrichedTokensPromises);
+    
+    // Update caches with enriched data
+    const result = { tokens: enrichedTokens, solPrice };
+    
+    await setCachedData(cacheKey, result, CACHE_DURATIONS.MEDIUM, 'solana');
+    
+    inMemoryCache[memoryCacheKey] = {
+      data: result,
+      timestamp: Date.now()
+    };
+    
+    console.log('Background token enrichment complete');
+  } catch (error) {
+    console.error('Error in background token enrichment:', error);
   }
 };
 
@@ -154,19 +219,12 @@ const formatTokenName = (tokenAddress: string, name?: string): string => {
 /**
  * Enrich token with data from DexTools API
  */
-const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
+const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
   const tokenAddress = token.address;
   
   // Skip API calls for known tokens like SOL that we already have good data for
   if (token.symbol === 'SOL' && token.name === 'Solana' && token.logo) {
-    return {
-      ...token,
-      chain: 'solana',
-      explorerUrl: getExplorerUrl(tokenAddress),
-      dexScreenerUrl: getDexScreenerUrl(tokenAddress),
-      logoURI: token.logo,
-      priceChange24h: token.priceChange24h || 0
-    };
+    return token;
   }
   
   // Get token metadata from DexTools
@@ -186,17 +244,13 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
   }
   
   return {
-    name: tokenInfo?.name || formatTokenName(tokenAddress, token.name),
-    symbol: tokenInfo?.symbol || (token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress, token.name)),
+    ...token,
+    name: tokenInfo?.name || token.name,
+    symbol: tokenInfo?.symbol || token.symbol,
     logo: tokenInfo?.logo || token.logo,
-    logoURI: tokenInfo?.logo || token.logo,
-    amount: token.amount,
+    logoURI: tokenInfo?.logo || token.logoURI,
     usdValue: usdValue,
     decimals: tokenInfo?.decimals || token.decimals,
-    address: tokenAddress,
-    chain: 'solana',
-    explorerUrl: getExplorerUrl(tokenAddress),
-    dexScreenerUrl: getDexScreenerUrl(tokenAddress),
     priceChange24h: priceData?.variation24h || token.priceChange24h || 0
   };
 };

@@ -11,6 +11,7 @@ import CommentCard from '@/components/comment/CommentCard';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { import } from 'node:module';
 
 interface ProfileTabsProps {
   userId: string;
@@ -24,7 +25,23 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
   const [replies, setReplies] = useState<Comment[]>([]);
   const [mediaTweets, setMediaTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assetsPreloaded, setAssetsPreloaded] = useState(false);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (solanaAddress && !assetsPreloaded) {
+      import('@/utils/tokenService').then(({ fetchWalletTokens }) => {
+        fetchWalletTokens(solanaAddress)
+          .then(() => {
+            console.log('Preloaded wallet assets data');
+            setAssetsPreloaded(true);
+          })
+          .catch(err => {
+            console.warn('Failed to preload wallet assets:', err);
+          });
+      });
+    }
+  }, [solanaAddress, assetsPreloaded]);
   
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -121,6 +138,14 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
             .filter(tweet => isValidTweet(tweet) && tweet.image_url);
           
           setMediaTweets(validTweets);
+        } else if (activeTab === 'assets' && !assetsPreloaded && solanaAddress) {
+          try {
+            const { fetchWalletTokens } = await import('@/utils/tokenService');
+            await fetchWalletTokens(solanaAddress);
+            setAssetsPreloaded(true);
+          } catch (err) {
+            console.error('Error preloading assets data:', err);
+          }
         }
       } catch (error) {
         console.error(`Error fetching ${activeTab}:`, error);

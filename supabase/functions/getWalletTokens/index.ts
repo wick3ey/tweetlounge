@@ -53,15 +53,33 @@ const tokenMetadata: Record<string, { name: string, symbol: string, logo?: strin
   }
 };
 
+// Cache for SOL price to prevent hitting rate limits
+let cachedSolPrice: { price: number; timestamp: number } | null = null;
+const SOL_PRICE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Fetch SOL price from CoinGecko
 async function getSolPrice(): Promise<number | undefined> {
   try {
+    // Check cache first
+    const now = Date.now();
+    if (cachedSolPrice && (now - cachedSolPrice.timestamp) < SOL_PRICE_CACHE_DURATION) {
+      console.log(`Using cached SOL price: $${cachedSolPrice.price}`);
+      return cachedSolPrice.price;
+    }
+    
     console.log("Fetching SOL price from CoinGecko");
     const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
     const data = await response.json();
     
     if (data && data.solana && data.solana.usd) {
       console.log(`Current SOL price: $${data.solana.usd}`);
+      
+      // Update cache
+      cachedSolPrice = {
+        price: data.solana.usd,
+        timestamp: now
+      };
+      
       return data.solana.usd;
     }
     
@@ -69,6 +87,13 @@ async function getSolPrice(): Promise<number | undefined> {
     return undefined;
   } catch (error) {
     console.error("Error fetching SOL price:", error);
+    
+    // Return cached price if available, even if expired
+    if (cachedSolPrice) {
+      console.log(`Using expired cached SOL price: $${cachedSolPrice.price}`);
+      return cachedSolPrice.price;
+    }
+    
     return undefined;
   }
 }
@@ -78,8 +103,8 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
   try {
     console.log(`Fetching Solana tokens for address: ${address} using QuickNode`);
     
-    // Get SOL price
-    const solPrice = await getSolPrice();
+    // Get SOL price - start this early as it's independent
+    const solPricePromise = getSolPrice();
     
     // Create connection to Solana mainnet via QuickNode
     const rpcEndpoint = 'https://dawn-few-emerald.solana-mainnet.quiknode.pro/090366e8738eb8dd20229127dadeb4e499f6cf5e/';
@@ -91,6 +116,9 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
     // Get SOL balance first
     const solBalance = await connection.getBalance(walletAddress);
     const solAmount = (solBalance / 1e9).toString(); // Convert lamports to SOL
+    
+    // Resolve SOL price
+    const solPrice = await solPricePromise;
     
     // Initialize tokens array with SOL
     const tokens = [{
@@ -191,6 +219,10 @@ async function getSolanaTokens(address: string): Promise<TokenResponse> {
   }
 }
 
+// Shared cache for response data
+const responseCache = new Map<string, { data: TokenResponse, timestamp: number }>();
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
 // The main Deno server function
 serve(async (req) => {
   // Set CORS headers
@@ -222,9 +254,28 @@ serve(async (req) => {
         { headers, status: 400 }
       );
     }
+    
+    // Check cache first
+    const cacheKey = `${chain}-${address}`;
+    const now = Date.now();
+    const cached = responseCache.get(cacheKey);
+    
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      console.log(`Using cached response for ${chain} address ${address}`);
+      return new Response(
+        JSON.stringify(cached.data),
+        { headers, status: 200 }
+      );
+    }
 
     // Get Solana tokens
     const response = await getSolanaTokens(address);
+    
+    // Cache the response
+    responseCache.set(cacheKey, {
+      data: response,
+      timestamp: now
+    });
     
     console.log(`Returning ${response.tokens.length} tokens for ${chain} address ${address}`);
 
