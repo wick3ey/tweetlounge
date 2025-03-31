@@ -1,20 +1,24 @@
+
 import React, { useState } from 'react';
 import { useMarketData } from '@/services/marketService';
-import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Zap, RefreshCw, ExternalLink, ChevronRight, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const TokenCardSkeleton = () => <div className="p-4">
-    {[1, 2, 3, 4].map(i => <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
+const TokenCardSkeleton = () => (
+  <div className="p-4">
+    {[1, 2, 3, 4].map(i => (
+      <div key={i} className="flex items-center justify-between p-2 border-b border-gray-800 animate-pulse">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-full" />
           <div>
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-3 w-32 mt-1" />
@@ -24,8 +28,10 @@ const TokenCardSkeleton = () => <div className="p-4">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-3 w-12 mt-1" />
         </div>
-      </div>)}
-  </div>;
+      </div>
+    ))}
+  </div>
+);
 
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
@@ -66,25 +72,26 @@ const TokenRow = ({
   const isPriceUp = !isHot ? token.variation24h > 0 : false;
   const isMobile = useIsMobile();
   
-  return <motion.div 
-    initial={{ opacity: 0, y: 10 }} 
-    animate={{ opacity: 1, y: 0 }} 
-    transition={{ delay: index * 0.05 }} 
-    className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
-      type === 'gainer' ? 'hover:bg-green-950/20' : 
-      type === 'loser' ? 'hover:bg-red-950/20' : 
-      'hover:bg-blue-950/20'
-    }`}
-  >
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ delay: index * 0.05 }} 
+      className={`flex items-center justify-between py-3 px-4 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors ${
+        type === 'gainer' ? 'hover:bg-green-950/20' : 
+        type === 'loser' ? 'hover:bg-red-950/20' : 
+        'hover:bg-blue-950/20'
+      }`}
+    >
       <div className="flex items-center gap-3 min-w-0 w-2/3">
         <div className="relative flex-shrink-0">
-          <Avatar className="h-10 w-10 border-2" style={{
+          <Avatar className="h-12 w-12 border-2" style={{
             borderColor: type === 'gainer' ? 'rgba(34, 197, 94, 0.4)' : 
-                       type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
-                       'rgba(59, 130, 246, 0.4)'
+                     type === 'loser' ? 'rgba(239, 68, 68, 0.4)' : 
+                     'rgba(59, 130, 246, 0.4)'
           }}>
             <AvatarImage src={token.logoUrl} alt={token.symbol} />
-            <AvatarFallback className={`text-xs ${
+            <AvatarFallback className={`text-sm ${
               type === 'gainer' ? 'bg-gradient-to-br from-green-800 to-green-700' : 
               type === 'loser' ? 'bg-gradient-to-br from-red-800 to-red-700' : 
               'bg-gradient-to-br from-blue-800 to-blue-700'
@@ -105,8 +112,8 @@ const TokenRow = ({
           </Badge>
         </div>
         <div className="min-w-0 w-full overflow-hidden">
-          <div className="font-medium text-base">
-            <span className="font-semibold block text-white">{token.symbol || '???'}</span>
+          <div className="font-medium">
+            <span className="font-semibold block text-base text-white">{token.symbol || '???'}</span>
             <span className="text-sm text-muted-foreground block truncate max-w-full">
               {token.name || '???'}
             </span>
@@ -135,7 +142,8 @@ const TokenRow = ({
           </div>
         )}
       </div>
-    </motion.div>;
+    </motion.div>
+  );
 };
 
 const MarketSection = ({
@@ -145,7 +153,8 @@ const MarketSection = ({
   type,
   loading,
   accentColor,
-  accentBg
+  accentBg,
+  className
 }: {
   title: string;
   icon: any;
@@ -154,28 +163,59 @@ const MarketSection = ({
   loading: boolean;
   accentColor: string;
   accentBg: string;
-}) => <motion.div initial={{
-  opacity: 0
-}} animate={{
-  opacity: 1
-}} transition={{
-  duration: 0.5
-}} className={`rounded-xl border border-gray-800 bg-black/80 backdrop-blur-md flex flex-col h-full shadow-lg overflow-hidden`}>
+  className?: string;
+}) => (
+  <motion.div 
+    initial={{
+      opacity: 0
+    }} 
+    animate={{
+      opacity: 1
+    }} 
+    transition={{
+      duration: 0.5
+    }} 
+    className={`rounded-xl border border-gray-800 bg-black/80 backdrop-blur-md flex flex-col h-full shadow-lg overflow-hidden ${className}`}
+  >
     <div className={`flex items-center gap-2 px-4 py-3 border-b border-gray-800/70 ${accentBg} rounded-t-xl flex-shrink-0`}>
       <div className="bg-black/30 p-1.5 rounded-full">
         <Icon className="h-4 w-4" style={{
-        color: accentColor
-      }} />
+          color: accentColor
+        }} />
       </div>
       <h2 className="text-lg font-bold">{title}</h2>
+      <div className="ml-auto flex items-center text-xs text-muted-foreground">
+        <BarChart3 className="h-3 w-3 mr-1" />
+        <span>Top 10</span>
+      </div>
     </div>
     
     <div className="flex-grow overflow-hidden">
-      <ScrollArea className="h-full max-h-[calc(100vh-240px)] pr-2">
-        {loading ? <TokenCardSkeleton /> : tokens && tokens.length > 0 ? tokens.slice(0, 10).map((token, index) => <TokenRow key={type === 'hot' ? token.poolAddress : token.address} token={token} type={type} index={index} />) : <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>}
+      <ScrollArea className="h-full max-h-[375px]">
+        {loading ? (
+          <TokenCardSkeleton />
+        ) : tokens && tokens.length > 0 ? (
+          tokens.slice(0, 10).map((token, index) => (
+            <TokenRow 
+              key={type === 'hot' ? token.poolAddress : token.address} 
+              token={token} 
+              type={type} 
+              index={index} 
+            />
+          ))
+        ) : (
+          <div className="p-6 text-center text-muted-foreground">No {title.toLowerCase()} to display</div>
+        )}
       </ScrollArea>
     </div>
-  </motion.div>;
+    
+    <div className="p-2 border-t border-gray-800/30 flex justify-end">
+      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-white">
+        View All <ChevronRight className="ml-1 h-3 w-3" />
+      </Button>
+    </div>
+  </motion.div>
+);
 
 const Market: React.FC = () => {
   const { marketData, loading, error, refreshData } = useMarketData();
@@ -191,88 +231,109 @@ const Market: React.FC = () => {
   
   return (
     <Layout hideRightSidebar={false} fullHeight={true} collapsedSidebar={true}>
-      <div className="p-4 sm:p-6 flex flex-col h-[calc(100vh-76px)] overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <motion.h1 
-              initial={{ opacity: 0, y: -20 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ duration: 0.5 }} 
-              className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
-            >
-              Crypto Market Dashboard
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              transition={{ delay: 0.1, duration: 0.5 }} 
-              className="text-muted-foreground text-base sm:text-lg"
-            >
-              Latest movements, gainers, losers, and hot new tokens
-            </motion.p>
-          </div>
-          
-          <Button 
-            onClick={handleRefresh} 
-            variant="outline" 
-            size="default" 
-            className="gap-2 self-start hover:bg-gray-800/50 transition-all"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            <span>Refresh Markets</span>
-          </Button>
-        </div>
-
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }} 
-            animate={{ opacity: 1, scale: 1 }} 
-            className="rounded-lg border border-red-900/50 bg-red-950/30 p-4 mb-6"
-          >
-            <h3 className="text-red-500 font-semibold mb-1">Error Loading Data</h3>
-            <p className="text-sm text-red-300">{error}</p>
-          </motion.div>
-        )}
-
-        {marketData && !loading && (
-          <div className="text-sm text-muted-foreground mb-4">
-            Last updated: {formatTime(marketData.lastUpdated)}
-          </div>
-        )}
-        
-        <div className="flex flex-col gap-6 flex-grow min-h-0 rounded-md">
-          <div className="w-full">
-            <MarketSection 
-              title="Hot" 
-              icon={Zap} 
-              tokens={marketData?.hotPools?.slice(0, 10) || []} 
-              type="hot" 
-              loading={loading} 
-              accentColor="#3b82f6" 
-              accentBg="bg-blue-500/10" 
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
-            <MarketSection 
-              title="Top Gainers" 
-              icon={TrendingUp} 
-              tokens={marketData?.gainers?.slice(0, 10) || []} 
-              type="gainer" 
-              loading={loading} 
-              accentColor="#22c55e" 
-              accentBg="bg-green-500/10" 
-            />
+      <div className="bg-black/95 min-h-screen">
+        <div className="p-4 sm:p-6 flex flex-col min-h-[calc(100vh-76px)]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <motion.h1 
+                initial={{ opacity: 0, y: -20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ duration: 0.5 }} 
+                className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 text-transparent bg-clip-text"
+              >
+                Crypto Market Dashboard
+              </motion.h1>
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ delay: 0.1, duration: 0.5 }} 
+                className="text-muted-foreground text-base sm:text-lg"
+              >
+                Latest movements, gainers, losers, and hot new tokens
+              </motion.p>
+            </div>
             
-            <MarketSection 
-              title="Top Losers" 
-              icon={TrendingDown} 
-              tokens={marketData?.losers?.slice(0, 10) || []} 
-              type="loser" 
-              loading={loading} 
-              accentColor="#ef4444" 
-              accentBg="bg-red-500/10" 
-            />
+            <Button 
+              onClick={handleRefresh} 
+              variant="outline" 
+              size="default" 
+              className="gap-2 self-start hover:bg-gray-800/50 transition-all"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
+              <span>Refresh Markets</span>
+            </Button>
+          </div>
+
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              className="rounded-lg border border-red-900/50 bg-red-950/30 p-4 mb-6"
+            >
+              <h3 className="text-red-500 font-semibold mb-1">Error Loading Data</h3>
+              <p className="text-sm text-red-300">{error}</p>
+            </motion.div>
+          )}
+
+          {marketData && !loading && (
+            <div className="text-sm text-muted-foreground mb-4">
+              Last updated: {formatTime(marketData.lastUpdated)}
+            </div>
+          )}
+          
+          <div className="flex flex-col gap-6 flex-grow">
+            {/* Hot Tokens Section - Full Width */}
+            <Card className="bg-black/70 border-gray-800 overflow-hidden">
+              <CardHeader className="bg-blue-950/20 py-3 px-4">
+                <CardTitle className="flex items-center text-lg">
+                  <div className="bg-blue-500/20 p-1.5 rounded-full mr-2">
+                    <Zap className="h-4 w-4 text-blue-400" />
+                  </div>
+                  Hot New Tokens
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[300px]">
+                  {loading ? (
+                    <TokenCardSkeleton />
+                  ) : marketData?.hotPools?.length > 0 ? (
+                    marketData.hotPools.slice(0, 10).map((token, index) => (
+                      <TokenRow 
+                        key={token.poolAddress} 
+                        token={token} 
+                        type="hot" 
+                        index={index} 
+                      />
+                    ))
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground">No hot tokens to display</div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            
+            {/* Gainers and Losers - Side by Side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <MarketSection 
+                title="Top Gainers" 
+                icon={TrendingUp} 
+                tokens={marketData?.gainers || []} 
+                type="gainer" 
+                loading={loading} 
+                accentColor="#22c55e" 
+                accentBg="bg-green-500/10" 
+              />
+              
+              <MarketSection 
+                title="Top Losers" 
+                icon={TrendingDown} 
+                tokens={marketData?.losers || []} 
+                type="loser" 
+                loading={loading} 
+                accentColor="#ef4444" 
+                accentBg="bg-red-500/10" 
+              />
+            </div>
           </div>
         </div>
       </div>
