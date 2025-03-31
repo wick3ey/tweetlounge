@@ -19,13 +19,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
+import { NotificationType } from '@/types/Notification';
 
 const NotificationsPage: React.FC = () => {
   const { 
     notifications, 
+    markAsRead,
     markAllAsRead, 
-    deleteNotification, 
-    refreshNotifications 
+    fetchNotifications,
+    loading
   } = useNotifications();
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -33,6 +35,35 @@ const NotificationsPage: React.FC = () => {
   const filteredNotifications = filter === 'all' 
     ? notifications 
     : notifications.filter(n => !n.read);
+
+  // Function to get notification title based on type
+  const getNotificationTitle = (type: NotificationType, actorName: string): string => {
+    switch (type) {
+      case 'like':
+        return `${actorName} liked your post`;
+      case 'comment':
+        return `${actorName} commented on your post`;
+      case 'retweet':
+        return `${actorName} retweeted your post`;
+      case 'follow':
+        return `${actorName} started following you`;
+      case 'mention':
+        return `${actorName} mentioned you`;
+      default:
+        return 'New notification';
+    }
+  };
+
+  // Function to get notification description
+  const getNotificationDescription = (notification: any): string => {
+    if (notification.tweet?.content) {
+      // Truncate tweet content if it's too long
+      return notification.tweet.content.length > 100 
+        ? `${notification.tweet.content.substring(0, 100)}...` 
+        : notification.tweet.content;
+    }
+    return '';
+  };
 
   return (
     <div className="container mx-auto p-4 bg-black text-white">
@@ -47,9 +78,9 @@ const NotificationsPage: React.FC = () => {
                 <Button 
                   variant="outline" 
                   size="icon" 
-                  onClick={() => refreshNotifications()}
+                  onClick={() => fetchNotifications()}
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Refresh Notifications</TooltipContent>
@@ -98,12 +129,16 @@ const NotificationsPage: React.FC = () => {
           >
             <div className="flex-grow">
               <div className="flex justify-between items-center">
-                <span className="font-semibold">{notification.title}</span>
+                <span className="font-semibold">
+                  {getNotificationTitle(notification.type, notification.actor.displayName)}
+                </span>
                 <span className="text-xs text-gray-400">
-                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                 </span>
               </div>
-              <p className="text-sm text-gray-300 mt-1">{notification.description}</p>
+              <p className="text-sm text-gray-300 mt-1">
+                {getNotificationDescription(notification)}
+              </p>
             </div>
             <div className="ml-4 flex items-center space-x-2">
               <TooltipProvider>
@@ -112,12 +147,12 @@ const NotificationsPage: React.FC = () => {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      onClick={() => deleteNotification(notification.id)}
+                      onClick={() => markAsRead(notification.id)}
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Check className="h-4 w-4 text-green-500" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Delete Notification</TooltipContent>
+                  <TooltipContent>Mark as Read</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
