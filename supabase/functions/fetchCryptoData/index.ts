@@ -42,7 +42,7 @@ async function ensureStorageBucketExists() {
         return false;
       }
       
-      // Set bucket policy to be public
+      // Make bucket public
       const { error: policyError } = await supabase.storage.from('token-logos').createSignedUrl(
         'dummy.txt', 
         60, 

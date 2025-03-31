@@ -1,9 +1,9 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 export const createBucketsIfNotExist = async () => {
   try {
-    // Check if tweet-images bucket exists
+    // Check if token-logos bucket exists
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
     if (bucketsError) {
@@ -11,22 +11,7 @@ export const createBucketsIfNotExist = async () => {
       return false;
     }
     
-    const tweetBucketExists = buckets?.some(bucket => bucket.name === 'tweet-images');
     const tokenBucketExists = buckets?.some(bucket => bucket.name === 'token-logos');
-    
-    let errors = false;
-    
-    if (!tweetBucketExists) {
-      // Create tweet-images bucket if it doesn't exist
-      const { error } = await supabase.storage.createBucket('tweet-images', {
-        public: true
-      });
-      
-      if (error) {
-        console.error('Error creating tweet-images bucket:', error);
-        errors = true;
-      }
-    }
     
     if (!tokenBucketExists) {
       // Create token-logos bucket if it doesn't exist
@@ -36,13 +21,13 @@ export const createBucketsIfNotExist = async () => {
       
       if (error) {
         console.error('Error creating token-logos bucket:', error);
-        errors = true;
+        return false;
       } else {
         console.log('Successfully created token-logos bucket');
       }
     }
     
-    return !errors;
+    return true;
   } catch (err) {
     console.error('Error in createBucketsIfNotExist:', err);
     return false;
@@ -87,35 +72,29 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string): Promise<s
     console.log(`Fetching and caching logo for ${symbol} from ${logoUrl}`);
     
     try {
-      // Fetch the image with timeout and proper headers
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      // Fetch the image
-      const imageResponse = await fetch(logoUrl, {
+      // Create a blob from the image URL directly
+      const response = await fetch(logoUrl, {
         headers: {
           'Accept': 'image/png,image/jpeg,image/gif,image/*',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        signal: controller.signal
+        cache: 'no-store'
       });
       
-      clearTimeout(timeoutId);
-      
-      if (!imageResponse.ok) {
-        console.warn(`Failed to fetch logo for ${symbol}: ${imageResponse.status} ${imageResponse.statusText}`);
+      if (!response.ok) {
+        console.warn(`Failed to fetch logo for ${symbol}: ${response.status} ${response.statusText}`);
         return null;
       }
       
       // Check content type
-      const contentType = imageResponse.headers.get('content-type');
+      const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.startsWith('image/')) {
         console.warn(`Response for ${symbol} is not an image (${contentType})`);
         return null;
       }
       
       // Get image as blob
-      const imageBlob = await imageResponse.blob();
+      const imageBlob = await response.blob();
       
       // Check blob size
       if (imageBlob.size === 0) {
@@ -210,10 +189,6 @@ export const generateFallbackLogoUrl = (symbol: string = '??'): string => {
 };
 
 // Initialize storage on app start
-try {
-  createBucketsIfNotExist().catch(err => {
-    console.error('Failed to create storage buckets:', err);
-  });
-} catch (err) {
-  console.error('Error initializing storage:', err);
-}
+createBucketsIfNotExist().catch(err => {
+  console.error('Failed to create storage buckets:', err);
+});
