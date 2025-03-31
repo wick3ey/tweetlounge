@@ -29,7 +29,7 @@ export function extractHashtags(text: string): string[] {
 /**
  * Format text by converting hashtags into clickable links
  */
-export function formatTextWithHashtags(text: string, linkClassName: string = "text-sky-400 hover:underline font-medium"): React.ReactNode[] {
+export function formatTextWithHashtags(text: string, linkClassName: string = "text-crypto-blue hover:underline font-medium"): React.ReactNode[] {
   if (!text) return [];
   
   const parts: React.ReactNode[] = [];
