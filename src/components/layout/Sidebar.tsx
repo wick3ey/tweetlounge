@@ -4,25 +4,18 @@ import { Link, useLocation } from 'react-router-dom'
 import { Home, Search, Bell, Mail, User, Hash, Settings, BarChart2, Compass, Bookmark, Shield, ChevronRight } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import { useNotifications } from '@/hooks/useNotifications'
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const currentPath = location.pathname;
   const [expanded, setExpanded] = useState(false);
-  const { unreadCount } = useNotifications();
   
   const menuItems = [
     { icon: Home, label: 'Home', path: '/home' },
     { icon: Search, label: 'Explore', path: '/explore' },
     { icon: Hash, label: 'Trends', path: '/trends' },
     { icon: BarChart2, label: 'Market', path: '/market' },
-    { 
-      icon: Bell, 
-      label: 'Notifications', 
-      path: '/notifications',
-      badge: unreadCount > 0 ? unreadCount : null 
-    },
+    { icon: Bell, label: 'Notifications', path: '/notifications' },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Saved', path: '/saved' },
     { icon: Compass, label: 'Discover', path: '/discover' },
@@ -61,15 +54,10 @@ const Sidebar: React.FC = () => {
               <TooltipTrigger asChild>
                 <Link 
                   to={item.path} 
-                  className={`crypto-sidebar-item flex items-center ${expanded ? 'justify-start w-full pr-2' : 'justify-center'} ${currentPath === item.path ? 'active text-crypto-blue' : 'text-crypto-lightgray'} relative`}
+                  className={`crypto-sidebar-item flex items-center ${expanded ? 'justify-start w-full pr-2' : 'justify-center'} ${currentPath === item.path ? 'active text-crypto-blue' : 'text-crypto-lightgray'}`}
                 >
                   <item.icon className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span className="ml-3 transition-opacity">{item.label}</span>}
-                  {item.badge && (
-                    <div className={`absolute ${expanded ? 'right-2' : '-top-1 -right-1'} bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1`}>
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </div>
-                  )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent 

@@ -193,24 +193,6 @@ export type Database = {
         }
         Relationships: []
       }
-      hashtags: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
       likes: {
         Row: {
           created_at: string
@@ -516,42 +498,6 @@ export type Database = {
           },
         ]
       }
-      tweet_hashtags: {
-        Row: {
-          created_at: string | null
-          hashtag_id: string | null
-          id: string
-          tweet_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          hashtag_id?: string | null
-          id?: string
-          tweet_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          hashtag_id?: string | null
-          id?: string
-          tweet_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tweet_hashtags_hashtag_id_fkey"
-            columns: ["hashtag_id"]
-            isOneToOne: false
-            referencedRelation: "hashtags"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tweet_hashtags_tweet_id_fkey"
-            columns: ["tweet_id"]
-            isOneToOne: false
-            referencedRelation: "tweets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       tweets: {
         Row: {
           author_id: string
@@ -658,16 +604,6 @@ export type Database = {
           user2_id: string
         }
         Returns: string
-      }
-      get_trending_hashtags: {
-        Args: {
-          limit_count: number
-        }
-        Returns: {
-          hashtag_id: string
-          name: string
-          tweet_count: number
-        }[]
       }
       get_tweet_comments: {
         Args: {
@@ -778,27 +714,6 @@ export type Database = {
           profile_avatar_url: string
           profile_avatar_nft_id: string
           profile_avatar_nft_chain: string
-        }[]
-      }
-      get_user_conversations: {
-        Args: {
-          user_uuid: string
-        }
-        Returns: {
-          id: string
-          created_at: string
-          updated_at: string
-          last_message: string
-          last_message_time: string
-          sender_id: string
-          other_user_id: string
-          other_user_username: string
-          other_user_display_name: string
-          other_user_avatar: string
-          other_user_avatar_nft_id: string
-          other_user_avatar_nft_chain: string
-          other_user_bio: string
-          unread_count: number
         }[]
       }
       get_user_retweets: {

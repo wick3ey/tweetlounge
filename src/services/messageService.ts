@@ -1,0 +1,376 @@
+
+import { supabase } from '@/lib/supabase';
+import { Profile } from '@/lib/supabase';
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  is_deleted: boolean;
+}
+
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  reaction_type: string;
+  created_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  participants?: Profile[];
+  lastMessage?: Message;
+}
+
+export interface MessageSearchResult {
+  messages: Message[];
+  total: number;
+}
+
+export async function createMessage(conversationId: string, content: string): Promise<Message | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to send messages');
+  }
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: userData.user.id,
+      content: content
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error sending message:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getConversations(): Promise<Conversation[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to view conversations');
+  }
+
+  // First, get the user's conversations
+  const { data: participantsData, error: participantsError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', userData.user.id);
+
+  if (participantsError || !participantsData) {
+    console.error('Error fetching conversation participants:', participantsError);
+    return [];
+  }
+
+  // If no conversations, return empty array
+  if (participantsData.length === 0) {
+    return [];
+  }
+
+  // Get all conversation IDs
+  const conversationIds = participantsData.map(p => p.conversation_id);
+
+  // Get conversation details
+  const { data: conversationsData, error: conversationsError } = await supabase
+    .from('conversations')
+    .select('id, created_at, updated_at')
+    .in('id', conversationIds)
+    .order('updated_at', { ascending: false });
+
+  if (conversationsError || !conversationsData) {
+    console.error('Error fetching conversations:', conversationsError);
+    return [];
+  }
+
+  // Create a map to store the conversations with their data
+  const conversationsMap: { [key: string]: Conversation } = {};
+  
+  for (const conv of conversationsData) {
+    conversationsMap[conv.id] = {
+      id: conv.id,
+      created_at: conv.created_at,
+      updated_at: conv.updated_at,
+      participants: [],
+      lastMessage: undefined
+    };
+  }
+
+  // Get the other participants for each conversation
+  const { data: otherParticipantsData, error: otherParticipantsError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id, user_id')
+    .in('conversation_id', conversationIds)
+    .neq('user_id', userData.user.id);
+
+  if (!otherParticipantsError && otherParticipantsData) {
+    // Get profiles for the other participants
+    const otherUserIds = otherParticipantsData.map(p => p.user_id);
+    
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', otherUserIds);
+
+    if (!profilesError && profilesData) {
+      // Create a map of user IDs to profiles
+      const profilesMap: { [key: string]: Profile } = {};
+      for (const profile of profilesData) {
+        profilesMap[profile.id] = profile as Profile;
+      }
+
+      // Add participants to conversations
+      for (const participant of otherParticipantsData) {
+        const profile = profilesMap[participant.user_id];
+        if (profile && conversationsMap[participant.conversation_id]) {
+          if (!conversationsMap[participant.conversation_id].participants) {
+            conversationsMap[participant.conversation_id].participants = [];
+          }
+          conversationsMap[participant.conversation_id].participants?.push(profile);
+        }
+      }
+    }
+  }
+
+  // Get last message for each conversation
+  for (const conversationId of conversationIds) {
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!messagesError && messagesData && messagesData.length > 0) {
+      if (conversationsMap[conversationId]) {
+        conversationsMap[conversationId].lastMessage = messagesData[0];
+      }
+    }
+  }
+
+  // Convert the map to an array and sort by updated_at
+  return Object.values(conversationsMap).sort((a, b) => 
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
+}
+
+export async function getMessages(conversationId: string): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching messages:', error);
+    return [];
+  }
+
+  return data;
+}
+
+export async function startConversation(recipientId: string): Promise<string | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to start a conversation');
+  }
+
+  const { data, error } = await supabase.rpc('get_or_create_conversation', {
+    user1_id: userData.user.id,
+    user2_id: recipientId
+  });
+
+  if (error) {
+    console.error('Error starting conversation:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function addMessageReaction(messageId: string, reactionType: string): Promise<MessageReaction | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to react to messages');
+  }
+
+  try {
+    // Delete any existing reaction of this type from this user on this message
+    await supabase
+      .from('message_reactions')
+      .delete()
+      .match({ 
+        message_id: messageId, 
+        user_id: userData.user.id,
+        reaction_type: reactionType
+      });
+
+    // Add the new reaction
+    const { data, error } = await supabase
+      .from('message_reactions')
+      .insert({
+        message_id: messageId,
+        user_id: userData.user.id,
+        reaction_type: reactionType
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding reaction:', error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error managing reaction:', error);
+    return null;
+  }
+}
+
+export async function removeMessageReaction(messageId: string, reactionType: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to manage message reactions');
+  }
+
+  const { error } = await supabase
+    .from('message_reactions')
+    .delete()
+    .match({ 
+      message_id: messageId, 
+      user_id: userData.user.id,
+      reaction_type: reactionType
+    });
+
+  if (error) {
+    console.error('Error removing reaction:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getMessageReactions(messageId: string): Promise<MessageReaction[]> {
+  const { data, error } = await supabase
+    .from('message_reactions')
+    .select('*')
+    .eq('message_id', messageId);
+
+  if (error) {
+    console.error('Error fetching message reactions:', error);
+    return [];
+  }
+
+  return data;
+}
+
+export async function searchMessages(
+  conversationId: string, 
+  searchTerm: string, 
+  limit = 20, 
+  offset = 0
+): Promise<MessageSearchResult> {
+  // Get the current user
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to search messages');
+  }
+
+  // First, verify user is part of this conversation
+  const { data: participantData } = await supabase
+    .from('conversation_participants')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userData.user.id)
+    .single();
+
+  if (!participantData) {
+    throw new Error('You do not have access to this conversation');
+  }
+
+  // Search for messages
+  const { data, error, count } = await supabase
+    .from('messages')
+    .select('*', { count: 'exact' })
+    .eq('conversation_id', conversationId)
+    .ilike('content', `%${searchTerm}%`)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Error searching messages:', error);
+    return { messages: [], total: 0 };
+  }
+
+  return {
+    messages: data || [],
+    total: count || 0
+  };
+}
+
+export async function markConversationAsRead(conversationId: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to mark conversations as read');
+  }
+
+  const { error } = await supabase
+    .from('conversation_participants')
+    .update({ 
+      is_read: true,
+      last_read_at: new Date().toISOString()
+    })
+    .match({ 
+      conversation_id: conversationId, 
+      user_id: userData.user.id 
+    });
+
+  if (error) {
+    console.error('Error marking conversation as read:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteMessage(messageId: string): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  
+  if (!userData?.user) {
+    throw new Error('User must be logged in to delete messages');
+  }
+
+  // Instead of actually deleting, we mark as deleted
+  const { error } = await supabase
+    .from('messages')
+    .update({ is_deleted: true })
+    .match({ 
+      id: messageId,
+      sender_id: userData.user.id 
+    });
+
+  if (error) {
+    console.error('Error deleting message:', error);
+    return false;
+  }
+
+  return true;
+}
