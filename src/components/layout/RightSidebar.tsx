@@ -52,7 +52,7 @@ const RightSidebar: React.FC = () => {
 
   return (
     <motion.aside 
-      className="hidden lg:block w-[350px] h-screen overflow-hidden sticky top-0 bg-black border-l border-gray-800 shadow-xl"
+      className="hidden lg:block w-[350px] h-screen overflow-hidden sticky top-0 bg-black border-l border-gray-800"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -98,26 +98,14 @@ const RightSidebar: React.FC = () => {
           {/* Market Stats */}
           <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
             <div className="p-3">
-              <SectionHeader title="Market Stats" icon={Sparkles} section="marketStats" />
-              <AnimatePresence>
-                {!minimizedSections.marketStats && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <MarketStats />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <MarketStats />
             </div>
           </div>
           
           {/* Trending Section */}
           <div className="bg-gray-900/70 backdrop-blur-sm rounded-xl overflow-hidden border border-gray-800/50">
             <div className="p-3">
-              <SectionHeader title="What's happening" icon={Newspaper} section="trending" />
+              <SectionHeader title="What's happening" icon={Sparkles} section="trending" />
               <AnimatePresence>
                 {!minimizedSections.trending && (
                   <motion.div
