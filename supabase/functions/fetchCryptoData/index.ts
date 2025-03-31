@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
 const corsHeaders = {
@@ -27,6 +28,25 @@ interface CryptoCurrency {
   price: number;
   change: number;
 }
+
+// List of cryptocurrency IDs to fetch
+const CRYPTO_IDS = [
+  'bitcoin', // BTC
+  'ethereum', // ETH
+  'solana', // SOL
+  'cardano', // ADA
+  'polkadot', // DOT
+  'ripple', // XRP (actually "xrp" in CoinGecko)
+  'algorand', // ALGO
+  'dogecoin', // DOGE
+  'the-graph', // GRT
+  'hedera-hashgraph', // HBAR
+  'chainlink', // LINK
+  'sui', // SUI
+  'hype', // HYPE
+  'pepe', // PEPE
+  'ondo-finance' // ONDO
+];
 
 // Function to fetch market stats from CoinGecko
 async function fetchMarketGlobal() {
@@ -96,8 +116,10 @@ async function fetchFearAndGreed() {
 async function fetchCryptoTokens() {
   try {
     console.log('Fetching crypto token prices');
+    
+    // To ensure we get all our specified coins, we'll fetch more per page
     const response = await fetch(
-      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=15&page=1&sparkline=false'
+      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false'
     );
     
     if (!response.ok) {
@@ -106,8 +128,21 @@ async function fetchCryptoTokens() {
     
     const data = await response.json();
     
+    // Filter to include only our specified cryptocurrencies
+    const filteredData = data.filter((coin: any) => CRYPTO_IDS.includes(coin.id));
+    
+    // Check if we got all the coins we wanted
+    if (filteredData.length < CRYPTO_IDS.length) {
+      console.warn(`Couldn't find all requested cryptocurrencies. Found ${filteredData.length} out of ${CRYPTO_IDS.length}`);
+      
+      // Find which coins are missing
+      const foundIds = filteredData.map((coin: any) => coin.id);
+      const missingIds = CRYPTO_IDS.filter(id => !foundIds.includes(id));
+      console.warn('Missing coins:', missingIds);
+    }
+    
     // Format the data
-    return data.map((coin: any) => ({
+    return filteredData.map((coin: any) => ({
       id: coin.id,
       name: coin.name,
       symbol: coin.symbol.toUpperCase(),
@@ -116,18 +151,23 @@ async function fetchCryptoTokens() {
     }));
   } catch (error) {
     console.error('Error fetching crypto token prices:', error);
-    // Return fallback data
+    // Return fallback data for requested coins
     return [
       { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 83000, change: 0.9 },
       { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1840, change: 1.8 },
-      { id: 'tether', name: 'Tether', symbol: 'USDT', price: 1, change: 0 },
-      { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.12, change: -0.7 },
-      { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 604, change: 0.5 },
       { id: 'solana', name: 'Solana', symbol: 'SOL', price: 126, change: 1.3 },
-      { id: 'usd-coin', name: 'USDC', symbol: 'USDC', price: 1, change: 0 },
-      { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.16, change: -0.4 },
       { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.65, change: -1.2 },
-      { id: 'tron', name: 'TRON', symbol: 'TRX', price: 0.23, change: 2.8 },
+      { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -0.8 },
+      { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.12, change: -0.7 },
+      { id: 'algorand', name: 'Algorand', symbol: 'ALGO', price: 0.18, change: -1.1 },
+      { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.16, change: -0.4 },
+      { id: 'the-graph', name: 'The Graph', symbol: 'GRT', price: 0.15, change: -0.9 },
+      { id: 'hedera-hashgraph', name: 'Hedera', symbol: 'HBAR', price: 0.09, change: -1.5 },
+      { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', price: 13.5, change: 0.7 },
+      { id: 'sui', name: 'Sui', symbol: 'SUI', price: 1.2, change: 0.3 },
+      { id: 'hype', name: 'Hype', symbol: 'HYPE', price: 0.005, change: 3.1 },
+      { id: 'pepe', name: 'Pepe', symbol: 'PEPE', price: 0.00001, change: 2.4 },
+      { id: 'ondo-finance', name: 'Ondo Finance', symbol: 'ONDO', price: 1.05, change: 0.8 }
     ];
   }
 }
@@ -291,9 +331,9 @@ Deno.serve(async (req) => {
           cryptoData: [
             { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 83000, change: 0.9 },
             { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 1840, change: 1.8 },
-            { id: 'tether', name: 'Tether', symbol: 'USDT', price: 1, change: 0 },
-            { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 2.12, change: -0.7 },
-            { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 604, change: 0.5 },
+            { id: 'solana', name: 'Solana', symbol: 'SOL', price: 126, change: 1.3 },
+            { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.65, change: -1.2 },
+            { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -0.8 }
           ],
           lastUpdated: new Date().toISOString(),
           cached: false

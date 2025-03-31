@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,19 +52,43 @@ const MEMORY_CACHE_DURATION = 5 * 60 * 1000;
 // Minimum time between API refresh attempts (1 minute) to prevent API spam
 const MIN_REFRESH_INTERVAL = 60 * 1000;
 
+// List of cryptocurrency IDs to display
+const DISPLAY_CRYPTO_IDS = [
+  'bitcoin', // BTC
+  'ethereum', // ETH
+  'solana', // SOL
+  'cardano', // ADA
+  'polkadot', // DOT
+  'ripple', // XRP
+  'algorand', // ALGO
+  'dogecoin', // DOGE
+  'the-graph', // GRT
+  'hedera-hashgraph', // HBAR
+  'chainlink', // LINK
+  'sui', // SUI
+  'hype', // HYPE
+  'pepe', // PEPE
+  'ondo-finance' // ONDO
+];
+
 // Fallback data to use when the API fails
 const getFallbackCryptoData = (): CryptoCurrency[] => {
   const fallbackData: CryptoCurrency[] = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 62364, change: -1.67 },
     { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 3015, change: -3.04 },
-    { id: 'tether', name: 'Tether', symbol: 'USDT', price: 0.999, change: 0.02 },
-    { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 600, change: -3.62 },
     { id: 'solana', name: 'Solana', symbol: 'SOL', price: 124, change: -3.28 },
-    { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 0.52, change: -2.90 },
     { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.44, change: -3.91 },
-    { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.12, change: -6.48 },
     { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -4.2 },
-    { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', price: 0.00002, change: -5.3 }
+    { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 0.52, change: -2.90 },
+    { id: 'algorand', name: 'Algorand', symbol: 'ALGO', price: 0.18, change: -2.50 },
+    { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.12, change: -6.48 },
+    { id: 'the-graph', name: 'The Graph', symbol: 'GRT', price: 0.15, change: -3.2 },
+    { id: 'hedera-hashgraph', name: 'Hedera', symbol: 'HBAR', price: 0.09, change: -2.8 },
+    { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', price: 13.5, change: -1.2 },
+    { id: 'sui', name: 'Sui', symbol: 'SUI', price: 1.2, change: -2.4 },
+    { id: 'hype', name: 'Hype', symbol: 'HYPE', price: 0.005, change: -8.3 },
+    { id: 'pepe', name: 'Pepe', symbol: 'PEPE', price: 0.00001, change: -5.1 },
+    { id: 'ondo-finance', name: 'Ondo Finance', symbol: 'ONDO', price: 1.05, change: 0.8 }
   ];
   return fallbackData;
 };
@@ -253,7 +278,18 @@ export const useCryptoData = () => {
       setLoading(true);
       try {
         const data = await fetchCryptoData();
-        setCryptoData(data);
+        
+        // Filter to only show requested cryptocurrencies
+        const filteredData = data.filter(crypto => DISPLAY_CRYPTO_IDS.includes(crypto.id));
+        
+        // Sort the data to match the order of DISPLAY_CRYPTO_IDS
+        const sortedData = [...filteredData].sort((a, b) => {
+          const indexA = DISPLAY_CRYPTO_IDS.indexOf(a.id);
+          const indexB = DISPLAY_CRYPTO_IDS.indexOf(b.id);
+          return indexA - indexB;
+        });
+        
+        setCryptoData(sortedData);
         lastFetchRef.current = Date.now();
       } catch (err) {
         setError(err instanceof Error ? err : new Error(String(err)));
@@ -295,7 +331,16 @@ export const useCryptoData = () => {
         
         // Fetch the updated data
         const data = await fetchCryptoData();
-        setCryptoData(data);
+        
+        // Filter and sort as before
+        const filteredData = data.filter(crypto => DISPLAY_CRYPTO_IDS.includes(crypto.id));
+        const sortedData = [...filteredData].sort((a, b) => {
+          const indexA = DISPLAY_CRYPTO_IDS.indexOf(a.id);
+          const indexB = DISPLAY_CRYPTO_IDS.indexOf(b.id);
+          return indexA - indexB;
+        });
+        
+        setCryptoData(sortedData);
         lastFetchRef.current = Date.now();
         setError(null);
       } catch (err) {
