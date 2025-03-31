@@ -6,7 +6,8 @@ import { CryptoButton } from '@/components/ui/crypto-button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Memoize the ticker item for performance
-const CryptoTickerItem = memo(({ symbol, price, change }: {
+const CryptoTickerItem = memo(({ name, symbol, price, change }: {
+  name: string
   symbol: string
   price: number
   change: number
@@ -25,12 +26,13 @@ const CryptoTickerItem = memo(({ symbol, price, change }: {
   return (
     <div className="crypto-ticker-item">
       <span className="font-medium text-white">{symbol}</span>
+      <span className="text-crypto-lightgray text-xs">{name}</span>
       <span className="font-medium">${formattedPrice}</span>
       <span className={`text-xs ${changeColor}`}>
         {changeSign}{formattedChange}%
       </span>
     </div>
-  );
+  )
 });
 
 // Rename for clarity that we're using memo
@@ -176,6 +178,7 @@ const CryptoTicker: React.FC = () => {
       return Array(5).fill(0).map((_, index) => (
         <div key={`placeholder-${index}`} className="crypto-ticker-item animate-pulse">
           <div className="h-4 w-10 bg-crypto-gray/30 rounded"></div>
+          <div className="h-3 w-16 bg-crypto-gray/20 rounded"></div>
           <div className="h-4 w-14 bg-crypto-gray/30 rounded"></div>
           <div className="h-3 w-12 bg-crypto-gray/20 rounded"></div>
         </div>
@@ -188,6 +191,7 @@ const CryptoTicker: React.FC = () => {
         {displayData.map((crypto, index) => (
           <CryptoTickerItem 
             key={`${repeat}-${index}`}
+            name={crypto.name}
             symbol={crypto.symbol}
             price={crypto.price}
             change={crypto.change}
@@ -202,7 +206,7 @@ const CryptoTicker: React.FC = () => {
       ref={tickerContainerRef}
       className="w-full bg-crypto-darkgray border-b border-crypto-gray overflow-hidden py-3"
     >
-      <div ref={tickerContentRef} className="flex items-center animate-marquee-slow will-change-transform">
+      <div ref={tickerContentRef} className="flex items-center animate-marquee will-change-transform">
         <div className="font-display text-crypto-blue font-bold px-4 flex items-center gap-2">
           {loading ? (
             <Loader2 className="animate-spin h-4 w-4" />
