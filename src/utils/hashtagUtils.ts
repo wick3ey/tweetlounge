@@ -1,4 +1,6 @@
 
+import React from 'react';
+
 /**
  * Utility functions for extracting and handling hashtags
  */
@@ -48,14 +50,12 @@ export function formatTextWithHashtags(text: string, linkClassName: string = "te
     const hashtagName = match[1]; // Just the name (example)
     
     parts.push(
-      <a 
-        key={`hashtag-${match.index}`} 
-        href={`/hashtag/${hashtagName}`} 
-        className={linkClassName}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {hashtag}
-      </a>
+      React.createElement("a", {
+        key: `hashtag-${match.index}`,
+        href: `/hashtag/${hashtagName}`,
+        className: linkClassName,
+        onClick: (e: React.MouseEvent) => e.stopPropagation()
+      }, hashtag)
     );
     
     lastIndex = match.index + match[0].length;
