@@ -18,7 +18,7 @@ interface TweetFeedProps {
   onCommentAdded?: () => void;
 }
 
-const TWEETS_PER_PAGE = 15;
+const TWEETS_PER_PAGE = 10;
 
 const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
@@ -35,6 +35,10 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   const { user } = useAuth();
   const { toast } = useToast();
   const loaderRef = useRef<HTMLDivElement>(null);
+  
+  const isMounted = useRef(true);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimeRef = useRef<NodeJS.Timeout | null>(null);
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastTweetElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -52,6 +56,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   }, [loading, loadingMore, hasMore]);
 
   useEffect(() => {
+    isMounted.current = true;
     fetchTweets(true);
     
     const tweetsChannel = supabase
@@ -64,9 +69,19 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         console.log('Realtime update on tweets:', payload);
         
         if (payload.eventType === 'INSERT') {
-          fetchNewTweets();
+          if (debounceTimeRef.current) {
+            clearTimeout(debounceTimeRef.current);
+          }
+          debounceTimeRef.current = setTimeout(() => {
+            fetchNewTweets();
+          }, 2000);
         } else {
-          refreshCurrentTweets();
+          if (debounceTimeRef.current) {
+            clearTimeout(debounceTimeRef.current);
+          }
+          debounceTimeRef.current = setTimeout(() => {
+            refreshCurrentTweets();
+          }, 2000);
         }
       })
       .subscribe();
@@ -81,39 +96,54 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         console.log('Realtime update on comments:', payload);
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const commentedTweetId = payload.new.tweet_id as string;
-          updateTweetCommentCount(commentedTweetId).then(() => {
-            updateTweetCommentCountInUI(commentedTweetId);
-          });
+          if (debounceTimeRef.current) {
+            clearTimeout(debounceTimeRef.current);
+          }
+          debounceTimeRef.current = setTimeout(() => {
+            updateTweetCommentCount(commentedTweetId).then(() => {
+              updateTweetCommentCountInUI(commentedTweetId);
+            });
+          }, 2000);
         }
       })
       .subscribe();
       
     return () => {
+      isMounted.current = false;
       supabase.removeChannel(tweetsChannel);
       supabase.removeChannel(commentsChannel);
       if (observer.current) observer.current.disconnect();
+      
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      if (debounceTimeRef.current) {
+        clearTimeout(debounceTimeRef.current);
+      }
     };
   }, [userId]);
 
   const fetchNewTweets = async () => {
+    if (!isMounted.current) return;
+    
     try {
       const newestTweetDate = tweets.length > 0 ? tweets[0].created_at : new Date().toISOString();
       
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 
-          limit_count: 10, 
+          limit_count: 5,
           offset_count: 0 
         });
         
       if (error) throw error;
       
-      if (!data || data.length === 0) return;
+      if (!data || data.length === 0 || !isMounted.current) return;
       
       const newTweets = (data as any[])
         .map(transformTweetData)
         .filter(tweet => tweet && new Date(tweet.created_at) > new Date(newestTweetDate));
         
-      if (newTweets.length === 0) return;
+      if (newTweets.length === 0 || !isMounted.current) return;
       
       setTweets(prev => [...newTweets, ...prev]);
       
@@ -123,10 +153,10 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   };
 
   const refreshCurrentTweets = async () => {
-    if (tweets.length === 0) return;
+    if (tweets.length === 0 || !isMounted.current) return;
     
     try {
-      const ids = tweets.map(t => t.id);
+      const ids = tweets.slice(0, 10).map(t => t.id);
       
       const freshTweets = await Promise.all(
         ids.map(async (id) => {
@@ -143,6 +173,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
           }
         })
       );
+      
+      if (!isMounted.current) return;
       
       const validFreshTweets = freshTweets.filter(t => t !== null) as TweetWithAuthor[];
       
@@ -198,6 +230,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   };
 
   const updateTweetCommentCountInUI = async (tweetId: string) => {
+    if (!isMounted.current) return;
+    
     try {
       const { data, error } = await supabase
         .from('tweets')
@@ -209,6 +243,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         console.error('Error fetching updated tweet count:', error);
         return;
       }
+      
+      if (!isMounted.current) return;
       
       console.log(`Updating tweet ${tweetId} comment count in UI to ${data.replies_count}`);
       
@@ -225,7 +261,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   };
 
   const loadMoreTweets = async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || !isMounted.current) return;
     
     const nextPage = page + 1;
     setLoadingMore(true);
@@ -235,6 +271,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       const offset = nextPage * TWEETS_PER_PAGE;
       const fetchedTweets = await getTweets(TWEETS_PER_PAGE, offset);
       
+      if (!isMounted.current) return;
+      
       if (fetchedTweets.length === 0) {
         setHasMore(false);
       } else {
@@ -242,23 +280,33 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       }
     } catch (err) {
       console.error('Error loading more tweets:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load more tweets. Please try again.',
-        variant: 'destructive'
-      });
+      if (isMounted.current) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load more tweets. Please try again.',
+          variant: 'destructive'
+        });
+      }
     } finally {
-      setLoadingMore(false);
+      if (isMounted.current) {
+        setLoadingMore(false);
+      }
     }
   };
 
   const fetchTweets = async (showLoading = true) => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    
     try {
-      if (showLoading) {
+      if (showLoading && isMounted.current) {
         setLoading(true);
       }
-      setError(null);
-      setPage(0);
+      if (isMounted.current) {
+        setError(null);
+        setPage(0);
+      }
       
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 
@@ -267,6 +315,8 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         });
         
       if (error) throw error;
+      
+      if (!isMounted.current) return;
       
       if (!data || data.length === 0) {
         setTweets([]);
@@ -278,34 +328,42 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         .map(transformTweetData)
         .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
       
-      setTweets(transformedTweets);
-      setHasMore(transformedTweets.length === TWEETS_PER_PAGE);
+      if (isMounted.current) {
+        setTweets(transformedTweets);
+        setHasMore(transformedTweets.length === TWEETS_PER_PAGE);
+      }
       
-      prefetchNextBatch();
+      fetchTimeoutRef.current = setTimeout(() => {
+        prefetchNextBatch();
+      }, 2000);
       
     } catch (err) {
       console.error('Failed to fetch tweets:', err);
-      setError('Failed to load tweets. Please try again later.');
-      
-      toast({
-        title: "Error",
-        description: "Failed to load tweets. Please try again later.",
-        variant: "destructive"
-      });
+      if (isMounted.current) {
+        setError('Failed to load tweets. Please try again later.');
+        
+        toast({
+          title: "Error",
+          description: "Failed to load tweets. Please try again later.",
+          variant: "destructive"
+        });
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
   const prefetchNextBatch = async () => {
     try {
-      const { data } = await supabase
+      await supabase
         .rpc('get_tweets_with_authors_reliable', { 
           limit_count: TWEETS_PER_PAGE, 
           offset_count: TWEETS_PER_PAGE 
         });
       
-      console.log(`Prefetched ${data ? data.length : 0} tweets for faster loading`);
+      console.log(`Prefetched tweets for faster loading`);
     } catch (err) {
       console.error('Error prefetching tweets:', err);
     }

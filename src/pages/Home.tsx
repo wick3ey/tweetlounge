@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -24,14 +24,32 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
-  // Optimized listener with debounce for performance
+  // Optimized listener with improved debounce for performance
   useEffect(() => {
-    let refreshTimeout: NodeJS.Timeout;
+    isMounted.current = true;
     let pendingRefreshes = 0;
 
+    // Function to handle debounced refresh
+    const debouncedRefresh = () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      
+      pendingRefreshes++;
+      
+      debounceTimeoutRef.current = setTimeout(() => {
+        if (pendingRefreshes > 0 && isMounted.current) {
+          handleRefresh();
+          pendingRefreshes = 0;
+        }
+      }, 2000); // Wait 2 seconds before refreshing for better performance
+    };
+
     // Listen for realtime comment updates to refresh the feed
-    const channel = supabase
+    const commentsChannel = supabase
       .channel('public:comments:home')
       .on('postgres_changes', {
         event: '*',
@@ -49,31 +67,13 @@ const Home: React.FC = () => {
           updateTweetCommentCount(tweetId)
             .catch(err => console.error('Error updating comment count:', err));
 
-          // Debounce the feed refresh - this prevents multiple rapid refreshes
-          pendingRefreshes++;
-          
-          clearTimeout(refreshTimeout);
-          refreshTimeout = setTimeout(() => {
-            if (pendingRefreshes > 0) {
-              handleRefresh();
-              pendingRefreshes = 0;
-            }
-          }, 1000); // Wait 1 second before refreshing
+          // Use debounced refresh
+          debouncedRefresh();
         }
       })
       .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-      clearTimeout(refreshTimeout);
-    };
-  }, []);
-
-  // Also listen for changes to the tweets table to refresh the feed with debounce
-  useEffect(() => {
-    let refreshTimeout: NodeJS.Timeout;
-    let pendingRefreshes = 0;
     
+    // Also listen for changes to the tweets table with same debounce mechanism
     const tweetsChannel = supabase
       .channel('public:tweets:home')
       .on('postgres_changes', {
@@ -82,23 +82,18 @@ const Home: React.FC = () => {
         table: 'tweets'
       }, (payload) => {
         console.log('Home page detected tweet change:', payload);
-        
-        // Debounce the feed refresh
-        pendingRefreshes++;
-        
-        clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(() => {
-          if (pendingRefreshes > 0) {
-            handleRefresh();
-            pendingRefreshes = 0;
-          }
-        }, 1000); // Wait 1 second before refreshing
+        debouncedRefresh();
       })
       .subscribe();
       
     return () => {
+      isMounted.current = false;
+      supabase.removeChannel(commentsChannel);
       supabase.removeChannel(tweetsChannel);
-      clearTimeout(refreshTimeout);
+      
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -120,23 +115,27 @@ const Home: React.FC = () => {
       }
       
       // Update feed by incrementing key instead of reloading the page
-      setFeedKey(prevKey => prevKey + 1);
+      if (isMounted.current) {
+        setFeedKey(prevKey => prevKey + 1);
+      }
       
       return Promise.resolve();
     } catch (error) {
       console.error("Error posting tweet:", error);
-      toast({
-        title: "Tweet Error",
-        description: "Failed to post your tweet. Please try again.",
-        variant: "destructive"
-      });
+      if (isMounted.current) {
+        toast({
+          title: "Tweet Error",
+          description: "Failed to post your tweet. Please try again.",
+          variant: "destructive"
+        });
+      }
       throw error;
     }
   };
 
   const handleRefresh = () => {
     // Prevent multiple simultaneous refreshes
-    if (isRefreshing) return;
+    if (isRefreshing || !isMounted.current) return;
     
     setIsRefreshing(true);
     console.log('Manually refreshing feed in Home component');
@@ -146,7 +145,9 @@ const Home: React.FC = () => {
     
     // Reset refreshing state after a short delay
     setTimeout(() => {
-      setIsRefreshing(false);
+      if (isMounted.current) {
+        setIsRefreshing(false);
+      }
     }, 500);
   };
 
