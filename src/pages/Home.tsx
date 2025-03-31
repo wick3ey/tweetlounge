@@ -15,7 +15,7 @@ import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/integrations/supabase/client'
+import { supabase } from '@/lib/supabase'
 import { updateTweetCommentCount } from '@/services/commentService'
 
 const Home: React.FC = () => {
@@ -23,10 +23,14 @@ const Home: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Listen for realtime comment updates to refresh the feed
+  // Optimized listener with debounce for performance
   useEffect(() => {
-    // Setup realtime subscription for comments with improved error handling
+    let refreshTimeout: NodeJS.Timeout;
+    let pendingRefreshes = 0;
+
+    // Listen for realtime comment updates to refresh the feed
     const channel = supabase
       .channel('public:comments:home')
       .on('postgres_changes', {
@@ -42,24 +46,34 @@ const Home: React.FC = () => {
           console.log(`Updating comment count for tweet ${tweetId} in Home page`);
           
           // First update the count in the database
-          updateTweetCommentCount(tweetId).then(() => {
-            // Then force a refresh of the feed to show the updated count
-            handleRefresh();
-          });
-        } else {
-          // If we can't get the tweet_id, refresh the whole feed anyway
-          handleRefresh();
+          updateTweetCommentCount(tweetId)
+            .catch(err => console.error('Error updating comment count:', err));
+
+          // Debounce the feed refresh - this prevents multiple rapid refreshes
+          pendingRefreshes++;
+          
+          clearTimeout(refreshTimeout);
+          refreshTimeout = setTimeout(() => {
+            if (pendingRefreshes > 0) {
+              handleRefresh();
+              pendingRefreshes = 0;
+            }
+          }, 1000); // Wait 1 second before refreshing
         }
       })
       .subscribe();
       
     return () => {
       supabase.removeChannel(channel);
+      clearTimeout(refreshTimeout);
     };
   }, []);
 
-  // Also listen for changes to the tweets table to refresh the feed
+  // Also listen for changes to the tweets table to refresh the feed with debounce
   useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout;
+    let pendingRefreshes = 0;
+    
     const tweetsChannel = supabase
       .channel('public:tweets:home')
       .on('postgres_changes', {
@@ -68,12 +82,23 @@ const Home: React.FC = () => {
         table: 'tweets'
       }, (payload) => {
         console.log('Home page detected tweet change:', payload);
-        handleRefresh();
+        
+        // Debounce the feed refresh
+        pendingRefreshes++;
+        
+        clearTimeout(refreshTimeout);
+        refreshTimeout = setTimeout(() => {
+          if (pendingRefreshes > 0) {
+            handleRefresh();
+            pendingRefreshes = 0;
+          }
+        }, 1000); // Wait 1 second before refreshing
       })
       .subscribe();
       
     return () => {
       supabase.removeChannel(tweetsChannel);
+      clearTimeout(refreshTimeout);
     };
   }, []);
 
@@ -110,9 +135,19 @@ const Home: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    // Update feed by incrementing key
+    // Prevent multiple simultaneous refreshes
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
     console.log('Manually refreshing feed in Home component');
+    
+    // Update feed by incrementing key
     setFeedKey(prevKey => prevKey + 1);
+    
+    // Reset refreshing state after a short delay
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
   };
 
   return (
@@ -137,11 +172,12 @@ const Home: React.FC = () => {
                 <CryptoButton 
                   variant="outline" 
                   size="sm" 
-                  className="ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
+                  className={`ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={handleRefresh}
+                  disabled={isRefreshing}
                 >
-                  <RefreshCwIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Refresh
+                  <RefreshCwIcon className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
                 </CryptoButton>
               </div>
             </div>
@@ -158,7 +194,6 @@ const Home: React.FC = () => {
               </div>
               <TweetFeed 
                 key={feedKey} 
-                limit={10} 
                 onCommentAdded={handleRefresh} 
               />
             </div>
