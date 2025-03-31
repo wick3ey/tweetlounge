@@ -89,6 +89,31 @@ const FinancialDetail = ({ icon: Icon, label, value, tooltipText }: { icon: any,
   </TooltipProvider>
 );
 
+const TokenCardSkeleton = () => {
+  return (
+    <div className="animate-pulse">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center justify-between py-2 px-4 border-b border-gray-800/40">
+          <div className="flex items-center gap-3 min-w-0 w-2/3">
+            <div className="relative">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="absolute -top-2 -right-2 h-5 w-5 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+          <div className="text-right space-y-2 w-1/3">
+            <Skeleton className="h-4 w-24 ml-auto" />
+            <Skeleton className="h-3 w-32 ml-auto" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const TokenRow = ({
   token,
   type,
