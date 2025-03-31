@@ -11,8 +11,7 @@ import {
   MessageSquare,
   Settings,
   Compass,
-  Zap,
-  ChevronRight
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,23 +20,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { Card } from '@/components/ui/card';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useState, useEffect } from 'react';
 
-interface LeftSidebarProps {
-  collapsed?: boolean;
-}
-
-const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
+const LeftSidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { profile } = useProfile();
   const { unreadCount } = useNotifications();
-  const [isCollapsed, setIsCollapsed] = useState(collapsed);
-  
-  // Update internal state when prop changes
-  useEffect(() => {
-    setIsCollapsed(collapsed);
-  }, [collapsed]);
   
   const menuItems = [
     { icon: Home, label: 'Home', path: '/home' },
@@ -68,30 +56,16 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
   const isActive = (path) => {
     return location.pathname === path;
   };
-
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
   
   return (
-    <aside className={`relative flex flex-col h-screen sticky top-0 ${isCollapsed ? 'min-w-[80px] max-w-[80px]' : 'min-w-[275px] max-w-[275px]'} py-4 bg-black border-r border-gray-800 transition-all duration-300 hidden md:flex`}>
-      {/* Toggle Button */}
-      <button 
-        onClick={toggleCollapse}
-        className="absolute -right-3 top-10 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-10 hover:bg-gray-700 transition-colors"
-      >
-        <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
-      </button>
-
+    <aside className="hidden md:flex flex-col h-screen sticky top-0 min-w-[275px] max-w-[275px] py-4 bg-black border-r border-gray-800">
       {/* Logo */}
-      <div className={`px-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
+      <div className="px-4 mb-6">
         <Link to="/home" className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
             <Zap className="h-6 w-6 text-white" />
           </div>
-          {!isCollapsed && (
-            <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TweetLounge</span>
-          )}
+          <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TweetLounge</span>
         </Link>
       </div>
       
@@ -108,8 +82,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                     "flex items-center gap-3 px-4 py-3 rounded-full font-medium transition-all",
                     active 
                       ? "bg-gray-900 text-white" 
-                      : "text-gray-300 hover:bg-gray-800/50 hover:text-white",
-                    isCollapsed ? "justify-center" : ""
+                      : "text-gray-300 hover:bg-gray-800/50 hover:text-white"
                   )}
                 >
                   <div className={cn(
@@ -123,7 +96,7 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                       </div>
                     )}
                   </div>
-                  {!isCollapsed && <span className="text-base">{item.label}</span>}
+                  <span className="text-base">{item.label}</span>
                 </Link>
               </li>
             );
@@ -132,18 +105,18 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
       </nav>
       
       {/* Tweet Button */}
-      <div className={`px-4 mt-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
+      <div className="px-4 mt-4 mb-6">
         <Button 
-          className={`${isCollapsed ? 'w-12 h-12 rounded-full p-0' : 'w-full'} bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all`}
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all"
         >
-          {isCollapsed ? <MessageSquare className="h-5 w-5" /> : "Tweet"}
+          Tweet
         </Button>
       </div>
       
       {/* User Profile */}
       {user && (
-        <div className={`px-4 mb-4 ${isCollapsed ? 'flex justify-center' : ''}`}>
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''} p-3 rounded-full hover:bg-gray-800/50 transition-colors`}>
+        <div className="px-4 mb-4">
+          <div className="flex items-center p-3 rounded-full hover:bg-gray-800/50 transition-colors">
             <Avatar className="h-10 w-10 border-2 border-transparent">
               {profile?.avatar_url ? (
                 <AvatarImage src={profile.avatar_url} alt="Profile" />
@@ -152,16 +125,14 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                 {getInitials()}
               </AvatarFallback>
             </Avatar>
-            {!isCollapsed && (
-              <div className="ml-3 overflow-hidden">
-                <p className="font-bold text-sm text-white leading-tight truncate">
-                  {profile?.display_name || user.email?.split('@')[0]}
-                </p>
-                <p className="text-gray-400 text-xs truncate">
-                  @{profile?.username || user.email?.split('@')[0]}
-                </p>
-              </div>
-            )}
+            <div className="ml-3 overflow-hidden">
+              <p className="font-bold text-sm text-white leading-tight truncate">
+                {profile?.display_name || user.email?.split('@')[0]}
+              </p>
+              <p className="text-gray-400 text-xs truncate">
+                @{profile?.username || user.email?.split('@')[0]}
+              </p>
+            </div>
           </div>
         </div>
       )}

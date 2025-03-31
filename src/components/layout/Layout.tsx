@@ -10,17 +10,13 @@ type LayoutProps = {
   hideRightSidebar?: boolean;
   fullHeight?: boolean;
   pageTitle?: string;
-  collapsedSidebar?: boolean;
-  fullWidth?: boolean;
 };
 
 const Layout: React.FC<LayoutProps> = ({ 
   children, 
   hideRightSidebar = false,
   fullHeight = true,
-  pageTitle,
-  collapsedSidebar = false,
-  fullWidth = false
+  pageTitle
 }) => {
   return (
     <div className="flex flex-col h-screen bg-black">
@@ -29,13 +25,10 @@ const Layout: React.FC<LayoutProps> = ({
         <CryptoTicker />
       </div>
       
-      <div className={`flex flex-1 w-full ${fullWidth ? 'max-w-[100%]' : 'max-w-[1500px]'} mx-auto`}>
-        <LeftSidebar collapsed={collapsedSidebar} />
+      <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
+        <LeftSidebar />
         
-        <main className={`flex-1 overflow-auto ${fullHeight ? 'min-h-screen' : ''} ${
-          // Set default max-width for feed, but override for market page and full width pages
-          !hideRightSidebar && !fullWidth ? 'max-w-[600px]' : ''
-        } ${fullWidth ? '' : 'border-x border-gray-800'}`}>
+        <main className={`flex-1 max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-screen' : ''}`}>
           {pageTitle && (
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <h1 className="text-xl font-bold">{pageTitle}</h1>
