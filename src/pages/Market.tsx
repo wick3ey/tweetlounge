@@ -11,6 +11,7 @@ import Layout from '@/components/layout/Layout';
 import { motion } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import TokenCardSkeleton from '@/components/market/TokenCardSkeleton';
 
 const formatPrice = (price: number) => {
   if (isNaN(price)) return "N/A";
