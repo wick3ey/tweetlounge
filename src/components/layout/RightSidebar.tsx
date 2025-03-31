@@ -5,6 +5,7 @@ import NewsSection from '@/components/crypto/NewsSection';
 import { WhoToFollow } from '@/components/profile/WhoToFollow';
 import { Separator } from '@/components/ui/separator';
 import { Search } from 'lucide-react';
+import MarketStats from '@/components/crypto/MarketStats';
 
 const RightSidebar: React.FC = () => {
   return (
@@ -21,6 +22,11 @@ const RightSidebar: React.FC = () => {
             className="w-full bg-gray-900 border-none rounded-full py-2.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
           />
         </div>
+      </div>
+      
+      {/* Market Stats */}
+      <div className="px-4 mb-4">
+        <MarketStats />
       </div>
       
       {/* Trending Section */}

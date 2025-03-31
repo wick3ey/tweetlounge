@@ -159,8 +159,7 @@ const fetchNews = async (): Promise<NewsArticle[]> => {
         await setCachedData(
           NEWS_CACHE_KEY, 
           resultArticles, 
-          CACHE_DURATIONS.MEDIUM, 
-          'cryptopanic'
+          CACHE_DURATIONS.MEDIUM
         );
         
         return resultArticles;

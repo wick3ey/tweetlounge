@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Search, Bell, Mail, User, Hash, Settings, Compass, Bookmark, Shield } from 'lucide-react'
+import { Home, Search, Bell, Mail, User, Hash, Settings, Compass, Bookmark, Shield, ChevronRight } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { CryptoButton } from '@/components/ui/crypto-button'
 import { useNotifications } from '@/hooks/useNotifications'

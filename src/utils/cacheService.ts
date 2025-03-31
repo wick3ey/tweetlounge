@@ -13,9 +13,9 @@ export const CACHE_DURATIONS = {
 export const getCachedData = async <T>(cacheKey: string): Promise<T | null> => {
   try {
     const { data, error } = await supabase
-      .from('cache')
-      .select('data, inserted_at')
-      .eq('key', cacheKey)
+      .from('market_cache')
+      .select('data, created_at')
+      .eq('cache_key', cacheKey)
       .single();
       
     if (error) {
@@ -40,14 +40,14 @@ export const setCachedData = async <T>(
 ): Promise<boolean> => {
   try {
     const { error } = await supabase
-      .from('cache')
+      .from('market_cache')
       .upsert(
         {
-          key: cacheKey,
+          cache_key: cacheKey,
           data,
           expires_at: new Date(Date.now() + expirySeconds * 1000).toISOString(),
         },
-        { onConflict: 'key' }
+        { onConflict: 'cache_key' }
       );
       
     if (error) {
@@ -66,9 +66,9 @@ export const setCachedData = async <T>(
 export const clearCachedData = async (cacheKey: string): Promise<boolean> => {
   try {
     const { error } = await supabase
-      .from('cache')
+      .from('market_cache')
       .delete()
-      .eq('key', cacheKey);
+      .eq('cache_key', cacheKey);
       
     if (error) {
       console.error(`Error clearing cached data for ${cacheKey}:`, error);
@@ -79,5 +79,24 @@ export const clearCachedData = async (cacheKey: string): Promise<boolean> => {
   } catch (error) {
     console.error(`Error in clearCachedData for ${cacheKey}:`, error);
     return false;
+  }
+};
+
+// Cleanup expired cache entries
+export const cleanupExpiredCache = async (): Promise<void> => {
+  try {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('market_cache')
+      .delete()
+      .lt('expires_at', now);
+      
+    if (error) {
+      console.error('Error cleaning up expired cache:', error);
+    } else {
+      console.log('Successfully cleaned up expired cache entries');
+    }
+  } catch (error) {
+    console.error('Error in cleanupExpiredCache:', error);
   }
 };
