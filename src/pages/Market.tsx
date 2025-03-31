@@ -134,6 +134,8 @@ const TokenRow = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const { toast } = useToast();
   
   const tokenAddress = isHot ? token.tokenAddress : token.address;
   const poolAddress = isHot ? token.poolAddress : token.pool;
@@ -144,28 +146,40 @@ const TokenRow = ({
       try {
         setImageError(false);
         
-        if (token.logoUrl) {
-          const cachedLogo = await getTokenLogo(token.symbol, token.logoUrl);
-          setLogoUrl(cachedLogo);
+        if (!token.symbol) {
+          setLogoUrl(generateFallbackLogoUrl());
+          return;
+        }
+        
+        let cachedLogo = await getTokenLogo(token.symbol, token.logoUrl || '');
+        
+        if (cachedLogo === generateFallbackLogoUrl(token.symbol) && token.logoUrl && retryCount === 0) {
+          console.log(`Market: Force caching logo for ${token.symbol}: ${token.logoUrl}`);
+          const directCachedUrl = await cacheTokenLogo(token.symbol, token.logoUrl, true);
           
-          if (cachedLogo === token.logoUrl) {
-            console.log(`Market: Force caching logo for ${token.symbol}`);
-            cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-              console.warn(`Market: Logo cache attempt failed for ${token.symbol}:`, err);
-            });
+          if (directCachedUrl) {
+            cachedLogo = directCachedUrl;
+            setRetryCount(prev => prev + 1);
           }
-        } else {
-          setLogoUrl(generateFallbackLogoUrl(token.symbol));
+        }
+        
+        setLogoUrl(cachedLogo);
+        
+        if (cachedLogo === token.logoUrl && token.logoUrl) {
+          console.log(`Market: Background caching for ${token.symbol}`);
+          cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+            console.warn(`Background cache error for ${token.symbol}:`, err);
+          });
         }
       } catch (error) {
-        console.error(`Market: Error fetching logo for ${token.symbol}:`, error);
+        console.error(`Error fetching logo for ${token.symbol}:`, error);
         setImageError(true);
         setLogoUrl(generateFallbackLogoUrl(token.symbol));
       }
     };
     
     fetchLogo();
-  }, [token.symbol, token.logoUrl]);
+  }, [token.symbol, token.logoUrl, retryCount]);
   
   const handleRowClick = () => {
     window.open(dexScreenerUrl, '_blank', 'noopener,noreferrer');
@@ -178,7 +192,26 @@ const TokenRow = ({
   
   const handleImageError = () => {
     setImageError(true);
-    setLogoUrl(generateFallbackLogoUrl(token.symbol));
+    
+    if (token.logoUrl && retryCount < 2) {
+      console.log(`Image error for ${token.symbol}, attempting forced recache`);
+      setRetryCount(prev => prev + 1);
+      cacheTokenLogo(token.symbol, token.logoUrl, true)
+        .then(newUrl => {
+          if (newUrl) {
+            console.log(`Recached logo for ${token.symbol}`);
+            setLogoUrl(newUrl);
+            setImageError(false);
+          } else {
+            setLogoUrl(generateFallbackLogoUrl(token.symbol));
+          }
+        })
+        .catch(() => {
+          setLogoUrl(generateFallbackLogoUrl(token.symbol));
+        });
+    } else {
+      setLogoUrl(generateFallbackLogoUrl(token.symbol));
+    }
   };
   
   const financialInfo = extractFinancialInfo(token.financialInfo || {});
@@ -567,33 +600,27 @@ const Market: React.FC = () => {
       const cacheAllLogos = async () => {
         console.log('Pre-caching all market token logos...');
         
-        if (marketData.gainers && marketData.gainers.length > 0) {
-          marketData.gainers.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache gainer logo for ${token.symbol}:`, err);
-              });
-            }
-          });
+        const allTokens = [
+          ...(marketData.gainers || []),
+          ...(marketData.losers || []),
+          ...(marketData.hotPools || [])
+        ].filter(token => token.logoUrl && token.symbol);
+        
+        const initialBatch = allTokens.slice(0, 5);
+        for (const token of initialBatch) {
+          try {
+            await cacheTokenLogo(token.symbol, token.logoUrl, true).catch(err => {
+              console.warn(`Failed to pre-cache initial logo for ${token.symbol}:`, err);
+            });
+          } catch (error) {
+            console.warn(`Error in initial logo caching for ${token.symbol}:`, error);
+          }
         }
         
-        if (marketData.losers && marketData.losers.length > 0) {
-          marketData.losers.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache loser logo for ${token.symbol}:`, err);
-              });
-            }
-          });
-        }
-        
-        if (marketData.hotPools && marketData.hotPools.length > 0) {
-          marketData.hotPools.forEach(token => {
-            if (token.logoUrl && token.symbol) {
-              cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
-                console.warn(`Failed to pre-cache hot pool logo for ${token.symbol}:`, err);
-              });
-            }
+        const remainingTokens = allTokens.slice(5);
+        for (const token of remainingTokens) {
+          cacheTokenLogo(token.symbol, token.logoUrl).catch(err => {
+            console.warn(`Failed to pre-cache logo for ${token.symbol}:`, err);
           });
         }
         
@@ -614,7 +641,11 @@ const Market: React.FC = () => {
       ...(marketData.gainers || []),
       ...(marketData.losers || []),
       ...(marketData.hotPools || [])
-    ].filter(token => token.logoUrl && token.symbol);
+    ]
+    .filter(token => token.logoUrl && token.symbol)
+    .filter((token, index, self) => 
+      index === self.findIndex(t => t.symbol === token.symbol)
+    );
     
     setDownloadProgress(prev => ({ ...prev, total: tokensToProcess.length }));
     
@@ -626,13 +657,13 @@ const Market: React.FC = () => {
     let successCount = 0;
     let failCount = 0;
     
-    const batchSize = 3;
+    const batchSize = 2;
     for (let i = 0; i < tokensToProcess.length; i += batchSize) {
       const batch = tokensToProcess.slice(i, i + batchSize);
       
       await Promise.all(batch.map(async (token) => {
         try {
-          const result = await cacheTokenLogo(token.symbol, token.logoUrl);
+          const result = await cacheTokenLogo(token.symbol, token.logoUrl, true);
           if (result) {
             successCount++;
           } else {
@@ -650,17 +681,19 @@ const Market: React.FC = () => {
       }));
       
       if (i + batchSize < tokensToProcess.length) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     
     toast({
-      title: "Logo download complete",
+      title: `Logo download complete`,
       description: `Successfully downloaded ${successCount} logos. Failed: ${failCount}.`,
       variant: failCount > 0 ? "destructive" : "default",
     });
     
     setDownloadingLogos(false);
+    
+    refreshData();
   };
   
   const handleRefresh = () => {

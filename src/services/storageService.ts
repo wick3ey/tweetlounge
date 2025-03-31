@@ -60,9 +60,13 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string, forceUpdat
     // Clean symbol name for use as filename (lowercase and remove special chars)
     const fileName = `${symbol.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
     
-    // Check if logo is from Solana Labs token list, modify URL if needed
-    const isSolanaTokenList = logoUrl.includes('raw.githubusercontent.com/solana-labs/token-list');
-    const safeLogoUrl = isSolanaTokenList ? logoUrl : logoUrl;
+    // Fix for Solana Labs token list URLs that may include 'pump' at the end (which is not part of the address)
+    let safeLogoUrl = logoUrl;
+    if (logoUrl.includes('raw.githubusercontent.com/solana-labs/token-list') && logoUrl.endsWith('pump/logo.png')) {
+      // Fixed URL handling for Solana Labs token list
+      safeLogoUrl = logoUrl.replace('pump/logo.png', '/logo.png');
+      console.log(`Corrected Solana Labs URL from ${logoUrl} to ${safeLogoUrl}`);
+    }
 
     // Check if we already have this logo cached (unless forceUpdate is true)
     if (!forceUpdate) {
@@ -92,9 +96,9 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string, forceUpdat
     console.log(`Fetching and caching logo for ${symbol} from ${safeLogoUrl}`);
     
     try {
-      // Fetch the image with timeout and proper headers
+      // Fetch the image with improved error handling and timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
       const imageResponse = await fetch(safeLogoUrl, {
         headers: {
@@ -108,6 +112,57 @@ export const cacheTokenLogo = async (symbol: string, logoUrl: string, forceUpdat
       clearTimeout(timeoutId);
       
       if (!imageResponse.ok) {
+        // If URL is from Solana token list and fails, try an alternative URL format
+        if (safeLogoUrl.includes('raw.githubusercontent.com/solana-labs/token-list')) {
+          const originalPath = safeLogoUrl.split('/main/')[1];
+          if (originalPath) {
+            // Try alternative path format
+            const altUrl = `https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/${originalPath}`;
+            console.log(`Trying alternative URL for ${symbol}: ${altUrl}`);
+            
+            const altResponse = await fetch(altUrl, {
+              headers: {
+                'Accept': 'image/png,image/jpeg,image/gif,image/*',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+              },
+              cache: 'no-store'
+            });
+            
+            if (altResponse.ok) {
+              // Alternative URL worked, use this response
+              const imageBlob = await altResponse.blob();
+              if (imageBlob.size === 0) {
+                console.warn(`Received empty image from alternative URL for ${symbol}`);
+                return null;
+              }
+              
+              // Upload to Supabase
+              const { data, error } = await supabase
+                .storage
+                .from('token-logos')
+                .upload(fileName, imageBlob, {
+                  cacheControl: '1800', // 30 minutes cache
+                  contentType: imageBlob.type || 'image/png',
+                  upsert: true
+                });
+              
+              if (error) {
+                console.error(`Error uploading ${symbol} logo from alt URL:`, error);
+                return null;
+              }
+              
+              // Get public URL
+              const { data: urlData } = supabase
+                .storage
+                .from('token-logos')
+                .getPublicUrl(fileName);
+              
+              console.log(`Successfully cached logo for ${symbol} using alt URL: ${urlData.publicUrl}`);
+              return urlData.publicUrl;
+            }
+          }
+        }
+        
         console.warn(`Failed to fetch logo for ${symbol}: ${imageResponse.status} ${imageResponse.statusText}`);
         return null;
       }
@@ -199,8 +254,8 @@ export const getTokenLogo = async (symbol: string, originalUrl: string): Promise
       return cachedUrl;
     }
     
-    // If caching fails, return original
-    return originalUrl;
+    // If caching fails, return fallback
+    return generateFallbackLogoUrl(symbol);
   } catch (err) {
     console.error(`Error getting logo for ${symbol}:`, err);
     return generateFallbackLogoUrl(symbol);
