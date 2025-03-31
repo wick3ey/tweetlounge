@@ -31,7 +31,7 @@ const LeftSidebar = () => {
 
   return (
     <motion.div 
-      className="fixed left-0 top-[60px] bottom-0 h-[calc(100vh-60px)] w-64 bg-black border-r border-gray-800 flex flex-col z-20"
+      className="fixed left-0 top-[60px] h-[calc(100vh-60px)] w-64 bg-black border-r border-gray-800 flex flex-col z-20"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}

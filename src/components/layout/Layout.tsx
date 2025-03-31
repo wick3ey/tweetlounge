@@ -22,31 +22,28 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="flex flex-col min-h-screen bg-black">
       <Navbar />
+      <div className="sticky top-[60px] z-10 w-full bg-black/80 backdrop-blur-md border-b border-gray-800">
+        <CryptoTicker />
+      </div>
       
       <div className="flex flex-1 w-full max-w-[1400px] mx-auto">
         <LeftSidebar />
         
-        <div className="flex-1 flex flex-col">
-          <div className="sticky top-[60px] z-10 w-full bg-black/80 backdrop-blur-md border-b border-gray-800 ml-64">
-            <CryptoTicker />
-          </div>
-          
-          <motion.main 
-            className={`relative flex-1 ml-64 max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-[calc(100vh-100px)]' : ''}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            {pageTitle && (
-              <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
-                <h1 className="text-xl font-bold">{pageTitle}</h1>
-              </div>
-            )}
-            {children}
-          </motion.main>
-          
-          {!hideRightSidebar && <RightSidebar />}
-        </div>
+        <motion.main 
+          className={`relative flex-1 ml-64 max-w-[600px] border-x border-gray-800 overflow-y-auto ${fullHeight ? 'min-h-[calc(100vh-100px)]' : ''}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          {pageTitle && (
+            <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
+              <h1 className="text-xl font-bold">{pageTitle}</h1>
+            </div>
+          )}
+          {children}
+        </motion.main>
+        
+        {!hideRightSidebar && <RightSidebar />}
       </div>
     </div>
   );
