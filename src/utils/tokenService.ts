@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
+import { cacheTokenLogo, getTokenLogo } from '@/services/storageService';
 
 export interface Token {
   name: string;
@@ -17,6 +17,7 @@ export interface Token {
   priceChange24h?: number; // Added for price change percentage
 }
 
+// Define the missing TokensResponse interface
 export interface TokensResponse {
   tokens: Token[];
   solPrice?: number;
@@ -88,13 +89,27 @@ export const fetchWalletTokens = async (
       return { tokens: [] };
     }
     
-    // Process the tokens with enhanced information from DexTools API
+    // Process the tokens with enhanced information from DexTools API and logo caching
     const processedTokensPromises = data.tokens.map(async (token: any) => {
       const tokenAddress = token.address || address;
       
       try {
         // Try to fetch additional token information from DexTools API
         const enrichedToken = await enrichTokenWithDexToolsInfo(token);
+        
+        // Cache the token logo if available - ensure we prioritize this
+        if (enrichedToken.logo) {
+          console.log(`Prioritizing logo caching for ${enrichedToken.symbol}: ${enrichedToken.logo}`);
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logo).catch(error => {
+            console.warn(`Failed initial logo caching for ${enrichedToken.symbol}:`, error);
+          });
+        } else if (enrichedToken.logoURI) {
+          console.log(`Prioritizing logoURI caching for ${enrichedToken.symbol}: ${enrichedToken.logoURI}`);
+          cacheTokenLogo(enrichedToken.symbol, enrichedToken.logoURI).catch(error => {
+            console.warn(`Failed initial logoURI caching for ${enrichedToken.symbol}:`, error);
+          });
+        }
+        
         return enrichedToken;
       } catch (error) {
         console.warn(`Could not fetch DexTools data for token ${tokenAddress}:`, error);
@@ -159,6 +174,11 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
   
   // Skip API calls for known tokens like SOL that we already have good data for
   if (token.symbol === 'SOL' && token.name === 'Solana' && token.logo) {
+    // Cache the SOL logo
+    if (token.logo) {
+      cacheTokenLogo('SOL', token.logo).catch(console.error);
+    }
+    
     return {
       ...token,
       chain: 'solana',
@@ -185,11 +205,25 @@ const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
     }
   }
   
+  // Cache the token logo if available - force immediate caching
+  let logoUrl = tokenInfo?.logo || token.logo || token.logoURI;
+  if (logoUrl) {
+    try {
+      // Attempt to immediately cache the logo 
+      console.log(`Attempting immediate logo cache for ${token.symbol || tokenInfo?.symbol}: ${logoUrl}`);
+      await cacheTokenLogo(tokenInfo?.symbol || token.symbol, logoUrl).catch(logoError => {
+        console.warn(`Error in immediate logo caching for ${token.symbol}:`, logoError);
+      });
+    } catch (logoError) {
+      console.warn(`Error in outer logo caching for ${token.symbol}:`, logoError);
+    }
+  }
+  
   return {
     name: tokenInfo?.name || formatTokenName(tokenAddress, token.name),
     symbol: tokenInfo?.symbol || (token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress, token.name)),
-    logo: tokenInfo?.logo || token.logo,
-    logoURI: tokenInfo?.logo || token.logo,
+    logo: logoUrl,
+    logoURI: logoUrl,
     amount: token.amount,
     usdValue: usdValue,
     decimals: tokenInfo?.decimals || token.decimals,

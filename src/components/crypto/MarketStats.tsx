@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowUpRight, BarChart, Clock, Coins, TrendingUp, Activity, Loader2, AlertTriangle, RotateCw, TrendingDown, ExternalLink } from 'lucide-react'
@@ -22,7 +23,7 @@ const fallbackMarketData = {
 
 // Helper function to format large numbers
 const formatNumber = (num: number | undefined, type: 'currency' | 'percentage' | 'number' = 'number'): string => {
-  if (num === undefined) return 'N/A';
+  if (num === undefined || num === null) return 'N/A';
   
   if (type === 'currency') {
     if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;

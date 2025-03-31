@@ -46,10 +46,12 @@ const App = () => {
     // Trigger an initial fetch when the app loads
     const triggerInitialFetch = async () => {
       try {
+        console.log('Triggering initial market data fetch');
         const { supabase } = await import('@/integrations/supabase/client');
         await supabase.functions.invoke('fetchCryptoData', {
-          body: { trigger: 'initial' }
+          body: JSON.stringify({ cache_key: 'market_data_v1', trigger: 'initial' })
         });
+        console.log('Initial market data fetch complete');
       } catch (error) {
         console.error('Failed to trigger initial data fetch:', error);
       }
