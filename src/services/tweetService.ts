@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { Tweet, TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -65,62 +66,100 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
   }
 }
 
-export const getTweets = async (limit = 20, offset = 0): Promise<TweetWithAuthor[]> => {
+export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
   try {
-    console.log(`Fetching tweets with limit ${limit} offset ${offset}`);
-    
-    // First try the optimized RPC function
-    const { data: tweetsData, error: tweetsError } = await supabase
+    const { data, error } = await supabase
       .rpc('get_tweets_with_authors_reliable', { 
         limit_count: limit, 
         offset_count: offset 
       });
-
-    if (tweetsError || !tweetsData) {
-      console.error('Error using RPC for tweets, falling back to join query:', tweetsError);
       
-      // Fall back to the regular function if RPC fails
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .rpc('get_tweets_with_authors', { 
-          limit_count: limit, 
-          offset_count: offset 
-        });
-      
-      if (fallbackError) {
-        console.error('Error fetching tweets with fallback:', fallbackError);
-        return [];
-      }
-      
-      return fallbackData as TweetWithAuthor[];
+    if (error) {
+      console.error('Error fetching tweets:', error);
+      throw error;
     }
-
-    // Map the RPC results to the TweetWithAuthor structure
-    return tweetsData.map((tweet: any) => ({
-      id: tweet.id,
-      content: tweet.content,
-      author_id: tweet.author_id,
-      created_at: tweet.created_at,
-      likes_count: tweet.likes_count,
-      retweets_count: tweet.retweets_count,
-      replies_count: tweet.replies_count,
-      is_retweet: tweet.is_retweet,
-      original_tweet_id: tweet.original_tweet_id,
-      image_url: tweet.image_url,
-      author: {
-        id: tweet.author_id,
-        username: tweet.profile_username || 'user',
-        display_name: tweet.profile_display_name || 'User',
-        avatar_url: tweet.profile_avatar_url || '',
-        avatar_nft_id: tweet.profile_avatar_nft_id,
-        avatar_nft_chain: tweet.profile_avatar_nft_chain
+    
+    if (!data) return [];
+    
+    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+      return {
+        id: item.id,
+        content: item.content,
+        author_id: item.author_id,
+        created_at: item.created_at,
+        likes_count: item.likes_count || 0,
+        retweets_count: item.retweets_count || 0,
+        replies_count: item.replies_count || 0,
+        is_retweet: item.is_retweet === true,
+        original_tweet_id: item.original_tweet_id,
+        image_url: item.image_url,
+        profile_username: item.profile_username || item.username,
+        profile_display_name: item.profile_display_name || item.display_name,
+        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+        author: {
+          id: item.author_id,
+          username: item.profile_username || item.username,
+          display_name: item.profile_display_name || item.display_name || item.username,
+          avatar_url: item.profile_avatar_url || item.avatar_url || '',
+          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+        }
+      };
+    });
+    
+    const enhancedTweets = transformedData.map(tweet => enhanceTweetData(tweet)).filter((tweet): tweet is TweetWithAuthor => tweet !== null);
+    
+    const processedTweets = await Promise.all(enhancedTweets.map(async (tweet) => {
+      if (tweet.is_retweet && tweet.original_tweet_id) {
+        try {
+          const { data: originalTweetData, error: originalTweetError } = await supabase
+            .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+          
+          if (originalTweetError) {
+            console.error('Error fetching original tweet:', originalTweetError);
+            return { ...tweet, is_retweet: false };
+          }
+          
+          if (originalTweetData && originalTweetData.length > 0) {
+            const originalTweet = originalTweetData[0];
+            
+            return {
+              ...tweet,
+              content: originalTweet.content,
+              image_url: originalTweet.image_url,
+              original_author: {
+                id: originalTweet.author_id,
+                username: originalTweet.username || 'user',
+                display_name: originalTweet.display_name || originalTweet.username || 'User',
+                avatar_url: originalTweet.avatar_url || '',
+                avatar_nft_id: originalTweet.avatar_nft_id,
+                avatar_nft_chain: originalTweet.avatar_nft_chain
+              }
+            };
+          } else {
+            return { ...tweet, is_retweet: false };
+          }
+        } catch (err) {
+          console.error('Error fetching original tweet:', err);
+          return { ...tweet, is_retweet: false };
+        }
       }
+      
+      return tweet;
     }));
     
+    if (processedTweets.length > 0) {
+      console.log('Sample tweet data:', processedTweets[0]);
+    }
+    
+    return processedTweets;
   } catch (error) {
-    console.error('Error fetching tweets:', error);
+    console.error('Failed to fetch tweets:', error);
     return [];
   }
-};
+}
 
 export async function getUserTweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
   try {

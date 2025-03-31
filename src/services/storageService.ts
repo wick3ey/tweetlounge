@@ -1,44 +1,26 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export const createBucketsIfNotExist = async () => {
-  // Check if tweet-images bucket exists
+export const createBucketIfNotExists = async () => {
+  // Check if bucket exists
   const { data: buckets } = await supabase.storage.listBuckets();
   
-  const tweetBucketExists = buckets?.some(bucket => bucket.name === 'tweet-images');
-  const tokenBucketExists = buckets?.some(bucket => bucket.name === 'token-logos');
+  const bucketExists = buckets?.some(bucket => bucket.name === 'tweet-images');
   
-  let errors = false;
-  
-  if (!tweetBucketExists) {
-    // Create tweet-images bucket if it doesn't exist
+  if (!bucketExists) {
+    // Create bucket if it doesn't exist
     const { error } = await supabase.storage.createBucket('tweet-images', {
       public: true
     });
     
     if (error) {
-      console.error('Error creating tweet-images bucket:', error);
-      errors = true;
+      console.error('Error creating bucket:', error);
+      return false;
     }
   }
   
-  if (!tokenBucketExists) {
-    // Create token-logos bucket if it doesn't exist
-    const { error } = await supabase.storage.createBucket('token-logos', {
-      public: true
-    });
-    
-    if (error) {
-      console.error('Error creating token-logos bucket:', error);
-      errors = true;
-    } else {
-      // Set public access policy
-      console.log('Setting up public access for token-logos bucket');
-    }
-  }
-  
-  return !errors;
+  return true;
 };
 
 // Call this function when your app initializes
-createBucketsIfNotExist();
+createBucketIfNotExists();

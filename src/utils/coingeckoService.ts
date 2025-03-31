@@ -1,8 +1,5 @@
-
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { getCachedData, setCachedData, CACHE_DURATIONS } from './cacheService';
-import { supabase } from '@/integrations/supabase/client';
-import { Json } from '@/integrations/supabase/types';
 
 // Interface for the cryptocurrency data
 export interface CryptoCurrency {
@@ -52,43 +49,19 @@ const MEMORY_CACHE_DURATION = 5 * 60 * 1000;
 // Minimum time between API refresh attempts (1 minute) to prevent API spam
 const MIN_REFRESH_INTERVAL = 60 * 1000;
 
-// List of cryptocurrency IDs to display
-const DISPLAY_CRYPTO_IDS = [
-  'bitcoin', // BTC
-  'ethereum', // ETH
-  'solana', // SOL
-  'cardano', // ADA
-  'polkadot', // DOT
-  'ripple', // XRP
-  'algorand', // ALGO
-  'dogecoin', // DOGE
-  'the-graph', // GRT
-  'hedera-hashgraph', // HBAR
-  'chainlink', // LINK
-  'sui', // SUI
-  'hype', // HYPE
-  'pepe', // PEPE
-  'ondo-finance' // ONDO
-];
-
 // Fallback data to use when the API fails
 const getFallbackCryptoData = (): CryptoCurrency[] => {
   const fallbackData: CryptoCurrency[] = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: 62364, change: -1.67 },
     { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: 3015, change: -3.04 },
+    { id: 'tether', name: 'Tether', symbol: 'USDT', price: 0.999, change: 0.02 },
+    { id: 'binancecoin', name: 'BNB', symbol: 'BNB', price: 600, change: -3.62 },
     { id: 'solana', name: 'Solana', symbol: 'SOL', price: 124, change: -3.28 },
-    { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.44, change: -3.91 },
-    { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -4.2 },
     { id: 'ripple', name: 'XRP', symbol: 'XRP', price: 0.52, change: -2.90 },
-    { id: 'algorand', name: 'Algorand', symbol: 'ALGO', price: 0.18, change: -2.50 },
+    { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: 0.44, change: -3.91 },
     { id: 'dogecoin', name: 'Dogecoin', symbol: 'DOGE', price: 0.12, change: -6.48 },
-    { id: 'the-graph', name: 'The Graph', symbol: 'GRT', price: 0.15, change: -3.2 },
-    { id: 'hedera-hashgraph', name: 'Hedera', symbol: 'HBAR', price: 0.09, change: -2.8 },
-    { id: 'chainlink', name: 'Chainlink', symbol: 'LINK', price: 13.5, change: -1.2 },
-    { id: 'sui', name: 'Sui', symbol: 'SUI', price: 1.2, change: -2.4 },
-    { id: 'hype', name: 'Hype', symbol: 'HYPE', price: 0.005, change: -8.3 },
-    { id: 'pepe', name: 'Pepe', symbol: 'PEPE', price: 0.00001, change: -5.1 },
-    { id: 'ondo-finance', name: 'Ondo Finance', symbol: 'ONDO', price: 1.05, change: 0.8 }
+    { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: 7.5, change: -4.2 },
+    { id: 'shiba-inu', name: 'Shiba Inu', symbol: 'SHIB', price: 0.00002, change: -5.3 }
   ];
   return fallbackData;
 };
@@ -257,6 +230,7 @@ const fetchMarketStats = async (): Promise<MarketStats> => {
 const triggerDataRefresh = async (): Promise<void> => {
   try {
     console.log('Triggering backend data refresh...');
+    const { supabase } = await import('@/integrations/supabase/client');
     await supabase.functions.invoke('fetchCryptoData', {
       body: { trigger: 'manual' }
     });
@@ -265,91 +239,99 @@ const triggerDataRefresh = async (): Promise<void> => {
   }
 };
 
-// Custom hook to get crypto data with caching
-export const useCryptoData = () => {
-  const [cryptoData, setCryptoData] = useState<CryptoCurrency[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const lastFetchRef = useRef<number>(0);
+// Custom hook to get cryptocurrency data with caching
+export const useCryptoData = (): { 
+  cryptoData: CryptoCurrency[]; 
+  loading: boolean; 
+  error: string | null;
+  refreshData: () => Promise<void>;
+} => {
+  const [cryptoData, setCryptoData] = useState<CryptoCurrency[]>(globalCryptoCache.data);
+  const [loading, setLoading] = useState<boolean>(!globalCryptoCache.data.length);
+  const [error, setError] = useState<string | null>(globalCryptoCache.lastError);
   
-  // Load data on mount
-  useEffect(() => {
-    const fetchData = async () => {
+  const getCryptoData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const currentTime = Date.now();
+      
+      // Check if memory cache is valid (less than memory cache duration)
+      if (globalCryptoCache.data.length > 0 && currentTime - globalCryptoCache.timestamp < MEMORY_CACHE_DURATION) {
+        console.log('Using in-memory cached crypto data');
+        setCryptoData(globalCryptoCache.data);
+      } else {
+        // Fetch new data from Supabase cache
+        const freshData = await fetchCryptoData();
+        setCryptoData(freshData);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      console.error('Error in getCryptoData:', errorMessage);
+      
+      // Fall back to memory cache if available, or use fallback data
+      if (globalCryptoCache.data.length > 0) {
+        setCryptoData(globalCryptoCache.data);
+      } else {
+        setCryptoData(getFallbackCryptoData());
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Function to manually refresh data, but with rate limiting
+  const refreshData = async () => {
+    const currentTime = Date.now();
+    
+    // Rate limit refreshes to prevent API spam
+    if (currentTime - globalCryptoCache.timestamp < MIN_REFRESH_INTERVAL) {
+      console.log('Refresh rate limited - using cached data');
+      setCryptoData(globalCryptoCache.data.length > 0 ? globalCryptoCache.data : getFallbackCryptoData());
+      return;
+    }
+    
+    // Force refresh by triggering backend data fetch and then fetching from cache
+    try {
       setLoading(true);
-      try {
-        const data = await fetchCryptoData();
-        
-        // Filter to only show requested cryptocurrencies
-        const filteredData = data.filter(crypto => DISPLAY_CRYPTO_IDS.includes(crypto.id));
-        
-        // Sort the data to match the order of DISPLAY_CRYPTO_IDS
-        const sortedData = [...filteredData].sort((a, b) => {
-          const indexA = DISPLAY_CRYPTO_IDS.indexOf(a.id);
-          const indexB = DISPLAY_CRYPTO_IDS.indexOf(b.id);
-          return indexA - indexB;
-        });
-        
-        setCryptoData(sortedData);
-        lastFetchRef.current = Date.now();
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-        // Try to use cached data if available
-        if (globalCryptoCache.data.length > 0) {
-          setCryptoData(globalCryptoCache.data);
-        } else {
-          setCryptoData(getFallbackCryptoData());
-        }
-      } finally {
-        setLoading(false);
+      
+      // Trigger the backend to refresh data
+      await triggerDataRefresh();
+      
+      // Wait a moment for the backend to process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Now fetch from the cache
+      const freshData = await fetchCryptoData();
+      setCryptoData(freshData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      
+      // Fall back to existing data or fallback
+      if (globalCryptoCache.data.length > 0) {
+        setCryptoData(globalCryptoCache.data);
+      } else {
+        setCryptoData(getFallbackCryptoData());
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    getCryptoData();
     
-    fetchData();
-    
-    // Setup periodic refresh
+    // Set up a timer to refresh data periodically (once every memory cache duration)
     const intervalId = setInterval(() => {
-      // Only refresh if the cache is stale
-      if (Date.now() - lastFetchRef.current > MEMORY_CACHE_DURATION) {
-        fetchData();
-      }
-    }, 60 * 1000); // Check every minute
+      getCryptoData();
+    }, MEMORY_CACHE_DURATION);
     
+    // Clean up interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
-  
-  // Create memoized refresh function
-  const refreshData = useCallback(async () => {
-    // Only refresh if not currently loading and not too soon
-    if (!loading && Date.now() - lastFetchRef.current > MIN_REFRESH_INTERVAL) {
-      setLoading(true);
-      try {
-        // Trigger backend refresh
-        await triggerDataRefresh();
-        
-        // Wait a moment for the backend to process
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Fetch the updated data
-        const data = await fetchCryptoData();
-        
-        // Filter and sort as before
-        const filteredData = data.filter(crypto => DISPLAY_CRYPTO_IDS.includes(crypto.id));
-        const sortedData = [...filteredData].sort((a, b) => {
-          const indexA = DISPLAY_CRYPTO_IDS.indexOf(a.id);
-          const indexB = DISPLAY_CRYPTO_IDS.indexOf(b.id);
-          return indexA - indexB;
-        });
-        
-        setCryptoData(sortedData);
-        lastFetchRef.current = Date.now();
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-      } finally {
-        setLoading(false);
-      }
-    }
-  }, [loading]);
   
   return { cryptoData, loading, error, refreshData };
 };
@@ -364,9 +346,8 @@ export const useMarketStats = (): {
   const [marketStats, setMarketStats] = useState<MarketStats | null>(globalStatsCache.data);
   const [loading, setLoading] = useState<boolean>(!globalStatsCache.data);
   const [error, setError] = useState<string | null>(globalStatsCache.lastError);
-  const lastFetchRef = useRef<number>(globalStatsCache.timestamp);
 
-  const fetchMarketStatsData = async () => {
+  const getMarketStats = async () => {
     setLoading(true);
     setError(null);
     
@@ -377,31 +358,21 @@ export const useMarketStats = (): {
       if (globalStatsCache.data && currentTime - globalStatsCache.timestamp < MEMORY_CACHE_DURATION) {
         console.log('Using in-memory cached market stats data');
         // Add lastUpdated property to the data when setting it
-        if (globalStatsCache.data) {
-          const dataWithTimestamp = { 
-            ...globalStatsCache.data, 
-            lastUpdated: new Date(globalStatsCache.timestamp).toISOString() 
-          };
-          setMarketStats(dataWithTimestamp);
-        } else {
-          setMarketStats(null);
-        }
-        setLoading(false);
-        return;
-      }
-      
-      // Fetch new data from Supabase cache
-      const freshData = await fetchMarketStats();
-      if (freshData) {
-        const dataWithTimestamp = { 
-          ...freshData, 
-          lastUpdated: new Date().toISOString() 
+        const dataWithTimestamp = {
+          ...globalStatsCache.data,
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
         };
         setMarketStats(dataWithTimestamp);
       } else {
-        setMarketStats(null);
+        // Fetch new data from Supabase cache
+        const freshData = await fetchMarketStats();
+        // Add lastUpdated property when setting fresh data
+        const dataWithTimestamp = {
+          ...freshData,
+          lastUpdated: new Date().toISOString()
+        };
+        setMarketStats(dataWithTimestamp);
       }
-      lastFetchRef.current = currentTime;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
@@ -409,16 +380,15 @@ export const useMarketStats = (): {
       
       // Fall back to memory cache if available, or use fallback data
       if (globalStatsCache.data) {
-        const dataWithTimestamp = { 
-          ...globalStatsCache.data, 
-          lastUpdated: new Date(globalStatsCache.timestamp).toISOString() 
+        const dataWithTimestamp = {
+          ...globalStatsCache.data,
+          lastUpdated: new Date(globalStatsCache.timestamp).toISOString()
         };
         setMarketStats(dataWithTimestamp);
       } else {
-        const fallbackData = getFallbackMarketStats();
-        const fallbackWithTimestamp = { 
-          ...fallbackData, 
-          lastUpdated: new Date().toISOString() 
+        const fallbackWithTimestamp = {
+          ...getFallbackMarketStats(),
+          lastUpdated: new Date().toISOString()
         };
         setMarketStats(fallbackWithTimestamp);
       }
@@ -432,8 +402,13 @@ export const useMarketStats = (): {
     const currentTime = Date.now();
     
     // Rate limit refreshes to prevent API spam
-    if (currentTime - lastFetchRef.current < MIN_REFRESH_INTERVAL) {
+    if (currentTime - globalStatsCache.timestamp < MIN_REFRESH_INTERVAL) {
       console.log('Refresh rate limited - using cached market stats');
+      const dataWithTimestamp = {
+        ...(globalStatsCache.data || getFallbackMarketStats()),
+        lastUpdated: new Date(globalStatsCache.timestamp || currentTime).toISOString()
+      };
+      setMarketStats(dataWithTimestamp);
       return;
     }
     
@@ -449,14 +424,11 @@ export const useMarketStats = (): {
       
       // Now fetch from the cache
       const freshData = await fetchMarketStats();
-      if (freshData) {
-        const dataWithTimestamp = {
-          ...freshData,
-          lastUpdated: new Date().toISOString()
-        };
-        setMarketStats(dataWithTimestamp);
-      }
-      lastFetchRef.current = currentTime;
+      const dataWithTimestamp = {
+        ...freshData,
+        lastUpdated: new Date().toISOString()
+      };
+      setMarketStats(dataWithTimestamp);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
@@ -469,9 +441,8 @@ export const useMarketStats = (): {
         };
         setMarketStats(dataWithTimestamp);
       } else {
-        const fallbackData = getFallbackMarketStats();
         const fallbackWithTimestamp = {
-          ...fallbackData,
+          ...getFallbackMarketStats(),
           lastUpdated: new Date().toISOString()
         };
         setMarketStats(fallbackWithTimestamp);
@@ -482,15 +453,12 @@ export const useMarketStats = (): {
   };
   
   useEffect(() => {
-    fetchMarketStatsData();
+    getMarketStats();
     
     // Set up a timer to refresh data periodically
     const intervalId = setInterval(() => {
-      // Only refresh if the cache is stale
-      if (Date.now() - lastFetchRef.current > MEMORY_CACHE_DURATION) {
-        fetchMarketStatsData();
-      }
-    }, 60 * 1000); // Check every minute
+      getMarketStats();
+    }, MEMORY_CACHE_DURATION);
     
     // Clean up interval on component unmount
     return () => clearInterval(intervalId);

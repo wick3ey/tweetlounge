@@ -7,37 +7,25 @@ import {
   Mail, 
   User, 
   Bookmark, 
+  BarChart2,
+  MessageSquare,
   Settings,
   Compass,
-  ChevronRight,
-  Zap as ZapIcon,
-  MessageSquare as MessageSquareIcon
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { Card } from '@/components/ui/card';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useState, useEffect } from 'react';
-import { useMediaQuery } from '@/hooks/use-mobile';
 
-interface LeftSidebarProps {
-  collapsed?: boolean;
-}
-
-const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
+const LeftSidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { profile } = useProfile();
   const { unreadCount } = useNotifications();
-  const [isCollapsed, setIsCollapsed] = useState(collapsed);
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  
-  // Update internal state when prop changes
-  useEffect(() => {
-    setIsCollapsed(collapsed);
-  }, [collapsed]);
   
   const menuItems = [
     { icon: Home, label: 'Home', path: '/home' },
@@ -50,8 +38,8 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
+    { icon: BarChart2, label: 'Market', path: '/market' },
     { icon: Compass, label: 'Discover', path: '/discover' },
-    { icon: User, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' }
   ];
   
@@ -68,37 +56,21 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
   const isActive = (path) => {
     return location.pathname === path;
   };
-
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
   
   return (
-    <aside className={`relative flex flex-col h-screen sticky top-0 ${isCollapsed ? 'min-w-[80px] max-w-[80px]' : isMobile ? 'w-full' : 'min-w-[275px] max-w-[275px]'} py-4 bg-black border-r border-gray-800 transition-all duration-300 ${isMobile ? '' : 'hidden md:flex'}`}>
-      {/* Toggle Button - Repositioned to avoid overlap with feed header */}
-      {!isMobile && (
-        <button 
-          onClick={toggleCollapse}
-          className="absolute -right-3 top-20 bg-gray-800 rounded-full p-1 shadow-lg border border-gray-700 z-20 hover:bg-gray-700 transition-colors"
-        >
-          <ChevronRight className={`h-4 w-4 text-gray-300 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} />
-        </button>
-      )}
-
+    <div className="hidden md:flex flex-col h-screen sticky top-0 w-72 py-4 bg-gradient-to-b from-black to-gray-900 border-r border-gray-800">
       {/* Logo */}
-      <div className={`px-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
+      <div className="px-6 mb-6">
         <Link to="/home" className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
-            <ZapIcon className="h-6 w-6 text-white" />
+            <Zap className="h-6 w-6 text-white" />
           </div>
-          {!isCollapsed && (
-            <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TweetLounge</span>
-          )}
+          <span className="text-xl font-bold ml-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TweetLounge</span>
         </Link>
       </div>
       
       {/* Navigation Menu */}
-      <nav className="flex-1 px-2 overflow-y-auto">
+      <nav className="flex-1 px-3">
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const active = isActive(item.path);
@@ -107,36 +79,31 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                 <Link
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-full font-medium transition-all",
+                    "flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all",
                     active 
-                      ? "bg-gray-900 text-white" 
-                      : "text-gray-300 hover:bg-gray-800/50 hover:text-white",
-                    isCollapsed ? "justify-center" : "",
-                    isMobile && active ? "bg-gray-900/90 shadow-lg" : ""
+                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white" 
+                      : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
                   )}
                 >
                   <div className={cn(
                     "relative flex items-center justify-center",
-                    active ? "text-white" : ""
+                    active ? "text-blue-400" : ""
                   )}>
-                    <item.icon className={cn(
-                      "h-5 w-5",
-                      active && isMobile ? "scale-110" : ""
-                    )} />
-                    {item.badge && (
-                      <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 animate-pulse">
+                    <item.icon className="h-5 w-5" />
+                    {active && (
+                      <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-blue-400 to-purple-500 rounded-r-full" />
+                    )}
+                    {item.badge && !active && (
+                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                         {item.badge > 99 ? '99+' : item.badge}
                       </div>
                     )}
                   </div>
-                  {!isCollapsed && (
-                    <span className={cn(
-                      "text-base transition-all",
-                      active ? "font-semibold" : ""
-                    )}>{item.label}</span>
-                  )}
-                  {isMobile && active && !isCollapsed && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+                  <span className="text-sm">{item.label}</span>
+                  {item.badge && active && (
+                    <div className="ml-auto bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </div>
                   )}
                 </Link>
               </li>
@@ -146,27 +113,28 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
       </nav>
       
       {/* Tweet Button */}
-      <div className={`px-4 mt-4 mb-6 ${isCollapsed ? 'flex justify-center' : ''}`}>
+      <div className="px-6 mt-4 mb-6">
         <Button 
-          className={`${isCollapsed ? 'w-12 h-12 rounded-full p-0' : 'w-full'} bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all active:scale-95`}
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl h-12 font-bold shadow-md transition-all duration-300"
         >
-          {isCollapsed ? <MessageSquareIcon className="h-5 w-5" /> : "Tweet"}
+          <MessageSquare className="h-5 w-5 mr-2" />
+          Tweet
         </Button>
       </div>
       
       {/* User Profile */}
       {user && (
-        <div className={`px-4 mb-4 ${isCollapsed ? 'flex justify-center' : ''}`}>
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''} p-3 rounded-full hover:bg-gray-800/50 transition-colors`}>
-            <Avatar className="h-10 w-10 border-2 border-transparent">
-              {profile?.avatar_url ? (
-                <AvatarImage src={profile.avatar_url} alt="Profile" />
-              ) : null}
-              <AvatarFallback className="bg-blue-500/90 text-white font-semibold">
-                {getInitials()}
-              </AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
+        <div className="px-4 mb-4">
+          <Card className="bg-gradient-to-r from-gray-900 to-gray-800 border-gray-700 hover:border-gray-600 transition-colors duration-300">
+            <div className="flex items-center p-3 rounded-lg">
+              <Avatar className="h-10 w-10 border-2 border-gray-700 shadow-inner">
+                {profile?.avatar_url ? (
+                  <AvatarImage src={profile.avatar_url} alt="Profile" />
+                ) : null}
+                <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
               <div className="ml-3 overflow-hidden">
                 <p className="font-bold text-sm text-white leading-tight truncate">
                   {profile?.display_name || user.email?.split('@')[0]}
@@ -175,11 +143,37 @@ const LeftSidebar = ({ collapsed = false }: LeftSidebarProps) => {
                   @{profile?.username || user.email?.split('@')[0]}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          </Card>
         </div>
       )}
-    </aside>
+
+      {/* Mobile Navigation - Hidden on desktop */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-gray-800">
+        <div className="flex justify-around items-center p-2">
+          {menuItems.slice(0, 5).map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "p-2 rounded-full flex flex-col items-center justify-center",
+                isActive(item.path) ? "text-blue-400" : "text-gray-400"
+              )}
+            >
+              <div className="relative">
+                <item.icon className="h-6 w-6" />
+                {item.badge && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </div>
+                )}
+              </div>
+              <span className="text-xs mt-1">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };
 

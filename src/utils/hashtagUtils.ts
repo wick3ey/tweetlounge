@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
 
 /**
  * Utility functions for extracting and handling hashtags
@@ -27,45 +26,44 @@ export function extractHashtags(text: string): string[] {
 }
 
 /**
- * Format text by converting hashtags into clickable links
+ * Format text by converting hashtags into JSX elements
  */
-export function formatTextWithHashtags(text: string, linkClassName: string = "text-crypto-blue hover:underline font-medium"): React.ReactNode[] {
+export function formatTextWithHashtags(text: string, linkClassName: string = "text-crypto-blue hover:underline"): React.ReactNode[] {
   if (!text) return [];
   
   const parts: React.ReactNode[] = [];
-  const hashtagRegex = /#(\w+)/g;
   let lastIndex = 0;
+  const hashtagRegex = /#(\w+)/g;
   let match;
   
-  while ((match = hashtagRegex.exec(text)) !== null) {
+  // Clone the text to avoid modifying the original
+  const textString = String(text);
+  
+  while ((match = hashtagRegex.exec(textString)) !== null) {
     // Add text before the hashtag
     if (match.index > lastIndex) {
-      parts.push(text.substring(lastIndex, match.index));
+      parts.push(textString.substring(lastIndex, match.index));
     }
     
-    // Create a clickable link for the hashtag using React.createElement instead of JSX
-    const hashtag = match[0]; // Full hashtag with #
-    const hashtagName = match[1]; // Hashtag name without #
+    // Add the hashtag as a link
+    const hashtag = match[0]; // Complete hashtag (#example)
+    const hashtagName = match[1]; // Just the name (example)
     
     parts.push(
-      React.createElement(
-        Link, 
-        {
-          key: `hashtag-${match.index}`,
-          to: `/hashtag/${hashtagName}`,
-          className: linkClassName,
-          onClick: (e: React.MouseEvent) => e.stopPropagation()
-        },
-        hashtag
-      )
+      React.createElement("a", {
+        key: `hashtag-${match.index}`,
+        href: `/hashtag/${hashtagName}`,
+        className: linkClassName,
+        onClick: (e: React.MouseEvent) => e.stopPropagation()
+      }, hashtag)
     );
     
     lastIndex = match.index + match[0].length;
   }
   
-  // Add remaining text after the last hashtag
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
+  // Add the remaining text
+  if (lastIndex < textString.length) {
+    parts.push(textString.substring(lastIndex));
   }
   
   return parts;

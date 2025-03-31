@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+
+import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
@@ -11,7 +12,6 @@ import { supabase } from '@/lib/supabase';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
 import { updateTweetCommentCount } from '@/services/commentService';
-import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 
 interface TweetFeedProps {
   userId?: string;
@@ -20,117 +20,215 @@ interface TweetFeedProps {
 }
 
 const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
+  const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedTweet, setSelectedTweet] = useState<TweetWithAuthor | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [errorDetails, setErrorDetails] = useState({title: '', description: ''});
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const loaderRef = useRef<HTMLDivElement>(null);
 
-  // Optimize query key for better cache management
-  const queryKey = useMemo(() => ['tweets', userId, limit], [userId, limit]);
-
-  // Use infinite query instead of regular query for pagination
-  const { 
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading, 
-    error,
-    refetch 
-  } = useInfiniteQuery({
-    queryKey,
-    queryFn: async ({ pageParam = 0 }) => {
-      const rawTweets = await getTweets(limit, pageParam);
-      return processTweets(rawTweets);
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      // If we got a full page of tweets, there might be more
-      return lastPage.length === limit ? allPages.length * limit : undefined;
-    },
-    // Performance tuning
-    staleTime: 30 * 1000, // Data considered fresh for 30 seconds
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-  });
-
-  // Flatten all pages of tweets
-  const tweets = useMemo(() => 
-    (data?.pages ?? []).flat(), [data?.pages]
-  );
-
-  // Setup intersection observer for infinite scrolling
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+    fetchTweets();
+    
+    // Improved realtime subscriptions with specific event handling
+    const tweetsChannel = supabase
+      .channel('public:tweets')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweets'
+      }, (payload) => {
+        console.log('Realtime update on tweets:', payload);
+        fetchTweets(false);
+      })
+      .subscribe();
+      
+    const commentsChannel = supabase
+      .channel('public:comments')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments'
+      }, (payload) => {
+        console.log('Realtime update on comments:', payload);
+        // Type guard to ensure payload.new exists and has a tweet_id property
+        if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
+          const commentedTweetId = payload.new.tweet_id as string;
+          updateTweetCommentCount(commentedTweetId).then(() => {
+            // After updating the database, refresh the tweet UI
+            updateTweetCommentCountInUI(commentedTweetId);
+          });
         }
-      },
-      { threshold: 0.1 }
-    );
-    
-    if (loaderRef.current) {
-      observer.observe(loaderRef.current);
-    }
-    
-    return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(commentsChannel);
+    };
+  }, [limit, userId]);
 
-  // Optimized tweet processing with memoization
-  const processTweets = async (rawTweets: TweetWithAuthor[]) => {
+  // New function to update a single tweet's comment count in the UI
+  const updateTweetCommentCountInUI = async (tweetId: string) => {
     try {
-      // Pre-process tweets in batch operations
-      const preprocessedTweets = rawTweets.map(tweet => {
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('replies_count')
+        .eq('id', tweetId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching updated tweet count:', error);
+        return;
+      }
+      
+      console.log(`Updating tweet ${tweetId} comment count in UI to ${data.replies_count}`);
+      
+      // Update the tweet in our state array
+      setTweets(prevTweets => 
+        prevTweets.map(tweet => 
+          tweet.id === tweetId 
+            ? { ...tweet, replies_count: data.replies_count } 
+            : tweet
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update tweet comment count in UI:', err);
+    }
+  };
+
+  const updateTweetCommentCount = async (tweetId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+      
+      if (error) {
+        console.error('Error counting comments for tweet update:', error);
+        return;
+      }
+      
+      // Ensure count is always a number
+      const commentCount = typeof count === 'number' ? count : 0;
+      console.log(`Updating tweet ${tweetId} comment count to ${commentCount} in UI and database`);
+      
+      setTweets(prevTweets => 
+        prevTweets.map(tweet => 
+          tweet.id === tweetId 
+            ? { ...tweet, replies_count: commentCount } 
+            : tweet
+        )
+      );
+      
+      // Always update the database to ensure consistency
+      await supabase
+        .from('tweets')
+        .update({ replies_count: commentCount })
+        .eq('id', tweetId);
+    } catch (err) {
+      console.error('Failed to update tweet comment count:', err);
+    }
+  };
+
+  const fetchTweets = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+      setError(null);
+      
+      const fetchedTweets = await getTweets(limit, 0);
+      
+      // Pre-process tweets to catch any obvious issues before proceeding
+      const preprocessedTweets = fetchedTweets.map(tweet => {
+        // Important: Fix retweets that have is_retweet = true but null original_tweet_id
         if (tweet.is_retweet && !tweet.original_tweet_id) {
+          console.log(`Fixing invalid retweet data for tweet ${tweet.id}. Setting is_retweet to false.`);
           return { ...tweet, is_retweet: false };
         }
         return tweet;
       });
       
-      // Process in batches to avoid blocking the main thread
-      const processedTweets = await Promise.all(preprocessedTweets.map(async (tweet) => {
-        const enhancedTweet = enhanceTweetData(tweet);
-        if (!enhancedTweet) return null;
+      // Ensure all tweets have the correct replies_count by fetching fresh data from database
+      const updatedTweets = await Promise.all(preprocessedTweets.map(async (tweet) => {
+        try {
+          // Apply the enhanceTweetData function to fix common issues
+          const enhancedTweet = enhanceTweetData(tweet);
+          if (!enhancedTweet) return null;
+          
+          // Get the accurate comment count for each tweet
+          const { count, error } = await supabase
+            .from('comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('tweet_id', enhancedTweet.id);
+          
+          // Update the tweet's replies_count with the accurate count
+          const commentCount = typeof count === 'number' ? count : 0;
+          
+          // Update the database to ensure consistency
+          await supabase
+            .from('tweets')
+            .update({ replies_count: commentCount })
+            .eq('id', enhancedTweet.id);
+          
+          // Return the tweet with updated replies_count
+          return {
+            ...enhancedTweet,
+            replies_count: commentCount
+          };
+        } catch (err) {
+          console.error(`Error updating count for tweet ${tweet.id}:`, err);
+          return enhanceTweetData(tweet); // Still return enhanced tweet even if count update fails
+        }
+      }));
+      
+      // Filter out any nulls that might have resulted from processing
+      const validPreTweets = updatedTweets.filter((tweet): tweet is TweetWithAuthor => 
+        tweet !== null
+      );
+      
+      // Now apply our strict validation function
+      const validTweets = validPreTweets.filter(tweet => {
+        if (!isValidTweet(tweet)) {
+          const tweetId = getSafeTweetId(tweet);
+          console.error('Filtered out invalid tweet:', tweetId);
+          return false;
+        }
         
-        if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+        // Special validation for retweets
+        if (tweet.is_retweet) {
+          if (!isValidRetweet(tweet)) {
+            const tweetId = getSafeTweetId(tweet);
+            console.error('Filtered out invalid retweet with null original_tweet_id:', tweetId);
+            console.log('Invalid retweet details:', JSON.stringify(tweet, null, 2));
+            return false;
+          }
+        }
+        return true;
+      });
+      
+      const processedTweets = await Promise.all(validTweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
           try {
-            // Use cached data if available
-            const cachedOriginalTweet = queryClient.getQueryData(['tweet', enhancedTweet.original_tweet_id]);
-            if (cachedOriginalTweet && 
-                typeof cachedOriginalTweet === 'object' && 
-                'content' in cachedOriginalTweet && 
-                'image_url' in cachedOriginalTweet && 
-                'author' in cachedOriginalTweet) {
-              const typedCachedTweet = cachedOriginalTweet as TweetWithAuthor;
-              return {
-                ...enhancedTweet,
-                content: typedCachedTweet.content,
-                image_url: typedCachedTweet.image_url,
-                original_author: typedCachedTweet.author
-              };
-            }
-            
             const { data: originalTweetData, error: originalTweetError } = await supabase
-              .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
             
             if (originalTweetError) {
               console.error('Error fetching original tweet:', originalTweetError);
-              return enhancedTweet;
+              // Still return the tweet with placeholder data rather than dropping it
+              return tweet;
             }
             
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
               
-              // Cache the original tweet data
-              queryClient.setQueryData(['tweet', enhancedTweet.original_tweet_id], originalTweet);
-              
               return {
-                ...enhancedTweet,
+                ...tweet,
                 content: originalTweet.content,
                 image_url: originalTweet.image_url,
                 original_author: {
@@ -146,148 +244,100 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             }
           } catch (err) {
             console.error('Error processing retweet:', err);
+            // Return the tweet anyway rather than filtering it out
+            return tweet;
           }
         }
         
-        // Use cached comment counts when possible
-        const cachedCount = queryClient.getQueryData(['tweet-comments-count', enhancedTweet.id]);
-        if (cachedCount !== undefined) {
-          return {
-            ...enhancedTweet,
-            replies_count: cachedCount
-          };
-        }
-        
-        try {
-          const { count } = await supabase
-            .from('comments')
-            .select('id', { count: 'exact', head: true })
-            .eq('tweet_id', enhancedTweet.id);
-          
-          // Cache the count for future use
-          queryClient.setQueryData(['tweet-comments-count', enhancedTweet.id], count);
-          
-          return {
-            ...enhancedTweet,
-            replies_count: typeof count === 'number' ? count : enhancedTweet.replies_count
-          };
-        } catch (err) {
-          return enhancedTweet;
-        }
+        return tweet;
       }));
       
-      // Filter out any nulls and validate all tweets
-      return processedTweets
+      // Final validation step to ensure all tweets are valid
+      const finalTweets = processedTweets
+        .filter((tweet): tweet is TweetWithAuthor => tweet !== null)
+        .filter(tweet => isValidTweet(tweet));
+      
+      // Log the final tweets with their comment counts for debugging
+      console.log('Final tweets with comment counts:', finalTweets.map(t => ({ id: t.id, replies: t.replies_count })));
+      
+      setTweets(finalTweets);
+    } catch (err) {
+      console.error('Failed to fetch tweets:', err);
+      setError('Failed to load tweets. Please try again later.');
+      
+      toast({
+        title: "Error",
+        description: "Failed to load tweets. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      const freshTweets = await getTweets(limit, 0);
+      
+      const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          try {
+            const { data: originalTweetData, error: originalTweetError } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+            
+            if (originalTweetError) {
+              console.error('Error fetching original tweet during refresh:', originalTweetError);
+              return tweet;
+            }
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              return {
+                ...tweet,
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                original_author: {
+                  id: originalTweet.author_id,
+                  username: originalTweet.username,
+                  display_name: originalTweet.display_name,
+                  avatar_url: originalTweet.avatar_url || '',
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain,
+                  replies_sort_order: originalTweet.replies_sort_order
+                }
+              };
+            }
+          } catch (err) {
+            console.error('Error refreshing retweet:', err);
+          }
+        }
+        
+        return tweet;
+      }));
+      
+      const validTweets = processedTweets
         .filter((tweet): tweet is TweetWithAuthor => 
           tweet !== null && isValidTweet(tweet)
         );
+      
+      setTweets(validTweets);
     } catch (err) {
-      console.error('Error processing tweets:', err);
-      return [];
-    }
-  };
-
-  // Optimized realtime subscriptions
-  useEffect(() => {
-    // Single channel for multiple events - more efficient
-    const channel = supabase
-      .channel('feed:realtime:combined')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tweets'
-      }, (payload) => {
-        // Only invalidate the whole cache on critical changes
-        if (payload.eventType === 'INSERT') {
-          queryClient.invalidateQueries({ queryKey: ['tweets'] });
-        } else if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
-          // For updates, just update the specific tweet in the cache
-          const tweetId = payload.new.id;
-          queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
-            if (!oldData) return oldData;
-            return oldData.map(tweet => tweet.id === tweetId ? { ...tweet, ...payload.new } : tweet);
-          });
-        }
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'comments'
-      }, (payload) => {
-        if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
-          const tweetId = payload.new.tweet_id as string;
-          
-          // Use optimistic updates for better UX
-          if (payload.eventType === 'INSERT') {
-            queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
-              if (!oldData) return oldData;
-              return oldData.map(tweet => {
-                if (tweet.id === tweetId) {
-                  return { ...tweet, replies_count: (tweet.replies_count || 0) + 1 };
-                }
-                return tweet;
-              });
-            });
-          }
-          
-          // Only update the database in the background
-          updateTweetCommentCount(tweetId).then(() => {
-            updateTweetCommentCountInUI(tweetId);
-          });
-        }
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient, queryKey]);
-
-  // Optimized comment count update
-  const updateTweetCommentCountInUI = async (tweetId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('tweets')
-        .select('replies_count')
-        .eq('id', tweetId)
-        .single();
-      
-      if (error) return;
-      
-      // Cache the count
-      queryClient.setQueryData(['tweet-comments-count', tweetId], data.replies_count);
-      
-      // Update tweet in cache
-      queryClient.setQueryData(queryKey, (oldData: TweetWithAuthor[] | undefined) => {
-        if (!oldData) return oldData;
-        return oldData.map(tweet => 
-          tweet.id === tweetId 
-            ? { ...tweet, replies_count: data.replies_count } 
-            : tweet
-        );
+      console.error('Failed to refresh tweets:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh tweets.',
+        variant: 'destructive'
       });
-      
-      // Update selected tweet if needed
-      if (selectedTweet && selectedTweet.id === tweetId) {
-        setSelectedTweet(prevTweet => {
-          if (!prevTweet) return null;
-          return { ...prevTweet, replies_count: data.replies_count };
-        });
-      }
-    } catch (err) {
-      console.error('Failed to update tweet comment count in UI:', err);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  // More responsive refresh handling
-  const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
-
-  // More efficient click handling
   const handleTweetClick = (tweet: TweetWithAuthor) => {
-    // Pre-cache the tweet data for detail view
-    queryClient.setQueryData(['tweet', tweet.id], tweet);
     setSelectedTweet(tweet);
     setIsDetailOpen(true);
   };
@@ -296,56 +346,29 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     setIsDetailOpen(false);
     
     if (selectedTweet) {
-      updateTweetCommentCount(selectedTweet.id).then(() => {
-        refetch();
-      });
+      // Force update the tweet's comment count before closing the detail
+      updateTweetCommentCount(selectedTweet.id);
     }
     
-    // Delayed clearing for smoother transitions
-    setTimeout(() => setSelectedTweet(null), 300);
+    setSelectedTweet(null);
+    handleRefresh();
   };
 
   const handleCommentAdded = (tweetId: string) => {
-    // Optimistic update for faster UI
-    queryClient.setQueryData(queryKey, (oldData: any) => {
-      if (!oldData) return oldData;
-      
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page: TweetWithAuthor[]) => 
-          page.map(tweet => {
-            if (tweet.id === tweetId) {
-              return { ...tweet, replies_count: (tweet.replies_count || 0) + 1 };
-            }
-            return tweet;
-          })
-        )
-      };
-    });
-    
-    // Update in background
-    updateTweetCommentCount(tweetId).then(() => {
-      refetch();
-    });
+    // Always update comment count in UI and database when a comment is added
+    updateTweetCommentCount(tweetId);
     
     if (onCommentAdded) {
       onCommentAdded();
     }
   };
 
-  // More efficient tweet deletion logic
   const handleTweetDeleted = (deletedTweetId: string) => {
-    queryClient.setQueryData(queryKey, (oldData: any) => {
-      if (!oldData) return { pages: [], pageParams: [] };
-      
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page: TweetWithAuthor[]) => 
-          page.filter(tweet => tweet.id !== deletedTweetId && 
-            !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId))
-        )
-      };
-    });
+    setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
+    
+    setTweets(prevTweets => prevTweets.filter(tweet => 
+      !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId)
+    ));
     
     if (selectedTweet && selectedTweet.id === deletedTweetId) {
       setIsDetailOpen(false);
@@ -358,23 +381,13 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     });
   };
 
-  // Optimized retweet removal
   const handleRetweetRemoved = (originalTweetId: string) => {
     if (user) {
-      queryClient.setQueryData(queryKey, (oldData: any) => {
-        if (!oldData) return { pages: [], pageParams: [] };
-        
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: TweetWithAuthor[]) => 
-            page.filter(tweet => 
-              !(tweet.is_retweet && 
-                tweet.original_tweet_id === originalTweetId && 
-                tweet.author_id === user.id)
-            )
-          )
-        };
-      });
+      setTweets(prevTweets => prevTweets.filter(tweet => 
+        !(tweet.is_retweet && 
+          tweet.original_tweet_id === originalTweetId && 
+          tweet.author_id === user.id)
+      ));
     }
   };
 
@@ -383,38 +396,21 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     setIsErrorDialogOpen(true);
   };
 
-  // Better loading state with skeleton UI
-  if (isLoading && tweets.length === 0) {
+  if (loading) {
     return (
-      <div className="space-y-4 animate-in fade-in-50 duration-300 ease-in-out">
-        {Array(5).fill(0).map((_, index) => (
-          <div key={index} className="p-4 border-b border-gray-800 bg-black">
-            <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-full bg-gray-800 animate-pulse" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-1/4 bg-gray-800 rounded animate-pulse" />
-                <div className="h-3 w-1/3 bg-gray-800 rounded animate-pulse" />
-                <div className="h-20 bg-gray-800 rounded animate-pulse mt-2" />
-                <div className="flex space-x-6 mt-2">
-                  <div className="h-4 w-10 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-4 w-10 bg-gray-800 rounded animate-pulse" />
-                  <div className="h-4 w-10 bg-gray-800 rounded animate-pulse" />
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
+        <span className="ml-2 text-gray-400">Loading tweets...</span>
       </div>
     );
   }
 
-  // Show error state with retry
-  if (error && tweets.length === 0) {
+  if (error) {
     return (
-      <div className="p-6 text-center animate-in fade-in-50 duration-300 ease-in-out">
-        <p className="text-red-500 mb-4">Failed to load tweets. Please try again later.</p>
+      <div className="p-6 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
         <button 
-          onClick={() => refetch()}
+          onClick={() => window.location.reload()}
           className="bg-crypto-blue text-white px-4 py-2 rounded-full hover:bg-crypto-blue/80"
         >
           Try Again
@@ -423,10 +419,9 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
     );
   }
 
-  // Empty state handling
   if (tweets.length === 0) {
     return (
-      <div className="p-6 text-center border-b border-gray-800 bg-black animate-in fade-in-50 duration-300 ease-in-out">
+      <div className="p-6 text-center border-b border-gray-800 bg-black">
         <p className="text-gray-400">No tweets yet. Be the first to post!</p>
       </div>
     );
@@ -434,7 +429,7 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
 
   return (
     <>
-      <div className="tweet-feed bg-black animate-in fade-in-50 duration-300 ease-in-out">
+      <div className="tweet-feed bg-black">
         {tweets.map((tweet) => (
           <TweetCard
             key={tweet.id}
@@ -446,21 +441,6 @@ const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
             onError={handleError}
           />
         ))}
-        
-        {/* Infinite scroll loading indicator */}
-        <div ref={loaderRef} className="p-4 flex justify-center">
-          {isFetchingNextPage ? (
-            <div className="crypto-loader">
-              <div></div>
-              <div></div>
-              <div></div>
-            </div>
-          ) : hasNextPage ? (
-            <div className="h-10" /> // Just a spacer to trigger the observer
-          ) : tweets.length > 10 ? (
-            <p className="text-gray-500 text-sm py-2">No more tweets to load</p>
-          ) : null}
-        </div>
       </div>
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
