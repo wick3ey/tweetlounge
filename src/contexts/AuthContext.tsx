@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 type AuthContextType = {
   user: any | null;
+  setUser: (user: any | null) => void; // Added this line to fix the error
   signUp: (email: string, password: string, metadata?: object) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
+    setUser, // Added this line to fix the error
     signUp,
     signInWithEmail,
     signOut,

@@ -37,6 +37,18 @@ type SearchResultTweet = {
   comments_count: number;
 };
 
+// Define the CryptoCurrency type to match what's returned from useCryptoData
+interface CryptoCurrency {
+  id: string;
+  name: string;
+  symbol: string;
+  price: number;
+  change: number;
+  marketCap: number;
+  volume: number;
+  image?: string; // Add this for the icon
+}
+
 const MobileSearch: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -282,7 +294,7 @@ const MobileSearch: React.FC = () => {
             >
               <div className="flex items-center">
                 <Avatar className="h-8 w-8 mr-2 bg-crypto-darkgray">
-                  <AvatarImage src={crypto.icon} alt={crypto.name} />
+                  <AvatarImage src={crypto.image} alt={crypto.name} />
                   <AvatarFallback className="bg-crypto-blue/10 text-crypto-blue text-xs">
                     {crypto.symbol.substring(0, 2)}
                   </AvatarFallback>

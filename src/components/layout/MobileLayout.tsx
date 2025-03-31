@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useMediaQuery } from '@/hooks/use-mobile';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -63,8 +62,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
             .from('notifications')
             .select('id')
             .eq('user_id', user.id)
-            .eq('read', false)
-            .count();
+            .eq('read', false);
             
           if (!notifError && notifData) {
             setNotificationCount(notifData.length);
@@ -75,8 +73,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
             .from('messages')
             .select('id')
             .eq('recipient_id', user.id)
-            .eq('read', false)
-            .count();
+            .eq('read', false);
             
           if (!msgError && msgData) {
             setMessagesCount(msgData.length);
