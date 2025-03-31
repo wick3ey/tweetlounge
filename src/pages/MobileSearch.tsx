@@ -46,7 +46,21 @@ interface CryptoCurrency {
   change: number;
   marketCap: number;
   volume: number;
-  image: string; // Change to required property instead of optional
+  image: string; // Required property for the crypto icon
+}
+
+interface TweetWithProfile {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles: {
+    username: string;
+    avatar_url: string;
+    display_name: string;
+  } | null;
+  likes_count: number;
+  comments_count: number;
 }
 
 const MobileSearch: React.FC = () => {
@@ -101,15 +115,15 @@ const MobileSearch: React.FC = () => {
       
       if (tweetError) throw tweetError;
       
-      // Format tweets data
-      const formattedTweets = tweetData.map(tweet => ({
+      // Format tweets data - explicitly type the data to avoid TypeScript errors
+      const formattedTweets: SearchResultTweet[] = (tweetData as TweetWithProfile[]).map(tweet => ({
         id: tweet.id,
         content: tweet.content,
         created_at: tweet.created_at,
         user_id: tweet.user_id,
-        username: tweet.profiles ? tweet.profiles.username || 'unknown' : 'unknown',
-        avatar_url: tweet.profiles ? tweet.profiles.avatar_url || '' : '',
-        display_name: tweet.profiles ? tweet.profiles.display_name || 'Unknown User' : 'Unknown User',
+        username: tweet.profiles ? tweet.profiles.username : 'unknown',
+        avatar_url: tweet.profiles ? tweet.profiles.avatar_url : '',
+        display_name: tweet.profiles ? tweet.profiles.display_name : 'Unknown User',
         likes_count: tweet.likes_count || 0,
         comments_count: tweet.comments_count || 0
       }));
@@ -284,7 +298,7 @@ const MobileSearch: React.FC = () => {
       <div className="mb-4">
         <h3 className="text-sm font-medium text-crypto-lightgray mb-3">Popular Cryptocurrencies</h3>
         <div className="space-y-2">
-          {cryptoData.slice(0, 5).map((crypto, index) => (
+          {cryptoData.slice(0, 5).map((crypto: CryptoCurrency, index) => (
             <motion.div
               key={index}
               className="flex items-center justify-between p-2.5 rounded-lg hover:bg-crypto-gray/10"
