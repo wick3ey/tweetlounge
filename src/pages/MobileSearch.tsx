@@ -49,6 +49,7 @@ interface CryptoCurrency {
   image: string; // Required property for the crypto icon
 }
 
+// Updated interface to match the structure returned from the database
 interface TweetWithProfile {
   id: string;
   content: string;
@@ -58,7 +59,7 @@ interface TweetWithProfile {
     username: string;
     avatar_url: string;
     display_name: string;
-  } | null;
+  };
   likes_count: number;
   comments_count: number;
 }
@@ -115,8 +116,8 @@ const MobileSearch: React.FC = () => {
       
       if (tweetError) throw tweetError;
       
-      // Format tweets data - explicitly type the data to avoid TypeScript errors
-      const formattedTweets: SearchResultTweet[] = (tweetData as TweetWithProfile[]).map(tweet => ({
+      // Format tweets data - explicitly type the data with any first, then map to correct type
+      const formattedTweets: SearchResultTweet[] = (tweetData as any[]).map(tweet => ({
         id: tweet.id,
         content: tweet.content,
         created_at: tweet.created_at,
