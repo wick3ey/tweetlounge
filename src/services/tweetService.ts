@@ -2,6 +2,14 @@ import { supabase } from '@/lib/supabase';
 import { Tweet, TweetWithAuthor, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
 import { createNotification, deleteNotification } from './notificationService';
+import { 
+  fetchTweetsWithCache, 
+  getTweetCacheKey, 
+  invalidateTweetCache,
+  updateTweetInCache,
+  CACHE_KEYS
+} from '@/utils/tweetCacheService';
+import { CACHE_DURATIONS } from '@/utils/cacheService';
 
 const tweetCache = new Map<string, TweetWithAuthor>();
 const CACHE_EXPIRY = 60000; // 1 minute cache expiry
@@ -53,6 +61,12 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       throw error;
     }
     
+    const homeFeedKey = getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 });
+    const userTweetsKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId: user.id, limit: 20, offset: 0 });
+    
+    invalidateTweetCache(homeFeedKey);
+    invalidateTweetCache(userTweetsKey);
+    
     return data as Tweet;
   } catch (error) {
     console.error('Tweet creation failed:', error);
@@ -61,134 +75,135 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
 }
 
 export async function getTweets(limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
-  const cacheKey = `tweets-${limit}-${offset}`;
+  const cacheKey = getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit, offset });
   
-  try {
-    console.time('getTweets');
-    
-    // Use direct RPC call for better performance
-    const { data, error } = await supabase
-      .rpc('get_tweets_with_authors_reliable', { 
-        limit_count: limit, 
-        offset_count: offset 
-      });
+  return fetchTweetsWithCache<TweetWithAuthor[]>(
+    cacheKey,
+    async () => {
+      console.time('getTweets');
       
-    if (error) {
-      console.error('Error fetching tweets:', error);
-      throw error;
-    }
-    
-    if (!data) return [];
-    
-    // Process tweets in parallel for better performance
-    const transformedData = await Promise.all((data as any[]).map(async (item) => {
-      // Basic initial transform
-      const tweet: TweetWithAuthor = {
-        id: item.id,
-        content: item.content,
-        author_id: item.author_id,
-        created_at: item.created_at,
-        likes_count: item.likes_count || 0,
-        retweets_count: item.retweets_count || 0,
-        replies_count: item.replies_count || 0,
-        is_retweet: item.is_retweet === true,
-        original_tweet_id: item.original_tweet_id,
-        image_url: item.image_url,
-        profile_username: item.profile_username || item.username,
-        profile_display_name: item.profile_display_name || item.display_name,
-        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
-        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: createPartialProfile({
-          id: item.author_id,
-          username: item.profile_username || item.username,
-          display_name: item.profile_display_name || item.display_name || item.username,
-          avatar_url: item.profile_avatar_url || item.avatar_url || '',
-          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        })
-      };
-      
-      // Enhance the tweet data
-      const enhancedTweet = enhanceTweetData(tweet);
-      if (!enhancedTweet) return null;
-      
-      // Process retweets if needed
-      if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
-        try {
-          // Check cache first
-          const cachedOriginalTweet = tweetCache.get(enhancedTweet.original_tweet_id);
-          
-          if (cachedOriginalTweet) {
-            return {
-              ...enhancedTweet,
-              content: cachedOriginalTweet.content,
-              image_url: cachedOriginalTweet.image_url,
-              original_author: createPartialProfile({
-                id: cachedOriginalTweet.author.id,
-                username: cachedOriginalTweet.author.username,
-                display_name: cachedOriginalTweet.author.display_name,
-                avatar_url: cachedOriginalTweet.author.avatar_url,
-                avatar_nft_id: cachedOriginalTweet.author.avatar_nft_id,
-                avatar_nft_chain: cachedOriginalTweet.author.avatar_nft_chain
-              })
-            };
-          }
-          
-          // If not in cache, fetch from database
-          const { data: originalTweetData, error: originalTweetError } = await supabase
-            .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
-          
-          if (originalTweetError) {
-            console.error('Error fetching original tweet:', originalTweetError);
-            return { ...enhancedTweet, is_retweet: false };
-          }
-          
-          if (originalTweetData && originalTweetData.length > 0) {
-            const originalTweet = originalTweetData[0];
-            
-            // Create processed tweet
-            const processedTweet = {
-              ...enhancedTweet,
-              content: originalTweet.content,
-              image_url: originalTweet.image_url,
-              original_author: createPartialProfile({
-                id: originalTweet.author_id,
-                username: originalTweet.username || 'user',
-                display_name: originalTweet.display_name || originalTweet.username || 'User',
-                avatar_url: originalTweet.avatar_url || '',
-                avatar_nft_id: originalTweet.avatar_nft_id,
-                avatar_nft_chain: originalTweet.avatar_nft_chain
-              })
-            };
-            
-            // Cache the original tweet for future retweets
-            tweetCache.set(enhancedTweet.original_tweet_id, {
-              ...processedTweet,
-              cacheTimestamp: Date.now()
-            });
-            
-            return processedTweet;
-          } else {
-            return { ...enhancedTweet, is_retweet: false };
-          }
-        } catch (err) {
-          console.error('Error fetching original tweet:', err);
-          return { ...enhancedTweet, is_retweet: false };
-        }
+      // Use direct RPC call for better performance
+      const { data, error } = await supabase
+        .rpc('get_tweets_with_authors_reliable', { 
+          limit_count: limit, 
+          offset_count: offset 
+        });
+        
+      if (error) {
+        console.error('Error fetching tweets:', error);
+        throw error;
       }
       
-      return enhancedTweet;
-    }));
-    
-    console.timeEnd('getTweets');
-    
-    // Filter out nulls and enhance tweets
-    return transformedData.filter((tweet): tweet is TweetWithAuthor => tweet !== null);
-  } catch (error) {
-    console.error('Failed to fetch tweets:', error);
-    return [];
-  }
+      if (!data) return [];
+      
+      // Process tweets in parallel for better performance
+      const transformedData = await Promise.all((data as any[]).map(async (item) => {
+        // Basic initial transform
+        const tweet: TweetWithAuthor = {
+          id: item.id,
+          content: item.content,
+          author_id: item.author_id,
+          created_at: item.created_at,
+          likes_count: item.likes_count || 0,
+          retweets_count: item.retweets_count || 0,
+          replies_count: item.replies_count || 0,
+          is_retweet: item.is_retweet === true,
+          original_tweet_id: item.original_tweet_id,
+          image_url: item.image_url,
+          profile_username: item.profile_username || item.username,
+          profile_display_name: item.profile_display_name || item.display_name,
+          profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+          profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+          author: createPartialProfile({
+            id: item.author_id,
+            username: item.profile_username || item.username,
+            display_name: item.profile_display_name || item.display_name || item.username,
+            avatar_url: item.profile_avatar_url || item.avatar_url || '',
+            avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+            avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+          })
+        };
+        
+        // Enhance the tweet data
+        const enhancedTweet = enhanceTweetData(tweet);
+        if (!enhancedTweet) return null;
+        
+        // Process retweets if needed
+        if (enhancedTweet.is_retweet && enhancedTweet.original_tweet_id) {
+          try {
+            // Check cache first
+            const cachedOriginalTweet = tweetCache.get(enhancedTweet.original_tweet_id);
+            
+            if (cachedOriginalTweet) {
+              return {
+                ...enhancedTweet,
+                content: cachedOriginalTweet.content,
+                image_url: cachedOriginalTweet.image_url,
+                original_author: createPartialProfile({
+                  id: cachedOriginalTweet.author.id,
+                  username: cachedOriginalTweet.author.username,
+                  display_name: cachedOriginalTweet.author.display_name,
+                  avatar_url: cachedOriginalTweet.author.avatar_url,
+                  avatar_nft_id: cachedOriginalTweet.author.avatar_nft_id,
+                  avatar_nft_chain: cachedOriginalTweet.author.avatar_nft_chain
+                })
+              };
+            }
+            
+            // If not in cache, fetch from database
+            const { data: originalTweetData, error: originalTweetError } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: enhancedTweet.original_tweet_id });
+            
+            if (originalTweetError) {
+              console.error('Error fetching original tweet:', originalTweetError);
+              return { ...enhancedTweet, is_retweet: false };
+            }
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              // Create processed tweet
+              const processedTweet = {
+                ...enhancedTweet,
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                original_author: createPartialProfile({
+                  id: originalTweet.author_id,
+                  username: originalTweet.username || 'user',
+                  display_name: originalTweet.display_name || originalTweet.username || 'User',
+                  avatar_url: originalTweet.avatar_url || '',
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain
+                })
+              };
+              
+              // Cache the original tweet for future retweets
+              tweetCache.set(enhancedTweet.original_tweet_id, {
+                ...processedTweet,
+                cacheTimestamp: Date.now()
+              });
+              
+              return processedTweet;
+            } else {
+              return { ...enhancedTweet, is_retweet: false };
+            }
+          } catch (err) {
+            console.error('Error fetching original tweet:', err);
+            return { ...enhancedTweet, is_retweet: false };
+          }
+        }
+        
+        return enhancedTweet;
+      }));
+      
+      console.timeEnd('getTweets');
+      
+      // Filter out nulls and enhance tweets
+      return transformedData.filter((tweet): tweet is TweetWithAuthor => tweet !== null);
+    },
+    CACHE_DURATIONS.MEDIUM
+  );
 }
 
 setInterval(() => {
@@ -201,54 +216,57 @@ setInterval(() => {
 }, 60000); // Run every minute
 
 export async function getUserTweets(userId: string, limit = 20, offset = 0): Promise<TweetWithAuthor[]> {
-  try {
-    const { data, error } = await supabase
-      .rpc('get_user_tweets_reliable', { 
-        user_id: userId,
-        limit_count: limit, 
-        offset_count: offset 
+  const cacheKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId, limit, offset });
+  
+  return fetchTweetsWithCache<TweetWithAuthor[]>(
+    cacheKey,
+    async () => {
+      const { data, error } = await supabase
+        .rpc('get_user_tweets_reliable', { 
+          user_id: userId,
+          limit_count: limit, 
+          offset_count: offset 
+        });
+        
+      if (error) {
+        console.error('Error fetching user tweets:', error);
+        throw error;
+      }
+      
+      if (!data) return [];
+      
+      const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
+        return {
+          id: item.id,
+          content: item.content,
+          author_id: item.author_id,
+          created_at: item.created_at,
+          likes_count: item.likes_count,
+          retweets_count: item.retweets_count,
+          replies_count: item.replies_count,
+          is_retweet: item.is_retweet,
+          original_tweet_id: item.original_tweet_id,
+          image_url: item.image_url,
+          profile_username: item.profile_username || item.username,
+          profile_display_name: item.profile_display_name || item.display_name,
+          profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+          profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+          profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+          author: createPartialProfile({
+            id: item.author_id,
+            username: item.profile_username || item.username,
+            display_name: item.profile_display_name || item.display_name,
+            avatar_url: item.profile_avatar_url || item.avatar_url || '',
+            avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+            avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+          })
+        };
       });
       
-    if (error) {
-      console.error('Error fetching user tweets:', error);
-      throw error;
-    }
-    
-    if (!data) return [];
-    
-    const transformedData: TweetWithAuthor[] = (data as any[]).map((item: any) => {
-      return {
-        id: item.id,
-        content: item.content,
-        author_id: item.author_id,
-        created_at: item.created_at,
-        likes_count: item.likes_count,
-        retweets_count: item.retweets_count,
-        replies_count: item.replies_count,
-        is_retweet: item.is_retweet,
-        original_tweet_id: item.original_tweet_id,
-        image_url: item.image_url,
-        profile_username: item.profile_username || item.username,
-        profile_display_name: item.profile_display_name || item.display_name,
-        profile_avatar_url: item.profile_avatar_url || item.avatar_url,
-        profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-        profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
-        author: createPartialProfile({
-          id: item.author_id,
-          username: item.profile_username || item.username,
-          display_name: item.profile_display_name || item.display_name,
-          avatar_url: item.profile_avatar_url || item.avatar_url || '',
-          avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
-          avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
-        })
-      };
-    });
-    
-    return transformedData;
-  } catch (error) {
-    console.error('Failed to fetch user tweets:', error);
-    return [];
-  }
+      return transformedData;
+    },
+    CACHE_DURATIONS.MEDIUM
+  );
 }
 
 export async function likeTweet(tweetId: string): Promise<boolean> {
@@ -811,6 +829,8 @@ export async function deleteTweet(tweetId: string): Promise<boolean> {
       console.error('Error deleting tweet:', deleteError);
       throw deleteError;
     }
+    
+    await invalidateTweetCache(tweetId);
     
     return true;
   } catch (error) {

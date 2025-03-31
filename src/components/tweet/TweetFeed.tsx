@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
 import { updateTweetCommentCount } from '@/services/commentService';
+import { getFromLocalStorage, setInLocalStorage } from '@/utils/tweetCacheService';
 
 interface TweetFeedProps {
   userId?: string;
@@ -19,6 +20,7 @@ interface TweetFeedProps {
 }
 
 const TWEETS_PER_PAGE = 10;
+const LOCAL_STATE_KEY = 'tweet-feed-state';
 
 const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
@@ -32,6 +34,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [errorDetails, setErrorDetails] = useState({title: '', description: ''});
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -39,6 +42,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   const isMounted = useRef(true);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const debounceTimeRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const observer = useRef<IntersectionObserver | null>(null);
   const lastTweetElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -56,8 +60,37 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
   }, [loading, loadingMore, hasMore]);
 
   useEffect(() => {
+    const savedState = getFromLocalStorage<{
+      tweets: TweetWithAuthor[],
+      page: number,
+      hasMore: boolean
+    }>(LOCAL_STATE_KEY);
+    
+    if (savedState && savedState.tweets.length > 0) {
+      setTweets(savedState.tweets);
+      setPage(savedState.page);
+      setHasMore(savedState.hasMore);
+      setLoading(false);
+      setInitialLoadComplete(true);
+      
+      refreshTimeoutRef.current = setTimeout(() => fetchTweets(false), 200);
+    } else {
+      fetchTweets(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialLoadComplete && tweets.length > 0) {
+      setInLocalStorage(LOCAL_STATE_KEY, {
+        tweets,
+        page,
+        hasMore
+      });
+    }
+  }, [tweets, page, hasMore, initialLoadComplete]);
+
+  useEffect(() => {
     isMounted.current = true;
-    fetchTweets(true);
     
     const tweetsChannel = supabase
       .channel('public:tweets')
@@ -74,14 +107,14 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
           }
           debounceTimeRef.current = setTimeout(() => {
             fetchNewTweets();
-          }, 2000);
+          }, 1000);
         } else {
           if (debounceTimeRef.current) {
             clearTimeout(debounceTimeRef.current);
           }
           debounceTimeRef.current = setTimeout(() => {
             refreshCurrentTweets();
-          }, 2000);
+          }, 1000);
         }
       })
       .subscribe();
@@ -103,7 +136,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
             updateTweetCommentCount(commentedTweetId).then(() => {
               updateTweetCommentCountInUI(commentedTweetId);
             });
-          }, 2000);
+          }, 1000);
         }
       })
       .subscribe();
@@ -112,6 +145,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       isMounted.current = false;
       supabase.removeChannel(tweetsChannel);
       supabase.removeChannel(commentsChannel);
+      
       if (observer.current) observer.current.disconnect();
       
       if (fetchTimeoutRef.current) {
@@ -119,6 +153,9 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       }
       if (debounceTimeRef.current) {
         clearTimeout(debounceTimeRef.current);
+      }
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
       }
     };
   }, [userId]);
@@ -308,34 +345,35 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         setPage(0);
       }
       
-      const { data, error } = await supabase
-        .rpc('get_tweets_with_authors_reliable', { 
-          limit_count: TWEETS_PER_PAGE, 
-          offset_count: 0 
-        });
+      if (!showLoading && tweets.length > 0) {
+        const freshTweets = await getTweets(TWEETS_PER_PAGE, 0);
         
-      if (error) throw error;
-      
-      if (!isMounted.current) return;
-      
-      if (!data || data.length === 0) {
-        setTweets([]);
-        setHasMore(false);
-        return;
-      }
-      
-      const transformedTweets = (data as any[])
-        .map(transformTweetData)
-        .filter((tweet): tweet is TweetWithAuthor => tweet !== null);
-      
-      if (isMounted.current) {
-        setTweets(transformedTweets);
-        setHasMore(transformedTweets.length === TWEETS_PER_PAGE);
+        if (!isMounted.current) return;
+        
+        if (freshTweets.length > 0) {
+          setTweets(freshTweets);
+          setHasMore(freshTweets.length === TWEETS_PER_PAGE);
+          setInitialLoadComplete(true);
+        }
+      } else {
+        const freshTweets = await getTweets(TWEETS_PER_PAGE, 0);
+        
+        if (!isMounted.current) return;
+        
+        if (freshTweets.length === 0) {
+          setTweets([]);
+          setHasMore(false);
+        } else {
+          setTweets(freshTweets);
+          setHasMore(freshTweets.length === TWEETS_PER_PAGE);
+        }
+        
+        setInitialLoadComplete(true);
       }
       
       fetchTimeoutRef.current = setTimeout(() => {
         prefetchNextBatch();
-      }, 2000);
+      }, 1000);
       
     } catch (err) {
       console.error('Failed to fetch tweets:', err);
@@ -435,7 +473,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     setIsErrorDialogOpen(true);
   };
 
-  if (loading) {
+  if (loading && tweets.length === 0) {
     return (
       <div className="flex justify-center items-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
