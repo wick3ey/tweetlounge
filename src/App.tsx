@@ -70,38 +70,40 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/home" replace />} />
-                  <Route path="/home" element={<Home />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/notifications" element={
-                    <ProtectedRoute>
-                      <Notifications />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/bookmarks" element={
-                    <ProtectedRoute>
-                      <Bookmarks />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/market" element={<Market />} />
-                  <Route path="/tweet/:tweetId" element={<TweetPage />} />
-                  <Route path="/hashtag/:name" element={<HashtagPage />} />
-                  <Route path="/profile" element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/profile/:username" element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
+              <div className="bg-black min-h-screen">
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/home" replace />} />
+                    <Route path="/home" element={<Home />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/notifications" element={
+                      <ProtectedRoute>
+                        <Notifications />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/bookmarks" element={
+                      <ProtectedRoute>
+                        <Bookmarks />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/market" element={<Market />} />
+                    <Route path="/tweet/:tweetId" element={<TweetPage />} />
+                    <Route path="/hashtag/:name" element={<HashtagPage />} />
+                    <Route path="/profile" element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/profile/:username" element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </div>
             </TooltipProvider>
           </ProfileProvider>
         </AuthProvider>

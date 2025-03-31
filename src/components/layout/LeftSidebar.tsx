@@ -58,9 +58,9 @@ const LeftSidebar = () => {
   };
   
   return (
-    <div className="hidden md:flex flex-col h-screen sticky top-0 w-72 py-4 bg-gradient-to-b from-black to-gray-900 border-r border-gray-800">
+    <aside className="hidden md:flex flex-col h-screen sticky top-0 min-w-[275px] max-w-[275px] py-4 bg-black border-r border-gray-800">
       {/* Logo */}
-      <div className="px-6 mb-6">
+      <div className="px-4 mb-6">
         <Link to="/home" className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
             <Zap className="h-6 w-6 text-white" />
@@ -70,7 +70,7 @@ const LeftSidebar = () => {
       </div>
       
       {/* Navigation Menu */}
-      <nav className="flex-1 px-3">
+      <nav className="flex-1 px-2">
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const active = isActive(item.path);
@@ -79,32 +79,24 @@ const LeftSidebar = () => {
                 <Link
                   to={item.path}
                   className={cn(
-                    "flex items-center gap-4 px-4 py-3 rounded-xl font-medium transition-all",
+                    "flex items-center gap-3 px-4 py-3 rounded-full font-medium transition-all",
                     active 
-                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white" 
-                      : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+                      ? "bg-gray-900 text-white" 
+                      : "text-gray-300 hover:bg-gray-800/50 hover:text-white"
                   )}
                 >
                   <div className={cn(
                     "relative flex items-center justify-center",
-                    active ? "text-blue-400" : ""
+                    active ? "text-white" : ""
                   )}>
                     <item.icon className="h-5 w-5" />
-                    {active && (
-                      <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 bg-gradient-to-b from-blue-400 to-purple-500 rounded-r-full" />
-                    )}
-                    {item.badge && !active && (
-                      <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {item.badge && (
+                      <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                         {item.badge > 99 ? '99+' : item.badge}
                       </div>
                     )}
                   </div>
-                  <span className="text-sm">{item.label}</span>
-                  {item.badge && active && (
-                    <div className="ml-auto bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </div>
-                  )}
+                  <span className="text-base">{item.label}</span>
                 </Link>
               </li>
             );
@@ -113,11 +105,10 @@ const LeftSidebar = () => {
       </nav>
       
       {/* Tweet Button */}
-      <div className="px-6 mt-4 mb-6">
+      <div className="px-4 mt-4 mb-6">
         <Button 
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl h-12 font-bold shadow-md transition-all duration-300"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 font-bold shadow-md transition-all"
         >
-          <MessageSquare className="h-5 w-5 mr-2" />
           Tweet
         </Button>
       </div>
@@ -125,26 +116,24 @@ const LeftSidebar = () => {
       {/* User Profile */}
       {user && (
         <div className="px-4 mb-4">
-          <Card className="bg-gradient-to-r from-gray-900 to-gray-800 border-gray-700 hover:border-gray-600 transition-colors duration-300">
-            <div className="flex items-center p-3 rounded-lg">
-              <Avatar className="h-10 w-10 border-2 border-gray-700 shadow-inner">
-                {profile?.avatar_url ? (
-                  <AvatarImage src={profile.avatar_url} alt="Profile" />
-                ) : null}
-                <AvatarFallback className="bg-gradient-to-br from-blue-400/30 to-purple-500/30 text-white font-semibold">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="ml-3 overflow-hidden">
-                <p className="font-bold text-sm text-white leading-tight truncate">
-                  {profile?.display_name || user.email?.split('@')[0]}
-                </p>
-                <p className="text-gray-400 text-xs truncate">
-                  @{profile?.username || user.email?.split('@')[0]}
-                </p>
-              </div>
+          <div className="flex items-center p-3 rounded-full hover:bg-gray-800/50 transition-colors">
+            <Avatar className="h-10 w-10 border-2 border-transparent">
+              {profile?.avatar_url ? (
+                <AvatarImage src={profile.avatar_url} alt="Profile" />
+              ) : null}
+              <AvatarFallback className="bg-blue-500/90 text-white font-semibold">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="ml-3 overflow-hidden">
+              <p className="font-bold text-sm text-white leading-tight truncate">
+                {profile?.display_name || user.email?.split('@')[0]}
+              </p>
+              <p className="text-gray-400 text-xs truncate">
+                @{profile?.username || user.email?.split('@')[0]}
+              </p>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -163,7 +152,7 @@ const LeftSidebar = () => {
               <div className="relative">
                 <item.icon className="h-6 w-6" />
                 {item.badge && (
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
                     {item.badge > 9 ? '9+' : item.badge}
                   </div>
                 )}
@@ -173,7 +162,7 @@ const LeftSidebar = () => {
           ))}
         </div>
       </div>
-    </div>
+    </aside>
   );
 };
 

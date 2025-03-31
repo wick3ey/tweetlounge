@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
-import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
@@ -130,11 +130,11 @@ const Home: React.FC = () => {
         <CryptoTicker />
       </div>
       
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 w-full">
         <LeftSidebar />
         
-        <div className="flex-1 border-x border-gray-800 overflow-y-auto">
-          <main className="max-w-xl mx-auto">
+        <main className="flex-1 border-x border-gray-800 overflow-y-auto">
+          <div className="max-w-full">
             <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-sm pt-3 px-4 pb-2 border-b border-gray-800">
               <div className="flex gap-3 items-center">
                 <div className="rounded-lg bg-crypto-blue/10 p-1.5">
@@ -170,8 +170,8 @@ const Home: React.FC = () => {
                 onCommentAdded={handleRefresh} 
               />
             </div>
-          </main>
-        </div>
+          </div>
+        </main>
         
         <RightSidebar />
       </div>
