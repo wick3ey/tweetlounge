@@ -152,7 +152,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-black">
+    <div className="flex flex-col h-screen overflow-hidden bg-black">
       <Header />
       <div className="hidden sm:block">
         <CryptoTicker />
@@ -189,7 +189,7 @@ const Home: React.FC = () => {
             </div>
             
             {/* Tweet Feed with Tabs */}
-            <div>
+            <div className="min-h-0">
               <div className="border-b border-gray-800">
                 <TweetFeedTabs />
               </div>
