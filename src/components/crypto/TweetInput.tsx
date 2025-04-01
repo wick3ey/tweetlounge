@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -154,14 +155,53 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
         console.error('[TweetInput] Error broadcasting tweet creation event:', error);
       }
 
-      // Force clear any profile data cache for current user
+      // Aggressively clear ALL profile data caches for current user
       try {
+        // Clear all possible cache keys for profile posts
         localStorage.removeItem(`tweet-cache-profile-${user.id}-posts-limit:20-offset:0`);
+        localStorage.removeItem(`tweet-cache-profile-${user.id}-media-limit:20-offset:0`);
         localStorage.removeItem(`profile-cache-profile-${user.id}-posts-limit:20-offset:0`);
         localStorage.removeItem(`profile-cache-profile-${user.id}-posts`);
-        console.debug('[TweetInput] Cleared profile posts cache for current user');
+        
+        // Additional general cache keys that might be used
+        localStorage.removeItem(`profile-cache-posts-${user.id}`);
+        localStorage.removeItem(`profile-cache-media-${user.id}`);
+        
+        // Clear any memory caches that might exist by dispatching a clear event
+        const profileCacheClearEvent = new CustomEvent('profile-cache-clear', { 
+          detail: { userId: user.id }
+        });
+        window.dispatchEvent(profileCacheClearEvent);
+        
+        console.debug('[TweetInput] Cleared all profile caches for current user');
       } catch (e) {
         console.error('[TweetInput] Error clearing profile cache:', e);
+      }
+
+      // Send a special broadcast specifically for profile updates
+      try {
+        const profileUpdateChannel = supabase.channel('profile-update-channel');
+        
+        await profileUpdateChannel.subscribe((status) => {
+          console.debug(`[TweetInput] Profile update broadcast subscription status: ${status}`);
+        });
+        
+        await profileUpdateChannel.send({
+          type: 'broadcast',
+          event: 'profile-posts-updated',
+          payload: { 
+            userId: user.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+        
+        console.debug('[TweetInput] Profile update broadcast sent');
+        
+        setTimeout(() => {
+          supabase.removeChannel(profileUpdateChannel);
+        }, 1000);
+      } catch (error) {
+        console.error('[TweetInput] Error broadcasting profile update event:', error);
       }
     } catch (error) {
       console.error("[TweetInput] Error posting tweet:", error);

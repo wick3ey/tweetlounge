@@ -30,6 +30,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
   const [mediaTweets, setMediaTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(false);
   const [assetsPreloaded, setAssetsPreloaded] = useState(false);
+  const [forceRefreshKey, setForceRefreshKey] = useState(0);
   const { toast } = useToast();
   
   const processRetweetData = async (tweet: TweetWithAuthor): Promise<TweetWithAuthor | null> => {
@@ -97,6 +98,20 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
   
   const fetchTweets = useCallback(async (forceRefresh = false): Promise<TweetWithAuthor[]> => {
     try {
+      console.debug(`[ProfileTabs] Fetching tweets for user ${userId} with forceRefresh: ${forceRefresh}`);
+      
+      if (forceRefresh) {
+        try {
+          console.debug(`[ProfileTabs] Force clearing profile caches for user ${userId}`);
+          localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
+        } catch (e) {
+          console.error('[ProfileTabs] Error clearing profile cache:', e);
+        }
+      }
+      
       return await fetchProfileDataWithCache<TweetWithAuthor[]>(
         userId,
         'posts',
@@ -179,7 +194,6 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       }, (payload) => {
         console.debug(`[ProfileTabs] Detected change in tweets for user ${userId}, refreshing cache...`);
         
-        // Clear local storage cache immediately to ensure freshness
         try {
           localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
           localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
@@ -190,31 +204,29 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
           console.error('[ProfileTabs] Error clearing profile cache:', e);
         }
         
-        // Force immediate refresh for all tabs to ensure fresh data
-        const immediate = () => {
-          console.debug('[ProfileTabs] Force immediate refresh triggered');
+        setForceRefreshKey(prevKey => prevKey + 1);
+        
+        const refreshData = () => {
           if (activeTab === 'posts') fetchTweets(true).then(setTweets);
           if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
         };
         
-        // First do an immediate refresh
-        immediate();
+        refreshData();
         
-        // Then schedule another one after a short delay to catch any DB latency
-        setTimeout(immediate, 500);
+        setTimeout(refreshData, 300);
+        setTimeout(refreshData, 1000);
+        setTimeout(refreshData, 3000);
       })
       .subscribe();
       
     console.debug('[ProfileTabs] Tweets channel subscribed');
     
-    // Enhanced broadcast channel listener for immediate updates
     const broadcastChannel = supabase
       .channel('custom-broadcast-profile')
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
         if (payload.payload && payload.payload.userId === userId) {
           console.debug(`[ProfileTabs] Received broadcast about new tweet from user ${userId}`);
           
-          // Clear cache and refresh data - more aggressive clearing
           try {
             localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
             localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
@@ -225,17 +237,17 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
             console.error('[ProfileTabs] Error clearing profile cache:', e);
           }
           
-          // Force immediate refresh to ensure fresh data
-          const forceRefresh = () => {
+          setForceRefreshKey(prevKey => prevKey + 1);
+          
+          const refreshWithForce = () => {
             if (activeTab === 'posts') fetchTweets(true).then(setTweets);
             if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
           };
           
-          // Do immediate refresh
-          forceRefresh();
-          
-          // Then do another refresh after a short delay to catch any DB latency
-          setTimeout(forceRefresh, 300);
+          refreshWithForce();
+          setTimeout(refreshWithForce, 300);
+          setTimeout(refreshWithForce, 1000);
+          setTimeout(refreshWithForce, 2000);
         }
       })
       .subscribe();
@@ -267,17 +279,18 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         
         if (activeTab === 'posts') {
           console.time('fetchProfileTweets');
-          const tweets = await fetchTweets();
+          console.debug(`[ProfileTabs] Fetching profile tweets with force refresh key: ${forceRefreshKey}`);
+          const tweets = await fetchTweets(forceRefreshKey > 0);
           setTweets(tweets);
           console.timeEnd('fetchProfileTweets');
         } else if (activeTab === 'replies') {
           console.time('fetchProfileReplies');
-          const replies = await fetchReplies();
+          const replies = await fetchReplies(forceRefreshKey > 0);
           setReplies(replies);
           console.timeEnd('fetchProfileReplies');
         } else if (activeTab === 'media') {
           console.time('fetchProfileMedia');
-          const mediaTweets = await fetchMediaTweets();
+          const mediaTweets = await fetchMediaTweets(forceRefreshKey > 0);
           setMediaTweets(mediaTweets);
           console.timeEnd('fetchProfileMedia');
         } else if (activeTab === 'assets' && !assetsPreloaded && solanaAddress) {
@@ -302,7 +315,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
     };
     
     fetchProfileData();
-  }, [userId, activeTab, toast, fetchTweets, fetchReplies, fetchMediaTweets, solanaAddress, assetsPreloaded]);
+  }, [userId, activeTab, toast, fetchTweets, fetchReplies, fetchMediaTweets, solanaAddress, assetsPreloaded, forceRefreshKey]);
   
   const handleRefresh = async () => {
     try {
