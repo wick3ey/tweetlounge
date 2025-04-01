@@ -531,18 +531,28 @@ export const likeTweet = async (tweetId: string, unlike = false): Promise<boolea
     // Update likes count using a direct SQL query
     const countDirection = unlike ? -1 : 1;
     
-    // Use a direct update approach that works with the supabase client
-    const { error: updateError } = await supabase
+    // First get the current count
+    const { data: tweetData, error: getError } = await supabase
       .from('tweets')
-      .update({ 
-        likes_count: countDirection > 0 
-          ? supabase.rpc('increment_counter', { row_id: tweetId }) 
-          : supabase.rpc('decrement_counter', { row_id: tweetId })
-      })
-      .eq('id', tweetId);
+      .select('likes_count')
+      .eq('id', tweetId)
+      .single();
     
-    if (updateError) {
-      console.error('[likeTweet] Error updating likes count:', updateError.message);
+    if (getError) {
+      console.error('[likeTweet] Error getting tweet data:', getError.message);
+    } else {
+      // Then update with the new value
+      const currentCount = tweetData?.likes_count || 0;
+      const newCount = Math.max(0, currentCount + countDirection);
+      
+      const { error: updateError } = await supabase
+        .from('tweets')
+        .update({ likes_count: newCount })
+        .eq('id', tweetId);
+      
+      if (updateError) {
+        console.error('[likeTweet] Error updating likes count:', updateError.message);
+      }
     }
     
     await invalidateTweetCache(tweetId);
@@ -631,18 +641,28 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
     // Update retweets count
     const countDirection = undo ? -1 : 1;
     
-    // Use direct RPC functions instead of SQL
-    const { error: updateError } = await supabase
+    // First get the current count
+    const { data: tweetData, error: getError } = await supabase
       .from('tweets')
-      .update({
-        retweets_count: countDirection > 0 
-          ? supabase.rpc('increment_counter', { row_id: tweetId }) 
-          : supabase.rpc('decrement_counter', { row_id: tweetId })
-      })
-      .eq('id', tweetId);
+      .select('retweets_count')
+      .eq('id', tweetId)
+      .single();
     
-    if (updateError) {
-      console.error('[retweet] Error updating retweets count:', updateError.message);
+    if (getError) {
+      console.error('[retweet] Error getting tweet data:', getError.message);
+    } else {
+      // Then update with the new value
+      const currentCount = tweetData?.retweets_count || 0;
+      const newCount = Math.max(0, currentCount + countDirection);
+      
+      const { error: updateError } = await supabase
+        .from('tweets')
+        .update({ retweets_count: newCount })
+        .eq('id', tweetId);
+      
+      if (updateError) {
+        console.error('[retweet] Error updating retweets count:', updateError.message);
+      }
     }
     
     await invalidateTweetCache(tweetId);
