@@ -124,21 +124,23 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
       }
 
       // Force immediate refresh of both home feed and profile feed caches
-      console.debug('[TweetInput] Manually invalidating cache to ensure tweet appears immediately');
       try {
         // Manually trigger a realtime event to ensure other clients get notified
+        console.debug('[TweetInput] Broadcasting tweet creation event');
         const realtime = supabase
           .channel('custom-all-channel')
           .on('broadcast', { event: 'tweet-created' }, () => {
-            console.debug('[TweetInput] Broadcast message sent for new tweet');
+            console.debug('[TweetInput] Broadcast event listener set up');
           })
           .subscribe();
           
-        realtime.send({
+        await realtime.send({
           type: 'broadcast',
           event: 'tweet-created',
-          payload: { id: result.id }
+          payload: { id: result.id, timestamp: new Date().toISOString() }
         });
+        
+        console.debug('[TweetInput] Broadcast message sent successfully');
         
         setTimeout(() => {
           supabase.removeChannel(realtime);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ZapIcon, Bookmark, RefreshCw, BarChart3, TrendingUp, Clock, ArrowUpRight } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
@@ -54,7 +53,7 @@ const MobileHome: React.FC = () => {
           handleRefresh();
           pendingRefreshes = 0;
         }
-      }, 1000); // Reduced from 2000ms for more responsiveness
+      }, 300);
     };
 
     const commentsChannel = supabase
@@ -84,7 +83,6 @@ const MobileHome: React.FC = () => {
       }, (payload) => {
         console.log('[MobileHome] Detected tweet change:', payload.eventType);
         
-        // For INSERT events, refresh immediately without debounce
         if (payload.eventType === 'INSERT') {
           console.log('[MobileHome] New tweet detected, refreshing immediately');
           handleRefresh();
@@ -94,7 +92,6 @@ const MobileHome: React.FC = () => {
       })
       .subscribe();
     
-    // Listen for custom broadcast events
     const broadcastChannel = supabase
       .channel('custom-all-channel')
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
@@ -138,12 +135,10 @@ const MobileHome: React.FC = () => {
         throw new Error("Failed to create tweet");
       }
       
-      // Update feed immediately
       if (isMounted.current) {
         console.log('[MobileHome] Updating feed immediately after tweet creation');
         setFeedKey(prevKey => prevKey + 1);
         
-        // Try to broadcast the change for other clients
         try {
           const realtime = supabase
             .channel('custom-all-channel')
@@ -152,10 +147,10 @@ const MobileHome: React.FC = () => {
             })
             .subscribe();
             
-          realtime.send({
+          await realtime.send({
             type: 'broadcast',
             event: 'tweet-created',
-            payload: { id: result.id }
+            payload: { id: result.id, timestamp: new Date().toISOString() }
           });
           
           setTimeout(() => {
@@ -211,7 +206,6 @@ const MobileHome: React.FC = () => {
   return (
     <MobileLayout title="Home" showHeader={true} showBottomNav={true}>
       <div className="flex flex-col min-h-full">
-        {/* New Tabs for Market Content */}
         <Tabs defaultValue="trending" className="w-full" onValueChange={setActiveTab}>
           <div className="sticky top-0 z-20 bg-crypto-black/90 backdrop-blur-sm border-b border-crypto-gray/30">
             <TabsList className="grid grid-cols-3 p-1 m-2 bg-crypto-darkgray/80">

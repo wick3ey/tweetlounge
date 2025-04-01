@@ -45,7 +45,7 @@ const Home: React.FC = () => {
           handleRefresh();
           pendingRefreshes = 0;
         }
-      }, 1000); // Wait 1 second before refreshing for better performance (reduced from 2s)
+      }, 300); // Reduced to 300ms for more immediate response
     };
 
     // Listen for realtime comment updates to refresh the feed
@@ -76,7 +76,7 @@ const Home: React.FC = () => {
     
     console.debug('[Home] Comments channel subscribed');
     
-    // Also listen for changes to the tweets table with same debounce mechanism
+    // Also listen for changes to the tweets table with immediate refresh for new tweets
     const tweetsChannel = supabase
       .channel('public:tweets:home')
       .on('postgres_changes', {
@@ -85,7 +85,7 @@ const Home: React.FC = () => {
         table: 'tweets'
       }, (payload) => {
         console.debug('[Home] Detected tweet change:', payload.eventType);
-        // For INSERT events, refresh immediately without debounce
+        // For INSERT events, refresh immediately
         if (payload.eventType === 'INSERT') {
           console.debug('[Home] New tweet detected, refreshing immediately');
           handleRefresh();
@@ -97,11 +97,12 @@ const Home: React.FC = () => {
       
     console.debug('[Home] Tweets channel subscribed');
     
-    // Listen for custom broadcast events
+    // Listen for custom broadcast events with immediate refresh
     const broadcastChannel = supabase
       .channel('custom-all-channel')
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
         console.debug('[Home] Received broadcast about new tweet:', payload);
+        // Force immediate refresh for new tweets
         handleRefresh();
       })
       .subscribe();
@@ -145,6 +146,7 @@ const Home: React.FC = () => {
 
   const handleTweetPosted = () => {
     console.debug('[Home] Tweet posted, triggering immediate feed refresh');
+    // Force an immediate refresh when a tweet is posted
     handleRefresh();
   };
 
