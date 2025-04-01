@@ -101,6 +101,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         userId,
         'posts',
         async () => {
+          console.debug(`[ProfileTabs] Fetching fresh tweets for user ${userId}`);
           const fetchedTweets = await getUserTweets(userId);
           return processTweets(fetchedTweets);
         },
@@ -109,7 +110,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         forceRefresh
       );
     } catch (err) {
-      console.error('Error fetching tweets:', err);
+      console.error('[ProfileTabs] Error fetching tweets:', err);
       return [];
     }
   }, [userId]);
@@ -175,10 +176,43 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         schema: 'public',
         table: 'tweets',
         filter: `author_id=eq.${userId}`
-      }, () => {
-        console.log(`Detected change in tweets for user ${userId}, refreshing cache...`);
+      }, (payload) => {
+        console.debug(`[ProfileTabs] Detected change in tweets for user ${userId}, refreshing cache...`);
+        
+        // Clear local storage cache immediately to ensure freshness
+        try {
+          localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+          console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
+        } catch (e) {
+          console.error('[ProfileTabs] Error clearing profile cache:', e);
+        }
+        
+        // Then fetch fresh data
         if (activeTab === 'posts') fetchTweets(true).then(setTweets);
         if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+      })
+      .subscribe();
+      
+    const broadcastChannel = supabase
+      .channel('custom-broadcast-profile')
+      .on('broadcast', { event: 'tweet-created' }, (payload) => {
+        if (payload.payload && payload.payload.userId === userId) {
+          console.debug(`[ProfileTabs] Received broadcast about new tweet from user ${userId}`);
+          
+          // Clear cache and refresh data
+          try {
+            localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+            localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+            console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
+          } catch (e) {
+            console.error('[ProfileTabs] Error clearing profile cache:', e);
+          }
+          
+          // Then fetch fresh data
+          if (activeTab === 'posts') fetchTweets(true).then(setTweets);
+          if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+        }
       })
       .subscribe();
       
@@ -197,6 +231,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       
     return () => {
       supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(broadcastChannel);
       supabase.removeChannel(commentsChannel);
     };
   }, [userId, activeTab, fetchTweets, fetchReplies, fetchMediaTweets]);

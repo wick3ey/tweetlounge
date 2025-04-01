@@ -117,36 +117,49 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
         description: "Your tweet has been shared with the world."
       });
 
-      // Trigger the callback to refresh the parent component's feed
+      // First, trigger immediate feed refresh to update UI
       if (onTweetPosted) {
         console.debug('[TweetInput] Calling onTweetPosted callback to refresh feed');
         onTweetPosted();
       }
 
-      // Force immediate refresh of both home feed and profile feed caches
+      // Force immediate broadcast to ensure other clients and components get notified
       try {
-        // Manually trigger a realtime event to ensure other clients get notified
         console.debug('[TweetInput] Broadcasting tweet creation event');
-        const realtime = supabase
-          .channel('custom-all-channel')
-          .on('broadcast', { event: 'tweet-created' }, () => {
-            console.debug('[TweetInput] Broadcast event listener set up');
-          })
-          .subscribe();
-          
-        await realtime.send({
+        const broadcastChannel = supabase.channel('custom-all-channel');
+        
+        // Subscribe first to ensure connection is established
+        await broadcastChannel.subscribe((status) => {
+          console.debug(`[TweetInput] Broadcast subscription status: ${status}`);
+        });
+        
+        // Then send the broadcast
+        await broadcastChannel.send({
           type: 'broadcast',
           event: 'tweet-created',
-          payload: { id: result.id, timestamp: new Date().toISOString() }
+          payload: { 
+            id: result.id, 
+            timestamp: new Date().toISOString(),
+            userId: user.id 
+          }
         });
         
         console.debug('[TweetInput] Broadcast message sent successfully');
         
+        // Remove channel after sending
         setTimeout(() => {
-          supabase.removeChannel(realtime);
+          supabase.removeChannel(broadcastChannel);
         }, 1000);
       } catch (error) {
         console.error('[TweetInput] Error broadcasting tweet creation event:', error);
+      }
+
+      // Force clear any profile data cache for current user
+      try {
+        localStorage.removeItem(`tweet-cache-profile-${user.id}-posts-limit:20-offset:0`);
+        console.debug('[TweetInput] Cleared profile posts cache for current user');
+      } catch (e) {
+        console.error('[TweetInput] Error clearing profile cache:', e);
       }
     } catch (error) {
       console.error("[TweetInput] Error posting tweet:", error);

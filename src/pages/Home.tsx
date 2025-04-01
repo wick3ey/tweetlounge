@@ -13,6 +13,10 @@ import RightSidebar from '@/components/layout/RightSidebar'
 import { supabase } from '@/lib/supabase'
 import { updateTweetCommentCount } from '@/services/commentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { 
+  invalidateTweetCache, 
+  CACHE_KEYS 
+} from '@/utils/tweetCacheService'
 
 const Home: React.FC = () => {
   console.debug('[Home] Component rendering');
@@ -24,28 +28,58 @@ const Home: React.FC = () => {
 
   console.debug('[Home] User authenticated:', !!user);
 
+  // Handle immediate tweet posting response
+  const handleTweetPosted = () => {
+    console.debug('[Home] Tweet posted, triggering immediate feed refresh');
+    // Force an immediate refresh when a tweet is posted
+    handleRefresh(true);
+  };
+
+  // Modified refresh function with force option
+  const handleRefresh = (force = false) => {
+    if ((isRefreshing || !isMounted.current) && !force) {
+      console.debug('[Home] Refresh request ignored - already refreshing or component unmounted');
+      return;
+    }
+    
+    console.debug('[Home] Manual refresh triggered');
+    setIsRefreshing(true);
+    
+    // Update feed by incrementing key
+    setFeedKey(prevKey => prevKey + 1);
+    
+    // Reset refreshing state after a short delay
+    setTimeout(() => {
+      if (isMounted.current) {
+        console.debug('[Home] Refresh complete');
+        setIsRefreshing(false);
+      }
+    }, 300); // Reduced to 300ms for faster response
+  };
+
   // Optimized listener with improved debounce for performance
   useEffect(() => {
     console.debug('[Home] Setting up realtime listeners');
     isMounted.current = true;
-    let pendingRefreshes = 0;
+
+    // Function to handle immediate refresh
+    const immediateRefresh = () => {
+      console.debug('[Home] Immediate refresh triggered');
+      handleRefresh(true);
+    };
 
     // Function to handle debounced refresh
     const debouncedRefresh = () => {
-      console.debug('[Home] Debounced refresh triggered, pending refreshes:', pendingRefreshes + 1);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
       
-      pendingRefreshes++;
-      
       debounceTimeoutRef.current = setTimeout(() => {
-        if (pendingRefreshes > 0 && isMounted.current) {
-          console.debug('[Home] Executing debounced refresh, pending count:', pendingRefreshes);
+        if (isMounted.current) {
+          console.debug('[Home] Executing debounced refresh');
           handleRefresh();
-          pendingRefreshes = 0;
         }
-      }, 300); // Reduced to 300ms for more immediate response
+      }, 100); // Reduced to 100ms for quicker response
     };
 
     // Listen for realtime comment updates to refresh the feed
@@ -76,7 +110,7 @@ const Home: React.FC = () => {
     
     console.debug('[Home] Comments channel subscribed');
     
-    // Also listen for changes to the tweets table with immediate refresh for new tweets
+    // Listen for changes to the tweets table with immediate refresh for new tweets
     const tweetsChannel = supabase
       .channel('public:tweets:home')
       .on('postgres_changes', {
@@ -88,7 +122,21 @@ const Home: React.FC = () => {
         // For INSERT events, refresh immediately
         if (payload.eventType === 'INSERT') {
           console.debug('[Home] New tweet detected, refreshing immediately');
-          handleRefresh();
+          immediateRefresh();
+          
+          // Also invalidate cache
+          if (payload.new && 'id' in payload.new) {
+            const tweetCacheKeys = [
+              CACHE_KEYS.HOME_FEED,
+              `${CACHE_KEYS.USER_TWEETS}-userId:${(payload.new as any).author_id}`
+            ];
+            
+            tweetCacheKeys.forEach(key => {
+              invalidateTweetCache(key)
+                .then(() => console.debug(`[Home] Cache invalidated for key: ${key}`))
+                .catch(err => console.error(`[Home] Error invalidating cache for key ${key}:`, err));
+            });
+          }
         } else {
           debouncedRefresh();
         }
@@ -103,7 +151,18 @@ const Home: React.FC = () => {
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
         console.debug('[Home] Received broadcast about new tweet:', payload);
         // Force immediate refresh for new tweets
-        handleRefresh();
+        immediateRefresh();
+        
+        // If we have user info, clear their profile cache as well
+        if (payload.payload && payload.payload.userId) {
+          const profileCacheKey = `profile-${payload.payload.userId}-posts-limit:20-offset:0`;
+          try {
+            localStorage.removeItem(`tweet-cache-${profileCacheKey}`);
+            console.debug(`[Home] Cleared profile cache for user ${payload.payload.userId}`);
+          } catch (e) {
+            console.error('[Home] Error clearing profile cache:', e);
+          }
+        }
       })
       .subscribe();
       
@@ -121,34 +180,6 @@ const Home: React.FC = () => {
       }
     };
   }, []);
-
-  const handleRefresh = () => {
-    // Prevent multiple simultaneous refreshes
-    if (isRefreshing || !isMounted.current) {
-      console.debug('[Home] Refresh request ignored - already refreshing or component unmounted');
-      return;
-    }
-    
-    console.debug('[Home] Manual refresh triggered');
-    setIsRefreshing(true);
-    
-    // Update feed by incrementing key
-    setFeedKey(prevKey => prevKey + 1);
-    
-    // Reset refreshing state after a short delay
-    setTimeout(() => {
-      if (isMounted.current) {
-        console.debug('[Home] Refresh complete');
-        setIsRefreshing(false);
-      }
-    }, 500);
-  };
-
-  const handleTweetPosted = () => {
-    console.debug('[Home] Tweet posted, triggering immediate feed refresh');
-    // Force an immediate refresh when a tweet is posted
-    handleRefresh();
-  };
 
   console.debug('[Home] Rendering component with feedKey:', feedKey);
 
@@ -175,7 +206,7 @@ const Home: React.FC = () => {
                   variant="outline" 
                   size="sm" 
                   className={`ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onClick={handleRefresh}
+                  onClick={() => handleRefresh()}
                   disabled={isRefreshing}
                 >
                   <RefreshCwIcon className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -198,6 +229,7 @@ const Home: React.FC = () => {
                 <TweetFeed 
                   key={feedKey} 
                   onCommentAdded={handleRefresh} 
+                  forceRefresh={feedKey > 0}
                 />
               </ScrollArea>
             </div>

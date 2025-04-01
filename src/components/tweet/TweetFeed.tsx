@@ -17,12 +17,13 @@ interface TweetFeedProps {
   userId?: string;
   limit?: number;
   onCommentAdded?: () => void;
+  forceRefresh?: boolean;
 }
 
 const TWEETS_PER_PAGE = 10;
 const LOCAL_STATE_KEY = 'tweet-feed-state';
 
-const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFeedProps) => {
+const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefresh = false }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -159,6 +160,13 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
       }
     };
   }, [userId]);
+
+  useEffect(() => {
+    if (forceRefresh) {
+      console.debug('[TweetFeed] Force refresh triggered');
+      fetchTweets(true);
+    }
+  }, [forceRefresh]);
 
   const fetchNewTweets = async () => {
     if (!isMounted.current) return;
@@ -331,7 +339,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
     }
   };
 
-  const fetchTweets = async (showLoading = true) => {
+  const fetchTweets = async (showLoading = true, forceRefresh = false) => {
     if (fetchTimeoutRef.current) {
       clearTimeout(fetchTimeoutRef.current);
     }
@@ -345,38 +353,28 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded }: TweetFee
         setPage(0);
       }
       
-      if (!showLoading && tweets.length > 0) {
-        const freshTweets = await getTweets(TWEETS_PER_PAGE, 0);
-        
-        if (!isMounted.current) return;
-        
-        if (freshTweets.length > 0) {
-          setTweets(freshTweets);
-          setHasMore(freshTweets.length === TWEETS_PER_PAGE);
-          setInitialLoadComplete(true);
-        }
+      console.debug('[TweetFeed] Fetching tweets with force refresh:', forceRefresh);
+      
+      const freshTweets = await getTweets(TWEETS_PER_PAGE, 0, forceRefresh);
+      
+      if (!isMounted.current) return;
+      
+      if (freshTweets.length === 0) {
+        setTweets([]);
+        setHasMore(false);
       } else {
-        const freshTweets = await getTweets(TWEETS_PER_PAGE, 0);
-        
-        if (!isMounted.current) return;
-        
-        if (freshTweets.length === 0) {
-          setTweets([]);
-          setHasMore(false);
-        } else {
-          setTweets(freshTweets);
-          setHasMore(freshTweets.length === TWEETS_PER_PAGE);
-        }
-        
-        setInitialLoadComplete(true);
+        setTweets(freshTweets);
+        setHasMore(freshTweets.length === TWEETS_PER_PAGE);
       }
+      
+      setInitialLoadComplete(true);
       
       fetchTimeoutRef.current = setTimeout(() => {
         prefetchNextBatch();
       }, 1000);
       
     } catch (err) {
-      console.error('Failed to fetch tweets:', err);
+      console.error('[TweetFeed] Failed to fetch tweets:', err);
       if (isMounted.current) {
         setError('Failed to load tweets. Please try again later.');
         

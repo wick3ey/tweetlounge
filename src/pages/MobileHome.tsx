@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ZapIcon, Bookmark, RefreshCw, BarChart3, TrendingUp, Clock, ArrowUpRight } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
@@ -21,6 +22,7 @@ import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createTweet } from '@/services/tweetService';
+import { invalidateTweetCache, CACHE_KEYS } from '@/utils/tweetCacheService';
 
 const MobileHome: React.FC = () => {
   const { user } = useAuth();
@@ -41,6 +43,11 @@ const MobileHome: React.FC = () => {
     isMounted.current = true;
     let pendingRefreshes = 0;
 
+    const immediateRefresh = () => {
+      console.debug('[MobileHome] Immediate refresh triggered');
+      handleRefresh(true);
+    };
+
     const debouncedRefresh = () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
@@ -53,7 +60,7 @@ const MobileHome: React.FC = () => {
           handleRefresh();
           pendingRefreshes = 0;
         }
-      }, 300);
+      }, 100); // Reduced to 100ms for more immediate response
     };
 
     const commentsChannel = supabase
@@ -67,7 +74,7 @@ const MobileHome: React.FC = () => {
           const tweetId = payload.new.tweet_id as string;
           
           updateTweetCommentCount(tweetId)
-            .catch(err => console.error('Error updating comment count:', err));
+            .catch(err => console.error('[MobileHome] Error updating comment count:', err));
 
           debouncedRefresh();
         }
@@ -81,11 +88,22 @@ const MobileHome: React.FC = () => {
         schema: 'public',
         table: 'tweets'
       }, (payload) => {
-        console.log('[MobileHome] Detected tweet change:', payload.eventType);
+        console.debug('[MobileHome] Detected tweet change:', payload.eventType);
         
         if (payload.eventType === 'INSERT') {
-          console.log('[MobileHome] New tweet detected, refreshing immediately');
-          handleRefresh();
+          console.debug('[MobileHome] New tweet detected, refreshing immediately');
+          immediateRefresh();
+          
+          // Also invalidate cache
+          if (payload.new && 'author_id' in payload.new) {
+            const authorId = (payload.new as any).author_id;
+            try {
+              localStorage.removeItem(`tweet-cache-profile-${authorId}-posts-limit:20-offset:0`);
+              console.debug(`[MobileHome] Cleared profile cache for user ${authorId}`);
+            } catch (e) {
+              console.error('[MobileHome] Error clearing profile cache:', e);
+            }
+          }
         } else {
           debouncedRefresh();
         }
@@ -95,8 +113,18 @@ const MobileHome: React.FC = () => {
     const broadcastChannel = supabase
       .channel('custom-all-channel')
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
-        console.log('[MobileHome] Received broadcast about new tweet:', payload);
-        handleRefresh();
+        console.debug('[MobileHome] Received broadcast about new tweet:', payload);
+        immediateRefresh();
+        
+        // If we have user info, clear their profile cache as well
+        if (payload.payload && payload.payload.userId) {
+          try {
+            localStorage.removeItem(`tweet-cache-profile-${payload.payload.userId}-posts-limit:20-offset:0`);
+            console.debug(`[MobileHome] Cleared profile cache for user ${payload.payload.userId}`);
+          } catch (e) {
+            console.error('[MobileHome] Error clearing profile cache:', e);
+          }
+        }
       })
       .subscribe();
       
@@ -113,7 +141,7 @@ const MobileHome: React.FC = () => {
   }, []);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
-    console.log('[MobileHome] Tweet submission triggered with content length:', content.length, 'Has image:', !!imageFile);
+    console.debug('[MobileHome] Tweet submission triggered with content length:', content.length, 'Has image:', !!imageFile);
     
     if (!user) {
       toast({
@@ -126,9 +154,9 @@ const MobileHome: React.FC = () => {
     }
 
     try {
-      console.log('[MobileHome] Calling createTweet service');
+      console.debug('[MobileHome] Calling createTweet service');
       const result = await createTweet(content, imageFile);
-      console.log('[MobileHome] createTweet result:', result ? 'Successful' : 'Failed');
+      console.debug('[MobileHome] createTweet result:', result ? 'Successful' : 'Failed');
       
       if (!result) {
         console.error('[MobileHome] createTweet returned falsy value');
@@ -136,28 +164,47 @@ const MobileHome: React.FC = () => {
       }
       
       if (isMounted.current) {
-        console.log('[MobileHome] Updating feed immediately after tweet creation');
-        setFeedKey(prevKey => prevKey + 1);
+        console.debug('[MobileHome] Updating feed immediately after tweet creation');
+        
+        // Force immediate refresh to show the new tweet
+        handleRefresh(true);
         
         try {
-          const realtime = supabase
-            .channel('custom-all-channel')
-            .on('broadcast', { event: 'tweet-created' }, () => {
-              console.log('[MobileHome] Broadcast message sent for new tweet');
-            })
-            .subscribe();
-            
-          await realtime.send({
-            type: 'broadcast',
-            event: 'tweet-created',
-            payload: { id: result.id, timestamp: new Date().toISOString() }
+          // Send a broadcast event to notify all clients
+          const broadcastChannel = supabase.channel('custom-all-channel');
+          
+          // Subscribe first to ensure connection is established
+          await broadcastChannel.subscribe((status) => {
+            console.debug(`[MobileHome] Broadcast subscription status: ${status}`);
           });
           
+          // Then send the broadcast
+          await broadcastChannel.send({
+            type: 'broadcast',
+            event: 'tweet-created',
+            payload: { 
+              id: result.id, 
+              timestamp: new Date().toISOString(),
+              userId: user.id 
+            }
+          });
+          
+          console.debug('[MobileHome] Broadcast message sent for new tweet');
+          
           setTimeout(() => {
-            supabase.removeChannel(realtime);
+            supabase.removeChannel(broadcastChannel);
           }, 1000);
         } catch (err) {
           console.error('[MobileHome] Error broadcasting tweet event:', err);
+        }
+        
+        // Force clear any profile data cache for current user
+        try {
+          localStorage.removeItem(`tweet-cache-profile-${user.id}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`tweet-cache-profile-${user.id}-media-limit:20-offset:0`);
+          console.debug('[MobileHome] Cleared profile caches for current user');
+        } catch (e) {
+          console.error('[MobileHome] Error clearing profile cache:', e);
         }
       }
       
@@ -180,19 +227,24 @@ const MobileHome: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
-    if (isRefreshing || !isMounted.current) return;
+  const handleRefresh = (force = false) => {
+    if ((isRefreshing || !isMounted.current) && !force) {
+      console.debug('[MobileHome] Refresh request ignored - already refreshing or component unmounted');
+      return;
+    }
     
-    console.log('[MobileHome] Refreshing feed with key:', feedKey);
+    console.debug('[MobileHome] Refreshing feed with key:', feedKey);
     setIsRefreshing(true);
     
+    // Update feed by incrementing key to force re-render
     setFeedKey(prevKey => prevKey + 1);
     
+    // Reset refreshing state after a short delay
     setTimeout(() => {
       if (isMounted.current) {
         setIsRefreshing(false);
       }
-    }, 500);
+    }, 300); // Reduced to 300ms for faster response
   };
 
   if (!isMobile) {
@@ -433,7 +485,7 @@ const MobileHome: React.FC = () => {
             variant="outline" 
             size="sm" 
             className={`text-xs h-7 border-gray-800 hover:bg-gray-900 hover:border-gray-700 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={handleRefresh}
+            onClick={() => handleRefresh()}
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-3 w-3 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -442,7 +494,11 @@ const MobileHome: React.FC = () => {
         </div>
         
         <div className="flex-1">
-          <TweetFeed key={feedKey} onCommentAdded={handleRefresh} />
+          <TweetFeed 
+            key={feedKey} 
+            onCommentAdded={handleRefresh} 
+            forceRefresh={feedKey > 0}
+          />
         </div>
       </div>
     </MobileLayout>
