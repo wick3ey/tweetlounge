@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { NotificationType } from '@/types/Notification';
+import { NotificationType, Notification } from '@/types/Notification';
 import { getCachedNotifications, cacheNotifications } from '@/utils/notificationCacheService';
 import { CACHE_DURATIONS } from '@/utils/cacheService';
 
@@ -76,11 +76,13 @@ export async function getNotifications(userId: string) {
       );
 
       // Convert to final format with O(n) complexity
-      const formattedNotifications = notificationsData.map(notification => {
+      const formattedNotifications: Notification[] = notificationsData.map(notification => {
         const actorProfile = profilesMap[notification.actor_id] || {
           username: 'unknown',
           display_name: 'Unknown User',
-          avatar_url: null
+          avatar_url: null,
+          avatar_nft_id: null,
+          avatar_nft_chain: null
         };
         
         const tweetData = notification.tweet_id ? tweetsMap[notification.tweet_id] : null;
@@ -89,7 +91,7 @@ export async function getNotifications(userId: string) {
           id: notification.id,
           userId: notification.user_id,
           actorId: notification.actor_id,
-          type: notification.type,
+          type: notification.type as NotificationType,
           tweetId: notification.tweet_id,
           commentId: notification.comment_id,
           createdAt: notification.created_at,
