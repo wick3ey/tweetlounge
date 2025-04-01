@@ -302,6 +302,14 @@ export const clearProfileCache = async (userId: string): Promise<void> => {
       }
     }
     
+    // Additional cache clearing for profile posts
+    try {
+      localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+      localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+    } catch (e) {
+      console.error(`Error clearing additional profile caches: ${e}`);
+    }
+    
     // Clear from DB cache
     await supabase
       .from('market_cache')

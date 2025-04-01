@@ -183,35 +183,59 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         try {
           localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
           localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
           console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
         } catch (e) {
           console.error('[ProfileTabs] Error clearing profile cache:', e);
         }
         
-        // Then fetch fresh data
-        if (activeTab === 'posts') fetchTweets(true).then(setTweets);
-        if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+        // Force immediate refresh for all tabs to ensure fresh data
+        const immediate = () => {
+          console.debug('[ProfileTabs] Force immediate refresh triggered');
+          if (activeTab === 'posts') fetchTweets(true).then(setTweets);
+          if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+        };
+        
+        // First do an immediate refresh
+        immediate();
+        
+        // Then schedule another one after a short delay to catch any DB latency
+        setTimeout(immediate, 500);
       })
       .subscribe();
       
+    console.debug('[ProfileTabs] Tweets channel subscribed');
+    
+    // Enhanced broadcast channel listener for immediate updates
     const broadcastChannel = supabase
       .channel('custom-broadcast-profile')
       .on('broadcast', { event: 'tweet-created' }, (payload) => {
         if (payload.payload && payload.payload.userId === userId) {
           console.debug(`[ProfileTabs] Received broadcast about new tweet from user ${userId}`);
           
-          // Clear cache and refresh data
+          // Clear cache and refresh data - more aggressive clearing
           try {
             localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
             localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+            localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
+            localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
             console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
           } catch (e) {
             console.error('[ProfileTabs] Error clearing profile cache:', e);
           }
           
-          // Then fetch fresh data
-          if (activeTab === 'posts') fetchTweets(true).then(setTweets);
-          if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+          // Force immediate refresh to ensure fresh data
+          const forceRefresh = () => {
+            if (activeTab === 'posts') fetchTweets(true).then(setTweets);
+            if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
+          };
+          
+          // Do immediate refresh
+          forceRefresh();
+          
+          // Then do another refresh after a short delay to catch any DB latency
+          setTimeout(forceRefresh, 300);
         }
       })
       .subscribe();

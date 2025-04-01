@@ -109,18 +109,28 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     console.debug('[createTweet] Force invalidating all tweet caches to ensure immediate update');
     
+    // More aggressive cache invalidation to ensure immediate updates everywhere
+    // For home feed
+    await invalidateTweetCache(CACHE_KEYS.HOME_FEED);
     await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 10, offset: 0 }));
     await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 }));
     
+    // For user profile feeds
+    await invalidateTweetCache(CACHE_KEYS.USER_TWEETS);
     await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { limit: 20, offset: 0, userId: userData.user.id }));
     
+    // Clear profile cache for current user
     try {
+      // Clear all possible cache keys for profile posts
       localStorage.removeItem(`tweet-cache-profile-${userData.user.id}-posts-limit:20-offset:0`);
+      localStorage.removeItem(`profile-cache-profile-${userData.user.id}-posts-limit:20-offset:0`);
+      localStorage.removeItem(`profile-cache-profile-${userData.user.id}-posts`);
       console.debug('[createTweet] Cleared profile posts cache');
     } catch (e) {
       console.error('[createTweet] Error clearing profile cache:', e);
     }
     
+    // Forcibly clear more precise localStorage caches for immediate updates
     try {
       localStorage.removeItem(`tweet-cache-home-feed-limit:10-offset:0`);
       localStorage.removeItem(`tweet-cache-home-feed-limit:20-offset:0`);

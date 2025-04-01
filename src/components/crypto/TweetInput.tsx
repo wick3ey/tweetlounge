@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -133,14 +132,15 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
           console.debug(`[TweetInput] Broadcast subscription status: ${status}`);
         });
         
-        // Then send the broadcast
+        // Then send the broadcast with enriched data
         await broadcastChannel.send({
           type: 'broadcast',
           event: 'tweet-created',
           payload: { 
             id: result.id, 
             timestamp: new Date().toISOString(),
-            userId: user.id 
+            userId: user.id,
+            hasMedia: !!result.image_url
           }
         });
         
@@ -157,6 +157,8 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
       // Force clear any profile data cache for current user
       try {
         localStorage.removeItem(`tweet-cache-profile-${user.id}-posts-limit:20-offset:0`);
+        localStorage.removeItem(`profile-cache-profile-${user.id}-posts-limit:20-offset:0`);
+        localStorage.removeItem(`profile-cache-profile-${user.id}-posts`);
         console.debug('[TweetInput] Cleared profile posts cache for current user');
       } catch (e) {
         console.error('[TweetInput] Error clearing profile cache:', e);
