@@ -31,29 +31,44 @@ const TweetInput: React.FC = () => {
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
+    console.debug('[TweetInput] Content changed:', e.target.value.substring(0, 20) + (e.target.value.length > 20 ? '...' : ''));
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.debug('[TweetInput] Image select triggered');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      console.debug('[TweetInput] Image selected:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB', 'Type:', file.type);
       setSelectedImage(file);
       
       // Create image preview
       const reader = new FileReader();
       reader.onload = (e) => {
+        console.debug('[TweetInput] Image preview created');
         setImagePreview(e.target?.result as string);
       };
+      reader.onerror = (e) => {
+        console.error('[TweetInput] Error creating image preview:', e);
+      };
       reader.readAsDataURL(file);
+    } else {
+      console.debug('[TweetInput] No image file selected');
     }
   };
 
   const clearImage = () => {
+    console.debug('[TweetInput] Clearing image');
     setSelectedImage(null);
     setImagePreview(null);
   };
 
   const handleSubmit = async () => {
+    console.debug('[TweetInput] Submit button clicked');
+    console.debug('[TweetInput] User state:', user ? 'Logged in' : 'Not logged in');
+    console.debug('[TweetInput] Content length:', content.length, 'Has image:', !!selectedImage);
+    
     if (!user) {
+      console.error('[TweetInput] Authentication required for tweet submission');
       toast({
         title: "Authentication Required",
         description: "You must be logged in to post a tweet",
@@ -64,6 +79,7 @@ const TweetInput: React.FC = () => {
     }
 
     if (!content.trim() && !selectedImage) {
+      console.error('[TweetInput] Empty tweet attempt');
       toast({
         variant: "destructive",
         title: "Cannot post empty tweet",
@@ -73,13 +89,21 @@ const TweetInput: React.FC = () => {
     }
 
     try {
+      console.debug('[TweetInput] Setting isSubmitting to true');
       setIsSubmitting(true);
+      
+      console.debug('[TweetInput] Calling createTweet with content length:', content.length, 
+                   'Image:', selectedImage ? `${selectedImage.name} (${selectedImage.size / 1024}KB)` : 'none');
+      
       const result = await createTweet(content, selectedImage || undefined);
+      console.debug('[TweetInput] createTweet result:', result ? 'Successful' : 'Failed');
       
       if (!result) {
+        console.error('[TweetInput] createTweet returned falsy value');
         throw new Error("Failed to create tweet");
       }
       
+      console.debug('[TweetInput] Tweet posted successfully, resetting form');
       setContent('');
       clearImage();
       
@@ -88,13 +112,14 @@ const TweetInput: React.FC = () => {
         description: "Your tweet has been shared with the world."
       });
     } catch (error) {
-      console.error("Error posting tweet:", error);
+      console.error("[TweetInput] Error posting tweet:", error);
       toast({
         variant: "destructive",
         title: "Failed to post tweet",
         description: "Something went wrong. Please try again."
       });
     } finally {
+      console.debug('[TweetInput] Setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };

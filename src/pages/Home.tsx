@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -19,6 +20,7 @@ import { updateTweetCommentCount } from '@/services/commentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 const Home: React.FC = () => {
+  console.debug('[Home] Component rendering');
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -27,13 +29,17 @@ const Home: React.FC = () => {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef(true);
 
+  console.debug('[Home] User authenticated:', !!user);
+
   // Optimized listener with improved debounce for performance
   useEffect(() => {
+    console.debug('[Home] Setting up realtime listeners');
     isMounted.current = true;
     let pendingRefreshes = 0;
 
     // Function to handle debounced refresh
     const debouncedRefresh = () => {
+      console.debug('[Home] Debounced refresh triggered, pending refreshes:', pendingRefreshes + 1);
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
@@ -42,6 +48,7 @@ const Home: React.FC = () => {
       
       debounceTimeoutRef.current = setTimeout(() => {
         if (pendingRefreshes > 0 && isMounted.current) {
+          console.debug('[Home] Executing debounced refresh, pending count:', pendingRefreshes);
           handleRefresh();
           pendingRefreshes = 0;
         }
@@ -56,22 +63,25 @@ const Home: React.FC = () => {
         schema: 'public',
         table: 'comments'
       }, (payload) => {
-        console.log('Home page detected comment change:', payload);
+        console.debug('[Home] Detected comment change:', payload.eventType, payload.new ? `for tweet ${(payload.new as any).tweet_id}` : '');
         
         // Check if payload.new exists and has a tweet_id property
         if (payload.new && typeof payload.new === 'object' && 'tweet_id' in payload.new) {
           const tweetId = payload.new.tweet_id as string;
-          console.log(`Updating comment count for tweet ${tweetId} in Home page`);
+          console.debug(`[Home] Updating comment count for tweet ${tweetId}`);
           
           // First update the count in the database
           updateTweetCommentCount(tweetId)
-            .catch(err => console.error('Error updating comment count:', err));
+            .then(() => console.debug(`[Home] Comment count updated for tweet ${tweetId}`))
+            .catch(err => console.error('[Home] Error updating comment count:', err));
 
           // Use debounced refresh
           debouncedRefresh();
         }
       })
       .subscribe();
+    
+    console.debug('[Home] Comments channel subscribed');
     
     // Also listen for changes to the tweets table with same debounce mechanism
     const tweetsChannel = supabase
@@ -81,12 +91,15 @@ const Home: React.FC = () => {
         schema: 'public',
         table: 'tweets'
       }, (payload) => {
-        console.log('Home page detected tweet change:', payload);
+        console.debug('[Home] Detected tweet change:', payload.eventType);
         debouncedRefresh();
       })
       .subscribe();
       
+    console.debug('[Home] Tweets channel subscribed');
+      
     return () => {
+      console.debug('[Home] Cleaning up realtime listeners');
       isMounted.current = false;
       supabase.removeChannel(commentsChannel);
       supabase.removeChannel(tweetsChannel);
@@ -98,7 +111,10 @@ const Home: React.FC = () => {
   }, []);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
+    console.debug('[Home] Tweet submission triggered with content length:', content.length, 'Has image:', !!imageFile);
+    
     if (!user) {
+      console.error('[Home] Authentication required for tweet submission');
       toast({
         title: "Authentication Required",
         description: "You must be logged in to post a tweet",
@@ -109,19 +125,24 @@ const Home: React.FC = () => {
     }
 
     try {
+      console.debug('[Home] Calling createTweet service');
       const result = await createTweet(content, imageFile);
+      console.debug('[Home] createTweet result:', result ? 'Successful' : 'Failed');
+      
       if (!result) {
+        console.error('[Home] createTweet returned falsy value');
         throw new Error("Failed to create tweet");
       }
       
       // Update feed by incrementing key instead of reloading the page
       if (isMounted.current) {
+        console.debug('[Home] Updating feed by incrementing key');
         setFeedKey(prevKey => prevKey + 1);
       }
       
       return Promise.resolve();
     } catch (error) {
-      console.error("Error posting tweet:", error);
+      console.error("[Home] Error posting tweet:", error);
       if (isMounted.current) {
         toast({
           title: "Tweet Error",
@@ -135,10 +156,13 @@ const Home: React.FC = () => {
 
   const handleRefresh = () => {
     // Prevent multiple simultaneous refreshes
-    if (isRefreshing || !isMounted.current) return;
+    if (isRefreshing || !isMounted.current) {
+      console.debug('[Home] Refresh request ignored - already refreshing or component unmounted');
+      return;
+    }
     
+    console.debug('[Home] Manual refresh triggered');
     setIsRefreshing(true);
-    console.log('Manually refreshing feed in Home component');
     
     // Update feed by incrementing key
     setFeedKey(prevKey => prevKey + 1);
@@ -146,10 +170,13 @@ const Home: React.FC = () => {
     // Reset refreshing state after a short delay
     setTimeout(() => {
       if (isMounted.current) {
+        console.debug('[Home] Refresh complete');
         setIsRefreshing(false);
       }
     }, 500);
   };
+
+  console.debug('[Home] Rendering component with feedKey:', feedKey);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black">

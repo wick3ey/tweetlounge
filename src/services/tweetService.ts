@@ -15,37 +15,52 @@ const tweetCache = new Map<string, TweetWithAuthor>();
 const CACHE_EXPIRY = 60000; // 1 minute cache expiry
 
 export async function createTweet(content: string, imageFile?: File): Promise<Tweet | null> {
+  console.debug('[createTweet] Starting tweet creation with content length:', content.length, 'Has image:', !!imageFile);
   try {
-    const { data: userData } = await supabase.auth.getUser();
+    console.debug('[createTweet] Getting current user');
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('[createTweet] Error getting user:', userError);
+      throw userError;
+    }
+    
     const user = userData?.user;
+    console.debug('[createTweet] User authenticated:', !!user);
     
     if (!user) {
+      console.error('[createTweet] No authenticated user found');
       throw new Error('User must be logged in to create a tweet');
     }
     
     let imageUrl = null;
     
     if (imageFile) {
+      console.debug('[createTweet] Processing image:', imageFile.name, 'Size:', (imageFile.size / 1024).toFixed(2) + 'KB', 'Type:', imageFile.type);
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
       
-      const { error: uploadError } = await supabase.storage
+      console.debug('[createTweet] Uploading image to storage path:', filePath);
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('tweet-images')
         .upload(filePath, imageFile);
         
       if (uploadError) {
-        console.error('Error uploading image:', uploadError);
+        console.error('[createTweet] Error uploading image:', uploadError);
         throw uploadError;
       }
       
+      console.debug('[createTweet] Image uploaded successfully, generating public URL');
       const { data } = supabase.storage
         .from('tweet-images')
         .getPublicUrl(filePath);
         
       imageUrl = data.publicUrl;
+      console.debug('[createTweet] Generated image URL:', imageUrl);
     }
     
+    console.debug('[createTweet] Creating tweet in database');
     const { data, error } = await supabase
       .from('tweets')
       .insert({
@@ -57,19 +72,23 @@ export async function createTweet(content: string, imageFile?: File): Promise<Tw
       .single();
       
     if (error) {
-      console.error('Error creating tweet:', error);
+      console.error('[createTweet] Error creating tweet in database:', error);
       throw error;
     }
+    
+    console.debug('[createTweet] Tweet created successfully with ID:', data.id);
     
     const homeFeedKey = getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 });
     const userTweetsKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId: user.id, limit: 20, offset: 0 });
     
+    console.debug('[createTweet] Invalidating cache keys:', homeFeedKey, userTweetsKey);
     invalidateTweetCache(homeFeedKey);
     invalidateTweetCache(userTweetsKey);
     
+    console.debug('[createTweet] Tweet creation completed successfully');
     return data as Tweet;
   } catch (error) {
-    console.error('Tweet creation failed:', error);
+    console.error('[createTweet] Tweet creation failed:', error);
     return null;
   }
 }
