@@ -301,11 +301,14 @@ export const getUserTweets = async (
         console.debug('[getUserTweets] Cache miss, fetching from database');
         
         const { data, error } = await supabase
-          .rpc('get_user_tweets', { 
-            user_id: userId,
-            limit_count: limit, 
-            offset_count: offset 
-          });
+          .from('tweets')
+          .select(`
+            *,
+            author:profiles(*)
+          `)
+          .eq('author_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
         
         if (error) {
           console.error('[getUserTweets] Error fetching tweets:', error.message);
@@ -321,39 +324,15 @@ export const getUserTweets = async (
         
         return (data as any[]).map(tweet => {
           return enhanceTweetData({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
+            ...tweet,
+            author: tweet.author,
             likes_count: tweet.likes_count || 0,
             retweets_count: tweet.retweets_count || 0,
-            replies_count: tweet.replies_count || 0,
-            is_retweet: tweet.is_retweet === true,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author_id,
-              username: tweet.profile_username || 'user',
-              display_name: tweet.profile_display_name || 'User',
-              avatar_url: tweet.profile_avatar_url || '',
-              bio: null,
-              cover_url: null,
-              location: null,
-              website: null,
-              updated_at: null,
-              created_at: new Date().toISOString(),
-              ethereum_address: null,
-              solana_address: null,
-              avatar_nft_id: tweet.profile_avatar_nft_id,
-              avatar_nft_chain: tweet.profile_avatar_nft_chain,
-              followers_count: 0,
-              following_count: 0,
-              replies_sort_order: null
-            }
+            replies_count: tweet.replies_count || 0
           });
         });
       },
-      CACHE_DURATIONS.MEDIUM,
+      CACHE_DURATIONS.SHORT,
       false
     );
   } catch (error) {

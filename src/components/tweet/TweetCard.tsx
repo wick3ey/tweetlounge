@@ -45,7 +45,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   
-  // The tweet to actually display (either the original tweet if this is a retweet, or this tweet)
+  // Ensure we have the complete display tweet with all author information
   const displayTweet = isRetweet && tweet.original_author ? {
     ...tweet,
     content: tweet.content || 'Retweet',
@@ -189,8 +189,13 @@ const TweetCard: React.FC<TweetCardProps> = ({
   };
   
   const getInitials = (name: string) => {
-    return name.substring(0, 2).toUpperCase();
+    return name?.substring(0, 2).toUpperCase() || 'UN';
   };
+
+  // When this card appears on the profile page, make sure we use the correct displayName and username
+  const displayName = displayTweet.author?.display_name || 'User';
+  const username = displayTweet.author?.username || 'user';
+  const avatarUrl = displayTweet.author?.avatar_url;
   
   return (
     <Card 
@@ -210,13 +215,13 @@ const TweetCard: React.FC<TweetCardProps> = ({
       
       <div className="flex gap-3">
         <div>
-          <Link to={`/profile/${displayTweet.author?.username}`} onClick={e => e.stopPropagation()}>
+          <Link to={`/profile/${username}`} onClick={e => e.stopPropagation()}>
             <Avatar className="h-10 w-10">
-              {displayTweet.author?.avatar_url ? (
-                <AvatarImage src={displayTweet.author.avatar_url} alt={displayTweet.author.display_name || displayTweet.author.username} />
+              {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={displayName} />
               ) : null}
               <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                {getInitials(displayTweet.author?.display_name || displayTweet.author?.username || 'User')}
+                {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
           </Link>
@@ -225,8 +230,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Link to={`/profile/${displayTweet.author?.username}`} className="font-bold hover:underline" onClick={e => e.stopPropagation()}>
-                {displayTweet.author?.display_name || displayTweet.author?.username || 'User'}
+              <Link to={`/profile/${username}`} className="font-bold hover:underline" onClick={e => e.stopPropagation()}>
+                {displayName}
               </Link>
               
               {isNftVerified && (
@@ -235,8 +240,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
               
               <span className="text-gray-500 mx-1">·</span>
               
-              <Link to={`/profile/${displayTweet.author?.username}`} className="text-gray-500 hover:underline" onClick={e => e.stopPropagation()}>
-                @{displayTweet.author?.username || 'user'}
+              <Link to={`/profile/${username}`} className="text-gray-500 hover:underline" onClick={e => e.stopPropagation()}>
+                @{username}
               </Link>
               
               <span className="text-gray-500 mx-1">·</span>

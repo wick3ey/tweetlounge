@@ -225,7 +225,7 @@ export const fetchProfileDataWithCache = async <T>(
   dataType: string,
   fetchFn: () => Promise<T>,
   params: Record<string, any> = {},
-  cacheDuration: number = CACHE_DURATIONS.MEDIUM,
+  cacheDuration: number = CACHE_DURATIONS.SHORT, // Changed from MEDIUM to SHORT
   forceRefresh: boolean = false
 ): Promise<T> => {
   const cacheKey = getProfileCacheKey(userId, dataType, params);
