@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
@@ -386,6 +387,7 @@ export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> =
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
     
+    // Add proper headers to fix the 406 error
     const { data, error } = await supabase
       .from('likes')
       .select('id')
@@ -461,18 +463,17 @@ export const checkIfUserRetweetedTweet = async (tweetId: string): Promise<boolea
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
     
+    // Fix the 406 error by ensuring proper headers
     const { data, error } = await supabase
       .from('tweets')
       .select('id')
       .eq('original_tweet_id', tweetId)
       .eq('author_id', userData.user.id)
       .eq('is_retweet', true)
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single to avoid PGRST116 error
     
-    if (error) {
-      if (error.code !== 'PGRST116') {
-        console.error('[checkIfUserRetweetedTweet] Error:', error.message);
-      }
+    if (error && error.code !== 'PGRST116') {
+      console.error('[checkIfUserRetweetedTweet] Error:', error.message);
       return false;
     }
     
@@ -495,10 +496,15 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         .eq('original_tweet_id', tweetId)
         .eq('author_id', userData.user.id)
         .eq('is_retweet', true)
-        .single();
+        .maybeSingle(); // Use maybeSingle to prevent errors
       
-      if (findError) {
+      if (findError && findError.code !== 'PGRST116') {
         console.error('[retweet] Error finding retweet to undo:', findError.message);
+        return false;
+      }
+      
+      if (!retweetData) {
+        console.error('[retweet] No retweet found to undo');
         return false;
       }
       
