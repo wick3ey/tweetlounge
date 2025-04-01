@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 type AuthContextType = {
   user: any | null;
-  setUser: (user: any | null) => void; // Added this line to fix the error
+  setUser: (user: any | null) => void;
   signUp: (email: string, password: string, metadata?: object) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
@@ -22,39 +22,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get current user
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    fetchUser();
-
-    // Set up auth state listener
+    // First set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change event:', event);
-      setUser(session?.user || null);
+      
+      if (session?.user) {
+        console.log('User authenticated in auth state change:', session.user.email);
+        setUser(session.user);
+      } else {
+        console.log('No user in auth state change');
+        setUser(null);
+      }
+      
       setLoading(false);
       
       // Show toasts for auth events
       if (event === 'SIGNED_IN') {
         toast({
-          title: 'Welcome back!',
-          description: `You've successfully signed in.`,
+          title: 'Välkommen tillbaka!',
+          description: `Du har loggat in.`,
         });
       } else if (event === 'SIGNED_OUT') {
         toast({
-          title: 'Signed out',
-          description: 'You have been signed out.',
+          title: 'Utloggad',
+          description: 'Du har loggat ut.',
         });
       } else if (event === 'USER_UPDATED') {
         toast({
-          title: 'Profile updated',
-          description: 'Your user profile has been updated.',
+          title: 'Profil uppdaterad',
+          description: 'Din användarprofil har uppdaterats.',
         });
       }
     });
+
+    // Then check for existing session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('Initial session found:', session.user.email);
+          setUser(session.user);
+        } else {
+          console.log('No initial session found');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
 
     return () => {
       subscription.unsubscribe();
@@ -67,7 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          data: metadata
+          data: metadata,
+          emailRedirectTo: `${window.location.origin}/home`
         }
       });
       
@@ -80,11 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Improved error handling for username conflicts
       if (error.message && error.message.includes('profiles_username_unique')) {
         toast({
-          title: 'Username already taken',
-          description: 'Please choose a different username.',
+          title: 'Användarnamnet finns redan',
+          description: 'Välj ett annat användarnamn.',
           variant: 'destructive',
         });
-        return { error: { message: 'This username is already taken. Please choose a different username.' } };
+        return { error: { message: 'Användarnamnet är redan taget. Välj ett annat användarnamn.' } };
       }
       
       return { error };
@@ -120,10 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      console.log('Initiating Google sign-in, current origin:', window.location.origin);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/home`,
+          queryParams: {
+            prompt: 'select_account',  // Force Google to show account selector
+          }
         }
       });
       
@@ -153,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
-    setUser, // Added this line to fix the error
+    setUser,
     signUp,
     signInWithEmail,
     signOut,
