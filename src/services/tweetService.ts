@@ -107,20 +107,26 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     const enhancedTweet = enhanceTweetData(createdTweet);
     
-    const cacheKeysToClear = [
-      getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 }),
-      getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { limit: 20, offset: 0, userId: userData.user.id })
-    ];
+    console.debug('[createTweet] Force invalidating all tweet caches to ensure immediate update');
     
-    console.debug('[createTweet] Invalidating cache keys:', cacheKeysToClear.join(', '));
+    await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 10, offset: 0 }));
+    await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 }));
     
-    await Promise.all(cacheKeysToClear.map(key => invalidateTweetCache(key)));
+    await invalidateTweetCache(getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { limit: 20, offset: 0, userId: userData.user.id }));
     
     try {
       localStorage.removeItem(`tweet-cache-profile-${userData.user.id}-posts-limit:20-offset:0`);
       console.debug('[createTweet] Cleared profile posts cache');
     } catch (e) {
       console.error('[createTweet] Error clearing profile cache:', e);
+    }
+    
+    try {
+      localStorage.removeItem(`tweet-cache-home-feed-limit:10-offset:0`);
+      localStorage.removeItem(`tweet-cache-home-feed-limit:20-offset:0`);
+      console.debug('[createTweet] Forcibly cleared home feed cache from localStorage');
+    } catch (e) {
+      console.error('[createTweet] Error clearing home feed cache:', e);
     }
     
     console.debug('[createTweet] Tweet creation completed successfully');
@@ -141,8 +147,10 @@ export const getTweets = async (
   const cacheKey = getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit, offset });
   
   try {
-    if (forceRefresh) {
-      console.debug('[getTweets] Force refresh requested, bypassing all caches');
+    const shouldForceRefresh = forceRefresh || offset === 0;
+    
+    if (shouldForceRefresh) {
+      console.debug('[getTweets] Force refresh requested or initial load, bypassing all caches');
       
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 

@@ -28,24 +28,43 @@ const Home: React.FC = () => {
 
   console.debug('[Home] User authenticated:', !!user);
 
-  // Handle immediate tweet posting response
+  // Improved tweet posting response handler
   const handleTweetPosted = () => {
     console.debug('[Home] Tweet posted, triggering immediate feed refresh');
-    // Force an immediate refresh when a tweet is posted
-    handleRefresh(true);
+    
+    // Force a complete refresh from the server to get the newest tweet
+    handleRefresh(true, true);
+    
+    // Also schedule another refresh after a short delay to handle any latency
+    setTimeout(() => {
+      if (isMounted.current) {
+        handleRefresh(true, true);
+      }
+    }, 500);
   };
 
-  // Modified refresh function with force option
-  const handleRefresh = (force = false) => {
+  // Modified refresh function with force database fetch option
+  const handleRefresh = (force = false, forceDatabase = false) => {
     if ((isRefreshing || !isMounted.current) && !force) {
       console.debug('[Home] Refresh request ignored - already refreshing or component unmounted');
       return;
     }
     
-    console.debug('[Home] Manual refresh triggered');
+    console.debug('[Home] Manual refresh triggered, forceDatabase:', forceDatabase);
     setIsRefreshing(true);
     
-    // Update feed by incrementing key
+    // Clear relevant caches when forcing a database refresh
+    if (forceDatabase) {
+      try {
+        console.debug('[Home] Forcing cache invalidation for immediate feed update');
+        localStorage.removeItem(`tweet-cache-home-feed-limit:10-offset:0`);
+        localStorage.removeItem(`tweet-cache-home-feed-limit:20-offset:0`);
+      } catch (e) {
+        console.error('[Home] Error clearing cache:', e);
+      }
+    }
+    
+    // Update feed by incrementing key to force complete re-render
     setFeedKey(prevKey => prevKey + 1);
     
     // Reset refreshing state after a short delay
@@ -54,10 +73,10 @@ const Home: React.FC = () => {
         console.debug('[Home] Refresh complete');
         setIsRefreshing(false);
       }
-    }, 300); // Reduced to 300ms for faster response
+    }, 300);
   };
 
-  // Optimized listener with improved debounce for performance
+  // Enhanced realtime listener with improved responsiveness
   useEffect(() => {
     console.debug('[Home] Setting up realtime listeners');
     isMounted.current = true;
@@ -65,7 +84,7 @@ const Home: React.FC = () => {
     // Function to handle immediate refresh
     const immediateRefresh = () => {
       console.debug('[Home] Immediate refresh triggered');
-      handleRefresh(true);
+      handleRefresh(true, true);
     };
 
     // Function to handle debounced refresh
@@ -119,7 +138,7 @@ const Home: React.FC = () => {
         table: 'tweets'
       }, (payload) => {
         console.debug('[Home] Detected tweet change:', payload.eventType);
-        // For INSERT events, refresh immediately
+        // For INSERT events, refresh immediately with force database refresh
         if (payload.eventType === 'INSERT') {
           console.debug('[Home] New tweet detected, refreshing immediately');
           immediateRefresh();
@@ -136,6 +155,15 @@ const Home: React.FC = () => {
                 .then(() => console.debug(`[Home] Cache invalidated for key: ${key}`))
                 .catch(err => console.error(`[Home] Error invalidating cache for key ${key}:`, err));
             });
+            
+            // Forcibly clear localStorage cache for immediate updates
+            try {
+              localStorage.removeItem(`tweet-cache-home-feed-limit:10-offset:0`);
+              localStorage.removeItem(`tweet-cache-home-feed-limit:20-offset:0`);
+              console.debug('[Home] Forcibly cleared home feed cache from localStorage');
+            } catch (e) {
+              console.error('[Home] Error clearing home feed cache:', e);
+            }
           }
         } else {
           debouncedRefresh();
@@ -206,7 +234,7 @@ const Home: React.FC = () => {
                   variant="outline" 
                   size="sm" 
                   className={`ml-auto text-xs h-8 border-gray-800 hover:bg-gray-900 hover:border-gray-700 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onClick={() => handleRefresh()}
+                  onClick={() => handleRefresh(true, true)}
                   disabled={isRefreshing}
                 >
                   <RefreshCwIcon className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />

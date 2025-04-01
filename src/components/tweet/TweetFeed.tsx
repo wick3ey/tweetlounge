@@ -164,7 +164,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
   useEffect(() => {
     if (forceRefresh) {
       console.debug('[TweetFeed] Force refresh triggered');
-      fetchTweets(true);
+      fetchTweets(true, true);
     }
   }, [forceRefresh]);
 
