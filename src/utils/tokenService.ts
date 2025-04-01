@@ -54,8 +54,8 @@ const apiFailures = {
   dexTools: {
     failures: 0,
     lastFailure: 0,
-    backoffPeriod: 10000, // Initial 10 second backoff
-    maxConsecutiveRequests: 3, // Limit concurrent requests to prevent rate limiting
+    backoffPeriod: 30000, // Initial 30 second backoff
+    maxConsecutiveRequests: 2, // Limit concurrent requests to prevent rate limiting
     currentRequests: 0
   }
 };
@@ -63,7 +63,7 @@ const apiFailures = {
 // Reset the backoff period when API starts working again
 const resetBackoff = (api: 'dexTools') => {
   apiFailures[api].failures = 0;
-  apiFailures[api].backoffPeriod = 10000;
+  apiFailures[api].backoffPeriod = 30000;
 };
 
 // Increase backoff period exponentially
@@ -232,7 +232,7 @@ const enrichTokensInBackground = async (
     }
 
     // Process tokens in smaller batches to avoid overwhelming the API
-    const batchSize = 3;
+    const batchSize = 2; // Reduced from 3 to 2 to decrease likelihood of rate limiting
     let enrichedTokens: Token[] = [...basicTokens];
     
     for (let i = 0; i < basicTokens.length; i += batchSize) {
@@ -265,9 +265,9 @@ const enrichTokensInBackground = async (
         }
       });
       
-      // Add delay between batches to avoid rate limiting
+      // Add delay between batches to avoid rate limiting - increased from 1 second to 2 seconds
       if (i + batchSize < basicTokens.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
@@ -343,6 +343,9 @@ const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
     } catch (infoErr) {
       console.warn(`Error fetching DexTools token info: ${infoErr}`);
     }
+    
+    // Add a small delay between requests to help avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
       // Try to get token price data from DexTools via Supabase Edge Function

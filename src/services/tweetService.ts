@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
 import { 
@@ -12,6 +12,29 @@ import {
 import { extractHashtags, storeHashtags } from '@/utils/hashtagService';
 import { Profile } from '@/lib/supabase';
 import { CACHE_DURATIONS } from '@/utils/cacheService';
+
+// Helper function to create a Profile object from profile data
+const createPartialProfile = (profileData: any): Profile => {
+  return {
+    id: profileData.id,
+    username: profileData.username || 'unknown',
+    display_name: profileData.display_name || profileData.username || 'Unknown User',
+    avatar_url: profileData.avatar_url || '',
+    bio: profileData.bio || null,
+    cover_url: profileData.cover_url || null,
+    location: profileData.location || null,
+    website: profileData.website || null,
+    updated_at: profileData.updated_at || null,
+    created_at: profileData.created_at || new Date().toISOString(),
+    ethereum_address: profileData.ethereum_address || null,
+    solana_address: profileData.solana_address || null,
+    avatar_nft_id: profileData.avatar_nft_id || null,
+    avatar_nft_chain: profileData.avatar_nft_chain || null,
+    followers_count: profileData.followers_count || 0,
+    following_count: profileData.following_count || 0,
+    replies_sort_order: profileData.replies_sort_order || null
+  };
+};
 
 export const createTweet = async (content: string, imageFile?: File): Promise<TweetWithAuthor | null> => {
   console.debug('[createTweet] Starting tweet creation with content length:', content.length, 'Has image:', !!imageFile);
@@ -306,7 +329,59 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
     
     console.log(`[getUserTweets] Cache miss, fetching from database`);
     
-    // The issue is using the nested join. Let's fix by doing two queries instead.
+    try {
+      // First try to use the RPC function
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_user_tweets_reliable', { 
+          user_id: userId,
+          limit_count: limit,
+          offset_count: offset
+        });
+      
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        // RPC call succeeded, process the data
+        const tweetsWithAuthor: TweetWithAuthor[] = rpcData.map((tweet: any) => {
+          return {
+            id: tweet.id,
+            content: tweet.content,
+            author_id: tweet.author_id,
+            created_at: tweet.created_at,
+            likes_count: tweet.likes_count || 0,
+            retweets_count: tweet.retweets_count || 0,
+            replies_count: tweet.replies_count || 0,
+            is_retweet: tweet.is_retweet === true,
+            original_tweet_id: tweet.original_tweet_id,
+            image_url: tweet.image_url,
+            author: createPartialProfile({
+              id: tweet.author_id,
+              username: tweet.username,
+              display_name: tweet.display_name,
+              avatar_url: tweet.avatar_url,
+              avatar_nft_id: tweet.avatar_nft_id,
+              avatar_nft_chain: tweet.avatar_nft_chain
+            })
+          };
+        });
+        
+        // Enrich data with additional display properties
+        const enrichedTweets = tweetsWithAuthor.map(tweet => enhanceTweetData(tweet));
+        
+        // Cache the results
+        if (enrichedTweets.length > 0) {
+          const cacheKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId, limit, offset });
+          await cacheTweets(cacheKey, enrichedTweets);
+        }
+        
+        return enrichedTweets;
+      }
+      
+      // If RPC failed, fall back to separate queries approach
+      console.log('[getUserTweets] RPC function failed, falling back to separate queries');
+    } catch (rpcCallError) {
+      console.warn('[getUserTweets] Error calling RPC function, falling back to separate queries:', rpcCallError);
+    }
+    
+    // Fallback: Get tweets and profiles separately
     // First get the tweets
     const { data: tweetsData, error: tweetsError } = await supabase
       .from('tweets')
@@ -331,7 +406,7 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
       .single();
     
     if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = No rows returned
-      throw profileError;
+      console.warn('[getUserTweets] Error fetching profile, using placeholder:', profileError);
     }
     
     // Combine the tweets with the profile
@@ -348,7 +423,7 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
     });
     
     // Enrich data with additional display properties
-    const enrichedTweets = tweetsWithAuthor.map(tweet => enrichTweetData(tweet));
+    const enrichedTweets = tweetsWithAuthor.map(tweet => enhanceTweetData(tweet));
     
     // Cache the results
     if (enrichedTweets.length > 0) {
@@ -359,7 +434,7 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
     return enrichedTweets;
   } catch (error) {
     console.error(`[getUserTweets] Error fetching user tweets:`, error);
-    throw error;
+    return []; // Return empty array instead of throwing to prevent UI from breaking
   }
 };
 
