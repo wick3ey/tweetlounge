@@ -178,8 +178,9 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
         console.error('[TweetInput] Error clearing profile cache:', e);
       }
 
-      // Send a special broadcast specifically for profile updates
+      // Sending broadcasts through multiple channels for redundancy
       try {
+        // Send a special broadcast specifically for profile updates
         const profileUpdateChannel = supabase.channel('profile-update-channel');
         
         await profileUpdateChannel.subscribe((status) => {
@@ -197,8 +198,26 @@ const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
         
         console.debug('[TweetInput] Profile update broadcast sent');
         
+        // Try another higher-priority broadcast type
+        const priorityChannel = supabase.channel('priority-refresh-channel');
+        
+        await priorityChannel.subscribe();
+        
+        await priorityChannel.send({
+          type: 'broadcast',
+          event: 'force-profile-refresh',
+          payload: { 
+            userId: user.id,
+            timestamp: new Date().toISOString(),
+            source: 'tweet-input'
+          }
+        });
+        
+        console.debug('[TweetInput] Priority profile refresh broadcast sent');
+        
         setTimeout(() => {
           supabase.removeChannel(profileUpdateChannel);
+          supabase.removeChannel(priorityChannel);
         }, 1000);
       } catch (error) {
         console.error('[TweetInput] Error broadcasting profile update event:', error);

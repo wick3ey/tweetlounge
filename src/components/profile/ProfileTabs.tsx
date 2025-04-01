@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserTweets, getUserRetweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
@@ -16,6 +16,7 @@ import {
   clearProfileCache 
 } from '@/utils/profileCacheService';
 import { CACHE_DURATIONS } from '@/utils/cacheService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProfileTabsProps {
   userId: string;
@@ -32,6 +33,9 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
   const [assetsPreloaded, setAssetsPreloaded] = useState(false);
   const [forceRefreshKey, setForceRefreshKey] = useState(0);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const refreshTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const isInitialLoadRef = useRef(true);
   
   const processRetweetData = async (tweet: TweetWithAuthor): Promise<TweetWithAuthor | null> => {
     const enhancedTweet = enhanceTweetData(tweet);
@@ -121,7 +125,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
           return processTweets(fetchedTweets);
         },
         { limit: 20, offset: 0 },
-        CACHE_DURATIONS.MEDIUM,
+        CACHE_DURATIONS.SHORT,
         forceRefresh
       );
     } catch (err) {
@@ -141,7 +145,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
           return processedTweets.filter(tweet => tweet.image_url);
         },
         { limit: 20, offset: 0 },
-        CACHE_DURATIONS.MEDIUM,
+        CACHE_DURATIONS.SHORT,
         forceRefresh
       );
     } catch (err) {
@@ -159,7 +163,7 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
           return await getUserComments(userId);
         },
         { limit: 20, offset: 0 },
-        CACHE_DURATIONS.MEDIUM,
+        CACHE_DURATIONS.SHORT,
         forceRefresh
       );
     } catch (err) {
@@ -184,113 +188,71 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
   }, [solanaAddress, assetsPreloaded]);
   
   useEffect(() => {
-    const tweetsChannel = supabase
-      .channel('profile-tweets-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tweets',
-        filter: `author_id=eq.${userId}`
-      }, (payload) => {
-        console.debug(`[ProfileTabs] Detected change in tweets for user ${userId}, refreshing cache...`);
-        
-        try {
-          localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
-          localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
-          localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
-          localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
-          console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
-        } catch (e) {
-          console.error('[ProfileTabs] Error clearing profile cache:', e);
-        }
-        
-        setForceRefreshKey(prevKey => prevKey + 1);
-        
-        const refreshData = () => {
-          if (activeTab === 'posts') fetchTweets(true).then(setTweets);
-          if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
-        };
-        
-        refreshData();
-        
-        setTimeout(refreshData, 300);
-        setTimeout(refreshData, 1000);
-        setTimeout(refreshData, 3000);
-      })
-      .subscribe();
-      
-    console.debug('[ProfileTabs] Tweets channel subscribed');
-    
-    const broadcastChannel = supabase
-      .channel('custom-broadcast-profile')
-      .on('broadcast', { event: 'tweet-created' }, (payload) => {
-        if (payload.payload && payload.payload.userId === userId) {
-          console.debug(`[ProfileTabs] Received broadcast about new tweet from user ${userId}`);
-          
-          try {
-            localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
-            localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
-            localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
-            localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
-            console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
-          } catch (e) {
-            console.error('[ProfileTabs] Error clearing profile cache:', e);
-          }
-          
-          setForceRefreshKey(prevKey => prevKey + 1);
-          
-          const refreshWithForce = () => {
-            if (activeTab === 'posts') fetchTweets(true).then(setTweets);
-            if (activeTab === 'media') fetchMediaTweets(true).then(setMediaTweets);
-          };
-          
-          refreshWithForce();
-          setTimeout(refreshWithForce, 300);
-          setTimeout(refreshWithForce, 1000);
-          setTimeout(refreshWithForce, 2000);
-        }
-      })
-      .subscribe();
-      
-    const commentsChannel = supabase
-      .channel('profile-comments-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'comments',
-        filter: `user_id=eq.${userId}`
-      }, () => {
-        console.log(`Detected change in comments for user ${userId}, refreshing cache...`);
-        if (activeTab === 'replies') fetchReplies(true).then(setReplies);
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(tweetsChannel);
-      supabase.removeChannel(broadcastChannel);
-      supabase.removeChannel(commentsChannel);
+    const handleCacheClear = (e: CustomEvent) => {
+      if (e.detail?.userId === userId) {
+        console.debug(`[ProfileTabs] Received cache clear event for user ${userId}`);
+        setForceRefreshKey(prev => prev + 1);
+        refreshProfileData(true);
+      }
     };
-  }, [userId, activeTab, fetchTweets, fetchReplies, fetchMediaTweets]);
+    
+    window.addEventListener('profile-cache-clear', handleCacheClear as EventListener);
+    
+    return () => {
+      window.removeEventListener('profile-cache-clear', handleCacheClear as EventListener);
+    };
+  }, [userId]);
+  
+  const refreshProfileData = useCallback((forceRefresh = false) => {
+    const refresh = async () => {
+      if (activeTab === 'posts') {
+        const freshTweets = await fetchTweets(forceRefresh);
+        setTweets(freshTweets);
+      } else if (activeTab === 'media') {
+        const freshMedia = await fetchMediaTweets(forceRefresh);
+        setMediaTweets(freshMedia);
+      } else if (activeTab === 'replies') {
+        const freshReplies = await fetchReplies(forceRefresh);
+        setReplies(freshReplies);
+      }
+    };
+
+    refresh();
+    
+    refreshTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    refreshTimeoutsRef.current = [];
+    
+    const timeouts = [
+      setTimeout(() => refresh(), 300),
+      setTimeout(() => refresh(), 1000),
+      setTimeout(() => refresh(), 2000),
+      setTimeout(() => refresh(), 5000)
+    ];
+    
+    refreshTimeoutsRef.current = timeouts;
+  }, [activeTab, fetchTweets, fetchMediaTweets, fetchReplies]);
   
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         setLoading(true);
         
+        const shouldForceRefresh = isInitialLoadRef.current || forceRefreshKey > 0;
+        
         if (activeTab === 'posts') {
           console.time('fetchProfileTweets');
           console.debug(`[ProfileTabs] Fetching profile tweets with force refresh key: ${forceRefreshKey}`);
-          const tweets = await fetchTweets(forceRefreshKey > 0);
+          const tweets = await fetchTweets(shouldForceRefresh);
           setTweets(tweets);
           console.timeEnd('fetchProfileTweets');
         } else if (activeTab === 'replies') {
           console.time('fetchProfileReplies');
-          const replies = await fetchReplies(forceRefreshKey > 0);
+          const replies = await fetchReplies(shouldForceRefresh);
           setReplies(replies);
           console.timeEnd('fetchProfileReplies');
         } else if (activeTab === 'media') {
           console.time('fetchProfileMedia');
-          const mediaTweets = await fetchMediaTweets(forceRefreshKey > 0);
+          const mediaTweets = await fetchMediaTweets(shouldForceRefresh);
           setMediaTweets(mediaTweets);
           console.timeEnd('fetchProfileMedia');
         } else if (activeTab === 'assets' && !assetsPreloaded && solanaAddress) {
@@ -302,6 +264,8 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
             console.error('Error preloading assets data:', err);
           }
         }
+        
+        isInitialLoadRef.current = false;
       } catch (error) {
         console.error(`Error fetching ${activeTab}:`, error);
         toast({
@@ -377,6 +341,115 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       setLoading(false);
     }
   };
+  
+  useEffect(() => {
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+        filter: user ? `id=eq.${user.id}` : undefined
+      }, (payload) => {
+        console.debug(`[ProfileTabs] Detected change in profiles table:`, payload);
+        refreshProfileData(true);
+      })
+      .subscribe();
+      
+    const tweetsChannel = supabase
+      .channel('profile-tweets-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tweets',
+        filter: `author_id=eq.${userId}`
+      }, (payload) => {
+        console.debug(`[ProfileTabs] Detected change in tweets for user ${userId}, refreshing cache...`);
+        
+        try {
+          localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
+          localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
+          console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
+        } catch (e) {
+          console.error('[ProfileTabs] Error clearing profile cache:', e);
+        }
+        
+        setForceRefreshKey(prevKey => prevKey + 1);
+        refreshProfileData(true);
+      })
+      .subscribe();
+      
+    const broadcastChannel = supabase
+      .channel('custom-broadcast-profile')
+      .on('broadcast', { event: 'tweet-created' }, (payload) => {
+        if (payload.payload && payload.payload.userId === userId) {
+          console.debug(`[ProfileTabs] Received broadcast about new tweet from user ${userId}`);
+          
+          try {
+            localStorage.removeItem(`tweet-cache-profile-${userId}-posts-limit:20-offset:0`);
+            localStorage.removeItem(`tweet-cache-profile-${userId}-media-limit:20-offset:0`);
+            localStorage.removeItem(`profile-cache-profile-${userId}-posts-limit:20-offset:0`);
+            localStorage.removeItem(`profile-cache-profile-${userId}-posts`);
+            console.debug(`[ProfileTabs] Cleared profile caches for user ${userId}`);
+          } catch (e) {
+            console.error('[ProfileTabs] Error clearing profile cache:', e);
+          }
+          
+          setForceRefreshKey(prevKey => prevKey + 1);
+          refreshProfileData(true);
+        }
+      })
+      .subscribe();
+      
+    const profileUpdateChannel = supabase
+      .channel('profile-update-channel')
+      .on('broadcast', { event: 'profile-posts-updated' }, (payload) => {
+        if (payload.payload && payload.payload.userId === userId) {
+          console.debug(`[ProfileTabs] Received profile-posts-updated broadcast for user ${userId}`);
+          setForceRefreshKey(prevKey => prevKey + 1);
+          refreshProfileData(true);
+        }
+      })
+      .subscribe();
+      
+    const priorityChannel = supabase
+      .channel('priority-refresh-channel')
+      .on('broadcast', { event: 'force-profile-refresh' }, (payload) => {
+        console.debug(`[ProfileTabs] Received force-profile-refresh broadcast:`, payload);
+        if (payload.payload && payload.payload.userId === userId) {
+          console.debug(`[ProfileTabs] Processing priority refresh for user ${userId}`);
+          setForceRefreshKey(prevKey => prevKey + 1);
+          refreshProfileData(true);
+        }
+      })
+      .subscribe();
+      
+    const commentsChannel = supabase
+      .channel('profile-comments-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments',
+        filter: `user_id=eq.${userId}`
+      }, () => {
+        console.log(`Detected change in comments for user ${userId}, refreshing cache...`);
+        if (activeTab === 'replies') {
+          fetchReplies(true).then(setReplies);
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(broadcastChannel);
+      supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(profileUpdateChannel);
+      supabase.removeChannel(priorityChannel);
+      supabase.removeChannel(profilesChannel);
+    };
+  }, [userId, activeTab, refreshProfileData, user?.id]);
   
   return (
     <div className="border-b border-crypto-gray">

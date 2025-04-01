@@ -1,22 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, Repeat, Bookmark, Share2, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
-import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData } from '@/types/Tweet';
-import { checkIfUserLikedTweet, likeTweet, deleteTweet, checkIfUserRetweetedTweet, retweet } from '@/services/tweetService';
-import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card } from '@/components/ui/card';
+import { formatDistanceToNow } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { MessageSquare, Heart, RefreshCcw, Share2, Bookmark, MoreHorizontal, Trash2, Check, AlertCircle } from 'lucide-react';
+import { TweetWithAuthor } from '@/types/Tweet';
+import { likeTweet, retweet, deleteTweet, checkIfUserLikedTweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
+  DropdownMenuTrigger, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
-import { VerifiedBadge } from '@/components/ui/badge';
-import ProfileHoverCard from '@/components/profile/ProfileHoverCard';
+  DropdownMenuSeparator 
+} from '@/components/ui/dropdown-menu';
+import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -30,569 +30,322 @@ interface TweetCardProps {
 const TweetCard: React.FC<TweetCardProps> = ({ 
   tweet, 
   onClick, 
-  onAction, 
-  onDelete, 
+  onAction,
+  onDelete,
   onRetweetRemoved,
   onError
 }) => {
-  // Process the tweet data to ensure it has all required fields
-  const processedTweet = enhanceTweetData(tweet);
-  
-  if (!processedTweet || !isValidTweet(processedTweet)) {
-    console.error('Invalid tweet data received:', tweet);
-    return (
-      <div className="p-4 border-b border-gray-800 bg-gray-900/20">
-        <div className="flex items-center space-x-2 text-red-500">
-          <AlertCircle size={16} />
-          <span className="text-sm">Invalid tweet data</span>
-        </div>
-      </div>
-    );
-  }
-  
-  // Now use the processed tweet
-  tweet = processedTweet;
-  
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isRetweeted, setIsRetweeted] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isRetweeting, setIsRetweeting] = useState(false);
-  const [isLiking, setIsLiking] = useState(false);
-  const [localLikesCount, setLocalLikesCount] = useState(tweet?.likes_count || 0);
-  const [localRetweetsCount, setLocalRetweetsCount] = useState(tweet?.retweets_count || 0);
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
+  const [isActionInProgress, setIsActionInProgress] = useState(false);
+  const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
+  const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count || 0);
+  
+  const isOwnTweet = user && tweet.author_id === user.id;
+  const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
+  
+  // The tweet to actually display (either the original tweet if this is a retweet, or this tweet)
+  const displayTweet = isRetweet && tweet.original_author ? {
+    ...tweet,
+    content: tweet.content || 'Retweet',
+    author: tweet.original_author,
+    author_id: tweet.original_author.id
+  } : tweet;
+  
+  // Check if this is a NFT verified user
+  const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
+  
   useEffect(() => {
-    setLocalLikesCount(tweet?.likes_count || 0);
-    setLocalRetweetsCount(tweet?.retweets_count || 0);
-  }, [tweet?.likes_count, tweet?.retweets_count]);
-
-  useEffect(() => {
-    const checkStatuses = async () => {
-      if (tweet?.id && user) {
+    if (user) {
+      const checkLikeStatus = async () => {
         try {
           const liked = await checkIfUserLikedTweet(tweet.id);
           setIsLiked(liked);
-          
-          const tweetIdToCheck = tweet.is_retweet && tweet.original_tweet_id 
-            ? tweet.original_tweet_id 
-            : tweet.id;
-            
-          const retweeted = await checkIfUserRetweetedTweet(tweetIdToCheck);
-          setIsRetweeted(retweeted);
-          
-          const bookmarked = await checkIfTweetBookmarked(tweet.id);
-          setIsBookmarked(bookmarked);
         } catch (error) {
-          console.error('Error checking tweet statuses:', error);
+          console.error('Error checking like status:', error);
         }
-      }
-    };
-    
-    checkStatuses();
-  }, [tweet?.id, tweet?.original_tweet_id, tweet?.is_retweet, user]);
-
-  const handleTweetClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) {
-      return;
+      };
+      
+      const checkRetweetStatus = async () => {
+        try {
+          const retweeted = isRetweet ? 
+            tweet.author_id === user.id : 
+            await checkIfUserRetweetedTweet(tweet.id);
+          setIsRetweeted(retweeted);
+        } catch (error) {
+          console.error('Error checking retweet status:', error);
+        }
+      };
+      
+      checkLikeStatus();
+      checkRetweetStatus();
     }
-    
-    if (onClick) {
-      onClick();
-    } else if (tweet.is_retweet && tweet.original_tweet_id) {
-      navigate(`/tweet/${tweet.original_tweet_id}`);
-    } else {
-      navigate(`/tweet/${tweet.id}`);
-    }
-  };
-
-  const navigateToProfile = (e: React.MouseEvent, username?: string) => {
+  }, [user, tweet.id, isRetweet, tweet.author_id]);
+  
+  useEffect(() => {
+    setLikesCount(tweet.likes_count || 0);
+    setRetweetsCount(tweet.retweets_count || 0);
+  }, [tweet.likes_count, tweet.retweets_count]);
+  
+  const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (username) {
-      navigate(`/profile/${username}`);
-    }
-  };
-
-  const toggleLike = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+    
     if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to like tweets.",
-      });
+      if (onError) onError("Authentication Required", "You must be logged in to like tweets");
       return;
     }
-
-    if (isLiking) return;
     
-    const newLikedState = !isLiked;
-    setIsLiked(newLikedState);
-    setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
+    if (isActionInProgress) return;
     
-    setIsLiking(true);
-
     try {
-      const tweetIdToLike = tweet.is_retweet && tweet.original_tweet_id 
-        ? tweet.original_tweet_id 
-        : tweet.id;
+      setIsActionInProgress(true);
       
-      const success = await likeTweet(tweetIdToLike);
+      const success = await likeTweet(tweet.id, isLiked);
       
-      if (!success) {
-        setIsLiked(!newLikedState);
-        setLocalLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
+      if (success) {
+        setIsLiked(!isLiked);
+        setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
         
-        toast({
-          title: "Error",
-          description: "Failed to like/unlike the post.",
-          variant: "destructive"
-        });
-      } else if (newLikedState) {
-        toast({
-          title: "Liked",
-          description: "You liked this post",
-        });
-      }
-      
-      if (onAction && success) {
-        setTimeout(() => {
-          onAction();
-        }, 1000);
+        if (onAction) onAction();
       }
     } catch (error) {
-      console.error('Error during like operation:', error);
-      
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred during the like operation.",
-        variant: "destructive"
-      });
+      console.error('Error liking tweet:', error);
+      if (onError) onError("Error", "Failed to like tweet. Please try again.");
     } finally {
-      setIsLiking(false);
+      setIsActionInProgress(false);
     }
   };
-
-  const toggleRetweet = async (e: React.MouseEvent) => {
+  
+  const handleRetweet = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to repost posts.",
-      });
-      return;
-    }
-
-    if (isRetweeting) {
-      return;
-    }
-
-    const newRetweetedState = !isRetweeted;
-    setIsRetweeted(newRetweetedState);
-    setLocalRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
     
-    setIsRetweeting(true);
-
-    try {
-      const tweetIdToRetweet = tweet.is_retweet && tweet.original_tweet_id 
-        ? tweet.original_tweet_id 
-        : tweet.id;
-      
-      if (!tweetIdToRetweet) {
-        throw new Error("Invalid tweet ID for retweet operation");
-      }
-
-      const success = await retweet(tweetIdToRetweet);
-      
-      if (!success) {
-        setIsRetweeted(!newRetweetedState);
-        setLocalRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-        
-        toast({
-          title: "Error",
-          description: "Failed to repost/unrepost the tweet.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: newRetweetedState ? "Reposted" : "Repost removed",
-          description: newRetweetedState ? "You reposted this post" : "You removed your repost",
-        });
-        
-        if (!newRetweetedState && onRetweetRemoved) {
-          onRetweetRemoved(tweetIdToRetweet);
-        }
-        
-        if (onAction) {
-          setTimeout(() => {
-            onAction();
-          }, 1000);
-        }
-      }
-    } catch (error) {
-      console.error('Error during retweet operation:', error);
-      
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred during the repost operation.",
-        variant: "destructive"
-      });
-      
-      if (onError) {
-        onError(
-          "Repost Error", 
-          "There was a problem with your repost. Please try again later."
-        );
-      }
-    } finally {
-      setIsRetweeting(false);
-    }
-  };
-
-  const toggleBookmark = async (e: React.MouseEvent) => {
-    e.stopPropagation();
     if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to bookmark tweets.",
-      });
+      if (onError) onError("Authentication Required", "You must be logged in to retweet");
       return;
     }
-
-    const newBookmarkedState = !isBookmarked;
-    setIsBookmarked(newBookmarkedState);
-
-    let success;
+    
+    if (isActionInProgress) return;
+    
+    if (isOwnTweet && !isRetweet) {
+      if (onError) onError("Cannot Retweet", "You cannot retweet your own tweet");
+      return;
+    }
+    
     try {
-      if (newBookmarkedState) {
-        success = await bookmarkTweet(tweet.id);
-      } else {
-        success = await unbookmarkTweet(tweet.id);
-      }
-
-      if (!success) {
-        setIsBookmarked(!newBookmarkedState);
-        toast({
-          title: "Error",
-          description: "Failed to bookmark/unbookmark this post.",
-          variant: "destructive"
-        });
-      } else if (onAction) {
-        setTimeout(() => {
-          onAction();
-        }, 1000);
+      setIsActionInProgress(true);
+      
+      const targetTweetId = isRetweet ? tweet.original_tweet_id! : tweet.id;
+      const success = await retweet(targetTweetId, isRetweeted);
+      
+      if (success) {
+        setIsRetweeted(!isRetweeted);
+        setRetweetsCount(prev => isRetweeted ? prev - 1 : prev + 1);
+        
+        if (onAction) onAction();
+        
+        if (isRetweeted && onRetweetRemoved && isRetweet) {
+          onRetweetRemoved(targetTweetId);
+        }
       }
     } catch (error) {
-      console.error('Error during bookmark operation:', error);
-      setIsBookmarked(!newBookmarkedState);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred during the bookmark operation.",
-        variant: "destructive"
-      });
+      console.error('Error retweeting:', error);
+      if (onError) onError("Error", "Failed to retweet. Please try again.");
+    } finally {
+      setIsActionInProgress(false);
     }
   };
-
-  const handleDeleteTweet = async (e: React.MouseEvent) => {
+  
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (tweet?.id) {
+    
+    if (!user || !isOwnTweet) return;
+    
+    if (isActionInProgress) return;
+    
+    try {
+      setIsActionInProgress(true);
+      
       const success = await deleteTweet(tweet.id);
+      
       if (success && onDelete) {
         onDelete(tweet.id);
       }
+    } catch (error) {
+      console.error('Error deleting tweet:', error);
+      if (onError) onError("Error", "Failed to delete tweet. Please try again.");
+    } finally {
+      setIsActionInProgress(false);
     }
   };
-
-  const formattedDate = formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true });
-
-  // Special handling for retweets
-  if (tweet.is_retweet && tweet.original_tweet_id) {
-    if (!tweet.original_author) {
-      return (
-        <div className="p-4 border-b border-gray-800">
-          <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-            <Repeat className="h-4 w-4 mr-1" />
-            <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-              <span 
-                className="hover:underline cursor-pointer"
-                onClick={(e) => navigateToProfile(e, tweet.author?.username)}
-              >
-                {tweet.author?.display_name || 'User'} reposted
-              </span>
-            </ProfileHoverCard>
-          </div>
-          <div className="bg-gray-900/20 p-3 rounded-md">
-            <div className="flex items-center space-x-2 text-yellow-500">
-              <AlertCircle size={16} />
-              <span className="text-sm">Original content could not be loaded</span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div 
-        className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
-        onClick={handleTweetClick}
-      >
-        <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-          <Repeat className="h-4 w-4 mr-1" />
-          <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-            <span 
-              className="hover:underline cursor-pointer"
-              onClick={(e) => navigateToProfile(e, tweet.author?.username)}
-            >
-              {tweet.author?.display_name || 'User'} reposted
-            </span>
-          </ProfileHoverCard>
-        </div>
-
-        <div className="flex space-x-3">
-          <div className="flex-shrink-0">
-            <ProfileHoverCard username={tweet.original_author.username} direction="right">
-              <Avatar 
-                className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
-              >
-                <AvatarImage 
-                  src={tweet.original_author.avatar_url} 
-                  alt={tweet.original_author.username} 
-                />
-                <AvatarFallback>
-                  {tweet.original_author.username?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </ProfileHoverCard>
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between">
-              <div>
-                <div className="flex items-center gap-1">
-                  <ProfileHoverCard username={tweet.original_author.username} direction="bottom">
-                    <span 
-                      className="font-medium text-white flex items-center hover:underline cursor-pointer"
-                      onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
-                    >
-                      {tweet.original_author.display_name}
-                      {(tweet.original_author.avatar_nft_id && tweet.original_author.avatar_nft_chain) && (
-                        <VerifiedBadge className="ml-1" />
-                      )}
-                    </span>
-                  </ProfileHoverCard>
-                  <span className="text-gray-500 mx-1">·</span>
-                  <ProfileHoverCard username={tweet.original_author.username} direction="bottom">
-                    <span 
-                      className="text-gray-500 hover:underline cursor-pointer"
-                      onClick={(e) => navigateToProfile(e, tweet.original_author.username)}
-                    >
-                      @{tweet.original_author.username}
-                    </span>
-                  </ProfileHoverCard>
-                  <span className="text-gray-500 mx-1">·</span>
-                  <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
-                </div>
-              </div>
-              
-              {user?.id === tweet.author_id && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-black border-gray-800">
-                    <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-            
-            <p className="mt-1 text-white">{tweet.content}</p>
-            
-            {tweet.image_url && (
-              <div className="mt-3">
-                <img 
-                  src={tweet.image_url} 
-                  alt="Tweet image" 
-                  className="rounded-md max-h-80 object-cover"
-                />
-              </div>
-            )}
-            
-            <div className="mt-3 flex justify-between text-gray-500">
-              <button 
-                className="flex items-center space-x-1 hover:text-crypto-blue"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MessageSquare className="h-4 w-4" />
-                <span>{tweet.replies_count || 0}</span>
-              </button>
-              
-              <button 
-                className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green transition-colors duration-100`}
-                onClick={toggleRetweet}
-                disabled={isRetweeting}
-              >
-                <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
-                <span>{localRetweetsCount}</span>
-              </button>
-              
-              <button 
-                className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red transition-colors duration-100`}
-                onClick={toggleLike}
-                disabled={isLiking}
-              >
-                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{localLikesCount}</span>
-              </button>
-              
-              <button 
-                className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple transition-colors duration-100`}
-                onClick={toggleBookmark}
-              >
-                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-              </button>
-              
-              <button 
-                className="flex items-center space-x-1 hover:text-crypto-blue"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
   
-  // Regular tweets (non-retweets)
+  const formatTimeAgo = (timestamp: string) => {
+    try {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return 'recently';
+    }
+  };
+  
+  const getInitials = (name: string) => {
+    return name.substring(0, 2).toUpperCase();
+  };
+  
   return (
-    <div 
-      className="p-4 border-b border-gray-800 hover:bg-gray-900/20 transition-colors cursor-pointer"
-      onClick={handleTweetClick}
+    <Card 
+      className="border-b border-gray-800 bg-black hover:bg-black/80 transition-colors p-4 cursor-pointer"
+      onClick={onClick}
     >
-      <div className="flex space-x-3">
-        <div className="flex-shrink-0">
-          <ProfileHoverCard username={tweet.author?.username || ''} direction="right">
-            <Avatar 
-              className="h-10 w-10 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={(e) => navigateToProfile(e, tweet.author?.username)}
-            >
-              <AvatarImage src={tweet.author?.avatar_url} alt={tweet.author?.username} />
-              <AvatarFallback>{tweet.author?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+      {isRetweet && tweet.author && (
+        <div className="flex items-center text-gray-500 text-sm mb-2 ml-6">
+          <RefreshCcw className="h-3 w-3 mr-2" />
+          <span>
+            Retweeted by <Link to={`/profile/${tweet.author.username}`} className="text-crypto-blue hover:underline" onClick={e => e.stopPropagation()}>
+              @{tweet.author.username}
+            </Link>
+          </span>
+        </div>
+      )}
+      
+      <div className="flex gap-3">
+        <div>
+          <Link to={`/profile/${displayTweet.author?.username}`} onClick={e => e.stopPropagation()}>
+            <Avatar className="h-10 w-10">
+              {displayTweet.author?.avatar_url ? (
+                <AvatarImage src={displayTweet.author.avatar_url} alt={displayTweet.author.display_name || displayTweet.author.username} />
+              ) : null}
+              <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
+                {getInitials(displayTweet.author?.display_name || displayTweet.author?.username || 'User')}
+              </AvatarFallback>
             </Avatar>
-          </ProfileHoverCard>
+          </Link>
         </div>
         
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between">
-            <div>
-              <div className="flex items-center gap-1">
-                <ProfileHoverCard username={tweet.author?.username || ''} direction="bottom">
-                  <span 
-                    className="font-medium text-white flex items-center hover:underline cursor-pointer"
-                    onClick={(e) => navigateToProfile(e, tweet.author?.username)}
-                  >
-                    {tweet.author?.display_name}
-                    {(tweet.author?.avatar_nft_id && tweet.author?.avatar_nft_chain) && <VerifiedBadge className="ml-1" />}
-                  </span>
-                </ProfileHoverCard>
-                <span className="text-gray-500 mx-1">·</span>
-                <ProfileHoverCard username={tweet.author?.username || ''} direction="bottom">
-                  <span 
-                    className="text-gray-500 hover:underline cursor-pointer"
-                    onClick={(e) => navigateToProfile(e, tweet.author?.username)}
-                  >
-                    @{tweet.author?.username}
-                  </span>
-                </ProfileHoverCard>
-                <span className="text-gray-500 mx-1">·</span>
-                <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>
-              </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Link to={`/profile/${displayTweet.author?.username}`} className="font-bold hover:underline" onClick={e => e.stopPropagation()}>
+                {displayTweet.author?.display_name || displayTweet.author?.username || 'User'}
+              </Link>
+              
+              {isNftVerified && (
+                <VerifiedBadge className="ml-1" />
+              )}
+              
+              <span className="text-gray-500 mx-1">·</span>
+              
+              <Link to={`/profile/${displayTweet.author?.username}`} className="text-gray-500 hover:underline" onClick={e => e.stopPropagation()}>
+                @{displayTweet.author?.username || 'user'}
+              </Link>
+              
+              <span className="text-gray-500 mx-1">·</span>
+              
+              <span className="text-gray-500">
+                {formatTimeAgo(tweet.created_at)}
+              </span>
             </div>
             
-            {user?.id === tweet.author_id && (
+            <div>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-800">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
+                <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-crypto-gray/20 rounded-full">
+                    <MoreHorizontal className="h-5 w-5 text-gray-500" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-black border-gray-800">
-                  <DropdownMenuItem onClick={handleDeleteTweet} className="hover:bg-gray-800 text-white">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                
+                <DropdownMenuContent className="bg-crypto-darkgray border-crypto-gray text-white">
+                  {isOwnTweet && (
+                    <>
+                      <DropdownMenuItem 
+                        className="text-red-500 cursor-pointer flex items-center"
+                        onClick={handleDelete}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-crypto-gray" />
+                    </>
+                  )}
+                  
+                  <DropdownMenuItem 
+                    className="cursor-pointer flex items-center"
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(window.location.origin + `/tweet/${tweet.id}`);
+                    }}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Copy link
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
+            </div>
           </div>
           
-          <p className="mt-1 text-white">{tweet.content}</p>
+          <div className="mt-2 mb-3 whitespace-pre-line break-words">
+            {displayTweet.content}
+          </div>
           
-          {tweet.image_url && (
-            <div className="mt-3">
+          {displayTweet.image_url && (
+            <div className="mt-3 mb-3 rounded-xl overflow-hidden">
               <img 
-                src={tweet.image_url} 
-                alt="Tweet image" 
-                className="rounded-md max-h-80 object-cover"
+                src={displayTweet.image_url} 
+                alt="Tweet media" 
+                className="max-h-80 w-auto rounded-xl" 
               />
             </div>
           )}
           
-          <div className="mt-3 flex justify-between text-gray-500">
-            <button 
-              className="flex items-center space-x-1 hover:text-crypto-blue"
-              onClick={(e) => e.stopPropagation()}
+          <div className="flex justify-between mt-3 text-gray-500">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
+              onClick={e => e.stopPropagation()}
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4 mr-2" />
               <span>{tweet.replies_count || 0}</span>
-            </button>
+            </Button>
             
-            <button 
-              className={`flex items-center space-x-1 ${isRetweeted ? 'text-crypto-green' : ''} hover:text-crypto-green transition-colors duration-100`}
-              onClick={toggleRetweet}
-              disabled={isRetweeting}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`flex items-center p-2 h-8 ${isRetweeted ? 'text-green-500 hover:text-green-600 hover:bg-green-500/10' : 'hover:text-green-500 hover:bg-green-500/10'}`}
+              onClick={handleRetweet}
+              disabled={isActionInProgress}
             >
-              <Repeat className={`h-4 w-4 ${isRetweeted ? 'fill-current' : ''}`} />
-              <span>{localRetweetsCount}</span>
-            </button>
+              {isRetweeted ? (
+                <Check className="h-4 w-4 mr-2" />
+              ) : (
+                <RefreshCcw className="h-4 w-4 mr-2" />
+              )}
+              <span>{retweetsCount}</span>
+            </Button>
             
-            <button 
-              className={`flex items-center space-x-1 ${isLiked ? 'text-crypto-red' : ''} hover:text-crypto-red transition-colors duration-100`}
-              onClick={toggleLike}
-              disabled={isLiking}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`flex items-center p-2 h-8 ${isLiked ? 'text-red-500 hover:text-red-600 hover:bg-red-500/10' : 'hover:text-red-500 hover:bg-red-500/10'}`}
+              onClick={handleLike}
+              disabled={isActionInProgress}
             >
-              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{localLikesCount}</span>
-            </button>
+              <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+              <span>{likesCount}</span>
+            </Button>
             
-            <button 
-              className={`flex items-center space-x-1 ${isBookmarked ? 'text-crypto-purple' : ''} hover:text-crypto-purple transition-colors duration-100`}
-              onClick={toggleBookmark}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
+              onClick={e => e.stopPropagation()}
             >
-              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-            </button>
-            
-            <button 
-              className="flex items-center space-x-1 hover:text-crypto-blue"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Share2 className="h-4 w-4" />
-            </button>
+              <Bookmark className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
