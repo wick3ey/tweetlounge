@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { VerifiedBadge } from '@/components/ui/badge';
+import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
