@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,6 +10,7 @@ import {
 } from '@/utils/tweetCacheService';
 import { extractHashtags, storeHashtags } from '@/utils/hashtagService';
 import { Profile } from '@/lib/supabase';
+import { CACHE_DURATIONS } from '@/utils/cacheService';
 
 export const createTweet = async (content: string, imageFile?: File): Promise<TweetWithAuthor | null> => {
   console.debug('[createTweet] Starting tweet creation with content length:', content.length, 'Has image:', !!imageFile);
@@ -26,11 +26,9 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     console.debug('[createTweet] User authenticated:', !!userData.user);
     
-    // Set up the tweet data
     const tweetId = uuidv4();
     let imageUrl: string | null = null;
     
-    // If there's an image, upload it first
     if (imageFile) {
       console.debug('[createTweet] Uploading image:', imageFile.name, 'Size:', (imageFile.size / 1024).toFixed(2) + 'KB');
       
@@ -50,7 +48,6 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
       
       console.debug('[createTweet] Image uploaded successfully');
       
-      // Get the public URL for the uploaded image
       const { data: urlData } = supabase.storage
         .from('tweets')
         .getPublicUrl(filePath);
@@ -59,7 +56,6 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
       console.debug('[createTweet] Image public URL:', imageUrl);
     }
     
-    // Extract hashtags
     const hashtags = extractHashtags(content);
     if (hashtags.length > 0) {
       console.debug('[createTweet] Extracted hashtags:', hashtags);
@@ -67,7 +63,6 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     console.debug('[createTweet] Creating tweet in database');
     
-    // Insert the tweet
     const { data: tweetData, error: tweetError } = await supabase
       .from('tweets')
       .insert({
@@ -86,12 +81,10 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     console.debug('[createTweet] Tweet created successfully with ID:', tweetData.id);
     
-    // Store hashtags if there are any
     if (hashtags.length > 0) {
       await storeHashtags(hashtags, tweetData.id);
     }
     
-    // Get the profile data of the author
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -100,10 +93,9 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     if (profileError || !profileData) {
       console.error('[createTweet] Profile fetch error:', profileError?.message || 'No profile data');
-      // We can still return the tweet without profile data
+      return null;
     }
     
-    // Create the enhanced tweet object
     const createdTweet: TweetWithAuthor = {
       ...tweetData,
       author: profileData as Profile,
@@ -115,7 +107,6 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     const enhancedTweet = enhanceTweetData(createdTweet);
     
-    // Invalidate cache to ensure fresh data
     const cacheKeysToClear = [
       getTweetCacheKey(CACHE_KEYS.HOME_FEED, { limit: 20, offset: 0 }),
       getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { limit: 20, offset: 0, userId: userData.user.id })
@@ -123,10 +114,8 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     
     console.debug('[createTweet] Invalidating cache keys:', cacheKeysToClear.join(', '));
     
-    // Force cache invalidation for critical cache keys
     await Promise.all(cacheKeysToClear.map(key => invalidateTweetCache(key)));
     
-    // Clear any profile-related caches directly from localStorage
     try {
       localStorage.removeItem(`tweet-cache-profile-${userData.user.id}-posts-limit:20-offset:0`);
       console.debug('[createTweet] Cleared profile posts cache');
@@ -155,7 +144,6 @@ export const getTweets = async (
     if (forceRefresh) {
       console.debug('[getTweets] Force refresh requested, bypassing all caches');
       
-      // Directly fetch from database, bypassing all caches
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 
           limit_count: limit, 
@@ -208,7 +196,6 @@ export const getTweets = async (
         });
       });
       
-      // Update cache with fresh data for future requests
       await cacheTweets(cacheKey, tweets);
       
       return tweets;
@@ -271,7 +258,7 @@ export const getTweets = async (
           });
         });
       },
-      CACHE_KEYS.MEDIUM, // Using a constant for cache duration instead of a boolean
+      CACHE_DURATIONS.MEDIUM,
       forceRefresh
     );
   } catch (error) {
@@ -280,7 +267,6 @@ export const getTweets = async (
   }
 };
 
-// Add missing functions that other components are trying to import
 export const getUserTweets = async (
   userId: string,
   limit = 20,
@@ -349,7 +335,7 @@ export const getUserTweets = async (
           });
         });
       },
-      CACHE_KEYS.MEDIUM,
+      CACHE_DURATIONS.MEDIUM,
       false
     );
   } catch (error) {
@@ -408,7 +394,7 @@ export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> =
       .single();
     
     if (error) {
-      if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+      if (error.code !== 'PGRST116') {
         console.error('[checkIfUserLikedTweet] Error:', error.message);
       }
       return false;
@@ -451,7 +437,6 @@ export const likeTweet = async (tweetId: string, unlike = false): Promise<boolea
       }
     }
     
-    // Update tweet likes count
     const countDirection = unlike ? -1 : 1;
     const { error: updateError } = await supabase.rpc('update_likes_count', {
       tweet_id: tweetId,
@@ -462,7 +447,6 @@ export const likeTweet = async (tweetId: string, unlike = false): Promise<boolea
       console.error('[likeTweet] Error updating likes count:', updateError.message);
     }
     
-    // Invalidate cache for this tweet
     await invalidateTweetCache(tweetId);
     
     return true;
@@ -505,7 +489,6 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
     if (!userData.user) return false;
     
     if (undo) {
-      // Find the retweet and delete it
       const { data: retweetData, error: findError } = await supabase
         .from('tweets')
         .select('id')
@@ -529,7 +512,6 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         return false;
       }
     } else {
-      // Create a new retweet
       const { error: insertError } = await supabase
         .from('tweets')
         .insert({
@@ -546,7 +528,6 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
       }
     }
     
-    // Update retweets count on the original tweet
     const countDirection = undo ? -1 : 1;
     const { error: updateError } = await supabase.rpc('update_retweets_count', {
       tweet_id: tweetId,
@@ -557,7 +538,6 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
       console.error('[retweet] Error updating retweets count:', updateError.message);
     }
     
-    // Invalidate cache for this tweet
     await invalidateTweetCache(tweetId);
     
     return true;
@@ -572,7 +552,6 @@ export const deleteTweet = async (tweetId: string): Promise<boolean> => {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
     
-    // Verify the user is the author
     const { data: tweetData, error: fetchError } = await supabase
       .from('tweets')
       .select('author_id')
@@ -589,7 +568,6 @@ export const deleteTweet = async (tweetId: string): Promise<boolean> => {
       return false;
     }
     
-    // Delete the tweet
     const { error: deleteError } = await supabase
       .from('tweets')
       .delete()
@@ -600,7 +578,6 @@ export const deleteTweet = async (tweetId: string): Promise<boolean> => {
       return false;
     }
     
-    // Invalidate all relevant caches
     await invalidateTweetCache(tweetId);
     await invalidateTweetCache(CACHE_KEYS.HOME_FEED);
     await invalidateTweetCache(`${CACHE_KEYS.USER_TWEETS}-userId:${userData.user.id}`);
