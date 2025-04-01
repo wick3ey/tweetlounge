@@ -1,20 +1,15 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
-import Sidebar from '@/components/layout/Sidebar'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
-import { Separator } from '@/components/ui/separator'
 import TweetInput from '@/components/crypto/TweetInput'
 import TweetFeed from '@/components/tweet/TweetFeed'
-import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
-import { useToast } from '@/components/ui/use-toast'
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs'
 import LeftSidebar from '@/components/layout/LeftSidebar'
 import RightSidebar from '@/components/layout/RightSidebar'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { updateTweetCommentCount } from '@/services/commentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -22,8 +17,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 const Home: React.FC = () => {
   console.debug('[Home] Component rendering');
   const { user } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
   const [feedKey, setFeedKey] = useState<number>(0); // Add state to force refresh of feed
   const [isRefreshing, setIsRefreshing] = useState(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -52,7 +45,7 @@ const Home: React.FC = () => {
           handleRefresh();
           pendingRefreshes = 0;
         }
-      }, 2000); // Wait 2 seconds before refreshing for better performance
+      }, 1000); // Wait 1 second before refreshing for better performance (reduced from 2s)
     };
 
     // Listen for realtime comment updates to refresh the feed
@@ -92,67 +85,41 @@ const Home: React.FC = () => {
         table: 'tweets'
       }, (payload) => {
         console.debug('[Home] Detected tweet change:', payload.eventType);
-        debouncedRefresh();
+        // For INSERT events, refresh immediately without debounce
+        if (payload.eventType === 'INSERT') {
+          console.debug('[Home] New tweet detected, refreshing immediately');
+          handleRefresh();
+        } else {
+          debouncedRefresh();
+        }
       })
       .subscribe();
       
     console.debug('[Home] Tweets channel subscribed');
+    
+    // Listen for custom broadcast events
+    const broadcastChannel = supabase
+      .channel('custom-all-channel')
+      .on('broadcast', { event: 'tweet-created' }, (payload) => {
+        console.debug('[Home] Received broadcast about new tweet:', payload);
+        handleRefresh();
+      })
+      .subscribe();
+      
+    console.debug('[Home] Broadcast channel subscribed');
       
     return () => {
       console.debug('[Home] Cleaning up realtime listeners');
       isMounted.current = false;
       supabase.removeChannel(commentsChannel);
       supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(broadcastChannel);
       
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
       }
     };
   }, []);
-
-  const handleTweetSubmit = async (content: string, imageFile?: File) => {
-    console.debug('[Home] Tweet submission triggered with content length:', content.length, 'Has image:', !!imageFile);
-    
-    if (!user) {
-      console.error('[Home] Authentication required for tweet submission');
-      toast({
-        title: "Authentication Required",
-        description: "You must be logged in to post a tweet",
-        variant: "destructive"
-      });
-      navigate('/login');
-      return;
-    }
-
-    try {
-      console.debug('[Home] Calling createTweet service');
-      const result = await createTweet(content, imageFile);
-      console.debug('[Home] createTweet result:', result ? 'Successful' : 'Failed');
-      
-      if (!result) {
-        console.error('[Home] createTweet returned falsy value');
-        throw new Error("Failed to create tweet");
-      }
-      
-      // Update feed by incrementing key instead of reloading the page
-      if (isMounted.current) {
-        console.debug('[Home] Updating feed by incrementing key');
-        setFeedKey(prevKey => prevKey + 1);
-      }
-      
-      return Promise.resolve();
-    } catch (error) {
-      console.error("[Home] Error posting tweet:", error);
-      if (isMounted.current) {
-        toast({
-          title: "Tweet Error",
-          description: "Failed to post your tweet. Please try again.",
-          variant: "destructive"
-        });
-      }
-      throw error;
-    }
-  };
 
   const handleRefresh = () => {
     // Prevent multiple simultaneous refreshes
@@ -174,6 +141,11 @@ const Home: React.FC = () => {
         setIsRefreshing(false);
       }
     }, 500);
+  };
+
+  const handleTweetPosted = () => {
+    console.debug('[Home] Tweet posted, triggering immediate feed refresh');
+    handleRefresh();
   };
 
   console.debug('[Home] Rendering component with feedKey:', feedKey);
@@ -212,7 +184,7 @@ const Home: React.FC = () => {
             
             {/* Tweet Input */}
             <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black shrink-0">
-              <TweetInput />
+              <TweetInput onTweetPosted={handleTweetPosted} />
             </div>
             
             {/* Tweet Feed with Tabs */}

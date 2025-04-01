@@ -4,7 +4,6 @@ import { ZapIcon, Bookmark, RefreshCw, BarChart3, TrendingUp, Clock, ArrowUpRigh
 import { CryptoButton } from '@/components/ui/crypto-button';
 import TweetComposer from '@/components/tweet/TweetComposer';
 import TweetFeed from '@/components/tweet/TweetFeed';
-import { createTweet } from '@/services/tweetService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import TweetFeedTabs from '@/components/tweet/TweetFeedTabs';
@@ -21,8 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { useNewsData, formatNewsDate } from '@/utils/newsService';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { createTweet } from '@/services/tweetService';
 
 const MobileHome: React.FC = () => {
   const { user } = useAuth();
@@ -55,7 +54,7 @@ const MobileHome: React.FC = () => {
           handleRefresh();
           pendingRefreshes = 0;
         }
-      }, 2000);
+      }, 1000); // Reduced from 2000ms for more responsiveness
     };
 
     const commentsChannel = supabase
@@ -83,7 +82,24 @@ const MobileHome: React.FC = () => {
         schema: 'public',
         table: 'tweets'
       }, (payload) => {
-        debouncedRefresh();
+        console.log('[MobileHome] Detected tweet change:', payload.eventType);
+        
+        // For INSERT events, refresh immediately without debounce
+        if (payload.eventType === 'INSERT') {
+          console.log('[MobileHome] New tweet detected, refreshing immediately');
+          handleRefresh();
+        } else {
+          debouncedRefresh();
+        }
+      })
+      .subscribe();
+    
+    // Listen for custom broadcast events
+    const broadcastChannel = supabase
+      .channel('custom-all-channel')
+      .on('broadcast', { event: 'tweet-created' }, (payload) => {
+        console.log('[MobileHome] Received broadcast about new tweet:', payload);
+        handleRefresh();
       })
       .subscribe();
       
@@ -91,6 +107,7 @@ const MobileHome: React.FC = () => {
       isMounted.current = false;
       supabase.removeChannel(commentsChannel);
       supabase.removeChannel(tweetsChannel);
+      supabase.removeChannel(broadcastChannel);
       
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
@@ -99,6 +116,8 @@ const MobileHome: React.FC = () => {
   }, []);
 
   const handleTweetSubmit = async (content: string, imageFile?: File) => {
+    console.log('[MobileHome] Tweet submission triggered with content length:', content.length, 'Has image:', !!imageFile);
+    
     if (!user) {
       toast({
         title: "Authentication Required",
@@ -110,18 +129,51 @@ const MobileHome: React.FC = () => {
     }
 
     try {
+      console.log('[MobileHome] Calling createTweet service');
       const result = await createTweet(content, imageFile);
+      console.log('[MobileHome] createTweet result:', result ? 'Successful' : 'Failed');
+      
       if (!result) {
+        console.error('[MobileHome] createTweet returned falsy value');
         throw new Error("Failed to create tweet");
       }
       
+      // Update feed immediately
       if (isMounted.current) {
+        console.log('[MobileHome] Updating feed immediately after tweet creation');
         setFeedKey(prevKey => prevKey + 1);
+        
+        // Try to broadcast the change for other clients
+        try {
+          const realtime = supabase
+            .channel('custom-all-channel')
+            .on('broadcast', { event: 'tweet-created' }, () => {
+              console.log('[MobileHome] Broadcast message sent for new tweet');
+            })
+            .subscribe();
+            
+          realtime.send({
+            type: 'broadcast',
+            event: 'tweet-created',
+            payload: { id: result.id }
+          });
+          
+          setTimeout(() => {
+            supabase.removeChannel(realtime);
+          }, 1000);
+        } catch (err) {
+          console.error('[MobileHome] Error broadcasting tweet event:', err);
+        }
       }
+      
+      toast({
+        title: "Tweet posted!",
+        description: "Your tweet has been shared with the world."
+      });
       
       return Promise.resolve();
     } catch (error) {
-      console.error("Error posting tweet:", error);
+      console.error("[MobileHome] Error posting tweet:", error);
       if (isMounted.current) {
         toast({
           title: "Tweet Error",
@@ -136,6 +188,7 @@ const MobileHome: React.FC = () => {
   const handleRefresh = () => {
     if (isRefreshing || !isMounted.current) return;
     
+    console.log('[MobileHome] Refreshing feed with key:', feedKey);
     setIsRefreshing(true);
     
     setFeedKey(prevKey => prevKey + 1);

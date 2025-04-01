@@ -8,8 +8,13 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createTweet } from '@/services/tweetService'
 import { useToast } from '@/components/ui/use-toast'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 
-const TweetInput: React.FC = () => {
+interface TweetInputProps {
+  onTweetPosted?: () => void;
+}
+
+const TweetInput: React.FC<TweetInputProps> = ({ onTweetPosted }) => {
   const { profile } = useProfile();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -111,6 +116,36 @@ const TweetInput: React.FC = () => {
         title: "Tweet posted!",
         description: "Your tweet has been shared with the world."
       });
+
+      // Trigger the callback to refresh the parent component's feed
+      if (onTweetPosted) {
+        console.debug('[TweetInput] Calling onTweetPosted callback to refresh feed');
+        onTweetPosted();
+      }
+
+      // Force immediate refresh of both home feed and profile feed caches
+      console.debug('[TweetInput] Manually invalidating cache to ensure tweet appears immediately');
+      try {
+        // Manually trigger a realtime event to ensure other clients get notified
+        const realtime = supabase
+          .channel('custom-all-channel')
+          .on('broadcast', { event: 'tweet-created' }, () => {
+            console.debug('[TweetInput] Broadcast message sent for new tweet');
+          })
+          .subscribe();
+          
+        realtime.send({
+          type: 'broadcast',
+          event: 'tweet-created',
+          payload: { id: result.id }
+        });
+        
+        setTimeout(() => {
+          supabase.removeChannel(realtime);
+        }, 1000);
+      } catch (error) {
+        console.error('[TweetInput] Error broadcasting tweet creation event:', error);
+      }
     } catch (error) {
       console.error("[TweetInput] Error posting tweet:", error);
       toast({
