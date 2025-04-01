@@ -171,18 +171,11 @@ export function useNotifications() {
         setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
         setUnreadCount(0);
         
-        toast({
-          title: 'Success',
-          description: 'All notifications marked as read',
-        });
+        // Do not show toast notification
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update notifications. Please try again.',
-        variant: 'destructive'
-      });
+      // Do not show toast notification for error
     }
   };
 
@@ -276,39 +269,10 @@ export function useNotifications() {
     };
   }, [user]);
 
-  // Show a toast notification for new notifications
+  // Modified to not show toast notifications
   const showNotificationToast = (notification: Notification) => {
-    let title = 'New Notification';
-    let description = '';
-    
-    switch (notification.type) {
-      case 'like':
-        if (notification.commentId) {
-          description = `${notification.actor.displayName} liked your comment`;
-        } else {
-          description = `${notification.actor.displayName} liked your tweet`;
-        }
-        break;
-      case 'comment':
-        description = `${notification.actor.displayName} commented on your tweet`;
-        break;
-      case 'retweet':
-        description = `${notification.actor.displayName} retweeted your tweet`;
-        break;
-      case 'follow':
-        description = `${notification.actor.displayName} started following you`;
-        break;
-      case 'mention':
-        description = `${notification.actor.displayName} mentioned you`;
-        break;
-      default:
-        description = 'You have a new notification';
-    }
-    
-    toast({
-      title,
-      description,
-    });
+    // No-op: we don't want to show any toast notifications
+    return;
   };
 
   return {
