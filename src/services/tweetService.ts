@@ -1,5 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
+import { TweetWithAuthor, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   fetchTweetsWithCache, 
@@ -528,11 +529,14 @@ export const likeTweet = async (tweetId: string, unlike = false): Promise<boolea
       }
     }
     
+    // Update likes count using a direct SQL query instead of RPC function
     const countDirection = unlike ? -1 : 1;
-    const { error: updateError } = await supabase.rpc('update_likes_count', {
-      tweet_id: tweetId,
-      increment_by: countDirection
-    });
+    
+    // Use a FROM update instead of RPC function
+    const { error: updateError } = await supabase
+      .from('tweets')
+      .update({ likes_count: supabase.sql`likes_count + ${countDirection}` })
+      .eq('id', tweetId);
     
     if (updateError) {
       console.error('[likeTweet] Error updating likes count:', updateError.message);
@@ -621,11 +625,14 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
       }
     }
     
+    // Update retweets count using a direct SQL query instead of RPC function
     const countDirection = undo ? -1 : 1;
-    const { error: updateError } = await supabase.rpc('update_retweets_count', {
-      tweet_id: tweetId,
-      increment_by: countDirection
-    });
+    
+    // Use a FROM update instead of RPC function
+    const { error: updateError } = await supabase
+      .from('tweets')
+      .update({ retweets_count: supabase.sql`retweets_count + ${countDirection}` })
+      .eq('id', tweetId);
     
     if (updateError) {
       console.error('[retweet] Error updating retweets count:', updateError.message);
