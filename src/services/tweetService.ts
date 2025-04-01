@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
@@ -387,22 +386,18 @@ export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> =
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
     
-    // Add proper headers to fix the 406 error
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('likes')
-      .select('id')
+      .select('*', { count: 'exact', head: false })
       .eq('tweet_id', tweetId)
-      .eq('user_id', userData.user.id)
-      .single();
+      .eq('user_id', userData.user.id);
     
     if (error) {
-      if (error.code !== 'PGRST116') {
-        console.error('[checkIfUserLikedTweet] Error:', error.message);
-      }
+      console.error('[checkIfUserLikedTweet] Error:', error.message);
       return false;
     }
     
-    return !!data;
+    return count ? count > 0 : false;
   } catch (error) {
     console.error('[checkIfUserLikedTweet] Error:', error);
     return false;
@@ -463,21 +458,19 @@ export const checkIfUserRetweetedTweet = async (tweetId: string): Promise<boolea
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
     
-    // Fix the 406 error by ensuring proper headers
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('tweets')
-      .select('id')
+      .select('*', { count: 'exact', head: false })
       .eq('original_tweet_id', tweetId)
       .eq('author_id', userData.user.id)
-      .eq('is_retweet', true)
-      .maybeSingle(); // Use maybeSingle instead of single to avoid PGRST116 error
+      .eq('is_retweet', true);
     
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       console.error('[checkIfUserRetweetedTweet] Error:', error.message);
       return false;
     }
     
-    return !!data;
+    return count ? count > 0 : false;
   } catch (error) {
     console.error('[checkIfUserRetweetedTweet] Error:', error);
     return false;
@@ -496,7 +489,7 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         .eq('original_tweet_id', tweetId)
         .eq('author_id', userData.user.id)
         .eq('is_retweet', true)
-        .maybeSingle(); // Use maybeSingle to prevent errors
+        .maybeSingle();
       
       if (findError && findError.code !== 'PGRST116') {
         console.error('[retweet] Error finding retweet to undo:', findError.message);
