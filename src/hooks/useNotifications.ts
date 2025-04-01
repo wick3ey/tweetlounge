@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Notification, NotificationType } from '@/types/Notification';
 import { markNotificationAsRead, markAllNotificationsAsRead as markAllRead } from '@/services/notificationService';
+import { 
+  getCachedNotifications, 
+  cacheNotifications, 
+  updateCachedNotification,
+  addCachedNotification,
+  markAllCachedNotificationsAsRead
+} from '@/utils/notificationCacheService';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -12,14 +19,48 @@ export function useNotifications() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch notifications with no limit on how many we retrieve
-  const fetchNotifications = async () => {
+  // Improved fetch function with cache support
+  const fetchNotifications = useCallback(async (forceFresh: boolean = false) => {
     if (!user) return;
     
     try {
       setLoading(true);
       
-      // First, fetch notifications - no deletion filter, we want ALL historical notifications
+      // First check cache if not forcing fresh data
+      if (!forceFresh) {
+        const cachedData = getCachedNotifications(user.id);
+        if (cachedData) {
+          setNotifications(cachedData);
+          setUnreadCount(cachedData.filter(n => !n.read).length);
+          setLoading(false);
+          
+          // Refresh in background to keep data updated
+          setTimeout(() => fetchNotificationsFromDB(false), 0);
+          return;
+        }
+      }
+      
+      // If no cache or forcing fresh, fetch from DB
+      await fetchNotificationsFromDB(true);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+      // Even in case of error, try to use cached data if available
+      const cachedData = getCachedNotifications(user.id);
+      if (cachedData) {
+        setNotifications(cachedData);
+        setUnreadCount(cachedData.filter(n => !n.read).length);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Database fetch implementation
+  const fetchNotificationsFromDB = async (updateUI: boolean = true) => {
+    if (!user) return;
+    
+    try {
+      // First, fetch notifications with optimized query
       const { data: notificationsData, error: notificationsError } = await supabase
         .from('notifications')
         .select('*')
@@ -32,15 +73,17 @@ export function useNotifications() {
         throw notificationsError;
       }
 
-      // Then fetch profile data for each actor_id
-      const actorIds = notificationsData.map(notification => notification.actor_id);
-      
-      if (actorIds.length === 0) {
-        setNotifications([]);
-        setUnreadCount(0);
-        setLoading(false);
+      if (notificationsData.length === 0) {
+        if (updateUI) {
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+        cacheNotifications(user.id, []);
         return;
       }
+
+      // Then fetch profile data for each actor_id
+      const actorIds = notificationsData.map(notification => notification.actor_id);
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -61,7 +104,8 @@ export function useNotifications() {
       // Get all tweet IDs to fetch their content
       const tweetIds = notificationsData
         .filter(n => n.tweet_id)
-        .map(n => n.tweet_id);
+        .map(n => n.tweet_id)
+        .filter(Boolean);
       
       let tweetsMap = {};
       
@@ -71,9 +115,7 @@ export function useNotifications() {
           .select('id, content, created_at')
           .in('id', tweetIds);
           
-        if (tweetsError) {
-          console.error('Error fetching tweets:', tweetsError);
-        } else if (tweetsData) {
+        if (!tweetsError && tweetsData) {
           tweetsMap = tweetsData.reduce((map, tweet) => {
             map[tweet.id] = tweet;
             return map;
@@ -114,76 +156,79 @@ export function useNotifications() {
         };
       });
 
-      setNotifications(formattedNotifications);
+      // Update cache with fresh data
+      cacheNotifications(user.id, formattedNotifications);
       
-      // Count unread notifications
-      const unread = formattedNotifications.filter(n => !n.read).length;
-      setUnreadCount(unread);
+      if (updateUI) {
+        setNotifications(formattedNotifications);
+        setUnreadCount(formattedNotifications.filter(n => !n.read).length);
+      }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load notifications. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch notifications from DB:', error);
+      throw error;
     }
   };
 
-  // Mark notification as read
+  // Mark notification as read with cache update
   const handleMarkAsRead = async (notificationId: string) => {
-    if (!user) return;
+    if (!user || !notificationId) return;
     
     try {
+      // Update cache immediately for responsive UI
+      updateCachedNotification(user.id, notificationId, { read: true });
+      
+      // Update local state
+      setNotifications(prev => prev.map(notification => 
+        notification.id === notificationId ? { ...notification, read: true } : notification
+      ));
+      
+      // Update unread count
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Then update database (optimistic update)
       const success = await markNotificationAsRead(notificationId);
-
-      if (success) {
-        // Update local state
-        setNotifications(prev => prev.map(notification => 
-          notification.id === notificationId 
-            ? { ...notification, read: true } 
-            : notification
-        ));
-        
-        // Update unread count
-        setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      if (!success) {
+        // Revert changes if DB update failed
+        console.error('Failed to mark notification as read in database');
+        // We keep the optimistic UI update though
       }
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update notification. Please try again.',
-        variant: 'destructive'
-      });
+      // We keep the optimistic UI update though
     }
   };
 
-  // Mark all notifications as read
+  // Mark all notifications as read with cache update
   const handleMarkAllAsRead = async () => {
     if (!user || unreadCount === 0) return;
     
     try {
+      // Update cache immediately
+      markAllCachedNotificationsAsRead(user.id);
+      
+      // Update local state
+      setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
+      setUnreadCount(0);
+      
+      // Then update database
       const success = await markAllRead(user.id);
-
-      if (success) {
-        // Update local state
-        setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
-        setUnreadCount(0);
-        
-        // Do not show toast notification
+      
+      if (!success) {
+        console.error('Failed to mark all notifications as read in database');
+        // We keep the optimistic UI update though
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
-      // Do not show toast notification for error
+      // We keep the optimistic UI update though
     }
   };
 
-  // Setup real-time subscription for new notifications
+  // Setup real-time subscription with enhanced caching
   useEffect(() => {
     if (!user) return;
     
-    // Initial fetch
+    // Initial fetch using cache where possible
     fetchNotifications();
     
     // Set up real-time subscription
@@ -247,18 +292,52 @@ export function useNotifications() {
               } : undefined
             };
 
-            // Add to notifications
+            // Update cache with new notification
+            addCachedNotification(user.id, newNotification);
+            
+            // Add to notifications state
             setNotifications(prev => [newNotification, ...prev]);
             
             // Update unread count
             if (!newNotification.read) {
               setUnreadCount(prev => prev + 1);
             }
-            
-            // Show toast notification
-            showNotificationToast(newNotification);
           } catch (error) {
             console.error('Error processing new notification:', error);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // Update notifications when read status changes
+          if (payload.new && payload.old) {
+            const updatedId = payload.new.id;
+            const wasRead = payload.old.read;
+            const isReadNow = payload.new.read;
+            
+            if (wasRead !== isReadNow) {
+              // Update cache
+              updateCachedNotification(user.id, updatedId, { read: isReadNow });
+              
+              // Update local state
+              setNotifications(prev => 
+                prev.map(n => n.id === updatedId ? { ...n, read: isReadNow } : n)
+              );
+              
+              // Update unread count
+              if (!wasRead && isReadNow) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
+              } else if (wasRead && !isReadNow) {
+                setUnreadCount(prev => prev + 1);
+              }
+            }
           }
         }
       )
@@ -267,7 +346,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, fetchNotifications]);
 
   // Modified to not show toast notifications
   const showNotificationToast = (notification: Notification) => {
