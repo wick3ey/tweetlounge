@@ -54,7 +54,9 @@ const apiFailures = {
   dexTools: {
     failures: 0,
     lastFailure: 0,
-    backoffPeriod: 10000 // Initial 10 second backoff
+    backoffPeriod: 10000, // Initial 10 second backoff
+    maxConsecutiveRequests: 3, // Limit concurrent requests to prevent rate limiting
+    currentRequests: 0
   }
 };
 
@@ -70,12 +72,18 @@ const increaseBackoff = (api: 'dexTools') => {
   apiFailures[api].lastFailure = Date.now();
   // Exponential backoff with a cap at 5 minutes
   apiFailures[api].backoffPeriod = Math.min(apiFailures[api].backoffPeriod * 2, 5 * 60 * 1000);
+  console.warn(`Increasing backoff period for ${api} API to ${apiFailures[api].backoffPeriod}ms after ${apiFailures[api].failures} failures`);
 };
 
 // Check if we should skip API calls due to recent failures
 const shouldSkipApiCall = (api: 'dexTools'): boolean => {
   const now = Date.now();
-  const { failures, lastFailure, backoffPeriod } = apiFailures[api];
+  const { failures, lastFailure, backoffPeriod, currentRequests, maxConsecutiveRequests } = apiFailures[api];
+  
+  // If we're already at the maximum number of concurrent requests
+  if (currentRequests >= maxConsecutiveRequests) {
+    return true;
+  }
   
   // If we have recent failures and we're still in the backoff period
   if (failures > 0 && (now - lastFailure) < backoffPeriod) {
@@ -194,6 +202,7 @@ export const fetchWalletTokens = async (
     };
     
     // In the background, start the enrichment process for more complete data
+    // Using a small delay to not block the UI thread
     setTimeout(() => {
       enrichTokensInBackground(basicProcessedTokens, data.solPrice, cacheKey, memoryCacheKey);
     }, 100);
@@ -222,23 +231,47 @@ const enrichTokensInBackground = async (
       return;
     }
 
-    const enrichedTokensPromises = basicTokens.map(async (token) => {
-      try {
-        // Skip extra API calls for SOL
-        if (token.symbol === 'SOL' && token.name === 'Solana') {
-          return token;
-        }
-        
-        // Try to enrich with DexTools data
-        const enrichedToken = await enrichTokenWithDexToolsInfo(token);
-        return enrichedToken;
-      } catch (error) {
-        console.warn(`Error enriching token ${token.address}:`, error);
-        return token; // Keep original on error
-      }
-    });
+    // Process tokens in smaller batches to avoid overwhelming the API
+    const batchSize = 3;
+    let enrichedTokens: Token[] = [...basicTokens];
     
-    const enrichedTokens = await Promise.all(enrichedTokensPromises);
+    for (let i = 0; i < basicTokens.length; i += batchSize) {
+      const batch = basicTokens.slice(i, i + batchSize);
+      
+      // Process each batch with a delay between batches
+      const batchPromises = batch.map(async (token) => {
+        try {
+          // Skip extra API calls for SOL
+          if (token.symbol === 'SOL' && token.name === 'Solana') {
+            return token;
+          }
+          
+          // Try to enrich with DexTools data
+          const enrichedToken = await enrichTokenWithDexToolsInfo(token);
+          return enrichedToken;
+        } catch (error) {
+          console.warn(`Error enriching token ${token.address}:`, error);
+          return token; // Keep original on error
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Update our enriched tokens array
+      batchResults.forEach((enrichedToken, index) => {
+        const originalIndex = i + index;
+        if (originalIndex < enrichedTokens.length) {
+          enrichedTokens[originalIndex] = enrichedToken;
+        }
+      });
+      
+      // Add delay between batches to avoid rate limiting
+      if (i + batchSize < basicTokens.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    if (!enrichedTokens.length) return;
     
     // Update caches with enriched data
     const result = { tokens: enrichedTokens, solPrice };
@@ -288,16 +321,48 @@ const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
   if (shouldSkipApiCall('dexTools')) {
     return token;
   }
-  
+
   try {
-    // Get token metadata from DexTools
-    const tokenInfo = await fetchDexToolsTokenInfo(tokenAddress);
+    // Increment current requests counter
+    apiFailures.dexTools.currentRequests++;
+
+    // We'll try to get both token info and price data, but only use what succeeds
+    let tokenInfo: DexToolsTokenInfo | null = null;
+    let priceData: DexToolsTokenPrice | null = null;
     
-    // Get token price data from DexTools
-    const priceData = await fetchDexToolsTokenPrice(tokenAddress);
+    try {
+      // Try to get token metadata from DexTools via Supabase Edge Function
+      // This moves the API call to the server to avoid CORS issues
+      const { data: infoData, error: infoError } = await supabase.functions.invoke('getDexToolsInfo', {
+        body: { tokenAddress, chain: 'solana', type: 'token' }
+      });
+      
+      if (!infoError && infoData && infoData.success) {
+        tokenInfo = infoData.data;
+      }
+    } catch (infoErr) {
+      console.warn(`Error fetching DexTools token info: ${infoErr}`);
+    }
     
-    // If both API calls succeed, reset backoff
-    resetBackoff('dexTools');
+    try {
+      // Try to get token price data from DexTools via Supabase Edge Function
+      const { data: priceDataResponse, error: priceError } = await supabase.functions.invoke('getDexToolsInfo', {
+        body: { tokenAddress, chain: 'solana', type: 'price' }
+      });
+      
+      if (!priceError && priceDataResponse && priceDataResponse.success) {
+        priceData = priceDataResponse.data;
+      }
+    } catch (priceErr) {
+      console.warn(`Error fetching DexTools price: ${priceErr}`);
+    }
+    
+    // If either API call succeeds, reset backoff
+    if (tokenInfo || priceData) {
+      resetBackoff('dexTools');
+    } else {
+      increaseBackoff('dexTools');
+    }
     
     // Calculate USD value based on token amount and price
     let usdValue: string | undefined = token.usdValue;
@@ -323,78 +388,9 @@ const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
     // If we get an error, increase backoff period
     increaseBackoff('dexTools');
     return token;
-  }
-};
-
-/**
- * Fetch token info from DexTools API
- */
-const fetchDexToolsTokenInfo = async (tokenAddress: string): Promise<DexToolsTokenInfo | null> => {
-  try {
-    console.log(`Fetching DexTools info for token: ${tokenAddress}`);
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
-    const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}`, {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
-      },
-      signal: controller.signal
-    }).finally(() => clearTimeout(timeoutId));
-    
-    if (!response.ok) {
-      console.warn(`DexTools API returned status ${response.status} for token ${tokenAddress}`);
-      return null;
-    }
-    
-    const result = await response.json();
-    if (result.statusCode === 200 && result.data) {
-      console.log(`Successfully fetched DexTools token info for ${tokenAddress}`);
-      return result.data;
-    }
-    
-    return null;
-  } catch (error) {
-    console.warn(`Error fetching DexTools token info for ${tokenAddress}:`, error);
-    return null;
-  }
-};
-
-/**
- * Fetch token price from DexTools API
- */
-const fetchDexToolsTokenPrice = async (tokenAddress: string): Promise<DexToolsTokenPrice | null> => {
-  try {
-    console.log(`Fetching DexTools price for token: ${tokenAddress}`);
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
-    const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}/price`, {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
-      },
-      signal: controller.signal
-    }).finally(() => clearTimeout(timeoutId));
-    
-    if (!response.ok) {
-      console.warn(`DexTools API returned status ${response.status} for token price ${tokenAddress}`);
-      return null;
-    }
-    
-    const result = await response.json();
-    if (result.statusCode === 200 && result.data) {
-      console.log(`Successfully fetched DexTools price info for ${tokenAddress}`);
-      return result.data;
-    }
-    
-    return null;
-  } catch (error) {
-    console.warn(`Error fetching DexTools price for ${tokenAddress}:`, error);
-    return null;
+  } finally {
+    // Decrement current requests counter
+    apiFailures.dexTools.currentRequests--;
   }
 };
 

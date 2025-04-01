@@ -6,7 +6,8 @@ import {
   getTweetCacheKey, 
   CACHE_KEYS,
   invalidateTweetCache,
-  cacheTweets
+  cacheTweets,
+  getCachedTweets
 } from '@/utils/tweetCacheService';
 import { extractHashtags, storeHashtags } from '@/utils/hashtagService';
 import { Profile } from '@/lib/supabase';
@@ -285,59 +286,80 @@ export const getTweets = async (
   }
 };
 
-export const getUserTweets = async (
-  userId: string,
-  limit = 20,
-  offset = 0
-): Promise<TweetWithAuthor[]> => {
-  console.debug(`[getUserTweets] Fetching tweets for user ${userId} with limit: ${limit}, offset: ${offset}`);
-  
-  const cacheKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { limit, offset, userId });
-  
+/**
+ * Fetch tweets for a specific user
+ */
+export const getUserTweets = async (userId: string, limit = 20, offset = 0, forceRefresh = false): Promise<TweetWithAuthor[]> => {
   try {
-    return await fetchTweetsWithCache<TweetWithAuthor[]>(
-      cacheKey,
-      async () => {
-        console.debug('[getUserTweets] Cache miss, fetching from database');
-        
-        const { data, error } = await supabase
-          .from('tweets')
-          .select(`
-            *,
-            author:profiles(*)
-          `)
-          .eq('author_id', userId)
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
-        
-        if (error) {
-          console.error('[getUserTweets] Error fetching tweets:', error.message);
-          throw error;
-        }
-        
-        if (!data) {
-          console.debug('[getUserTweets] No tweets found');
-          return [];
-        }
-        
-        console.debug(`[getUserTweets] Got ${data.length} tweets from database`);
-        
-        return (data as any[]).map(tweet => {
-          return enhanceTweetData({
-            ...tweet,
-            author: tweet.author,
-            likes_count: tweet.likes_count || 0,
-            retweets_count: tweet.retweets_count || 0,
-            replies_count: tweet.replies_count || 0
-          });
-        });
-      },
-      CACHE_DURATIONS.SHORT,
-      false
-    );
+    console.log(`[getUserTweets] Fetching tweets for user ${userId} with limit: ${limit}, offset: ${offset}`);
+    
+    // If not forcing a refresh, try to get from cache first
+    if (!forceRefresh) {
+      const cacheKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId, limit, offset });
+      const cachedTweets = await getCachedTweets<TweetWithAuthor[]>(cacheKey);
+      
+      if (cachedTweets && cachedTweets.length > 0) {
+        console.log(`[getUserTweets] Found ${cachedTweets.length} tweets in cache for user ${userId}`);
+        return cachedTweets;
+      }
+    }
+    
+    console.log(`[getUserTweets] Cache miss, fetching from database`);
+    
+    // The issue is using the nested join. Let's fix by doing two queries instead.
+    // First get the tweets
+    const { data: tweetsData, error: tweetsError } = await supabase
+      .from('tweets')
+      .select('*')
+      .eq('author_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    if (tweetsError) {
+      throw tweetsError;
+    }
+    
+    if (!tweetsData || tweetsData.length === 0) {
+      return [];
+    }
+    
+    // Now get the author profile
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = No rows returned
+      throw profileError;
+    }
+    
+    // Combine the tweets with the profile
+    const tweetsWithAuthor: TweetWithAuthor[] = tweetsData.map(tweet => {
+      return {
+        ...tweet,
+        author: profileData ? createPartialProfile(profileData) : createPartialProfile({
+          id: userId,
+          username: 'unknown',
+          display_name: 'Unknown User',
+          avatar_url: '',
+        })
+      };
+    });
+    
+    // Enrich data with additional display properties
+    const enrichedTweets = tweetsWithAuthor.map(tweet => enrichTweetData(tweet));
+    
+    // Cache the results
+    if (enrichedTweets.length > 0) {
+      const cacheKey = getTweetCacheKey(CACHE_KEYS.USER_TWEETS, { userId, limit, offset });
+      await cacheTweets(cacheKey, enrichedTweets);
+    }
+    
+    return enrichedTweets;
   } catch (error) {
-    console.error('[getUserTweets] Error fetching user tweets:', error);
-    return [];
+    console.error(`[getUserTweets] Error fetching user tweets:`, error);
+    throw error;
   }
 };
 
