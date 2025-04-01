@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -6,7 +5,7 @@ import CryptoTicker from '@/components/crypto/CryptoTicker'
 import { ZapIcon, RefreshCwIcon } from 'lucide-react'
 import { CryptoButton } from '@/components/ui/crypto-button'
 import { Separator } from '@/components/ui/separator'
-import TweetComposer from '@/components/tweet/TweetComposer'
+import TweetInput from '@/components/crypto/TweetInput'
 import TweetFeed from '@/components/tweet/TweetFeed'
 import { createTweet } from '@/services/tweetService'
 import { useAuth } from '@/contexts/AuthContext'
@@ -184,9 +183,9 @@ const Home: React.FC = () => {
               </div>
             </div>
             
-            {/* Tweet Composer */}
+            {/* Tweet Input */}
             <div className="px-4 pt-3 pb-2 border-b border-gray-800 bg-black shrink-0">
-              <TweetComposer onTweetSubmit={handleTweetSubmit} />
+              <TweetInput />
             </div>
             
             {/* Tweet Feed with Tabs */}
