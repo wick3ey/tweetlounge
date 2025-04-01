@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, Suspense, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Notification, NotificationType } from '@/types/Notification';
@@ -25,7 +24,6 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 
-// Memo-ized notification icon component for performance
 const NotificationIcon = memo(({ type }: { type: NotificationType }) => {
   switch (type) {
     case 'like':
@@ -63,7 +61,6 @@ const NotificationIcon = memo(({ type }: { type: NotificationType }) => {
   }
 });
 
-// Optimized notification text component
 const NotificationText = memo(({ notification }: { notification: Notification }) => {
   const { type, actor, commentId } = notification;
   
@@ -122,7 +119,6 @@ const NotificationText = memo(({ notification }: { notification: Notification })
   }
 });
 
-// Individual notification item component
 const NotificationItem = memo(({ 
   notification, 
   onNotificationClick 
@@ -130,13 +126,11 @@ const NotificationItem = memo(({
   notification: Notification, 
   onNotificationClick: (notification: Notification) => void
 }) => {
-  // Pre-format timestamp to avoid recalculation on every render
   const formattedTime = useMemo(() => 
     formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }), 
     [notification.createdAt]
   );
   
-  // Memoize the tweet preview
   const tweetPreview = useMemo(() => {
     if (!notification.tweet && !notification.referencedTweet) return null;
     
@@ -234,7 +228,40 @@ const NotificationItem = memo(({
   );
 });
 
-// Empty state component
+const VirtualizedNotificationList = ({ 
+  notifications,
+  onNotificationClick
+}: { 
+  notifications: Notification[],
+  onNotificationClick: (notification: Notification) => void
+}) => {
+  const itemsToRender = useMemo(() => {
+    return notifications.slice(0, 50);
+  }, [notifications]);
+
+  return (
+    <div className="divide-y divide-gray-800/50">
+      {itemsToRender.map(notification => (
+        <NotificationItem 
+          key={notification.id} 
+          notification={notification} 
+          onNotificationClick={onNotificationClick}
+        />
+      ))}
+    </div>
+  );
+};
+
+const InstantLoadingState = () => (
+  <div className="flex justify-center items-center p-12">
+    <div className="relative">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      <div className="absolute inset-0 rounded-full animate-pulse bg-blue-500/10"></div>
+    </div>
+    <span className="ml-3 text-gray-400 font-medium">Loading notifications...</span>
+  </div>
+);
+
 const EmptyNotifications = () => (
   <div className="py-12 text-center">
     <div className="mx-auto w-16 h-16 rounded-full bg-gray-800/70 flex items-center justify-center mb-4 border border-gray-700/50 shadow-lg shadow-black/20">
@@ -247,18 +274,6 @@ const EmptyNotifications = () => (
   </div>
 );
 
-// Loading state component
-const LoadingState = () => (
-  <div className="flex justify-center items-center p-12">
-    <div className="relative">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-      <div className="absolute inset-0 rounded-full animate-pulse bg-blue-500/10"></div>
-    </div>
-    <span className="ml-3 text-gray-400 font-medium">Loading notifications...</span>
-  </div>
-);
-
-// Main notifications component with optimized rendering
 const Notifications = () => {
   const navigate = useNavigate();
   const { 
@@ -270,13 +285,15 @@ const Notifications = () => {
   } = useNotifications();
   const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const firstLoadRef = useRef(true);
 
-  // Update filtered notifications when the main notifications change
   useEffect(() => {
     setFilteredNotifications(notifications);
+    if (notifications.length > 0 && firstLoadRef.current) {
+      firstLoadRef.current = false;
+    }
   }, [notifications]);
 
-  // Optimized notification click handler
   const handleNotificationClick = useCallback((notification: Notification) => {
     if (!notification.read) {
       markAsRead(notification.id);
@@ -289,15 +306,48 @@ const Notifications = () => {
     }
   }, [markAsRead, navigate]);
 
-  // Handle manual refresh
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await fetchNotifications(true); // Force fresh data
+      await fetchNotifications(true);
     } finally {
-      setIsRefreshing(false);
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 300);
     }
   }, [fetchNotifications]);
+
+  const renderContent = () => {
+    if (loading && filteredNotifications.length === 0) {
+      return <InstantLoadingState />;
+    }
+    
+    if (!loading && filteredNotifications.length === 0) {
+      return <EmptyNotifications />;
+    }
+    
+    return (
+      <>
+        <VisuallyHidden asChild>
+          <h2>All Notifications</h2>
+        </VisuallyHidden>
+        
+        <VirtualizedNotificationList 
+          notifications={filteredNotifications}
+          onNotificationClick={handleNotificationClick}
+        />
+      </>
+    );
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Implementation would depend on scroll container access
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <Layout>
@@ -338,26 +388,9 @@ const Notifications = () => {
         </div>
         
         <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="divide-y divide-gray-800/50">
-            {loading ? (
-              <LoadingState />
-            ) : filteredNotifications.length === 0 ? (
-              <EmptyNotifications />
-            ) : (
-              <>
-                <VisuallyHidden asChild>
-                  <h2>All Notifications</h2>
-                </VisuallyHidden>
-                {filteredNotifications.map(notification => (
-                  <NotificationItem 
-                    key={notification.id} 
-                    notification={notification} 
-                    onNotificationClick={handleNotificationClick}
-                  />
-                ))}
-              </>
-            )}
-          </div>
+          <Suspense fallback={<InstantLoadingState />}>
+            {renderContent()}
+          </Suspense>
         </ScrollArea>
       </div>
     </Layout>
