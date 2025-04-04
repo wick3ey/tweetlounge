@@ -356,14 +356,15 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         throw fetchError;
       }
       
-      // Create a new retweet with only the columns that exist in the database
+      // Create a new retweet with the current user as the author
       const { error: createError } = await supabase
         .from('tweets')
         .insert([{
           content: originalTweet.content,
           image_url: originalTweet.image_url,
           is_retweet: true,
-          original_tweet_id: tweetId
+          original_tweet_id: tweetId,
+          author_id: user.user.id  // Explicitly set the author_id to the current user
         }]);
         
       if (createError) {
