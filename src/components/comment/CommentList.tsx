@@ -78,7 +78,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       } else {
         // Ensure count is always a number
         const commentCount = typeof count === 'number' ? count : 0;
-        console.log(`Tweet ${tweetId} has ${commentCount} total comments (from CommentList)`);
+        console.log(`CommentList: Tweet ${tweetId} has ${commentCount} total comments`);
         setTotalComments(commentCount);
         
         // Notify parent component about the updated comment count
@@ -97,6 +97,13 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           .from('tweets')
           .update({ replies_count: commentCount })
           .eq('id', tweetId);
+          
+        // Broadcast the update to ensure all components are informed
+        await supabase.channel('custom-all-channel').send({
+          type: 'broadcast',
+          event: 'comment-count-updated',
+          payload: { tweetId, count: commentCount }
+        });
       }
     } catch (err) {
       console.error('Failed to get exact comment count:', err);

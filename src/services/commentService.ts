@@ -21,6 +21,7 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
     
     // Ensure count is a number
     const commentCount = typeof count === 'number' ? count : 0;
+    console.log(`CommentService: Updating tweet ${tweetId} comment count to ${commentCount}`);
     
     // Update the tweet's replies_count with the accurate count
     const { error: updateError } = await supabase
@@ -33,7 +34,7 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
       return commentCount;
     }
     
-    console.log(`Updated tweet ${tweetId} comment count to ${commentCount}`);
+    console.log(`CommentService: Updated tweet ${tweetId} comment count to ${commentCount} in database`);
     
     // Update the tweet in cache with the new count
     updateTweetInCache(tweetId, (tweet) => ({
@@ -46,7 +47,7 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
       await supabase.channel('custom-all-channel').send({
         type: 'broadcast',
         event: 'comment-count-updated',
-        payload: { tweetId, commentCount }
+        payload: { tweetId, count: commentCount }
       });
     } catch (broadcastError) {
       console.error('Error broadcasting comment count update:', broadcastError);
@@ -86,7 +87,7 @@ export const createComment = async (
       })
       .select(`
         *,
-        author:user_id (
+        profiles:user_id (
           username,
           display_name,
           avatar_url,
@@ -103,7 +104,25 @@ export const createComment = async (
     
     // Update the comment count for the tweet
     const newCount = await updateTweetCommentCount(tweetId);
-    console.log(`Comment created: tweet ${tweetId} now has ${newCount} comments`);
+    console.log(`CommentService: Comment created: tweet ${tweetId} now has ${newCount} comments`);
+    
+    // Format the response to match our Comment type
+    const formattedComment: Comment = {
+      id: data.id,
+      content: data.content,
+      user_id: data.user_id,
+      tweet_id: data.tweet_id,
+      parent_comment_id: data.parent_reply_id,
+      created_at: data.created_at,
+      likes_count: data.likes_count || 0,
+      author: {
+        username: data.profiles.username,
+        display_name: data.profiles.display_name,
+        avatar_url: data.profiles.avatar_url || '',
+        avatar_nft_id: data.profiles.avatar_nft_id,
+        avatar_nft_chain: data.profiles.avatar_nft_chain
+      }
+    };
     
     // Broadcast a message to notify clients
     await supabase.channel('custom-all-channel').send({
@@ -112,7 +131,7 @@ export const createComment = async (
       payload: { tweetId, commentId: data.id, commentCount: newCount }
     });
     
-    return data as Comment;
+    return formattedComment;
   } catch (error) {
     console.error('Failed to create comment:', error);
     return null;
@@ -233,8 +252,14 @@ export const getUserComments = async (userId: string): Promise<Comment[]> => {
     const { data, error } = await supabase
       .from('comments')
       .select(`
-        *,
-        author:user_id (
+        id,
+        content,
+        user_id,
+        tweet_id,
+        parent_reply_id,
+        created_at,
+        likes_count,
+        profiles:user_id (
           username,
           display_name,
           avatar_url,
@@ -251,7 +276,25 @@ export const getUserComments = async (userId: string): Promise<Comment[]> => {
       return [];
     }
     
-    return data as Comment[];
+    // Format comments to match our Comment type
+    const formattedComments: Comment[] = data.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      user_id: comment.user_id,
+      tweet_id: comment.tweet_id,
+      parent_comment_id: comment.parent_reply_id,
+      created_at: comment.created_at,
+      likes_count: comment.likes_count || 0,
+      author: {
+        username: comment.profiles.username,
+        display_name: comment.profiles.display_name,
+        avatar_url: comment.profiles.avatar_url || '',
+        avatar_nft_id: comment.profiles.avatar_nft_id,
+        avatar_nft_chain: comment.profiles.avatar_nft_chain
+      }
+    }));
+    
+    return formattedComments;
   } catch (error) {
     console.error('Failed to fetch user comments:', error);
     return [];

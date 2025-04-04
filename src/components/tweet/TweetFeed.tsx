@@ -156,10 +156,22 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
       })
       .subscribe();
       
+    const broadcastChannel = supabase
+      .channel('custom-all-channel')
+      .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
+        console.log('Broadcast received for comment count update:', payload);
+        if (payload.payload && payload.payload.tweetId) {
+          const { tweetId, count } = payload.payload;
+          updateTweetCommentCountInUI(tweetId, count);
+        }
+      })
+      .subscribe();
+      
     return () => {
       isMounted.current = false;
       supabase.removeChannel(tweetsChannel);
       supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(broadcastChannel);
       
       if (observer.current) observer.current.disconnect();
       
@@ -302,6 +314,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
             prevTweets.map(tweet => {
               if (tweet.id === tweetId) {
                 const newCount = Math.max(0, (tweet.replies_count || 0) + increment);
+                console.log(`TweetFeed: Incrementing replies count for tweet ${tweetId} by ${increment} to ${newCount}`);
                 return { ...tweet, replies_count: newCount };
               }
               return tweet;
@@ -326,7 +339,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
       }
       
       if (exactCount !== null) {
-        console.log(`Updating tweet ${tweetId} comment count in UI to ${exactCount}`);
+        console.log(`TweetFeed: Setting exact replies count for tweet ${tweetId} to ${exactCount}`);
         
         setTweets(prevTweets => 
           prevTweets.map(tweet => 

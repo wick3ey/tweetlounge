@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -87,8 +86,20 @@ const TweetCard: React.FC<TweetCardProps> = ({
       })
       .subscribe();
       
+    // Also listen to the custom broadcast channel for comment count updates
+    const broadcastChannel = supabase
+      .channel('custom-broadcast-channel')
+      .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
+        if (payload.payload && payload.payload.tweetId === tweet.id) {
+          console.log(`TweetCard: Received broadcast comment count update for tweet ${tweet.id}:`, payload.payload.count);
+          setRepliesCount(payload.payload.count);
+        }
+      })
+      .subscribe();
+      
     return () => {
       supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(broadcastChannel);
     };
   }, [tweet.likes_count, tweet.replies_count, tweet.id]);
   
@@ -108,7 +119,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
       console.error(`Error fetching replies count for tweet ${tweet.id}:`, err);
     }
   };
-  
+
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
