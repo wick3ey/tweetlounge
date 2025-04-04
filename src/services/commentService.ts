@@ -44,7 +44,7 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
     
     // Also broadcast an update so all components know about the change
     try {
-      await supabase.channel('custom-all-channel').send({
+      await supabase.channel('comment-count-updates').send({
         type: 'broadcast',
         event: 'comment-count-updated',
         payload: { tweetId, count: commentCount }
@@ -125,7 +125,7 @@ export const createComment = async (
     };
     
     // Broadcast a message to notify clients
-    await supabase.channel('custom-all-channel').send({
+    await supabase.channel('comment-count-updates').send({
       type: 'broadcast',
       event: 'comment-created',
       payload: { tweetId, commentId: data.id, commentCount: newCount }
@@ -205,7 +205,7 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Decrement the likes count
+      // Decrement the likes count - Fixed RPC function name
       const { error: updateError } = await supabase
         .rpc('decrement_counter', { row_id: commentId });
       
@@ -228,7 +228,7 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Increment the likes count
+      // Increment the likes count - Fixed RPC function name
       const { error: updateError } = await supabase
         .rpc('increment_counter', { row_id: commentId });
       
