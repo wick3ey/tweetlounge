@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
 import { updateTweetCommentCount } from '@/services/commentService';
-import { getFromLocalStorage, setInLocalStorage } from '@/utils/tweetCacheService';
+import { getFromLocalStorage, setInLocalStorage, updateTweetInCache } from '@/utils/tweetCacheService';
 
 interface TweetFeedProps {
   userId?: string;

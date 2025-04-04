@@ -176,7 +176,7 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
       
       // Decrement the likes count
       const { error: updateError } = await supabase
-        .rpc('decrement_comment_likes', { comment_id: commentId });
+        .rpc('decrement_counter', { row_id: commentId });
       
       if (updateError) {
         console.error('Error decrementing likes count:', updateError);
@@ -199,7 +199,7 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
       
       // Increment the likes count
       const { error: updateError } = await supabase
-        .rpc('increment_comment_likes', { comment_id: commentId });
+        .rpc('increment_counter', { row_id: commentId });
       
       if (updateError) {
         console.error('Error incrementing likes count:', updateError);
