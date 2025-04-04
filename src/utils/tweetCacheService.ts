@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { CACHE_DURATIONS } from './cacheService';
@@ -373,6 +372,7 @@ export const updateTweetInCache = async (
             tweet.id === tweetId ? updater(tweet) : tweet
           );
           memoryCache.set(key, { ...cacheEntry, data: updatedData });
+          console.log(`Updated tweet ${tweetId} in memory cache for key ${key}`);
         }
       }
     }
@@ -388,6 +388,7 @@ export const updateTweetInCache = async (
               tweet.id === tweetId ? updater(tweet) : tweet
             );
             localStorage.setItem(key, JSON.stringify(cachedData));
+            console.log(`Updated tweet ${tweetId} in localStorage cache for key ${key}`);
           }
         } catch (e) {
           console.error(`Error updating localStorage cache: ${e}`);
@@ -395,7 +396,35 @@ export const updateTweetInCache = async (
       }
     }
     
-    console.log(`Updated tweet ${tweetId} in cache`);
+    // Try to also update in DB cache if it exists
+    try {
+      const { data: cacheEntries, error } = await supabase
+        .from('market_cache')
+        .select('cache_key, data')
+        .like('cache_key', `%tweet-%`)
+        .contains('data', [{ id: tweetId }]);
+        
+      if (!error && cacheEntries && cacheEntries.length > 0) {
+        for (const entry of cacheEntries) {
+          if (Array.isArray(entry.data)) {
+            const updatedData = entry.data.map(tweet => 
+              tweet.id === tweetId ? updater(tweet) : tweet
+            );
+            
+            await supabase
+              .from('market_cache')
+              .update({ data: updatedData })
+              .eq('cache_key', entry.cache_key);
+              
+            console.log(`Updated tweet ${tweetId} in DB cache for key ${entry.cache_key}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Error updating tweet in DB cache: ${err}`);
+    }
+    
+    console.log(`Updated tweet ${tweetId} in all available caches`);
   } catch (err) {
     console.error(`Error updating tweet in cache: ${err}`);
   }

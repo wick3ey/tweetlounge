@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -15,7 +14,8 @@ import { updateTweetCommentCount } from '@/services/commentService'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   invalidateTweetCache, 
-  CACHE_KEYS 
+  CACHE_KEYS,
+  updateTweetInCache
 } from '@/utils/tweetCacheService'
 
 const Home: React.FC = () => {
@@ -116,13 +116,27 @@ const Home: React.FC = () => {
           const tweetId = payload.new.tweet_id as string;
           console.debug(`[Home] Updating comment count for tweet ${tweetId}`);
           
+          // Update in cache immediately for fast UI response
+          updateTweetInCache(tweetId, (tweet) => ({
+            ...tweet,
+            replies_count: (tweet.replies_count || 0) + 1
+          }));
+          
           // First update the count in the database
           updateTweetCommentCount(tweetId)
-            .then(() => console.debug(`[Home] Comment count updated for tweet ${tweetId}`))
+            .then((count) => {
+              console.debug(`[Home] Comment count updated for tweet ${tweetId}: ${count}`);
+              
+              // Update cache with the exact count
+              updateTweetInCache(tweetId, (tweet) => ({
+                ...tweet,
+                replies_count: count
+              }));
+            })
             .catch(err => console.error('[Home] Error updating comment count:', err));
 
-          // Use debounced refresh
-          debouncedRefresh();
+          // Force immediate refresh to ensure UI is up to date
+          immediateRefresh();
         }
       })
       .subscribe();

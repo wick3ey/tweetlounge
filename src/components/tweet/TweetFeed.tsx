@@ -108,14 +108,21 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
           }
           debounceTimeRef.current = setTimeout(() => {
             fetchNewTweets();
-          }, 1000);
+          }, 300);
+        } else if (payload.eventType === 'UPDATE') {
+          if (payload.new && 'id' in payload.new && 'replies_count' in payload.new) {
+            const updatedTweet = payload.new as any;
+            updateTweetCommentCountInUI(updatedTweet.id, updatedTweet.replies_count);
+          } else {
+            refreshCurrentTweets();
+          }
         } else {
           if (debounceTimeRef.current) {
             clearTimeout(debounceTimeRef.current);
           }
           debounceTimeRef.current = setTimeout(() => {
             refreshCurrentTweets();
-          }, 1000);
+          }, 300);
         }
       })
       .subscribe();
@@ -133,11 +140,18 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
           if (debounceTimeRef.current) {
             clearTimeout(debounceTimeRef.current);
           }
+          
+          if (payload.eventType === 'INSERT') {
+            updateTweetCommentCountInUI(commentedTweetId, null, 1);
+          } else if (payload.eventType === 'DELETE') {
+            updateTweetCommentCountInUI(commentedTweetId, null, -1);
+          }
+          
           debounceTimeRef.current = setTimeout(() => {
-            updateTweetCommentCount(commentedTweetId).then(() => {
-              updateTweetCommentCountInUI(commentedTweetId);
+            updateTweetCommentCount(commentedTweetId).then((count) => {
+              updateTweetCommentCountInUI(commentedTweetId, count);
             });
-          }, 1000);
+          }, 300);
         }
       })
       .subscribe();
@@ -274,32 +288,59 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
     return enhanceTweetData(transformedTweet);
   };
 
-  const updateTweetCommentCountInUI = async (tweetId: string) => {
+  const updateTweetCommentCountInUI = async (
+    tweetId: string, 
+    exactCount: number | null = null, 
+    increment: number | null = null
+  ) => {
     if (!isMounted.current) return;
     
     try {
-      const { data, error } = await supabase
-        .from('tweets')
-        .select('replies_count')
-        .eq('id', tweetId)
-        .single();
-      
-      if (error) {
-        console.error('Error fetching updated tweet count:', error);
-        return;
+      if (exactCount === null) {
+        if (increment !== null) {
+          setTweets(prevTweets => 
+            prevTweets.map(tweet => {
+              if (tweet.id === tweetId) {
+                const newCount = Math.max(0, (tweet.replies_count || 0) + increment);
+                return { ...tweet, replies_count: newCount };
+              }
+              return tweet;
+            })
+          );
+        }
+        
+        if (exactCount === null && increment === null) {
+          const { data, error } = await supabase
+            .from('tweets')
+            .select('replies_count')
+            .eq('id', tweetId)
+            .single();
+          
+          if (error) {
+            console.error('Error fetching updated tweet count:', error);
+            return;
+          }
+          
+          exactCount = data.replies_count;
+        }
       }
       
-      if (!isMounted.current) return;
-      
-      console.log(`Updating tweet ${tweetId} comment count in UI to ${data.replies_count}`);
-      
-      setTweets(prevTweets => 
-        prevTweets.map(tweet => 
-          tweet.id === tweetId 
-            ? { ...tweet, replies_count: data.replies_count } 
-            : tweet
-        )
-      );
+      if (exactCount !== null) {
+        console.log(`Updating tweet ${tweetId} comment count in UI to ${exactCount}`);
+        
+        setTweets(prevTweets => 
+          prevTweets.map(tweet => 
+            tweet.id === tweetId 
+              ? { ...tweet, replies_count: exactCount } 
+              : tweet
+          )
+        );
+        
+        updateTweetInCache(tweetId, (tweet) => ({
+          ...tweet,
+          replies_count: exactCount
+        }));
+      }
     } catch (err) {
       console.error('Failed to update tweet comment count in UI:', err);
     }
@@ -441,7 +482,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
   const handleTweetDeleted = (deletedTweetId: string) => {
     setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
     
-    // Filter out retweets of the deleted tweet
     setTweets(prevTweets => prevTweets.filter(tweet => 
       !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId)
     ));
