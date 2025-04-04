@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -44,20 +45,30 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   
+  // User who retweeted
   const retweeter = isRetweet ? tweet.author : null;
   
+  // For retweets, display the original tweet data
+  let originalAuthor = null;
+  if (isRetweet) {
+    originalAuthor = tweet.original_author || 
+      (tweet.original_tweet && tweet.original_tweet.author) || 
+      null;
+  }
+  
+  // Display either the original tweet (for retweets) or the current tweet
   const displayTweet = isRetweet ? {
     id: tweet.id,
-    content: tweet.content,
-    author_id: tweet.original_author?.id || tweet.author_id,
+    content: tweet.original_content || tweet.content,
+    author_id: originalAuthor?.id || tweet.original_author_id || tweet.author_id,
     created_at: tweet.original_tweet?.created_at || tweet.created_at,
     likes_count: tweet.likes_count || 0,
     retweets_count: tweet.retweets_count || 0,
     replies_count: tweet.replies_count || 0,
     is_retweet: true,
     original_tweet_id: tweet.original_tweet_id,
-    image_url: tweet.image_url,
-    author: tweet.original_author
+    image_url: tweet.original_image_url || tweet.image_url,
+    author: originalAuthor
   } : tweet;
   
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
@@ -198,9 +209,23 @@ const TweetCard: React.FC<TweetCardProps> = ({
     return name?.substring(0, 2).toUpperCase() || 'UN';
   };
 
-  const displayName = displayTweet.author?.display_name || 'User';
-  const username = displayTweet.author?.username || 'user';
-  const avatarUrl = displayTweet.author?.avatar_url;
+  // Get display name and username for the tweet author
+  const displayName = displayTweet.author?.display_name || 
+    displayTweet.profile_display_name || 
+    'User';
+    
+  const username = displayTweet.author?.username || 
+    displayTweet.profile_username || 
+    'user';
+    
+  const avatarUrl = displayTweet.author?.avatar_url || 
+    displayTweet.profile_avatar_url || 
+    null;
+  
+  // If we don't have valid author data, log it for debugging
+  if (!displayTweet.author && !displayTweet.profile_username) {
+    console.debug('Missing author data for tweet:', displayTweet.id, displayTweet);
+  }
   
   return (
     <Card 

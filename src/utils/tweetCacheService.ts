@@ -400,6 +400,82 @@ export const updateTweetInCache = async (
   }
 };
 
+/**
+ * Process retweet data to include original author information
+ */
+export const processRetweetData = async (tweet: TweetWithAuthor): Promise<TweetWithAuthor> => {
+  if (!tweet.is_retweet || !tweet.original_tweet_id) {
+    return tweet;
+  }
+
+  try {
+    // Get the original tweet with author information
+    const { data, error } = await supabase
+      .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+    
+    if (error || !data || data.length === 0) {
+      console.error('Error fetching original tweet:', error);
+      return tweet;
+    }
+    
+    const originalTweetData = data[0];
+    
+    // Create enhanced tweet with original author and content information
+    return {
+      ...tweet,
+      original_author_id: originalTweetData.author_id,
+      original_author_username: originalTweetData.username,
+      original_author_display_name: originalTweetData.display_name,
+      original_author_avatar_url: originalTweetData.avatar_url,
+      original_author_avatar_nft_id: originalTweetData.avatar_nft_id,
+      original_author_avatar_nft_chain: originalTweetData.avatar_nft_chain,
+      original_content: originalTweetData.content,
+      original_image_url: originalTweetData.image_url,
+      original_author: {
+        id: originalTweetData.author_id,
+        username: originalTweetData.username || 'user',
+        display_name: originalTweetData.display_name || 'User',
+        avatar_url: originalTweetData.avatar_url || '',
+        bio: null,
+        cover_url: null,
+        location: null,
+        website: null,
+        updated_at: null,
+        created_at: new Date().toISOString(),
+        ethereum_address: null,
+        solana_address: null,
+        avatar_nft_id: originalTweetData.avatar_nft_id,
+        avatar_nft_chain: originalTweetData.avatar_nft_chain,
+        followers_count: 0,
+        following_count: 0,
+        replies_sort_order: null
+      }
+    };
+  } catch (err) {
+    console.error('Error processing retweet data:', err);
+    return tweet;
+  }
+};
+
+/**
+ * Process a collection of tweets, enhancing any retweets with original author info
+ */
+export const processRetweetsInCollection = async (tweets: TweetWithAuthor[]): Promise<TweetWithAuthor[]> => {
+  try {
+    return await Promise.all(
+      tweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          return await processRetweetData(tweet);
+        }
+        return tweet;
+      })
+    );
+  } catch (err) {
+    console.error('Error processing retweets in collection:', err);
+    return tweets;
+  }
+};
+
 // Periodically clean up memory cache
 setInterval(() => {
   const now = Date.now();

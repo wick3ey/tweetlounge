@@ -36,6 +36,15 @@ export interface TweetWithAuthor {
     profile_avatar_url?: string;
     profile_avatar_nft_id?: string;
     profile_avatar_nft_chain?: string;
+    // Additional fields for retweets to ensure we have original data
+    original_author_id?: string;
+    original_author_username?: string;
+    original_author_display_name?: string;
+    original_author_avatar_url?: string;
+    original_author_avatar_nft_id?: string;
+    original_author_avatar_nft_chain?: string;
+    original_content?: string;
+    original_image_url?: string | null;
 }
 
 export function isValidTweet(tweet: any): tweet is Tweet {
@@ -108,7 +117,7 @@ export const createPartialProfile = (fields: any): Profile => {
     };
 };
 
-// Ny hjälpfunktion för att bygga originalförfattare från retweet-data
+// Helper function to build original author from retweet data
 export const buildOriginalAuthorFromTweet = (tweetData: any): Profile | undefined => {
     if (!tweetData) return undefined;
     
@@ -121,7 +130,7 @@ export const buildOriginalAuthorFromTweet = (tweetData: any): Profile | undefine
         avatar_nft_chain: tweetData.original_author_avatar_nft_chain,
     };
     
-    // Returnera bara om vi har åtminstone grundläggande information
+    // Return only if we have at least basic information
     if (originalAuthorFields.id && originalAuthorFields.username) {
         return createPartialProfile(originalAuthorFields);
     }
