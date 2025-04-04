@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
@@ -144,7 +143,12 @@ export const getTweet = async (id: string): Promise<TweetWithAuthor | null> => {
         followers_count: 0,
         following_count: 0,
         replies_sort_order: null
-      }
+      },
+      profile_username: tweetData.username || 'user',
+      profile_display_name: tweetData.display_name || 'User',
+      profile_avatar_url: tweetData.avatar_url || null,
+      profile_avatar_nft_id: tweetData.avatar_nft_id || null,
+      profile_avatar_nft_chain: tweetData.avatar_nft_chain || null
     };
     
     // If it's a retweet, get original tweet data
