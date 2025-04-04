@@ -45,15 +45,24 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   
-  // Ensure we have the complete display tweet with all author information
+  // Säkerställ att vi har korrekt visningstweet med all författarinformation
   const displayTweet = isRetweet && tweet.original_author ? {
-    ...tweet,
-    content: tweet.content || 'Retweet',
-    author: tweet.original_author,
-    author_id: tweet.original_author.id
+    ...tweet.original_author && tweet.original_tweet_id ? {
+      id: tweet.id,
+      content: tweet.content || 'Retweet',
+      author_id: tweet.original_author.id,
+      created_at: tweet.created_at,
+      likes_count: tweet.likes_count || 0,
+      retweets_count: tweet.retweets_count || 0,
+      replies_count: tweet.replies_count || 0,
+      is_retweet: true,
+      original_tweet_id: tweet.original_tweet_id,
+      image_url: tweet.image_url
+    } : tweet,
+    author: tweet.original_author
   } : tweet;
   
-  // Check if this is a NFT verified user
+  // Kontrollera om detta är en NFT-verifierad användare
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
   
   useEffect(() => {
@@ -192,7 +201,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
     return name?.substring(0, 2).toUpperCase() || 'UN';
   };
 
-  // When this card appears on the profile page, make sure we use the correct displayName and username
+  // När detta kort visas på profilsidan, se till att vi använder rätt displayName och username
   const displayName = displayTweet.author?.display_name || 'User';
   const username = displayTweet.author?.username || 'user';
   const avatarUrl = displayTweet.author?.avatar_url;

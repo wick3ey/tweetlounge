@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
@@ -622,14 +623,31 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         return false;
       }
     } else {
+      // Hämta originaltweet först för att få originalinformation
+      const { data: originalTweet, error: originalTweetError } = await supabase
+        .from('tweets')
+        .select(`
+          id,
+          content,
+          image_url
+        `)
+        .eq('id', tweetId)
+        .single();
+      
+      if (originalTweetError || !originalTweet) {
+        console.error('[retweet] Error fetching original tweet:', originalTweetError?.message);
+        return false;
+      }
+      
       const { error: insertError } = await supabase
         .from('tweets')
         .insert({
           id: uuidv4(),
-          content: '',
+          content: originalTweet.content, // Kopiera originalinnehållet för att säkerställa att korrekt innehåll visas
           author_id: userData.user.id,
           is_retweet: true,
-          original_tweet_id: tweetId
+          original_tweet_id: tweetId,
+          image_url: originalTweet.image_url // Kopiera även bildurl om det finns
         });
       
       if (insertError) {
