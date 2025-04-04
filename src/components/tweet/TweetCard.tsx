@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -45,10 +44,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   
-  // User who retweeted
   const retweeter = isRetweet ? tweet.author : null;
   
-  // For retweets, display the original tweet data
   let originalAuthor = null;
   if (isRetweet) {
     originalAuthor = tweet.original_author || 
@@ -56,7 +53,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
       null;
   }
   
-  // Display either the original tweet (for retweets) or the current tweet
   const displayTweet: TweetWithAuthor = isRetweet ? {
     id: tweet.id,
     content: tweet.original_content || tweet.content,
@@ -68,13 +64,30 @@ const TweetCard: React.FC<TweetCardProps> = ({
     is_retweet: true,
     original_tweet_id: tweet.original_tweet_id,
     image_url: tweet.original_image_url || tweet.image_url,
-    author: originalAuthor,
-    // Copy profile properties to ensure they're available
-    profile_username: originalAuthor?.username || tweet.original_author_username,
-    profile_display_name: originalAuthor?.display_name || tweet.original_author_display_name,
-    profile_avatar_url: originalAuthor?.avatar_url || tweet.original_author_avatar_url,
-    profile_avatar_nft_id: originalAuthor?.avatar_nft_id || tweet.original_author_avatar_nft_id,
-    profile_avatar_nft_chain: originalAuthor?.avatar_nft_chain || tweet.original_author_avatar_nft_chain
+    author: originalAuthor || {
+      id: tweet.original_author_id || '',
+      username: tweet.original_author_username || 'user',
+      display_name: tweet.original_author_display_name || 'User',
+      avatar_url: tweet.original_author_avatar_url || null,
+      bio: null,
+      cover_url: null,
+      location: null,
+      website: null,
+      updated_at: null,
+      created_at: new Date().toISOString(),
+      ethereum_address: null,
+      solana_address: null,
+      avatar_nft_id: tweet.original_author_avatar_nft_id || null,
+      avatar_nft_chain: tweet.original_author_avatar_nft_chain || null,
+      followers_count: 0,
+      following_count: 0,
+      replies_sort_order: null
+    },
+    profile_username: tweet.original_author_username || originalAuthor?.username,
+    profile_display_name: tweet.original_author_display_name || originalAuthor?.display_name,
+    profile_avatar_url: tweet.original_author_avatar_url || originalAuthor?.avatar_url,
+    profile_avatar_nft_id: tweet.original_author_avatar_nft_id || originalAuthor?.avatar_nft_id,
+    profile_avatar_nft_chain: tweet.original_author_avatar_nft_chain || originalAuthor?.avatar_nft_chain
   } : tweet;
   
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
@@ -215,7 +228,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     return name?.substring(0, 2).toUpperCase() || 'UN';
   };
 
-  // Get display name and username for the tweet author
   const displayName = displayTweet.author?.display_name || 
     displayTweet.profile_display_name || 
     'User';
@@ -228,7 +240,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     displayTweet.profile_avatar_url || 
     null;
   
-  // If we don't have valid author data, log it for debugging
   if (!displayTweet.author && !displayTweet.profile_username) {
     console.debug('Missing author data for tweet:', displayTweet.id, displayTweet);
   }

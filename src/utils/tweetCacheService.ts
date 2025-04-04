@@ -409,6 +409,41 @@ export const processRetweetData = async (tweet: TweetWithAuthor): Promise<TweetW
   }
 
   try {
+    // If we already have original data embedded, use it first
+    if (tweet.original_author_id && tweet.original_author_username) {
+      const originalAuthor = {
+        id: tweet.original_author_id,
+        username: tweet.original_author_username || 'user',
+        display_name: tweet.original_author_display_name || 'User',
+        avatar_url: tweet.original_author_avatar_url || null,
+        bio: null,
+        cover_url: null,
+        location: null,
+        website: null,
+        updated_at: null,
+        created_at: new Date().toISOString(),
+        ethereum_address: null,
+        solana_address: null,
+        avatar_nft_id: tweet.original_author_avatar_nft_id || null,
+        avatar_nft_chain: tweet.original_author_avatar_nft_chain || null,
+        followers_count: 0,
+        following_count: 0,
+        replies_sort_order: null
+      };
+      
+      return {
+        ...tweet,
+        original_author: originalAuthor,
+        content: tweet.original_content || tweet.content,
+        image_url: tweet.original_image_url || tweet.image_url,
+        profile_username: tweet.original_author_username,
+        profile_display_name: tweet.original_author_display_name,
+        profile_avatar_url: tweet.original_author_avatar_url,
+        profile_avatar_nft_id: tweet.original_author_avatar_nft_id,
+        profile_avatar_nft_chain: tweet.original_author_avatar_nft_chain
+      };
+    }
+    
     // Get the original tweet with author information
     const { data, error } = await supabase
       .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
@@ -431,6 +466,11 @@ export const processRetweetData = async (tweet: TweetWithAuthor): Promise<TweetW
       original_author_avatar_nft_chain: originalTweetData.avatar_nft_chain,
       original_content: originalTweetData.content,
       original_image_url: originalTweetData.image_url,
+      profile_username: originalTweetData.username,
+      profile_display_name: originalTweetData.display_name,
+      profile_avatar_url: originalTweetData.avatar_url,
+      profile_avatar_nft_id: originalTweetData.avatar_nft_id,
+      profile_avatar_nft_chain: originalTweetData.avatar_nft_chain,
       original_author: {
         id: originalTweetData.author_id,
         username: originalTweetData.username || 'user',
