@@ -19,6 +19,8 @@ import { getProfileByUsername, isFollowing } from '@/services/profileService';
 import { getUserTweets } from '@/services/tweetService';
 import { fetchProfileDataWithCache } from '@/utils/profileCacheService';
 import { CACHE_DURATIONS } from '@/utils/cacheService';
+import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const prefetchMap = new Map<string, boolean>();
 
@@ -179,10 +181,10 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
+        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center shadow-lg">
           <Loader className="h-12 w-12 animate-spin text-crypto-blue" />
           <p className="mt-4 text-crypto-blue font-medium animate-pulse">Loading profile...</p>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -190,7 +192,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
+        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md shadow-lg">
           <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
           <button 
             onClick={() => window.location.reload()}
@@ -198,7 +200,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           >
             Try Again
           </button>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -206,13 +208,13 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
+        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center shadow-lg">
           <div className="text-crypto-lightgray mb-4">Profile not found or you're not logged in.</div>
           <button 
             onClick={() => window.location.reload()}
             className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
           >Try Again</button>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -251,40 +253,44 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
-      <ProfileHeader
-        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-        username={profile?.username || 'username'}
-        displayName={profile?.display_name || 'Display Name'}
-        avatarUrl={profile?.avatar_url || undefined}
-        coverUrl={profile?.cover_url || undefined}
-        bio={profile?.bio || undefined}
-        location={profile?.location || undefined}
-        website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
-        ethereumAddress={profile?.ethereum_address}
-        solanaAddress={profile?.solana_address}
-        isCurrentUser={isOwnProfile}
-        followersCount={profile?.followers_count || 0}
-        followingCount={profile?.following_count || 0}
-        joinedDate={userCreatedAt || new Date().toISOString()}
-        onEditProfile={handleEditProfile}
-        onOpenNFTBrowser={handleOpenNFTBrowser}
-        isFollowing={isUserFollowing}
-        onFollow={handleFollowAction}
-        isNFTVerified={isNFTVerified}
-        onAvatarClick={handleOpenProfileImage}
-      />
-      
-      <Suspense fallback={
-        <div className="flex justify-center items-center py-16">
-          <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
+      <ScrollArea className="h-screen">
+        <div className="pb-20">
+          <ProfileHeader
+            userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+            username={profile?.username || 'username'}
+            displayName={profile?.display_name || 'Display Name'}
+            avatarUrl={profile?.avatar_url || undefined}
+            coverUrl={profile?.cover_url || undefined}
+            bio={profile?.bio || undefined}
+            location={profile?.location || undefined}
+            website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
+            ethereumAddress={profile?.ethereum_address}
+            solanaAddress={profile?.solana_address}
+            isCurrentUser={isOwnProfile}
+            followersCount={profile?.followers_count || 0}
+            followingCount={profile?.following_count || 0}
+            joinedDate={userCreatedAt || new Date().toISOString()}
+            onEditProfile={handleEditProfile}
+            onOpenNFTBrowser={handleOpenNFTBrowser}
+            isFollowing={isUserFollowing}
+            onFollow={handleFollowAction}
+            isNFTVerified={isNFTVerified}
+            onAvatarClick={handleOpenProfileImage}
+          />
+          
+          <Suspense fallback={
+            <div className="flex justify-center items-center py-16">
+              <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
+            </div>
+          }>
+            <ProfileTabs 
+              userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+              isCurrentUser={isOwnProfile}
+              solanaAddress={profile?.solana_address}
+            />
+          </Suspense>
         </div>
-      }>
-        <ProfileTabs 
-          userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-          isCurrentUser={isOwnProfile}
-          solanaAddress={profile?.solana_address}
-        />
-      </Suspense>
+      </ScrollArea>
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">
