@@ -9,8 +9,6 @@ export interface Tweet {
     likes_count: number;
     retweets_count: number;
     replies_count: number;
-    is_retweet: boolean;
-    original_tweet_id?: string | null;
     image_url?: string | null;
 }
 
@@ -22,12 +20,8 @@ export interface TweetWithAuthor {
     likes_count: number;
     retweets_count: number;
     replies_count: number;
-    is_retweet: boolean;
-    original_tweet_id?: string | null;
     image_url?: string | null;
     author?: Profile;
-    original_author?: Profile;
-    original_tweet?: TweetWithAuthor;
     cacheTimestamp?: number;
     bookmarked_at?: string;
     // Add profile properties that might be present in some API responses
@@ -47,27 +41,9 @@ export function isValidTweet(tweet: any): tweet is Tweet {
         typeof tweet.created_at === 'string' &&
         typeof tweet.likes_count === 'number' &&
         typeof tweet.retweets_count === 'number' &&
-        typeof tweet.replies_count === 'number' &&
-        typeof tweet.is_retweet === 'boolean'
+        typeof tweet.replies_count === 'number'
     );
 }
-
-export function isValidRetweet(tweet: any): boolean {
-    return isValidTweet(tweet) && tweet.is_retweet === true && typeof tweet.original_tweet_id === 'string';
-}
-
-export const getSafeTweetId = (tweet: TweetWithAuthor): string => {
-    if (!tweet) {
-        console.warn('Attempted to get tweet ID from a null tweet.');
-        return '';
-    }
-
-    if (tweet.is_retweet && tweet.original_tweet_id) {
-        return tweet.original_tweet_id;
-    }
-
-    return tweet.id;
-};
 
 export const enhanceTweetData = (tweet: TweetWithAuthor): TweetWithAuthor | null => {
     if (!tweet) {
@@ -78,8 +54,7 @@ export const enhanceTweetData = (tweet: TweetWithAuthor): TweetWithAuthor | null
         ...tweet,
         likes_count: tweet.likes_count || 0,
         retweets_count: tweet.retweets_count || 0,
-        replies_count: tweet.replies_count || 0,
-        is_retweet: tweet.is_retweet || false,
+        replies_count: tweet.replies_count || 0
     };
 
     return enhancedTweet;
