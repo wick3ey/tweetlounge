@@ -17,6 +17,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
+import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
@@ -42,15 +43,12 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [isBookmarking, setIsBookmarking] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
   const [showComments, setShowComments] = useState(true);
 
   useEffect(() => {
     setLikesCount(tweet?.likes_count || 0);
     setRepliesCount(tweet?.replies_count || 0);
-  }, [tweet?.likes_count, tweet?.replies_count]);
-
-  useEffect(() => {
+    
     const checkStatuses = async () => {
       if (tweet?.id && user) {
         try {
@@ -64,9 +62,20 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         }
       }
     };
-
+    
     checkStatuses();
-  }, [tweet?.id, user]);
+    
+    if (tweet?.id) {
+      const unsubscribe = subscribeToCommentCountUpdates(
+        tweet.id,
+        (count) => setRepliesCount(count)
+      );
+      
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [tweet?.id, tweet?.likes_count, tweet?.replies_count, user]);
 
   const toggleLike = async () => {
     if (!user) {
@@ -199,8 +208,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   };
 
   const handleCommentSubmit = () => {
-    setRepliesCount(prevCount => prevCount + 1);
-    
     if (onCommentAdded && tweet) {
       onCommentAdded(tweet.id);
     }

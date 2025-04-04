@@ -4,8 +4,11 @@ import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { updateTweetCommentCount } from '@/services/commentService';
-import { updateTweetInCache } from '@/utils/tweetCacheService';
+import { 
+  getExactCommentCount, 
+  syncCommentCount, 
+  subscribeToCommentCountUpdates 
+} from '@/services/commentCountService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -19,57 +22,23 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
   const [totalComments, setTotalComments] = useState(0);
 
   useEffect(() => {
-    if (tweetId) {
-      fetchComments();
-      
-      // Setup realtime subscription for comments with consistent channel name
-      const channel = supabase
-        .channel(`tweet-${tweetId}-comments`) // Use consistent channel naming pattern
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'comments',
-          filter: `tweet_id=eq.${tweetId}`
-        }, (payload) => {
-          console.log('CommentList detected realtime comment update:', payload);
-          fetchComments();
-          
-          // Always update the tweet count in the database and notify parent components
-          updateTweetCommentCount(tweetId).then((count) => {
-            console.log(`CommentList: updated tweet ${tweetId} comment count in database: ${count}`);
-            updateReplyCount(count);
-            
-            // Update tweet in cache to ensure feed displays correct count
-            updateTweetInCache(tweetId, (tweet) => ({
-              ...tweet,
-              replies_count: count
-            }));
-            
-            // Broadcast the updated count on the consistent global channel
-            supabase.channel('global-comment-updates').send({
-              type: 'broadcast',
-              event: 'comment-count-updated',
-              payload: { tweetId, count }
-            });
-          });
-        })
-        .subscribe();
-        
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [tweetId]);
-
-  // Function to update reply count in one place
-  const updateReplyCount = (count: number) => {
-    setTotalComments(count);
+    if (!tweetId) return;
     
-    // Notify parent component about the updated comment count
-    if (onCommentCountUpdated) {
-      onCommentCountUpdated(count);
-    }
-  };
+    // Initial data load
+    fetchComments();
+    
+    // Set up realtime subscriptions
+    const unsubscribe = subscribeToCommentCountUpdates(tweetId, (count) => {
+      setTotalComments(count);
+      if (onCommentCountUpdated) {
+        onCommentCountUpdated(count);
+      }
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [tweetId]);
 
   const fetchComments = async () => {
     if (!tweetId) return;
@@ -104,8 +73,13 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         return;
       }
       
-      // Get exact comment count
-      await getExactCommentCount();
+      // Get initial comment count and sync with database
+      const count = await syncCommentCount(tweetId);
+      setTotalComments(count);
+      
+      if (onCommentCountUpdated) {
+        onCommentCountUpdated(count);
+      }
       
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
@@ -131,37 +105,6 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       console.error('Failed to fetch comments:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getExactCommentCount = async () => {
-    if (!tweetId) return;
-    
-    try {
-      // Get the TOTAL count of ALL comments for this tweet (including replies)
-      const { count, error: countError } = await supabase
-        .from('comments')
-        .select('id', { count: 'exact', head: true })
-        .eq('tweet_id', tweetId);
-        
-      if (countError) {
-        console.error('Error counting comments:', countError);
-      } else {
-        // Ensure count is always a number
-        const commentCount = typeof count === 'number' ? count : 0;
-        console.log(`CommentList: Tweet ${tweetId} has ${commentCount} total comments`);
-        
-        // Update reply count in one place
-        updateReplyCount(commentCount);
-        
-        // Update the tweet's replies_count field in the database
-        await supabase
-          .from('tweets')
-          .update({ replies_count: commentCount })
-          .eq('id', tweetId);
-      }
-    } catch (err) {
-      console.error('Failed to get exact comment count:', err);
     }
   };
 

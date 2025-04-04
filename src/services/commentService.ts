@@ -1,7 +1,7 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Comment } from "@/types/Comment";
 import { updateTweetInCache } from "@/utils/tweetCacheService";
+import { syncCommentCount } from "@/services/commentCountService";
 
 /**
  * Updates the comment count for a tweet by counting all comments associated with the tweet ID
@@ -102,9 +102,15 @@ export const createComment = async (
       return null;
     }
     
-    // Update the comment count for the tweet
-    const newCount = await updateTweetCommentCount(tweetId);
+    // Update the comment count for the tweet using our new service
+    const newCount = await syncCommentCount(tweetId);
     console.log(`CommentService: Comment created: tweet ${tweetId} now has ${newCount} comments`);
+    
+    // Update the tweet cache with the new count
+    updateTweetInCache(tweetId, (tweet) => ({
+      ...tweet,
+      replies_count: newCount
+    }));
     
     // Format the response to match our Comment type
     const formattedComment: Comment = {

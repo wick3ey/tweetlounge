@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
-import { supabase } from '@/lib/supabase';
+import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -44,76 +44,29 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
   
   useEffect(() => {
+    setLikesCount(tweet.likes_count || 0);
+    setRepliesCount(tweet.replies_count || 0);
+    
     if (user) {
-      const checkLikeStatus = async () => {
-        try {
-          const liked = await checkIfUserLikedTweet(tweet.id);
-          setIsLiked(liked);
-        } catch (error) {
-          console.error('Error checking like status:', error);
-        }
-      };
-      
       checkLikeStatus();
     }
     
-    fetchExactRepliesCount();
-  }, [user, tweet.id]);
-  
-  useEffect(() => {
-    setLikesCount(tweet.likes_count || 0);
-    setRepliesCount(tweet.replies_count || 0);
-
-    const commentsChannel = supabase
-      .channel(`tweet-${tweet.id}-comments`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'comments',
-        filter: `tweet_id=eq.${tweet.id}`
-      }, (payload) => {
-        console.log(`TweetCard: Comment change detected for tweet ${tweet.id}:`, payload.eventType);
-        
-        if (payload.eventType === 'INSERT') {
-          setRepliesCount(prevCount => prevCount + 1);
-        } else if (payload.eventType === 'DELETE') {
-          setRepliesCount(prevCount => Math.max(0, prevCount - 1));
-        }
-        
-        fetchExactRepliesCount();
-      })
-      .subscribe();
-      
-    const broadcastChannel = supabase
-      .channel('global-comment-updates')
-      .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
-        if (payload.payload && payload.payload.tweetId === tweet.id) {
-          console.log(`TweetCard: Received broadcast comment count update for tweet ${tweet.id}:`, payload.payload.count);
-          setRepliesCount(payload.payload.count);
-        }
-      })
-      .subscribe();
-      
+    const unsubscribe = subscribeToCommentCountUpdates(
+      tweet.id,
+      (count) => setRepliesCount(count)
+    );
+    
     return () => {
-      supabase.removeChannel(commentsChannel);
-      supabase.removeChannel(broadcastChannel);
+      unsubscribe();
     };
-  }, [tweet.id]);
+  }, [tweet.id, user]);
   
-  const fetchExactRepliesCount = async () => {
+  const checkLikeStatus = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tweets')
-        .select('replies_count')
-        .eq('id', tweet.id)
-        .single();
-        
-      if (!error && data) {
-        console.log(`TweetCard: Updated replies count for tweet ${tweet.id} to ${data.replies_count || 0}`);
-        setRepliesCount(data.replies_count || 0);
-      }
-    } catch (err) {
-      console.error(`Error fetching replies count for tweet ${tweet.id}:`, err);
+      const liked = await checkIfUserLikedTweet(tweet.id);
+      setIsLiked(liked);
+    } catch (error) {
+      console.error('Error checking like status:', error);
     }
   };
 
