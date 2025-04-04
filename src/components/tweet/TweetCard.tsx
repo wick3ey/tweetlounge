@@ -57,7 +57,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   }
   
   // Display either the original tweet (for retweets) or the current tweet
-  const displayTweet = isRetweet ? {
+  const displayTweet: TweetWithAuthor = isRetweet ? {
     id: tweet.id,
     content: tweet.original_content || tweet.content,
     author_id: originalAuthor?.id || tweet.original_author_id || tweet.author_id,
@@ -68,7 +68,13 @@ const TweetCard: React.FC<TweetCardProps> = ({
     is_retweet: true,
     original_tweet_id: tweet.original_tweet_id,
     image_url: tweet.original_image_url || tweet.image_url,
-    author: originalAuthor
+    author: originalAuthor,
+    // Copy profile properties to ensure they're available
+    profile_username: originalAuthor?.username || tweet.original_author_username,
+    profile_display_name: originalAuthor?.display_name || tweet.original_author_display_name,
+    profile_avatar_url: originalAuthor?.avatar_url || tweet.original_author_avatar_url,
+    profile_avatar_nft_id: originalAuthor?.avatar_nft_id || tweet.original_author_avatar_nft_id,
+    profile_avatar_nft_chain: originalAuthor?.avatar_nft_chain || tweet.original_author_avatar_nft_chain
   } : tweet;
   
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
