@@ -245,7 +245,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
   const transformTweetData = (item: any): TweetWithAuthor | null => {
     if (!item) return null;
     
-    const transformedTweet: TweetWithAuthor = {
+    const transformedTweet = {
       id: item.id,
       content: item.content,
       author_id: item.author_id,
@@ -270,17 +270,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
         avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
       })
     };
-    
-    if (item.is_retweet && item.original_tweet_id) {
-      transformedTweet.original_author = createPartialProfile({
-        id: item.original_author_id,
-        username: item.original_author_username,
-        display_name: item.original_author_display_name,
-        avatar_url: item.original_author_avatar_url,
-        avatar_nft_id: item.original_author_avatar_nft_id,
-        avatar_nft_chain: item.original_author_avatar_nft_chain
-      });
-    }
     
     return enhanceTweetData(transformedTweet);
   };

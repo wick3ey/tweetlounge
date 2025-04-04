@@ -36,15 +36,6 @@ export interface TweetWithAuthor {
     profile_avatar_url?: string;
     profile_avatar_nft_id?: string;
     profile_avatar_nft_chain?: string;
-    // Additional fields for retweets to ensure we have original data
-    original_author_id?: string;
-    original_author_username?: string;
-    original_author_display_name?: string;
-    original_author_avatar_url?: string;
-    original_author_avatar_nft_id?: string;
-    original_author_avatar_nft_chain?: string;
-    original_content?: string;
-    original_image_url?: string | null;
 }
 
 export function isValidTweet(tweet: any): tweet is Tweet {
@@ -116,24 +107,3 @@ export const createPartialProfile = (fields: any): Profile => {
         following_count: 0
     };
 };
-
-// Helper function to build original author from retweet data
-export const buildOriginalAuthorFromTweet = (tweetData: any): Profile | undefined => {
-    if (!tweetData) return undefined;
-    
-    const originalAuthorFields = {
-        id: tweetData.original_author_id,
-        username: tweetData.original_author_username,
-        display_name: tweetData.original_author_display_name,
-        avatar_url: tweetData.original_author_avatar_url,
-        avatar_nft_id: tweetData.original_author_avatar_nft_id,
-        avatar_nft_chain: tweetData.original_author_avatar_nft_chain,
-    };
-    
-    // Return only if we have at least basic information
-    if (originalAuthorFields.id && originalAuthorFields.username) {
-        return createPartialProfile(originalAuthorFields);
-    }
-    
-    return undefined;
-}
