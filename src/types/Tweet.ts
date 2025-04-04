@@ -24,7 +24,8 @@ export interface TweetWithAuthor {
     replies_count: number;
     image_url?: string | null;
     author?: Profile;
-    cacheTimestamp?: number;
+    cacheTimestamp?: number; // Added for performance tracking
+    lastUpdateTime?: number; // Track when tweet was last updated
     bookmarked_at?: string;
     // Add these properties back to fix type errors
     is_retweet?: boolean;
@@ -60,7 +61,9 @@ export const enhanceTweetData = (tweet: TweetWithAuthor): TweetWithAuthor | null
         ...tweet,
         likes_count: tweet.likes_count || 0,
         retweets_count: tweet.retweets_count || 0,
-        replies_count: tweet.replies_count || 0
+        replies_count: tweet.replies_count || 0,
+        cacheTimestamp: Date.now(), // Add current timestamp for cache freshness tracking
+        lastUpdateTime: Date.now()  // Track when the tweet was last processed
     };
 
     return enhancedTweet;
