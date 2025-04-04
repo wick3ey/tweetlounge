@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { v4 as uuidv4 } from 'uuid';
@@ -172,6 +171,28 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
   }
 };
 
+// Ny hjälpfunktion för att bygga originalförfattare från retweet-data
+export const buildOriginalAuthorFromTweet = (tweetData: any): Profile | undefined => {
+    if (!tweetData) return undefined;
+    
+    const originalAuthorFields = {
+        id: tweetData.original_author_id,
+        username: tweetData.original_author_username,
+        display_name: tweetData.original_author_display_name,
+        avatar_url: tweetData.original_author_avatar_url,
+        avatar_nft_id: tweetData.original_author_avatar_nft_id,
+        avatar_nft_chain: tweetData.original_author_avatar_nft_chain,
+    };
+    
+    // Returnera bara om vi har åtminstone grundläggande information
+    if (originalAuthorFields.id && originalAuthorFields.username) {
+        return createPartialProfile(originalAuthorFields);
+    }
+    
+    return undefined;
+}
+
+// Funktionen för att hämta tweets måste förbättras för att korrekt hämta original-tweet-författare
 export const getTweets = async (
   limit = 20, 
   offset = 0,
@@ -187,6 +208,7 @@ export const getTweets = async (
     if (shouldForceRefresh) {
       console.debug('[getTweets] Force refresh requested or initial load, bypassing all caches');
       
+      // Använd en förbättrad RPC-funktion eller SQL-fråga som hämtar både tweet och original författare
       const { data, error } = await supabase
         .rpc('get_tweets_with_authors_reliable', { 
           limit_count: limit, 
@@ -205,38 +227,56 @@ export const getTweets = async (
       
       console.debug(`[getTweets] Got ${data.length} tweets directly from database`);
       
+      // Förbättra hanteringen av retweets
       const tweets = (data as any[]).map(tweet => {
-        return enhanceTweetData({
-          id: tweet.id,
-          content: tweet.content,
-          author_id: tweet.author_id,
-          created_at: tweet.created_at,
-          likes_count: tweet.likes_count || 0,
-          retweets_count: tweet.retweets_count || 0,
-          replies_count: tweet.replies_count || 0,
-          is_retweet: tweet.is_retweet === true,
-          original_tweet_id: tweet.original_tweet_id,
-          image_url: tweet.image_url,
-          author: {
-            id: tweet.author_id,
-            username: tweet.profile_username || 'user',
-            display_name: tweet.profile_display_name || 'User',
-            avatar_url: tweet.profile_avatar_url || '',
-            bio: null,
-            cover_url: null,
-            location: null,
-            website: null,
-            updated_at: null,
-            created_at: new Date().toISOString(),
-            ethereum_address: null,
-            solana_address: null,
-            avatar_nft_id: tweet.profile_avatar_nft_id,
-            avatar_nft_chain: tweet.profile_avatar_nft_chain,
-            followers_count: 0,
-            following_count: 0,
-            replies_sort_order: null
-          }
-        });
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          // För retweets, skapa både author (retweeter) och original_author
+          const originalAuthor = buildOriginalAuthorFromTweet(tweet);
+          
+          return enhanceTweetData({
+            id: tweet.id,
+            content: tweet.original_content || tweet.content,  // Använd original innehåll
+            author_id: tweet.author_id,
+            created_at: tweet.created_at,
+            likes_count: tweet.likes_count || 0,
+            retweets_count: tweet.retweets_count || 0,
+            replies_count: tweet.replies_count || 0,
+            is_retweet: true,
+            original_tweet_id: tweet.original_tweet_id,
+            image_url: tweet.original_image_url || tweet.image_url,
+            author: createPartialProfile({
+              id: tweet.author_id,
+              username: tweet.profile_username || 'user',
+              display_name: tweet.profile_display_name || 'User',
+              avatar_url: tweet.profile_avatar_url || '',
+              avatar_nft_id: tweet.profile_avatar_nft_id,
+              avatar_nft_chain: tweet.profile_avatar_nft_chain,
+            }),
+            original_author: originalAuthor
+          });
+        } else {
+          // För vanliga tweets
+          return enhanceTweetData({
+            id: tweet.id,
+            content: tweet.content,
+            author_id: tweet.author_id,
+            created_at: tweet.created_at,
+            likes_count: tweet.likes_count || 0,
+            retweets_count: tweet.retweets_count || 0,
+            replies_count: tweet.replies_count || 0,
+            is_retweet: tweet.is_retweet === true,
+            original_tweet_id: tweet.original_tweet_id,
+            image_url: tweet.image_url,
+            author: createPartialProfile({
+              id: tweet.author_id,
+              username: tweet.profile_username || 'user',
+              display_name: tweet.profile_display_name || 'User',
+              avatar_url: tweet.profile_avatar_url || '',
+              avatar_nft_id: tweet.profile_avatar_nft_id,
+              avatar_nft_chain: tweet.profile_avatar_nft_chain,
+            })
+          });
+        }
       });
       
       await cacheTweets(cacheKey, tweets);
@@ -244,6 +284,7 @@ export const getTweets = async (
       return tweets;
     }
     
+    // Cache-logik för befintliga tweets
     return await fetchTweetsWithCache<TweetWithAuthor[]>(
       cacheKey,
       async () => {
@@ -267,38 +308,56 @@ export const getTweets = async (
         
         console.debug(`[getTweets] Got ${data.length} tweets from database`);
         
+        // Förbättra hanteringen av retweets
         return (data as any[]).map(tweet => {
-          return enhanceTweetData({
-            id: tweet.id,
-            content: tweet.content,
-            author_id: tweet.author_id,
-            created_at: tweet.created_at,
-            likes_count: tweet.likes_count || 0,
-            retweets_count: tweet.retweets_count || 0,
-            replies_count: tweet.replies_count || 0,
-            is_retweet: tweet.is_retweet === true,
-            original_tweet_id: tweet.original_tweet_id,
-            image_url: tweet.image_url,
-            author: {
-              id: tweet.author_id,
-              username: tweet.profile_username || 'user',
-              display_name: tweet.profile_display_name || 'User',
-              avatar_url: tweet.profile_avatar_url || '',
-              bio: null,
-              cover_url: null,
-              location: null,
-              website: null,
-              updated_at: null,
-              created_at: new Date().toISOString(),
-              ethereum_address: null,
-              solana_address: null,
-              avatar_nft_id: tweet.profile_avatar_nft_id,
-              avatar_nft_chain: tweet.profile_avatar_nft_chain,
-              followers_count: 0,
-              following_count: 0,
-              replies_sort_order: null
-            }
-          });
+          if (tweet.is_retweet && tweet.original_tweet_id) {
+            // För retweets, skapa både author (retweeter) och original_author
+            const originalAuthor = buildOriginalAuthorFromTweet(tweet);
+            
+            return enhanceTweetData({
+              id: tweet.id,
+              content: tweet.original_content || tweet.content,  // Använd original innehåll
+              author_id: tweet.author_id,
+              created_at: tweet.created_at,
+              likes_count: tweet.likes_count || 0,
+              retweets_count: tweet.retweets_count || 0,
+              replies_count: tweet.replies_count || 0,
+              is_retweet: true,
+              original_tweet_id: tweet.original_tweet_id,
+              image_url: tweet.original_image_url || tweet.image_url,
+              author: createPartialProfile({
+                id: tweet.author_id,
+                username: tweet.profile_username || 'user',
+                display_name: tweet.profile_display_name || 'User',
+                avatar_url: tweet.profile_avatar_url || '',
+                avatar_nft_id: tweet.profile_avatar_nft_id,
+                avatar_nft_chain: tweet.profile_avatar_nft_chain,
+              }),
+              original_author: originalAuthor
+            });
+          } else {
+            // För vanliga tweets
+            return enhanceTweetData({
+              id: tweet.id,
+              content: tweet.content,
+              author_id: tweet.author_id,
+              created_at: tweet.created_at,
+              likes_count: tweet.likes_count || 0,
+              retweets_count: tweet.retweets_count || 0,
+              replies_count: tweet.replies_count || 0,
+              is_retweet: tweet.is_retweet === true,
+              original_tweet_id: tweet.original_tweet_id,
+              image_url: tweet.image_url,
+              author: createPartialProfile({
+                id: tweet.author_id,
+                username: tweet.profile_username || 'user',
+                display_name: tweet.profile_display_name || 'User',
+                avatar_url: tweet.profile_avatar_url || '',
+                avatar_nft_id: tweet.profile_avatar_nft_id,
+                avatar_nft_chain: tweet.profile_avatar_nft_chain,
+              })
+            });
+          }
         });
       },
       CACHE_DURATIONS.MEDIUM,
@@ -589,6 +648,7 @@ export const checkIfUserRetweetedTweet = async (tweetId: string): Promise<boolea
   }
 };
 
+// Uppdatera retweet-funktionen för att hämta och lagra mer information från originaltweet
 export const retweet = async (tweetId: string, undo = false): Promise<boolean> => {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -623,13 +683,14 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         return false;
       }
     } else {
-      // Hämta originaltweet först för att få originalinformation
+      // Hämta originaltweet och dess författare först för att få komplett information
       const { data: originalTweet, error: originalTweetError } = await supabase
         .from('tweets')
         .select(`
           id,
           content,
-          image_url
+          image_url,
+          author_id
         `)
         .eq('id', tweetId)
         .single();
@@ -639,15 +700,35 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         return false;
       }
       
+      // Hämta information om originalförfattaren
+      const { data: originalAuthor, error: authorError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+        .eq('id', originalTweet.author_id)
+        .single();
+      
+      if (authorError) {
+        console.error('[retweet] Error fetching original author:', authorError.message);
+        // Fortsätt ändå, vi kan retweet utan författarinfo
+      }
+      
+      // Skapa retweet med all tillgänglig information
       const { error: insertError } = await supabase
         .from('tweets')
         .insert({
           id: uuidv4(),
-          content: originalTweet.content, // Kopiera originalinnehållet för att säkerställa att korrekt innehåll visas
+          content: originalTweet.content, 
           author_id: userData.user.id,
           is_retweet: true,
           original_tweet_id: tweetId,
-          image_url: originalTweet.image_url // Kopiera även bildurl om det finns
+          image_url: originalTweet.image_url,
+          // Lagra även metadata om original-författaren för bättre rendering
+          original_author_id: originalAuthor?.id,
+          original_author_username: originalAuthor?.username,
+          original_author_display_name: originalAuthor?.display_name,
+          original_author_avatar_url: originalAuthor?.avatar_url,
+          original_author_avatar_nft_id: originalAuthor?.avatar_nft_id,
+          original_author_avatar_nft_chain: originalAuthor?.avatar_nft_chain
         });
       
       if (insertError) {
@@ -656,10 +737,10 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
       }
     }
     
-    // Update retweets count
+    // Uppdatera antalet retweets
     const countDirection = undo ? -1 : 1;
     
-    // First get the current count
+    // Hämta först nuvarande antal
     const { data: tweetData, error: getError } = await supabase
       .from('tweets')
       .select('retweets_count')
@@ -669,7 +750,7 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
     if (getError) {
       console.error('[retweet] Error getting tweet data:', getError.message);
     } else {
-      // Then update with the new value
+      // Uppdatera sedan med det nya värdet
       const currentCount = tweetData?.retweets_count || 0;
       const newCount = Math.max(0, currentCount + countDirection);
       

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -45,24 +44,22 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const isRetweet = tweet.is_retweet && tweet.original_tweet_id;
   
-  // Säkerställ att vi har korrekt visningstweet med all författarinformation
-  const displayTweet = isRetweet && tweet.original_author ? {
-    ...tweet.original_author && tweet.original_tweet_id ? {
-      id: tweet.id,
-      content: tweet.content || 'Retweet',
-      author_id: tweet.original_author.id,
-      created_at: tweet.created_at,
-      likes_count: tweet.likes_count || 0,
-      retweets_count: tweet.retweets_count || 0,
-      replies_count: tweet.replies_count || 0,
-      is_retweet: true,
-      original_tweet_id: tweet.original_tweet_id,
-      image_url: tweet.image_url
-    } : tweet,
+  const retweeter = isRetweet ? tweet.author : null;
+  
+  const displayTweet = isRetweet ? {
+    id: tweet.id,
+    content: tweet.content,
+    author_id: tweet.original_author?.id || tweet.author_id,
+    created_at: tweet.original_tweet?.created_at || tweet.created_at,
+    likes_count: tweet.likes_count || 0,
+    retweets_count: tweet.retweets_count || 0,
+    replies_count: tweet.replies_count || 0,
+    is_retweet: true,
+    original_tweet_id: tweet.original_tweet_id,
+    image_url: tweet.image_url,
     author: tweet.original_author
   } : tweet;
   
-  // Kontrollera om detta är en NFT-verifierad användare
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
   
   useEffect(() => {
@@ -201,7 +198,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     return name?.substring(0, 2).toUpperCase() || 'UN';
   };
 
-  // När detta kort visas på profilsidan, se till att vi använder rätt displayName och username
   const displayName = displayTweet.author?.display_name || 'User';
   const username = displayTweet.author?.username || 'user';
   const avatarUrl = displayTweet.author?.avatar_url;
@@ -211,12 +207,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
       className="border-b border-gray-800 bg-black hover:bg-black/80 transition-colors p-4 cursor-pointer"
       onClick={onClick}
     >
-      {isRetweet && tweet.author && (
+      {isRetweet && retweeter && (
         <div className="flex items-center text-gray-500 text-sm mb-2 ml-6">
           <RefreshCcw className="h-3 w-3 mr-2" />
           <span>
-            Retweeted by <Link to={`/profile/${tweet.author.username}`} className="text-crypto-blue hover:underline" onClick={e => e.stopPropagation()}>
-              @{tweet.author.username}
+            Retweeted by <Link to={`/profile/${retweeter.username}`} className="text-crypto-blue hover:underline" onClick={e => e.stopPropagation()}>
+              @{retweeter.username}
             </Link>
           </span>
         </div>
@@ -256,7 +252,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
               <span className="text-gray-500 mx-1">·</span>
               
               <span className="text-gray-500">
-                {formatTimeAgo(tweet.created_at)}
+                {formatTimeAgo(displayTweet.created_at)}
               </span>
             </div>
             
