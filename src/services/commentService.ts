@@ -42,9 +42,9 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
       replies_count: commentCount
     }));
     
-    // Also broadcast an update so all components know about the change
+    // Also broadcast an update using consistent channel name
     try {
-      await supabase.channel('comment-count-updates').send({
+      await supabase.channel('global-comment-updates').send({
         type: 'broadcast',
         event: 'comment-count-updated',
         payload: { tweetId, count: commentCount }

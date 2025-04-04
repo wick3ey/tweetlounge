@@ -40,9 +40,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
   
   const isOwnTweet = user && tweet.author_id === user.id;
-  
   const displayTweet = tweet;
-  
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
   
   useEffect(() => {
@@ -58,15 +56,16 @@ const TweetCard: React.FC<TweetCardProps> = ({
       
       checkLikeStatus();
     }
+    
+    fetchExactRepliesCount();
   }, [user, tweet.id]);
   
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
     setRepliesCount(tweet.replies_count || 0);
 
-    // Enhanced comment counting with realtime updates
     const commentsChannel = supabase
-      .channel(`tweet_${tweet.id}_comments_counter`)
+      .channel(`tweet-${tweet.id}-comments`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -81,14 +80,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
           setRepliesCount(prevCount => Math.max(0, prevCount - 1));
         }
         
-        // Also fetch the exact count from the database to ensure accuracy
         fetchExactRepliesCount();
       })
       .subscribe();
       
-    // Also listen to the custom broadcast channel for comment count updates
     const broadcastChannel = supabase
-      .channel('custom-broadcast-channel')
+      .channel('global-comment-updates')
       .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
         if (payload.payload && payload.payload.tweetId === tweet.id) {
           console.log(`TweetCard: Received broadcast comment count update for tweet ${tweet.id}:`, payload.payload.count);
@@ -101,7 +98,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
       supabase.removeChannel(commentsChannel);
       supabase.removeChannel(broadcastChannel);
     };
-  }, [tweet.likes_count, tweet.replies_count, tweet.id]);
+  }, [tweet.id]);
   
   const fetchExactRepliesCount = async () => {
     try {

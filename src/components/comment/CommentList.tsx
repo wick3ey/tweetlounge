@@ -22,9 +22,9 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     if (tweetId) {
       fetchComments();
       
-      // Setup realtime subscription for comments with improved channel name
+      // Setup realtime subscription for comments with consistent channel name
       const channel = supabase
-        .channel(`comments_for_tweet_${tweetId}_list`)
+        .channel(`tweet-${tweetId}-comments`) // Use consistent channel naming pattern
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -44,6 +44,13 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
               ...tweet,
               replies_count: count
             }));
+            
+            // Broadcast the updated count on the consistent global channel
+            supabase.channel('global-comment-updates').send({
+              type: 'broadcast',
+              event: 'comment-count-updated',
+              payload: { tweetId, count }
+            });
           });
         })
         .subscribe();
@@ -62,13 +69,6 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     if (onCommentCountUpdated) {
       onCommentCountUpdated(count);
     }
-    
-    // Broadcast an update so all components know about the change
-    supabase.channel('comment-count-updates').send({
-      type: 'broadcast',
-      event: 'comment-count-updated',
-      payload: { tweetId, count }
-    });
   };
 
   const fetchComments = async () => {
