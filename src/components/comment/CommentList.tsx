@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { updateTweetCommentCount } from '@/services/commentService';
+import { updateTweetInCache } from '@/utils/tweetCacheService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -39,6 +39,14 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
             
             // Also force refresh the comments count in the UI immediately
             getExactCommentCount();
+            
+            // Update tweet in cache to ensure feed displays correct count
+            if (payload.new) {
+              updateTweetInCache(tweetId, (tweet) => ({
+                ...tweet,
+                replies_count: (tweet.replies_count || 0) + 1
+              }));
+            }
           });
         })
         .subscribe();
@@ -71,6 +79,12 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         if (onCommentCountUpdated) {
           onCommentCountUpdated(commentCount);
         }
+        
+        // Also update in cache to ensure feed is updated
+        updateTweetInCache(tweetId, (tweet) => ({
+          ...tweet,
+          replies_count: commentCount
+        }));
       }
     } catch (err) {
       console.error('Failed to get exact comment count:', err);

@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
+import { supabase } from '@/lib/supabase';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -36,6 +37,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const [isLiked, setIsLiked] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
+  const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
   
   const isOwnTweet = user && tweet.author_id === user.id;
   
@@ -60,7 +62,48 @@ const TweetCard: React.FC<TweetCardProps> = ({
   
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
-  }, [tweet.likes_count]);
+    setRepliesCount(tweet.replies_count || 0);
+
+    const commentsChannel = supabase
+      .channel(`tweet_${tweet.id}_comments_counter`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'comments',
+        filter: `tweet_id=eq.${tweet.id}`
+      }, (payload) => {
+        console.log(`TweetCard: Comment change detected for tweet ${tweet.id}:`, payload.eventType);
+        
+        if (payload.eventType === 'INSERT') {
+          setRepliesCount(prevCount => prevCount + 1);
+        } else if (payload.eventType === 'DELETE') {
+          setRepliesCount(prevCount => Math.max(0, prevCount - 1));
+        }
+        
+        fetchExactRepliesCount();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(commentsChannel);
+    };
+  }, [tweet.likes_count, tweet.replies_count, tweet.id]);
+  
+  const fetchExactRepliesCount = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('replies_count')
+        .eq('id', tweet.id)
+        .single();
+        
+      if (!error && data) {
+        setRepliesCount(data.replies_count || 0);
+      }
+    } catch (err) {
+      console.error(`Error fetching replies count for tweet ${tweet.id}:`, err);
+    }
+  };
   
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -233,7 +276,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
               onClick={e => e.stopPropagation()}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
-              <span>{tweet.replies_count || 0}</span>
+              <span>{repliesCount}</span>
             </Button>
             
             <Button 
