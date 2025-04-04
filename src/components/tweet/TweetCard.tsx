@@ -83,11 +83,11 @@ const TweetCard: React.FC<TweetCardProps> = ({
       following_count: 0,
       replies_sort_order: null
     },
-    profile_username: tweet.original_author_username || originalAuthor?.username,
-    profile_display_name: tweet.original_author_display_name || originalAuthor?.display_name,
-    profile_avatar_url: tweet.original_author_avatar_url || originalAuthor?.avatar_url,
-    profile_avatar_nft_id: tweet.original_author_avatar_nft_id || originalAuthor?.avatar_nft_id,
-    profile_avatar_nft_chain: tweet.original_author_avatar_nft_chain || originalAuthor?.avatar_nft_chain
+    profile_username: tweet.original_author_username || originalAuthor?.username || tweet.profile_username || 'user',
+    profile_display_name: tweet.original_author_display_name || originalAuthor?.display_name || tweet.profile_display_name || 'User',
+    profile_avatar_url: tweet.original_author_avatar_url || originalAuthor?.avatar_url || tweet.profile_avatar_url || null,
+    profile_avatar_nft_id: tweet.original_author_avatar_nft_id || originalAuthor?.avatar_nft_id || tweet.profile_avatar_nft_id || null,
+    profile_avatar_nft_chain: tweet.original_author_avatar_nft_chain || originalAuthor?.avatar_nft_chain || tweet.profile_avatar_nft_chain || null
   } : tweet;
   
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;

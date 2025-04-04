@@ -344,33 +344,26 @@ export const retweet = async (tweetId: string, undo = false): Promise<boolean> =
         }
       }
     } else {
-      // First, fetch the original tweet WITH AUTHOR to get all required data
-      const { data: originalTweetData, error: fetchError } = await supabase
-        .rpc('get_tweet_with_author_reliable', { tweet_id: tweetId });
+      // First, fetch the original tweet to get its content
+      const { data: originalTweet, error: fetchError } = await supabase
+        .from('tweets')
+        .select('*')
+        .eq('id', tweetId)
+        .single();
         
-      if (fetchError || !originalTweetData || originalTweetData.length === 0) {
+      if (fetchError) {
         console.error('Error fetching original tweet for retweet:', fetchError);
         throw fetchError;
       }
       
-      const originalTweet = originalTweetData[0];
-      
-      // Create a new retweet with ALL original tweet data
+      // Create a new retweet with only the columns that exist in the database
       const { error: createError } = await supabase
         .from('tweets')
         .insert([{
           content: originalTweet.content,
           image_url: originalTweet.image_url,
           is_retweet: true,
-          original_tweet_id: tweetId,
-          original_content: originalTweet.content,
-          original_image_url: originalTweet.image_url,
-          original_author_id: originalTweet.author_id,
-          original_author_username: originalTweet.username,
-          original_author_display_name: originalTweet.display_name,
-          original_author_avatar_url: originalTweet.avatar_url,
-          original_author_avatar_nft_id: originalTweet.avatar_nft_id,
-          original_author_avatar_nft_chain: originalTweet.avatar_nft_chain
+          original_tweet_id: tweetId
         }]);
         
       if (createError) {
