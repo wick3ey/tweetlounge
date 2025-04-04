@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -117,10 +118,17 @@ const Home: React.FC = () => {
           console.debug(`[Home] Updating comment count for tweet ${tweetId}`);
           
           // Update in cache immediately for fast UI response
-          updateTweetInCache(tweetId, (tweet) => ({
-            ...tweet,
-            replies_count: (tweet.replies_count || 0) + 1
-          }));
+          if (payload.eventType === 'INSERT') {
+            updateTweetInCache(tweetId, (tweet) => ({
+              ...tweet,
+              replies_count: (tweet.replies_count || 0) + 1
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            updateTweetInCache(tweetId, (tweet) => ({
+              ...tweet,
+              replies_count: Math.max(0, (tweet.replies_count || 0) - 1)
+            }));
+          }
           
           // First update the count in the database
           updateTweetCommentCount(tweetId)
@@ -179,6 +187,19 @@ const Home: React.FC = () => {
               console.error('[Home] Error clearing home feed cache:', e);
             }
           }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          // For updates that include changes to replies_count
+          if ('replies_count' in payload.new) {
+            console.debug('[Home] Tweet replies count updated, refreshing feed');
+            const tweet = payload.new as any;
+            updateTweetInCache(tweet.id, (existingTweet) => ({
+              ...existingTweet,
+              replies_count: tweet.replies_count
+            }));
+            debouncedRefresh();
+          } else {
+            debouncedRefresh();
+          }
         } else {
           debouncedRefresh();
         }
@@ -203,6 +224,40 @@ const Home: React.FC = () => {
             console.debug(`[Home] Cleared profile cache for user ${payload.payload.userId}`);
           } catch (e) {
             console.error('[Home] Error clearing profile cache:', e);
+          }
+        }
+      })
+      .on('broadcast', { event: 'comment-created' }, (payload) => {
+        console.debug('[Home] Received broadcast about new comment:', payload);
+        if (payload.payload && payload.payload.tweetId) {
+          const tweetId = payload.payload.tweetId;
+          const commentCount = payload.payload.commentCount;
+          
+          // Update the cache with the new comment count
+          updateTweetInCache(tweetId, (tweet) => ({
+            ...tweet,
+            replies_count: commentCount || (tweet.replies_count || 0) + 1
+          }));
+          
+          // Refresh the feed to show updated counts
+          debouncedRefresh();
+        }
+      })
+      .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
+        console.debug('[Home] Received comment count update:', payload);
+        if (payload.payload && payload.payload.tweetId) {
+          const tweetId = payload.payload.tweetId;
+          const count = payload.payload.commentCount || payload.payload.count;
+          
+          if (count !== undefined) {
+            // Update the cache with the exact comment count
+            updateTweetInCache(tweetId, (tweet) => ({
+              ...tweet,
+              replies_count: count
+            }));
+            
+            // Refresh the feed to show updated counts
+            debouncedRefresh();
           }
         }
       })

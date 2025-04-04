@@ -41,6 +41,17 @@ export const updateTweetCommentCount = async (tweetId: string): Promise<number> 
       replies_count: commentCount
     }));
     
+    // Also broadcast an update so all components know about the change
+    try {
+      await supabase.channel('custom-all-channel').send({
+        type: 'broadcast',
+        event: 'comment-count-updated',
+        payload: { tweetId, commentCount }
+      });
+    } catch (broadcastError) {
+      console.error('Error broadcasting comment count update:', broadcastError);
+    }
+    
     return commentCount;
   } catch (error) {
     console.error('Failed to update tweet comment count:', error);
@@ -71,7 +82,7 @@ export const createComment = async (
         content,
         tweet_id: tweetId,
         user_id: user.user.id,
-        parent_comment_id: parentCommentId || null
+        parent_reply_id: parentCommentId || null
       })
       .select(`
         *,
@@ -91,13 +102,14 @@ export const createComment = async (
     }
     
     // Update the comment count for the tweet
-    await updateTweetCommentCount(tweetId);
+    const newCount = await updateTweetCommentCount(tweetId);
+    console.log(`Comment created: tweet ${tweetId} now has ${newCount} comments`);
     
     // Broadcast a message to notify clients
     await supabase.channel('custom-all-channel').send({
       type: 'broadcast',
       event: 'comment-created',
-      payload: { tweetId, commentId: data.id }
+      payload: { tweetId, commentId: data.id, commentCount: newCount }
     });
     
     return data as Comment;

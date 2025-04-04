@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
@@ -34,19 +35,24 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           fetchComments();
           
           // Always update the tweet count in the database and notify parent components
-          updateTweetCommentCount(tweetId).then((success) => {
-            console.log(`CommentList: updated tweet ${tweetId} comment count in database: ${success}`);
+          updateTweetCommentCount(tweetId).then((count) => {
+            console.log(`CommentList: updated tweet ${tweetId} comment count in database: ${count}`);
             
             // Also force refresh the comments count in the UI immediately
             getExactCommentCount();
             
             // Update tweet in cache to ensure feed displays correct count
-            if (payload.new) {
-              updateTweetInCache(tweetId, (tweet) => ({
-                ...tweet,
-                replies_count: (tweet.replies_count || 0) + 1
-              }));
-            }
+            updateTweetInCache(tweetId, (tweet) => ({
+              ...tweet,
+              replies_count: count
+            }));
+            
+            // Broadcast an update so all components know about the change
+            supabase.channel('custom-all-channel').send({
+              type: 'broadcast',
+              event: 'comment-count-updated',
+              payload: { tweetId, count }
+            });
           });
         })
         .subscribe();
@@ -85,6 +91,12 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           ...tweet,
           replies_count: commentCount
         }));
+        
+        // Update the tweet's replies_count field in the database
+        await supabase
+          .from('tweets')
+          .update({ replies_count: commentCount })
+          .eq('id', tweetId);
       }
     } catch (err) {
       console.error('Failed to get exact comment count:', err);
@@ -126,9 +138,6 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       
       // Get exact comment count
       await getExactCommentCount();
-      
-      // Always update the tweet's replies_count in the database for consistency
-      await updateTweetCommentCount(tweetId);
       
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -64,6 +65,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
     setLikesCount(tweet.likes_count || 0);
     setRepliesCount(tweet.replies_count || 0);
 
+    // Enhanced comment counting with realtime updates
     const commentsChannel = supabase
       .channel(`tweet_${tweet.id}_comments_counter`)
       .on('postgres_changes', {
@@ -80,6 +82,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
           setRepliesCount(prevCount => Math.max(0, prevCount - 1));
         }
         
+        // Also fetch the exact count from the database to ensure accuracy
         fetchExactRepliesCount();
       })
       .subscribe();
@@ -98,6 +101,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
         .single();
         
       if (!error && data) {
+        console.log(`TweetCard: Updated replies count for tweet ${tweet.id} to ${data.replies_count || 0}`);
         setRepliesCount(data.replies_count || 0);
       }
     } catch (err) {
