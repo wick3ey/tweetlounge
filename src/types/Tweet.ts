@@ -10,6 +10,8 @@ export interface Tweet {
     retweets_count: number;
     replies_count: number;
     image_url?: string | null;
+    is_retweet?: boolean;
+    original_tweet_id?: string;
 }
 
 export interface TweetWithAuthor {
@@ -24,6 +26,10 @@ export interface TweetWithAuthor {
     author?: Profile;
     cacheTimestamp?: number;
     bookmarked_at?: string;
+    // Add these properties back to fix type errors
+    is_retweet?: boolean;
+    original_tweet_id?: string;
+    original_author?: Profile;
     // Add profile properties that might be present in some API responses
     profile_username?: string;
     profile_display_name?: string;

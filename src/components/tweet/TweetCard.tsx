@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Heart, Bookmark, MoreHorizontal, Trash2, Check, AlertCircle } from 'lucide-react';
+import { MessageSquare, Heart, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,10 +39,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
   
   const isOwnTweet = user && tweet.author_id === user.id;
   
-  // Ensure we have the complete display tweet with all author information
   const displayTweet = tweet;
   
-  // Check if this is a NFT verified user
   const isNftVerified = displayTweet.author?.avatar_nft_id && displayTweet.author?.avatar_nft_chain;
   
   useEffect(() => {
@@ -130,7 +127,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     return name?.substring(0, 2).toUpperCase() || 'UN';
   };
 
-  // When this card appears on the profile page, make sure we use the correct displayName and username
   const displayName = displayTweet.author?.display_name || 'User';
   const username = displayTweet.author?.username || 'user';
   const avatarUrl = displayTweet.author?.avatar_url;
@@ -207,7 +203,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
                       navigator.clipboard.writeText(window.location.origin + `/tweet/${tweet.id}`);
                     }}
                   >
-                    <Link className="h-4 w-4 mr-2" />
+                    <Link to={`/tweet/${tweet.id}`} className="h-4 w-4 mr-2" onClick={e => e.stopPropagation()} />
                     Copy link
                   </DropdownMenuItem>
                 </DropdownMenuContent>

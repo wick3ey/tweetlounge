@@ -93,7 +93,8 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
         id: tweetId,
         content,
         author_id: userData.user.id,
-        image_url: imageUrl
+        image_url: imageUrl,
+        is_retweet: false
       })
       .select()
       .single();
@@ -169,6 +170,38 @@ export const createTweet = async (content: string, imageFile?: File): Promise<Tw
     console.error('[createTweet] Unexpected error in tweet creation:', error);
     return null;
   }
+};
+
+export const transformTweetData = (item: any): TweetWithAuthor | null => {
+  if (!item) return null;
+  
+  const transformedTweet = {
+    id: item.id,
+    content: item.content,
+    author_id: item.author_id,
+    created_at: item.created_at,
+    likes_count: item.likes_count || 0,
+    retweets_count: item.retweets_count || 0,
+    replies_count: item.replies_count || 0,
+    is_retweet: item.is_retweet === true,
+    original_tweet_id: item.original_tweet_id,
+    image_url: item.image_url,
+    profile_username: item.profile_username || item.username,
+    profile_display_name: item.profile_display_name || item.display_name,
+    profile_avatar_url: item.profile_avatar_url || item.avatar_url,
+    profile_avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+    profile_avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain,
+    author: createPartialProfile({
+      id: item.author_id,
+      username: item.profile_username || item.username,
+      display_name: item.profile_display_name || item.display_name || item.username,
+      avatar_url: item.profile_avatar_url || item.avatar_url || '',
+      avatar_nft_id: item.profile_avatar_nft_id || item.avatar_nft_id,
+      avatar_nft_chain: item.profile_avatar_nft_chain || item.avatar_nft_chain
+    })
+  };
+  
+  return enhanceTweetData(transformedTweet);
 };
 
 export const getTweets = async (

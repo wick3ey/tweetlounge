@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTweets } from '@/services/tweetService';
 import TweetCard from '@/components/tweet/TweetCard';
 import TweetDetail from '@/components/tweet/TweetDetail';
-import { TweetWithAuthor, isValidTweet, isValidRetweet, getSafeTweetId, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
@@ -441,6 +441,7 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
   const handleTweetDeleted = (deletedTweetId: string) => {
     setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
     
+    // Filter out retweets of the deleted tweet
     setTweets(prevTweets => prevTweets.filter(tweet => 
       !(tweet.is_retweet && tweet.original_tweet_id === deletedTweetId)
     ));
@@ -454,16 +455,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
       title: "Tweet Deleted",
       description: "Your tweet has been successfully deleted."
     });
-  };
-
-  const handleRetweetRemoved = (originalTweetId: string) => {
-    if (user) {
-      setTweets(prevTweets => prevTweets.filter(tweet => 
-        !(tweet.is_retweet && 
-          tweet.original_tweet_id === originalTweetId && 
-          tweet.author_id === user.id)
-      ));
-    }
   };
 
   const handleError = (title: string, description: string) => {
@@ -514,7 +505,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
                   onClick={() => handleTweetClick(tweet)}
                   onAction={handleRefresh}
                   onDelete={handleTweetDeleted}
-                  onRetweetRemoved={handleRetweetRemoved}
                   onError={handleError}
                 />
               </div>
@@ -527,7 +517,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
                 onClick={() => handleTweetClick(tweet)}
                 onAction={handleRefresh}
                 onDelete={handleTweetDeleted}
-                onRetweetRemoved={handleRetweetRemoved}
                 onError={handleError}
               />
             );
@@ -555,7 +544,6 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
               onAction={handleRefresh}
               onDelete={handleTweetDeleted}
               onCommentAdded={handleCommentAdded}
-              onRetweetRemoved={handleRetweetRemoved}
             />
           )}
         </DialogContent>

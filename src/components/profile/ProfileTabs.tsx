@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getUserTweets, getUserRetweets } from '@/services/tweetService';
+import { getUserTweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
-import { TweetWithAuthor, isValidTweet, enhanceTweetData } from '@/types/Tweet';
+import { TweetWithAuthor, isValidTweet, enhanceTweetData, createPartialProfile } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
-import { Loader, MessageSquare, Reply, FileImage, Coins, Sparkles, RefreshCw } from 'lucide-react';
+import { Loader, MessageSquare, Reply, FileImage, Coins, Sparkles } from 'lucide-react';
 import { CryptoButton } from '@/components/ui/crypto-button';
 import TweetCard from '@/components/tweet/TweetCard';
 import CommentCard from '@/components/comment/CommentCard';

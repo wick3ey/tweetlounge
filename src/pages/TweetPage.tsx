@@ -80,10 +80,10 @@ const TweetPage = () => {
           })
         };
 
-        if (tweetData.is_retweet && tweetData.original_tweet_id) {
+        if (formattedTweet.is_retweet && formattedTweet.original_tweet_id) {
           try {
             const { data: originalTweetData } = await supabase
-              .rpc('get_tweet_with_author_reliable', { tweet_id: tweetData.original_tweet_id });
+              .rpc('get_tweet_with_author_reliable', { tweet_id: formattedTweet.original_tweet_id });
             
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
