@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
+import { Card } from '@/components/ui/card';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
