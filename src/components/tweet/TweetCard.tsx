@@ -1,27 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
-import {
-  likeTweet,
-  deleteTweet,
-  checkIfUserLikedTweet
-} from '@/services/tweetService';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { MessageSquare, Repeat2, Heart, BarChart4, Share2, MoreHorizontal } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
-import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
-import { Card } from '@/components/ui/card';
+import { likeTweet, checkIfUserLikedTweet } from '@/services/tweetService';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -31,267 +15,192 @@ interface TweetCardProps {
   onError?: (title: string, description: string) => void;
 }
 
-const TweetCard: React.FC<TweetCardProps> = ({
-  tweet,
-  onClick,
-  onAction,
-  onDelete,
-  onError
-}) => {
-  const { user } = useAuth();
+const TweetCard: React.FC<TweetCardProps> = ({ tweet, onClick, onAction, onDelete, onError }) => {
   const [isLiked, setIsLiked] = useState(false);
-  const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
-  const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
-
-  const isOwnTweet = user && tweet.author_id === user.id;
-  const displayTweet = tweet;
-
-  // For retweets, always display the original tweet's author
-  const authorToDisplay = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
-  const isNftVerified = authorToDisplay?.avatar_nft_id && authorToDisplay?.avatar_nft_chain;
-
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  
   useEffect(() => {
-    setLikesCount(tweet.likes_count || 0);
-
     if (user) {
-      checkLikeStatus();
+      checkIfUserLikedTweet(tweet.id).then(liked => {
+        setIsLiked(liked);
+      }).catch(error => {
+        console.error('Error checking like status:', error);
+      });
     }
-
-    const unsubscribeComments = subscribeToCommentCountUpdates(
-      tweet.id,
-      (count) => {
-        console.log(`[TweetCard] Received comment count update for tweet ${tweet.id}: ${count}`);
-        setRepliesCount(count);
-      }
-    );
-
-    return () => {
-      unsubscribeComments();
-    };
   }, [tweet.id, user]);
-
-  const checkLikeStatus = async () => {
-    try {
-      const liked = await checkIfUserLikedTweet(tweet.id);
-      setIsLiked(liked);
-    } catch (error) {
-      console.error('Error checking like status:', error);
-    }
-  };
-
+  
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-
+    
     if (!user) {
-      if (onError) onError("Authentication Required", "You must be logged in to like tweets");
+      if (onError) {
+        onError('Authentication Required', 'You need to be logged in to like tweets.');
+      }
       return;
     }
-
-    if (isActionInProgress) return;
-
+    
     try {
-      setIsActionInProgress(true);
-
       const success = await likeTweet(tweet.id, isLiked);
-
+      
       if (success) {
-        setIsLiked(!isLiked);
         setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
-
+        setIsLiked(!isLiked);
         if (onAction) onAction();
       }
     } catch (error) {
       console.error('Error liking tweet:', error);
-      if (onError) onError("Error", "Failed to like tweet. Please try again.");
-    } finally {
-      setIsActionInProgress(false);
-    }
-  };
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (!user || !isOwnTweet) return;
-
-    if (isActionInProgress) return;
-
-    try {
-      setIsActionInProgress(true);
-
-      const success = await deleteTweet(tweet.id);
-
-      if (success && onDelete) {
-        onDelete(tweet.id);
+      if (onError) {
+        onError('Error', 'Could not update like status. Please try again.');
       }
-    } catch (error) {
-      console.error('Error deleting tweet:', error);
-      if (onError) onError("Error", "Failed to delete tweet. Please try again.");
-    } finally {
-      setIsActionInProgress(false);
     }
   };
-
-  const formatTimeAgo = (timestamp: string) => {
+  
+  const formatTimeAgo = (dateString: string) => {
     try {
-      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+      return formatDistanceToNow(new Date(dateString), { addSuffix: false });
     } catch (error) {
-      console.error('Error formatting time:', error);
+      console.error('Error formatting date:', error);
       return 'recently';
     }
   };
-
-  const getInitials = (name: string) => {
-    return name?.substring(0, 2).toUpperCase() || 'UN';
+  
+  const getFormattedTimeAgo = (dateString: string) => {
+    const timeAgo = formatTimeAgo(dateString);
+    // Convert "about 1 hour ago" to "1h" or "3 days ago" to "3d"
+    if (timeAgo.includes('second')) return timeAgo.replace(/about | seconds ago/, 's');
+    if (timeAgo.includes('minute')) return timeAgo.replace(/about | minutes ago/, 'm');
+    if (timeAgo.includes('hour')) return timeAgo.replace(/about | hours ago/, 'h');
+    if (timeAgo.includes('day')) return timeAgo.replace(/about | days ago/, 'd');
+    if (timeAgo.includes('month')) return timeAgo.replace(/about | months ago/, 'mo');
+    if (timeAgo.includes('year')) return timeAgo.replace(/about | years ago/, 'y');
+    return timeAgo;
   };
-
-  const displayName = authorToDisplay?.display_name || 'User';
-  const username = authorToDisplay?.username || 'user';
-  const avatarUrl = authorToDisplay?.avatar_url;
-
-  // Original author's username for repost display
-  const repostUsername = tweet.author?.username || 'user';
-
-  return (
-    <Card
-      className="border-b border-gray-800 bg-black hover:bg-black/80 transition-colors p-4 cursor-pointer"
+  
+  const renderMobileTweet = () => (
+    <div 
+      className="border-b border-gray-800 p-3 hover:bg-gray-900/30 cursor-pointer transition-colors"
       onClick={onClick}
     >
-      {tweet.is_retweet && (
-        <div className="flex items-center text-gray-500 text-sm mb-2">
-          <span>
-            Reposted by {" "}
-            <Link to={`/profile/${tweet.author?.username || 'user'}`} className="hover:underline" onClick={e => e.stopPropagation()}>
-              @{tweet.author?.username || 'user'}
-            </Link>
-          </span>
+      <div className="flex">
+        <div className="mr-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={tweet.profile_avatar_url || tweet.author?.avatar_url} />
+            <AvatarFallback className="bg-blue-500/20 text-blue-500">
+              {tweet.profile_username?.substring(0, 2).toUpperCase() || 'TX'}
+            </AvatarFallback>
+          </Avatar>
         </div>
-      )}
-
-      <div className="flex gap-3">
-        <div>
-          <Link to={`/profile/${username}`} onClick={e => e.stopPropagation()}>
-            <Avatar className="h-10 w-10">
-              {avatarUrl ? (
-                <AvatarImage src={avatarUrl} alt={displayName} />
-              ) : null}
-              <AvatarFallback className="bg-crypto-blue/20 text-crypto-blue">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </div>
-
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Link to={`/profile/${username}`} className="font-bold hover:underline" onClick={e => e.stopPropagation()}>
-                {displayName}
-              </Link>
-
-              {isNftVerified && (
-                <VerifiedBadge className="ml-1" />
-              )}
-
-              <span className="text-gray-500 mx-1">·</span>
-
-              <Link to={`/profile/${username}`} className="text-gray-500 hover:underline" onClick={e => e.stopPropagation()}>
-                @{username}
-              </Link>
-
-              <span className="text-gray-500 mx-1">·</span>
-
-              <span className="text-gray-500">
-                {formatTimeAgo(tweet.created_at)}
-              </span>
-            </div>
-
-            <div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-crypto-gray/20 rounded-full">
-                    <MoreHorizontal className="h-5 w-5 text-gray-500" />
-                  </Button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent className="bg-crypto-darkgray border-crypto-gray text-white">
-                  {isOwnTweet && (
-                    <>
-                      <DropdownMenuItem
-                        className="text-red-500 cursor-pointer flex items-center"
-                        onClick={handleDelete}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-crypto-gray" />
-                    </>
-                  )}
-
-                  <DropdownMenuItem
-                    className="cursor-pointer flex items-center"
-                    onClick={e => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(window.location.origin + `/tweet/${tweet.id}`);
-                    }}
-                  >
-                    <Link to={`/tweet/${tweet.id}`} className="h-4 w-4 mr-2" onClick={e => e.stopPropagation()} />
-                    Copy link
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center">
+            <span className="font-bold text-white mr-1 truncate">
+              {tweet.profile_display_name || tweet.author?.display_name}
+            </span>
+            <span className="text-gray-500 text-sm truncate mr-1">
+              @{tweet.profile_username || tweet.author?.username}
+            </span>
+            <span className="text-gray-500 text-sm">· {getFormattedTimeAgo(tweet.created_at)}</span>
           </div>
-
-          <div className="mt-2 mb-3 whitespace-pre-line break-words">
-            {displayTweet.content}
-          </div>
-
-          {displayTweet.image_url && (
-            <div className="mt-3 mb-3 rounded-xl overflow-hidden">
-              <img
-                src={displayTweet.image_url}
-                alt="Tweet media"
-                className="max-h-80 w-auto rounded-xl"
+          
+          <p className="text-white mt-1 break-words">{tweet.content}</p>
+          
+          {tweet.image_url && (
+            <div className="mt-2 rounded-xl overflow-hidden">
+              <img 
+                src={tweet.image_url} 
+                alt="Tweet media" 
+                className="w-full h-auto max-h-96 object-cover"
+                loading="lazy"
               />
             </div>
           )}
-
+          
           <div className="flex justify-between mt-3 text-gray-500">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
-              onClick={e => e.stopPropagation()}
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              <span>{repliesCount}</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`flex items-center p-2 h-8 ${isLiked ? 'text-red-500 hover:text-red-600 hover:bg-red-500/10' : 'hover:text-red-500 hover:bg-red-500/10'}`}
+            <button className="flex items-center hover:text-blue-400 transition-colors">
+              <MessageSquare className="h-4 w-4 mr-1" />
+              <span className="text-xs">{tweet.replies_count || 0}</span>
+            </button>
+            
+            <button className="flex items-center hover:text-green-400 transition-colors">
+              <Repeat2 className="h-4 w-4 mr-1" />
+              <span className="text-xs">{tweet.retweets_count || 0}</span>
+            </button>
+            
+            <button 
+              className={`flex items-center ${isLiked ? 'text-red-500' : 'hover:text-red-500'} transition-colors`}
               onClick={handleLike}
-              disabled={isActionInProgress}
             >
-              <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-              <span>{likesCount}</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
-              onClick={e => e.stopPropagation()}
-            >
+              <Heart className={`h-4 w-4 mr-1 ${isLiked ? 'fill-current' : ''}`} />
+              <span className="text-xs">{likesCount}</span>
+            </button>
+            
+            <button className="flex items-center hover:text-blue-400 transition-colors">
+              <BarChart4 className="h-4 w-4" />
+            </button>
+            
+            <button className="flex items-center hover:text-blue-400 transition-colors">
               <Share2 className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
+  
+  const renderDesktopTweet = () => (
+    <div 
+      className="border-b border-gray-800 p-4 hover:bg-gray-900/30 cursor-pointer transition-colors"
+      onClick={onClick}
+    >
+      <div className="flex">
+        <div className="mr-4">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={tweet.profile_avatar_url || tweet.author?.avatar_url} />
+            <AvatarFallback className="bg-blue-500/20 text-blue-500">
+              {tweet.profile_username?.substring(0, 2).toUpperCase() || 'TX'}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="font-semibold text-white mr-1">{tweet.profile_display_name || tweet.author?.display_name}</span>
+              <span className="text-gray-500">@{tweet.profile_username || tweet.author?.username}</span>
+              <span className="text-gray-500 ml-2">• {getFormattedTimeAgo(tweet.created_at)}</span>
+            </div>
+            <MoreHorizontal className="text-gray-500 cursor-pointer" />
+          </div>
+          <div className="mt-2 text-white">{tweet.content}</div>
+          {tweet.image_url && (
+            <img src={tweet.image_url} alt="Tweet" className="mt-3 rounded-xl w-full" />
+          )}
+          <div className="flex justify-between items-center mt-4 text-gray-500">
+            <button className="hover:text-blue-400 flex items-center">
+              <MessageSquare className="h-5 w-5 mr-1" />
+              {tweet.replies_count || 0}
+            </button>
+            <button className="hover:text-green-400 flex items-center">
+              <Repeat2 className="h-5 w-5 mr-1" />
+              {tweet.retweets_count || 0}
+            </button>
+            <button 
+              className={`hover:text-red-400 flex items-center ${isLiked ? 'text-red-500' : ''}`}
+              onClick={handleLike}
+            >
+              <Heart className="h-5 w-5 mr-1" fill={isLiked ? 'currentColor' : 'none'} />
+              {likesCount}
+            </button>
+            <BarChart4 className="hover:text-blue-400 cursor-pointer" />
+            <Share2 className="hover:text-blue-400 cursor-pointer" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  return isMobile ? renderMobileTweet() : renderDesktopTweet();
 };
 
 export default TweetCard;

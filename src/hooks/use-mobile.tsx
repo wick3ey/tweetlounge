@@ -19,7 +19,7 @@ export function useIsMobile() {
   return !!isMobile
 }
 
-// Add this helper function for custom media queries
+// Helper function for custom media queries
 export function useMediaQuery(query: string) {
   const [matches, setMatches] = React.useState<boolean>(false)
   
@@ -39,4 +39,27 @@ export function useMediaQuery(query: string) {
   }, [query])
   
   return matches
+}
+
+// Additional mobile utility - get viewport dimensions for mobile
+export function useViewportSize() {
+  const [size, setSize] = React.useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  })
+  
+  React.useEffect(() => {
+    const updateSize = () => {
+      setSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      })
+    }
+    
+    window.addEventListener('resize', updateSize)
+    
+    return () => window.removeEventListener('resize', updateSize)
+  }, [])
+  
+  return size
 }
