@@ -1,172 +1,273 @@
-
-import { supabase } from "@/lib/supabase";
-import { updateTweetInCache } from "@/utils/tweetCacheService";
+import { supabase } from "@/integrations/supabase/client";
 import { Comment } from "@/types/Comment";
+import { updateTweetInCache } from "@/utils/tweetCacheService";
+import { syncCommentCount } from "@/services/commentCountService";
 
 /**
- * Count comments for a tweet
- */
-export const countTweetComments = async (tweetId: string): Promise<number> => {
-  try {
-    const { count, error } = await supabase
-      .from('comments')
-      .select('id', { count: 'exact', head: true })
-      .eq('tweet_id', tweetId);
-    
-    if (error) {
-      console.error('Error counting comments:', error.message);
-      return 0;
-    }
-    
-    return count || 0;
-  } catch (err) {
-    console.error('Failed to count comments:', err);
-    return 0;
-  }
-};
-
-/**
- * Update the comment count for a tweet in the database
+ * Updates the comment count for a tweet by counting all comments associated with the tweet ID
  */
 export const updateTweetCommentCount = async (tweetId: string): Promise<number> => {
   try {
-    // Get exact count directly from database
-    const count = await countTweetComments(tweetId);
+    // Get the exact count of comments for this tweet
+    const { count, error: countError } = await supabase
+      .from('comments')
+      .select('id', { count: 'exact', head: true })
+      .eq('tweet_id', tweetId);
+      
+    if (countError) {
+      console.error('Error getting comment count:', countError);
+      return 0;
+    }
     
-    // Update the tweet record with the latest count
+    // Ensure count is a number
+    const commentCount = typeof count === 'number' ? count : 0;
+    console.log(`CommentService: Updating tweet ${tweetId} comment count to ${commentCount}`);
+    
+    // Update the tweet's replies_count with the accurate count
     const { error: updateError } = await supabase
       .from('tweets')
-      .update({ replies_count: count })
+      .update({ replies_count: commentCount })
       .eq('id', tweetId);
       
     if (updateError) {
       console.error('Error updating tweet comment count:', updateError);
-    } else {
-      console.log(`Updated tweet ${tweetId} with comment count ${count}`);
-      
-      // Update in cache immediately for consistent UI
-      updateTweetInCache(tweetId, (tweet) => ({
-        ...tweet,
-        replies_count: count
-      }));
-      
-      // Also broadcast the updated count via Supabase's realtime
-      broadcastCommentCount(tweetId, count);
+      return commentCount;
     }
     
-    return count;
+    console.log(`CommentService: Updated tweet ${tweetId} comment count to ${commentCount} in database`);
+    
+    // Update the tweet in cache with the new count
+    updateTweetInCache(tweetId, (tweet) => ({
+      ...tweet,
+      replies_count: commentCount
+    }));
+    
+    // Also broadcast an update using consistent channel name
+    try {
+      await supabase.channel('global-comment-updates').send({
+        type: 'broadcast',
+        event: 'comment-count-updated',
+        payload: { tweetId, count: commentCount }
+      });
+    } catch (broadcastError) {
+      console.error('Error broadcasting comment count update:', broadcastError);
+    }
+    
+    return commentCount;
   } catch (error) {
-    console.error('Error updating comment count:', error);
+    console.error('Failed to update tweet comment count:', error);
     return 0;
   }
 };
 
 /**
- * Broadcast the comment count update to all clients
- */
-export const broadcastCommentCount = async (tweetId: string, count: number): Promise<void> => {
-  try {
-    await supabase.channel('custom-all-channel').send({
-      type: 'broadcast',
-      event: 'comment-count-updated',
-      payload: { 
-        tweetId, 
-        commentCount: count,
-        timestamp: Date.now()
-      }
-    });
-    console.log(`Broadcast comment count update for ${tweetId}: ${count}`);
-  } catch (error) {
-    console.error('Error broadcasting comment count:', error);
-  }
-};
-
-/**
- * Create a new comment on a tweet
+ * Create a new comment
  */
 export const createComment = async (
   tweetId: string,
   content: string,
-  parentReplyId?: string
-): Promise<any> => {
+  parentCommentId?: string | null
+): Promise<Comment | null> => {
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: user } = await supabase.auth.getUser();
     
-    if (userError || !userData.user) {
-      console.error('User auth error:', userError?.message);
-      throw new Error('Authentication required');
+    if (!user || !user.user) {
+      console.error('No authenticated user found when creating comment');
+      return null;
     }
     
+    // Insert the comment
     const { data, error } = await supabase
       .from('comments')
       .insert({
-        tweet_id: tweetId,
         content,
-        user_id: userData.user.id,
-        parent_reply_id: parentReplyId || null
+        tweet_id: tweetId,
+        user_id: user.user.id,
+        parent_reply_id: parentCommentId || null
       })
       .select(`
-        id, 
-        content, 
-        tweet_id, 
-        parent_reply_id, 
-        created_at, 
-        likes_count, 
-        user_id, 
+        *,
         profiles:user_id (
-          username, 
-          display_name, 
+          username,
+          display_name,
           avatar_url,
           avatar_nft_id,
           avatar_nft_chain
         )
       `)
       .single();
-      
+    
     if (error) {
       console.error('Error creating comment:', error);
-      throw new Error('Failed to create comment');
+      return null;
     }
     
-    // Update the comment count
-    await updateTweetCommentCount(tweetId);
+    // Update the comment count for the tweet using our dedicated service
+    const newCount = await syncCommentCount(tweetId);
+    console.log(`Comment created: tweet ${tweetId} now has ${newCount} comments`);
     
-    // Send a broadcast notification
-    await supabase.channel('custom-all-channel').send({
+    // Update the tweet cache with the new count
+    updateTweetInCache(tweetId, (tweet) => ({
+      ...tweet,
+      replies_count: newCount
+    }));
+    
+    // Format the response to match our Comment type
+    const formattedComment: Comment = {
+      id: data.id,
+      content: data.content,
+      user_id: data.user_id,
+      tweet_id: data.tweet_id,
+      parent_comment_id: data.parent_reply_id,
+      created_at: data.created_at,
+      likes_count: data.likes_count || 0,
+      author: {
+        username: data.profiles.username,
+        display_name: data.profiles.display_name,
+        avatar_url: data.profiles.avatar_url || '',
+        avatar_nft_id: data.profiles.avatar_nft_id,
+        avatar_nft_chain: data.profiles.avatar_nft_chain
+      }
+    };
+    
+    // Broadcast a message to notify clients
+    await supabase.channel('comment-count-updates').send({
       type: 'broadcast',
       event: 'comment-created',
-      payload: { 
-        tweetId, 
-        commentId: data.id,
-        userId: userData.user.id
-      }
+      payload: { tweetId, commentId: data.id, commentCount: newCount }
     });
     
-    return data;
+    return formattedComment;
   } catch (error) {
-    console.error('Error creating comment:', error);
-    throw error;
+    console.error('Failed to create comment:', error);
+    return null;
   }
 };
 
 /**
- * Get comments by a specific user
+ * Check if a user liked a comment
  */
-export const getUserComments = async (userId: string, limit = 20, offset = 0): Promise<Comment[]> => {
+export const checkIfUserLikedComment = async (commentId: string): Promise<boolean> => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user || !user.user) {
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.user.id)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error checking if user liked comment:', error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error('Failed to check if user liked comment:', error);
+    return false;
+  }
+};
+
+/**
+ * Like or unlike a comment
+ */
+export const likeComment = async (commentId: string): Promise<boolean> => {
+  try {
+    const { data: user } = await supabase.auth.getUser();
+    
+    if (!user || !user.user) {
+      console.error('No authenticated user found when liking comment');
+      return false;
+    }
+    
+    // Check if the user already liked the comment
+    const { data: existingLike, error: checkError } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.user.id)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('Error checking existing like:', checkError);
+      return false;
+    }
+    
+    if (existingLike) {
+      // Unlike the comment
+      const { error: unlikeError } = await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('id', existingLike.id);
+      
+      if (unlikeError) {
+        console.error('Error unliking comment:', unlikeError);
+        return false;
+      }
+      
+      // Decrement the likes count - Fixed RPC function name
+      const { error: updateError } = await supabase
+        .rpc('decrement_counter', { row_id: commentId });
+      
+      if (updateError) {
+        console.error('Error decrementing likes count:', updateError);
+      }
+      
+      return true;
+    } else {
+      // Like the comment
+      const { error: likeError } = await supabase
+        .from('comment_likes')
+        .insert({
+          comment_id: commentId,
+          user_id: user.user.id
+        });
+      
+      if (likeError) {
+        console.error('Error liking comment:', likeError);
+        return false;
+      }
+      
+      // Increment the likes count - Fixed RPC function name
+      const { error: updateError } = await supabase
+        .rpc('increment_counter', { row_id: commentId });
+      
+      if (updateError) {
+        console.error('Error incrementing likes count:', updateError);
+      }
+      
+      return true;
+    }
+  } catch (error) {
+    console.error('Failed to like/unlike comment:', error);
+    return false;
+  }
+};
+
+/**
+ * Get all comments by a user
+ */
+export const getUserComments = async (userId: string): Promise<Comment[]> => {
   try {
     const { data, error } = await supabase
       .from('comments')
       .select(`
-        id, 
-        content, 
-        tweet_id, 
-        parent_reply_id, 
-        created_at, 
-        likes_count, 
-        user_id, 
+        id,
+        content,
+        user_id,
+        tweet_id,
+        parent_reply_id,
+        created_at,
+        likes_count,
         profiles:user_id (
-          username, 
-          display_name, 
+          username,
+          display_name,
           avatar_url,
           avatar_nft_id,
           avatar_nft_chain
@@ -174,18 +275,15 @@ export const getUserComments = async (userId: string, limit = 20, offset = 0): P
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(50);
     
     if (error) {
-      console.error('Error getting user comments:', error);
+      console.error('Error fetching user comments:', error);
       return [];
     }
     
-    if (!data || data.length === 0) {
-      return [];
-    }
-    
-    const comments: Comment[] = data.map(comment => ({
+    // Format comments to match our Comment type
+    const formattedComments: Comment[] = data.map(comment => ({
       id: comment.id,
       content: comment.content,
       user_id: comment.user_id,
@@ -202,128 +300,9 @@ export const getUserComments = async (userId: string, limit = 20, offset = 0): P
       }
     }));
     
-    return comments;
+    return formattedComments;
   } catch (error) {
-    console.error('Error getting user comments:', error);
+    console.error('Failed to fetch user comments:', error);
     return [];
-  }
-};
-
-/**
- * Like a comment
- */
-export const likeComment = async (commentId: string, unlike = false): Promise<boolean> => {
-  try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !userData.user) {
-      console.error('User auth error:', userError?.message);
-      return false;
-    }
-    
-    if (unlike) {
-      // Remove like
-      const { error } = await supabase
-        .from('comment_likes')
-        .delete()
-        .eq('comment_id', commentId)
-        .eq('user_id', userData.user.id);
-      
-      if (error) {
-        console.error('Error unliking comment:', error);
-        return false;
-      }
-      
-      // Decrease like count
-      await updateCommentLikesCount(commentId, -1);
-    } else {
-      // Add like
-      const { error } = await supabase
-        .from('comment_likes')
-        .insert({
-          comment_id: commentId,
-          user_id: userData.user.id
-        });
-      
-      if (error) {
-        console.error('Error liking comment:', error);
-        return false;
-      }
-      
-      // Increase like count
-      await updateCommentLikesCount(commentId, 1);
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error liking/unliking comment:', error);
-    return false;
-  }
-};
-
-/**
- * Check if user has liked a comment
- */
-export const checkIfUserLikedComment = async (commentId: string): Promise<boolean> => {
-  try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !userData.user) {
-      return false;
-    }
-    
-    const { count, error } = await supabase
-      .from('comment_likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('comment_id', commentId)
-      .eq('user_id', userData.user.id);
-    
-    if (error) {
-      console.error('Error checking if comment is liked:', error);
-      return false;
-    }
-    
-    return count ? count > 0 : false;
-  } catch (error) {
-    console.error('Error checking if comment is liked:', error);
-    return false;
-  }
-};
-
-/**
- * Update the likes count for a comment
- */
-const updateCommentLikesCount = async (commentId: string, change: number): Promise<boolean> => {
-  try {
-    // First get the current likes count
-    const { data, error: getError } = await supabase
-      .from('comments')
-      .select('likes_count')
-      .eq('id', commentId)
-      .single();
-    
-    if (getError) {
-      console.error('Error getting comment:', getError);
-      return false;
-    }
-    
-    const currentCount = data.likes_count || 0;
-    const newCount = Math.max(0, currentCount + change);
-    
-    // Update the likes count
-    const { error: updateError } = await supabase
-      .from('comments')
-      .update({ likes_count: newCount })
-      .eq('id', commentId);
-    
-    if (updateError) {
-      console.error('Error updating comment likes count:', updateError);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error updating comment likes count:', error);
-    return false;
   }
 };

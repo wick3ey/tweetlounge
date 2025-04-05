@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { countTweetComments } from '@/services/commentService';
-import { updateTweetCount } from '@/utils/tweetCacheService';
+import { supabase } from '@/integrations/supabase/client';
+import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -23,12 +23,10 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     // Initial data load
     fetchComments();
     
-    // Get the exact comment count from the database
-    countTweetComments(tweetId).then(count => {
+    // Set up realtime subscriptions for comment count updates
+    const unsubscribe = subscribeToCommentCountUpdates(tweetId, (count) => {
+      console.log(`[CommentList] Received updated comment count: ${count}`);
       setCommentCount(count);
-      
-      // Update the count cache
-      updateTweetCount(tweetId, { replies_count: count });
       
       // Propagate count update to parent components if needed
       if (onCommentCountUpdated) {
@@ -36,58 +34,8 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       }
     });
     
-    // Set up realtime subscriptions
-    const commentsChannel = supabase
-      .channel(`comments-for-tweet-${tweetId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'comments',
-        filter: `tweet_id=eq.${tweetId}`
-      }, (payload) => {
-        console.log('Realtime update on comments:', payload);
-        
-        // Refresh comments
-        fetchComments();
-        
-        // Get updated count
-        countTweetComments(tweetId).then(count => {
-          setCommentCount(count);
-          
-          // Update the count cache
-          updateTweetCount(tweetId, { replies_count: count });
-          
-          // Propagate count update to parent components if needed
-          if (onCommentCountUpdated) {
-            onCommentCountUpdated(count);
-          }
-        });
-      })
-      .subscribe();
-      
-    const broadcastChannel = supabase
-      .channel('custom-all-channel')
-      .on('broadcast', { event: 'comment-count-updated' }, (payload) => {
-        console.log('Broadcast received for comment count update:', payload);
-        if (payload.payload && payload.payload.tweetId === tweetId) {
-          const count = payload.payload.count || payload.payload.commentCount;
-          if (count !== undefined) {
-            setCommentCount(count);
-            
-            // Update the count cache
-            updateTweetCount(tweetId, { replies_count: count });
-            
-            if (onCommentCountUpdated) {
-              onCommentCountUpdated(count);
-            }
-          }
-        }
-      })
-      .subscribe();
-      
     return () => {
-      supabase.removeChannel(commentsChannel);
-      supabase.removeChannel(broadcastChannel);
+      unsubscribe();
     };
   }, [tweetId, onCommentCountUpdated]);
 

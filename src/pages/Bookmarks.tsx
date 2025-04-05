@@ -7,8 +7,6 @@ import TweetCard from '@/components/tweet/TweetCard';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabase';
 
 const Bookmarks = () => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
@@ -16,7 +14,6 @@ const Bookmarks = () => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
-  const { toast } = useToast();
   const tweetsPerPage = 10;
 
   const fetchBookmarkedTweets = async (currentPage: number) => {
@@ -34,11 +31,6 @@ const Bookmarks = () => {
       setHasMore(data.length === tweetsPerPage);
     } catch (error) {
       console.error('Failed to fetch bookmarked tweets:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load bookmarked tweets. Please try again.",
-        variant: "destructive"
-      });
     } finally {
       setLoading(false);
     }
@@ -46,53 +38,6 @@ const Bookmarks = () => {
 
   useEffect(() => {
     fetchBookmarkedTweets(0);
-    
-    // Set up realtime subscription for bookmark changes
-    const bookmarksChannel = supabase
-      .channel('bookmarks-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'bookmarks'
-      }, (payload) => {
-        console.log('Bookmark change detected:', payload);
-        // Refresh the bookmarks list when changes occur
-        fetchBookmarkedTweets(0);
-      })
-      .subscribe();
-      
-    // Also listen for tweet changes (to get updated counts)
-    const tweetsChannel = supabase
-      .channel('bookmarked-tweets-changes')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'tweets'
-      }, (payload) => {
-        if (payload.new && tweets.some(t => t.id === (payload.new as any).id)) {
-          console.log('Bookmarked tweet updated:', payload);
-          // Update just the changed tweet
-          setTweets(prev => 
-            prev.map(tweet => 
-              tweet.id === (payload.new as any).id 
-                ? { 
-                    ...tweet, 
-                    likes_count: (payload.new as any).likes_count,
-                    replies_count: (payload.new as any).replies_count,
-                    retweets_count: (payload.new as any).retweets_count,
-                    bookmarks_count: (payload.new as any).bookmarks_count
-                  } 
-                : tweet
-            )
-          );
-        }
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(bookmarksChannel);
-      supabase.removeChannel(tweetsChannel);
-    };
   }, []);
 
   const handleLoadMore = () => {
@@ -115,20 +60,12 @@ const Bookmarks = () => {
       <div className="max-w-4xl mx-auto">
         <div className="sticky top-0 z-10 backdrop-blur-md bg-black/80 border-b border-gray-800 p-4">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold flex items-center">
-                <BookmarkX className="h-5 w-5 mr-2 text-crypto-purple" />
-                Bookmarks
-              </h1>
-              <span className="text-gray-500 text-sm">
-                {tweets.length > 0 ? `${tweets.length} saved items` : ''}
-              </span>
-            </div>
+            <h1 className="text-xl font-bold">Bookmarks</h1>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm" 
               onClick={handleRefresh}
-              className="text-sm text-crypto-purple hover:text-crypto-purple hover:bg-crypto-purple/10 border-crypto-purple/30"
+              className="text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
             >
               Refresh
             </Button>
@@ -138,25 +75,18 @@ const Bookmarks = () => {
         <div className="divide-y divide-gray-800">
           {loading && page === 0 ? (
             <div className="flex justify-center items-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-crypto-purple" />
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
               <span className="ml-2 text-gray-400">Loading bookmarks...</span>
             </div>
           ) : tweets.length === 0 ? (
             <div className="py-12 text-center">
-              <div className="mx-auto w-16 h-16 rounded-full bg-crypto-purple/10 flex items-center justify-center mb-4">
-                <BookmarkX className="h-8 w-8 text-crypto-purple" />
+              <div className="mx-auto w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+                <BookmarkX className="h-6 w-6 text-gray-500" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">No bookmarks yet</h3>
-              <p className="text-gray-500 max-w-md mx-auto mb-6">
+              <h3 className="text-lg font-semibold text-white mb-1">No bookmarks yet</h3>
+              <p className="text-gray-500 text-sm max-w-md mx-auto">
                 When you bookmark tweets, they'll appear here for easy access later. Bookmark tweets by clicking the bookmark icon.
               </p>
-              <Button
-                onClick={() => navigate('/home')}
-                variant="outline"
-                className="border-crypto-purple text-crypto-purple hover:bg-crypto-purple/10"
-              >
-                Explore posts
-              </Button>
             </div>
           ) : (
             <>
@@ -167,30 +97,24 @@ const Bookmarks = () => {
                     tweet={tweet}
                     onClick={() => handleTweetClick(tweet.id)}
                     onAction={handleRefresh}
-                    onError={(title, description) => {
-                      toast({
-                        title,
-                        description,
-                        variant: "destructive"
-                      });
-                    }}
                   />
                 ))}
               </div>
               
               {hasMore && (
-                <div className="p-6 flex justify-center">
+                <div className="p-4 flex justify-center">
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleLoadMore}
                     disabled={loading}
-                    className="border-crypto-purple text-crypto-purple hover:bg-crypto-purple/10 min-w-[120px]"
+                    className="border-gray-700 text-gray-300"
                   >
                     {loading ? (
-                      <div className="flex items-center">
+                      <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Loading...
-                      </div>
+                      </>
                     ) : (
                       'Load More'
                     )}
