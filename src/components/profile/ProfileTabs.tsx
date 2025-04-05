@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getUserTweets, getUserRetweets } from '@/services/tweetService';
+import { getUserTweets } from '@/services/tweetService';
 import { getUserComments } from '@/services/commentService';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Comment } from '@/types/Comment';
@@ -11,6 +10,7 @@ import TweetCard from '@/components/tweet/TweetCard';
 import CommentCard from '@/components/comment/CommentCard';
 import WalletAssets from '@/components/profile/WalletAssets';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ProfileTabsProps {
   userId: string;
@@ -32,7 +32,44 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
         setLoading(true);
         if (activeTab === 'posts') {
           const fetchedTweets = await getUserTweets(userId);
-          setTweets(fetchedTweets);
+          
+          const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+            if (tweet.is_retweet && tweet.original_tweet_id) {
+              try {
+                const { data: originalTweetData, error: originalTweetError } = await supabase
+                  .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+                
+                if (originalTweetError) {
+                  console.error('Error fetching original tweet:', originalTweetError);
+                  return tweet;
+                }
+                
+                if (originalTweetData && originalTweetData.length > 0) {
+                  const originalTweet = originalTweetData[0];
+                  
+                  return {
+                    ...tweet,
+                    content: originalTweet.content,
+                    image_url: originalTweet.image_url,
+                    original_author: {
+                      id: originalTweet.author_id,
+                      username: originalTweet.username,
+                      display_name: originalTweet.display_name,
+                      avatar_url: originalTweet.avatar_url || '',
+                      avatar_nft_id: originalTweet.avatar_nft_id,
+                      avatar_nft_chain: originalTweet.avatar_nft_chain
+                    }
+                  };
+                }
+              } catch (err) {
+                console.error('Error fetching original tweet:', err);
+              }
+            }
+            
+            return tweet;
+          }));
+          
+          setTweets(processedTweets);
         } else if (activeTab === 'replies') {
           const fetchedReplies = await getUserComments(userId);
           setReplies(fetchedReplies);
@@ -61,7 +98,44 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
       setLoading(true);
       if (activeTab === 'posts') {
         const freshTweets = await getUserTweets(userId);
-        setTweets(freshTweets);
+        
+        const processedTweets = await Promise.all(freshTweets.map(async (tweet) => {
+          if (tweet.is_retweet && tweet.original_tweet_id) {
+            try {
+              const { data: originalTweetData, error: originalTweetError } = await supabase
+                .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+              
+              if (originalTweetError) {
+                console.error('Error fetching original tweet:', originalTweetError);
+                return tweet;
+              }
+              
+              if (originalTweetData && originalTweetData.length > 0) {
+                const originalTweet = originalTweetData[0];
+                
+                return {
+                  ...tweet,
+                  content: originalTweet.content,
+                  image_url: originalTweet.image_url,
+                  original_author: {
+                    id: originalTweet.author_id,
+                    username: originalTweet.username,
+                    display_name: originalTweet.display_name,
+                    avatar_url: originalTweet.avatar_url || '',
+                    avatar_nft_id: originalTweet.avatar_nft_id,
+                    avatar_nft_chain: originalTweet.avatar_nft_chain
+                  }
+                };
+              }
+            } catch (err) {
+              console.error('Error fetching original tweet:', err);
+            }
+          }
+          
+          return tweet;
+        }));
+        
+        setTweets(processedTweets);
       } else if (activeTab === 'replies') {
         const freshReplies = await getUserComments(userId);
         setReplies(freshReplies);
