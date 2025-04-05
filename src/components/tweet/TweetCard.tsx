@@ -50,7 +50,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const isOwnTweet = user && tweet.author_id === user.id;
   const displayTweet = tweet;
 
-  // Handle display for retweets with original author information
+  // For retweets, always display the original tweet's author
   const authorToDisplay = tweet.is_retweet && tweet.original_author ? tweet.original_author : tweet.author;
   const isNftVerified = authorToDisplay?.avatar_nft_id && authorToDisplay?.avatar_nft_chain;
 
@@ -205,8 +205,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
           <Repeat className="h-3 w-3 mr-2" />
           <span>
             Reposted by {" "}
-            <Link to={`/profile/${repostUsername}`} className="hover:underline" onClick={e => e.stopPropagation()}>
-              @{repostUsername}
+            <Link to={`/profile/${tweet.author?.username || 'user'}`} className="hover:underline" onClick={e => e.stopPropagation()}>
+              @{tweet.author?.username || 'user'}
             </Link>
           </span>
         </div>
