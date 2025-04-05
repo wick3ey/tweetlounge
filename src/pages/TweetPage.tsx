@@ -17,6 +17,7 @@ import CommentForm from '@/components/comment/CommentForm';
 import { checkIfUserLikedTweet, likeTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { VerifiedBadge } from '@/components/ui/badge';
+import { debugLogActiveSubscriptions } from '@/services/commentCountService';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -40,6 +41,8 @@ const TweetPage = () => {
   const { profile } = useProfile();
 
   useEffect(() => {
+    debugLogActiveSubscriptions();
+    
     const fetchTweet = async () => {
       try {
         setLoading(true);
@@ -132,6 +135,10 @@ const TweetPage = () => {
     if (tweetId) {
       fetchTweet();
     }
+    
+    return () => {
+      debugLogActiveSubscriptions();
+    };
   }, [tweetId, toast, user]);
 
   const checkIfUserIsAuthor = async (authorId: string) => {

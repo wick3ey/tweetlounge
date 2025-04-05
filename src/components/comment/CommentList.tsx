@@ -16,6 +16,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentCount, setCommentCount] = useState(0);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
     if (!tweetId) return;
@@ -23,22 +24,25 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     // Initial data load
     fetchComments();
     
-    // Set up realtime subscriptions for comment count updates only if not already active
-    const cleanup = !hasActiveCommentCountSubscription(tweetId) 
-      ? subscribeToCommentCountUpdates(tweetId, (count) => {
-          console.log(`[CommentList] Received updated comment count: ${count}`);
-          setCommentCount(count);
-          
-          // Propagate count update to parent components if needed
-          if (onCommentCountUpdated) {
-            onCommentCountUpdated(count);
-          }
-        })
-      : () => console.log(`[CommentList] Using existing comment count subscription for ${tweetId}`);
-    
-    return () => {
-      cleanup();
-    };
+    // Initialize subscription once
+    if (!hasInitialized) {
+      setHasInitialized(true);
+      
+      // Set up realtime subscriptions for comment count updates only if not already active
+      const cleanup = !hasActiveCommentCountSubscription(tweetId) 
+        ? subscribeToCommentCountUpdates(tweetId, (count) => {
+            console.log(`[CommentList] Received updated comment count: ${count}`);
+            setCommentCount(count);
+            
+            // Propagate count update to parent components if needed
+            if (onCommentCountUpdated) {
+              onCommentCountUpdated(count);
+            }
+          })
+        : () => console.log(`[CommentList] Using existing comment count subscription for ${tweetId}`);
+      
+      return cleanup;
+    }
   }, [tweetId, onCommentCountUpdated]);
 
   const fetchComments = async () => {

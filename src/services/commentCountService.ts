@@ -6,7 +6,8 @@ const activeSubscriptions = new Map<string, {
   dbChannel: any, 
   broadcastChannel: any, 
   lastCount: number,
-  lastChecked: number
+  lastChecked: number,
+  refCount: number // Add reference counting to track how many components are using this subscription
 }>();
 
 /**
@@ -59,6 +60,7 @@ export const syncCommentCount = async (tweetId: string): Promise<number> => {
       // Update the stored count if we have an active subscription
       if (subscription) {
         subscription.lastCount = commentCount;
+        subscription.lastChecked = Date.now();
       }
     }
     
@@ -99,14 +101,29 @@ export const subscribeToCommentCountUpdates = (
   if (activeSubscriptions.has(tweetId)) {
     console.log(`Reusing existing comment count subscription for tweet ${tweetId}`);
     
-    // Get initial count from existing subscription
+    // Get existing subscription and increment reference count
     const existingSubscription = activeSubscriptions.get(tweetId)!;
+    existingSubscription.refCount++;
+    existingSubscription.lastChecked = Date.now();
+    
+    // Get initial count from existing subscription
     onCountUpdated(existingSubscription.lastCount);
     
     // Return the cleanup function
     return () => {
-      // Don't actually clean up since other components may be using this subscription
-      console.log(`Skipping cleanup for shared subscription for tweet ${tweetId}`);
+      // Decrement reference count, only cleanup when no more references
+      const currentSub = activeSubscriptions.get(tweetId);
+      if (currentSub) {
+        currentSub.refCount--;
+        console.log(`Decremented ref count for ${tweetId} subscription to ${currentSub.refCount}`);
+        
+        if (currentSub.refCount <= 0) {
+          console.log(`Cleaning up subscription for tweet ${tweetId} as ref count is 0`);
+          supabase.removeChannel(currentSub.dbChannel);
+          supabase.removeChannel(currentSub.broadcastChannel);
+          activeSubscriptions.delete(tweetId);
+        }
+      }
     };
   }
   
@@ -152,19 +169,23 @@ export const subscribeToCommentCountUpdates = (
     dbChannel, 
     broadcastChannel, 
     lastCount: initialCount,
-    lastChecked: Date.now()
+    lastChecked: Date.now(),
+    refCount: 1
   });
   
   // Return cleanup function
   return () => {
-    console.log(`Removed comment count subscriptions for tweet ${tweetId}`);
-    
-    // Remove from active subscriptions
-    if (activeSubscriptions.has(tweetId)) {
-      const subscription = activeSubscriptions.get(tweetId)!;
-      supabase.removeChannel(subscription.dbChannel);
-      supabase.removeChannel(subscription.broadcastChannel);
-      activeSubscriptions.delete(tweetId);
+    const subscription = activeSubscriptions.get(tweetId);
+    if (subscription) {
+      subscription.refCount--;
+      console.log(`Decremented ref count for ${tweetId} subscription to ${subscription.refCount}`);
+      
+      if (subscription.refCount <= 0) {
+        console.log(`Removed comment count subscriptions for tweet ${tweetId}`);
+        supabase.removeChannel(subscription.dbChannel);
+        supabase.removeChannel(subscription.broadcastChannel);
+        activeSubscriptions.delete(tweetId);
+      }
     }
   };
 };
@@ -176,18 +197,31 @@ export const hasActiveCommentCountSubscription = (tweetId: string): boolean => {
   return activeSubscriptions.has(tweetId);
 };
 
-// Clean up stale subscriptions every 5 minutes
+// Clean up stale subscriptions every minute
 setInterval(() => {
   const now = Date.now();
   const FIVE_MINUTES = 5 * 60 * 1000;
   
   activeSubscriptions.forEach((subscription, tweetId) => {
-    // If a subscription is older than 5 minutes, clean it up
-    if (now - subscription.lastChecked > FIVE_MINUTES) {
+    // If a subscription is older than 5 minutes and not actively used, clean it up
+    if (now - subscription.lastChecked > FIVE_MINUTES && subscription.refCount <= 0) {
       console.log(`Cleaning up stale subscription for tweet ${tweetId}`);
       supabase.removeChannel(subscription.dbChannel);
       supabase.removeChannel(subscription.broadcastChannel);
       activeSubscriptions.delete(tweetId);
+    } else if (now - subscription.lastChecked > FIVE_MINUTES) {
+      // If it's old but still has refs, just update the timestamp to keep it alive
+      subscription.lastChecked = now;
     }
   });
 }, 60000); // Check every minute
+
+/**
+ * Log all active subscriptions - useful for debugging
+ */
+export const debugLogActiveSubscriptions = () => {
+  console.log(`[DEBUG] Active comment count subscriptions: ${activeSubscriptions.size}`);
+  activeSubscriptions.forEach((sub, tweetId) => {
+    console.log(`[DEBUG] - ${tweetId}: refCount=${sub.refCount}, lastCount=${sub.lastCount}, age=${(Date.now() - sub.lastChecked) / 1000}s`);
+  });
+};

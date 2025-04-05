@@ -17,7 +17,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
-import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
+import { subscribeToCommentCountUpdates, hasActiveCommentCountSubscription } from '@/services/commentCountService';
 
 interface TweetDetailProps {
   tweet: TweetWithAuthor;
@@ -43,6 +43,14 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [isBookmarking, setIsBookmarking] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setLikesCount(tweet?.likes_count || 0);
@@ -51,10 +59,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       if (tweet?.id && user) {
         try {
           const liked = await checkIfUserLikedTweet(tweet.id);
-          setIsLiked(liked);
+          if (mountedRef.current) setIsLiked(liked);
 
           const bookmarked = await checkIfTweetBookmarked(tweet.id);
-          setIsBookmarked(bookmarked);
+          if (mountedRef.current) setIsBookmarked(bookmarked);
         } catch (error) {
           console.error('Error checking tweet statuses:', error);
         }
@@ -65,8 +73,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   }, [tweet?.id, tweet?.likes_count, user]);
 
   const handleCommentCountUpdated = (count: number) => {
-    console.log(`[TweetDetail] Comment count updated from CommentList: ${count}`);
-    setRepliesCount(count);
+    if (mountedRef.current) {
+      console.log(`[TweetDetail] Comment count updated from CommentList: ${count}`);
+      setRepliesCount(count);
+    }
   };
 
   const toggleLike = async () => {
@@ -92,7 +102,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       if (tweetIdToLike) {
         const success = await likeTweet(tweetIdToLike);
         
-        if (!success) {
+        if (!success && mountedRef.current) {
           setIsLiked(!newLikedState);
           setLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
           
@@ -110,23 +120,29 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         
         if (success) {
           setTimeout(() => {
-            onAction();
+            if (mountedRef.current && onAction) {
+              onAction();
+            }
           }, 1000);
         }
       }
     } catch (error) {
       console.error('Error liking tweet:', error);
       
-      setIsLiked(!newLikedState);
-      setLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
-      
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred during the like operation.",
-        variant: "destructive",
-      });
+      if (mountedRef.current) {
+        setIsLiked(!newLikedState);
+        setLikesCount(prev => !newLikedState ? prev + 1 : Math.max(0, prev - 1));
+        
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred during the like operation.",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setIsLiking(false);
+      if (mountedRef.current) {
+        setIsLiking(false);
+      }
     }
   };
 
@@ -153,7 +169,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         success = await unbookmarkTweet(tweet.id);
       }
 
-      if (!success) {
+      if (!success && mountedRef.current) {
         setIsBookmarked(!newBookmarkedState);
         toast({
           title: "Error",
@@ -167,19 +183,26 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         });
         
         setTimeout(() => {
-          onAction();
+          if (mountedRef.current && onAction) {
+            onAction();
+          }
         }, 1000);
       }
     } catch (error) {
       console.error('Error during bookmark operation:', error);
-      setIsBookmarked(!newBookmarkedState);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred during the bookmark operation.",
-        variant: "destructive",
-      });
+      
+      if (mountedRef.current) {
+        setIsBookmarked(!newBookmarkedState);
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred during the bookmark operation.",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setIsBookmarking(false);
+      if (mountedRef.current) {
+        setIsBookmarking(false);
+      }
     }
   };
 
@@ -187,7 +210,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     if (tweet?.id) {
       const success = await deleteTweet(tweet.id);
       if (success) {
-        onDelete(tweet.id);
+        if (onDelete) onDelete(tweet.id);
         onClose();
       } else {
         toast({
@@ -204,11 +227,15 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       onCommentAdded(tweet.id);
     }
     
-    onAction();
+    if (onAction) {
+      onAction();
+    }
   };
 
   const handleCommentAction = () => {
-    onAction();
+    if (onAction) {
+      onAction();
+    }
   };
 
   const isNFTVerified = tweet?.author?.avatar_nft_id && tweet?.author?.avatar_nft_chain;
