@@ -231,11 +231,33 @@ export const getTweets = async (
     if (shouldForceRefresh) {
       console.debug('[getTweets] Force refresh requested or initial load, bypassing all caches');
 
+      // Get tweets with detailed join for retweets
       const { data, error } = await supabase
-        .rpc('get_tweets_with_authors_reliable', {
-          limit_count: limit,
-          offset_count: offset
-        });
+        .from('tweets')
+        .select(`
+          *,
+          profiles!tweets_author_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          ),
+          original_tweet:original_tweet_id (
+            *,
+            original_author:author_id (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              avatar_nft_id,
+              avatar_nft_chain
+            )
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) {
         console.error('[getTweets] Error fetching tweets:', error.message);
@@ -250,7 +272,7 @@ export const getTweets = async (
       console.debug(`[getTweets] Got ${data.length} tweets directly from database`);
 
       const tweets = (data as any[]).map(tweet => {
-        return enhanceTweetData({
+        const tweetWithAuthor: TweetWithAuthor = {
           id: tweet.id,
           content: tweet.content,
           author_id: tweet.author_id,
@@ -261,26 +283,15 @@ export const getTweets = async (
           is_retweet: tweet.is_retweet === true,
           original_tweet_id: tweet.original_tweet_id,
           image_url: tweet.image_url,
-          author: {
-            id: tweet.author_id,
-            username: tweet.profile_username || 'user',
-            display_name: tweet.profile_display_name || 'User',
-            avatar_url: tweet.profile_avatar_url || '',
-            bio: null,
-            cover_url: null,
-            location: null,
-            website: null,
-            updated_at: null,
-            created_at: new Date().toISOString(),
-            ethereum_address: null,
-            solana_address: null,
-            avatar_nft_id: tweet.profile_avatar_nft_id,
-            avatar_nft_chain: tweet.profile_avatar_nft_chain,
-            followers_count: 0,
-            following_count: 0,
-            replies_sort_order: null
-          }
-        });
+          author: createPartialProfile(tweet.profiles)
+        };
+
+        // Add original author info for retweets
+        if (tweet.is_retweet && tweet.original_tweet && tweet.original_tweet.original_author) {
+          tweetWithAuthor.original_author = createPartialProfile(tweet.original_tweet.original_author);
+        }
+
+        return enhanceTweetData(tweetWithAuthor);
       });
 
       await cacheTweets(cacheKey, tweets);
@@ -293,11 +304,33 @@ export const getTweets = async (
       async () => {
         console.debug('[getTweets] Cache miss, fetching from database');
 
+        // Same improved query as above
         const { data, error } = await supabase
-          .rpc('get_tweets_with_authors_reliable', {
-            limit_count: limit,
-            offset_count: offset
-          });
+          .from('tweets')
+          .select(`
+            *,
+            profiles!tweets_author_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              avatar_nft_id,
+              avatar_nft_chain
+            ),
+            original_tweet:original_tweet_id (
+              *,
+              original_author:author_id (
+                id,
+                username,
+                display_name,
+                avatar_url,
+                avatar_nft_id,
+                avatar_nft_chain
+              )
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
         if (error) {
           console.error('[getTweets] Error fetching tweets:', error.message);
@@ -312,7 +345,7 @@ export const getTweets = async (
         console.debug(`[getTweets] Got ${data.length} tweets from database`);
 
         return (data as any[]).map(tweet => {
-          return enhanceTweetData({
+          const tweetWithAuthor: TweetWithAuthor = {
             id: tweet.id,
             content: tweet.content,
             author_id: tweet.author_id,
@@ -323,26 +356,15 @@ export const getTweets = async (
             is_retweet: tweet.is_retweet === true,
             original_tweet_id: tweet.original_tweet_id,
             image_url: tweet.image_url,
-            author: {
-              id: tweet.author_id,
-              username: tweet.profile_username || 'user',
-              display_name: tweet.profile_display_name || 'User',
-              avatar_url: tweet.profile_avatar_url || '',
-              bio: null,
-              cover_url: null,
-              location: null,
-              website: null,
-              updated_at: null,
-              created_at: new Date().toISOString(),
-              ethereum_address: null,
-              solana_address: null,
-              avatar_nft_id: tweet.profile_avatar_nft_id,
-              avatar_nft_chain: tweet.profile_avatar_nft_chain,
-              followers_count: 0,
-              following_count: 0,
-              replies_sort_order: null
-            }
-          });
+            author: createPartialProfile(tweet.profiles)
+          };
+
+          // Add original author info for retweets
+          if (tweet.is_retweet && tweet.original_tweet && tweet.original_tweet.original_author) {
+            tweetWithAuthor.original_author = createPartialProfile(tweet.original_tweet.original_author);
+          }
+
+          return enhanceTweetData(tweetWithAuthor);
         });
       },
       CACHE_DURATIONS.MEDIUM,
@@ -684,6 +706,18 @@ export const repostTweet = async (tweetId: string, cancelRepost = false): Promis
       // Create repost
       const repostId = uuidv4();
 
+      // Get original tweet author
+      const { data: originalAuthorData, error: originalAuthorError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', originalTweet.author_id)
+        .single();
+
+      if (originalAuthorError) {
+        console.error('[repostTweet] Error fetching original author:', originalAuthorError.message);
+        return false;
+      }
+
       const { error: repostError } = await supabase
         .from('tweets')
         .insert({
@@ -692,7 +726,8 @@ export const repostTweet = async (tweetId: string, cancelRepost = false): Promis
           author_id: userData.user.id,
           image_url: originalTweet.image_url,
           is_retweet: true,
-          original_tweet_id: tweetId
+          original_tweet_id: tweetId,
+          original_author_id: originalTweet.author_id
         });
 
       if (repostError) {
