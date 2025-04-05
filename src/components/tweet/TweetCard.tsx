@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -43,7 +44,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
   const [isBookmarking, setIsBookmarking] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
-  const [bookmarksCount, setBookmarksCount] = useState(0);
+  const [bookmarksCount, setBookmarksCount] = useState(tweet.bookmarks_count || 0);
   
   const isOwnTweet = user && tweet.author_id === user.id;
   const displayTweet = tweet;
@@ -51,6 +52,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
   
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
+    setRepliesCount(tweet.replies_count || 0);
+    setBookmarksCount(tweet.bookmarks_count || 0);
     
     if (user) {
       checkInitialStatuses();
@@ -64,13 +67,10 @@ const TweetCard: React.FC<TweetCardProps> = ({
       }
     );
     
-    // Get the initial bookmark count
-    fetchBookmarkCount();
-    
     return () => {
       unsubscribeComments();
     };
-  }, [tweet.id, user]);
+  }, [tweet.id, tweet.likes_count, tweet.replies_count, tweet.bookmarks_count, user]);
   
   const checkInitialStatuses = async () => {
     try {
@@ -81,15 +81,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
       setIsBookmarked(bookmarked);
     } catch (error) {
       console.error('Error checking tweet statuses:', error);
-    }
-  };
-  
-  const fetchBookmarkCount = async () => {
-    try {
-      const count = await getBookmarkCount(tweet.id);
-      setBookmarksCount(count);
-    } catch (error) {
-      console.error('Error fetching bookmark count:', error);
     }
   };
 
@@ -150,26 +141,36 @@ const TweetCard: React.FC<TweetCardProps> = ({
     try {
       setIsBookmarking(true);
       
+      // Optimistically update UI first
+      const wasBookmarked = isBookmarked;
+      setIsBookmarked(!wasBookmarked);
+      setBookmarksCount(prev => wasBookmarked ? Math.max(0, prev - 1) : prev + 1);
+      
+      // Then perform the actual operation
       let success;
-      if (isBookmarked) {
+      if (wasBookmarked) {
         success = await unbookmarkTweet(tweet.id);
         if (success) {
-          setIsBookmarked(false);
-          setBookmarksCount(prev => Math.max(0, prev - 1));
           toast({
             title: "Bookmark Removed",
             description: "Post removed from your bookmarks"
           });
+        } else {
+          // Revert UI if operation failed
+          setIsBookmarked(true);
+          setBookmarksCount(prev => prev + 1);
         }
       } else {
         success = await bookmarkTweet(tweet.id);
         if (success) {
-          setIsBookmarked(true);
-          setBookmarksCount(prev => prev + 1);
           toast({
             title: "Bookmarked",
             description: "Post saved to your bookmarks"
           });
+        } else {
+          // Revert UI if operation failed
+          setIsBookmarked(false);
+          setBookmarksCount(prev => Math.max(0, prev - 1));
         }
       }
       
@@ -178,6 +179,10 @@ const TweetCard: React.FC<TweetCardProps> = ({
       }
     } catch (error) {
       console.error('Error bookmarking tweet:', error);
+      // Revert UI on error
+      setIsBookmarked(!isBookmarked);
+      setBookmarksCount(prev => isBookmarked ? prev + 1 : Math.max(0, prev - 1));
+      
       toast({
         title: "Error",
         description: "Failed to bookmark tweet. Please try again.",

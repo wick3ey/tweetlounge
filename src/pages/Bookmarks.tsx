@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Loader2, BookmarkX } from 'lucide-react';
 import { getBookmarkedTweets } from '@/services/bookmarkService';
@@ -7,6 +8,7 @@ import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 const Bookmarks = () => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
@@ -44,6 +46,53 @@ const Bookmarks = () => {
 
   useEffect(() => {
     fetchBookmarkedTweets(0);
+    
+    // Set up realtime subscription for bookmark changes
+    const bookmarksChannel = supabase
+      .channel('bookmarks-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bookmarks'
+      }, (payload) => {
+        console.log('Bookmark change detected:', payload);
+        // Refresh the bookmarks list when changes occur
+        fetchBookmarkedTweets(0);
+      })
+      .subscribe();
+      
+    // Also listen for tweet changes (to get updated counts)
+    const tweetsChannel = supabase
+      .channel('bookmarked-tweets-changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'tweets'
+      }, (payload) => {
+        if (payload.new && tweets.some(t => t.id === (payload.new as any).id)) {
+          console.log('Bookmarked tweet updated:', payload);
+          // Update just the changed tweet
+          setTweets(prev => 
+            prev.map(tweet => 
+              tweet.id === (payload.new as any).id 
+                ? { 
+                    ...tweet, 
+                    likes_count: (payload.new as any).likes_count,
+                    replies_count: (payload.new as any).replies_count,
+                    retweets_count: (payload.new as any).retweets_count,
+                    bookmarks_count: (payload.new as any).bookmarks_count
+                  } 
+                : tweet
+            )
+          );
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(bookmarksChannel);
+      supabase.removeChannel(tweetsChannel);
+    };
   }, []);
 
   const handleLoadMore = () => {

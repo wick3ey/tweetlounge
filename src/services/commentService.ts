@@ -69,12 +69,18 @@ export const createComment = async (
   parentCommentId?: string | null
 ): Promise<Comment | null> => {
   try {
-    const { data: user } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     
     if (!user || !user.user) {
       console.error('No authenticated user found when creating comment');
       return null;
     }
+    
+    // First, optimistically update the comment count in the cache
+    updateTweetInCache(tweetId, (tweet) => ({
+      ...tweet,
+      replies_count: (tweet.replies_count || 0) + 1
+    }));
     
     // Insert the comment
     const { data, error } = await supabase
@@ -99,6 +105,11 @@ export const createComment = async (
     
     if (error) {
       console.error('Error creating comment:', error);
+      // Revert optimistic update if comment creation fails
+      updateTweetInCache(tweetId, (tweet) => ({
+        ...tweet,
+        replies_count: Math.max(0, (tweet.replies_count || 0) - 1)
+      }));
       return null;
     }
     
@@ -106,7 +117,7 @@ export const createComment = async (
     const newCount = await syncCommentCount(tweetId);
     console.log(`Comment created: tweet ${tweetId} now has ${newCount} comments`);
     
-    // Update the tweet cache with the new count
+    // Update the tweet cache with the accurate count
     updateTweetInCache(tweetId, (tweet) => ({
       ...tweet,
       replies_count: newCount

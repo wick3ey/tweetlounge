@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
+import { updateTweetInCache } from '@/utils/tweetCacheService';
 
 /**
  * Checks if a tweet is bookmarked by the current user
@@ -88,13 +89,19 @@ export async function bookmarkTweet(tweetId: string): Promise<boolean> {
     }
     
     // Update bookmark count using SQL function
-    const { data, error: countUpdateError } = await supabase.rpc(
+    const { data: incrementResult, error: countUpdateError } = await supabase.rpc(
       'increment_bookmark_count', 
       { tweet_id_param: tweetId }
     );
     
     if (countUpdateError) {
       console.error('Bookmark count update error:', countUpdateError);
+    } else {
+      // Update the tweet in cache with the new bookmark count
+      updateTweetInCache(tweetId, (tweet) => ({
+        ...tweet,
+        bookmarks_count: incrementResult || (tweet.bookmarks_count || 0) + 1
+      }));
     }
     
     return true;
@@ -129,13 +136,19 @@ export async function unbookmarkTweet(tweetId: string): Promise<boolean> {
     }
     
     // Update bookmark count using SQL function
-    const { data, error: countUpdateError } = await supabase.rpc(
+    const { data: decrementResult, error: countUpdateError } = await supabase.rpc(
       'decrement_bookmark_count', 
       { tweet_id_param: tweetId }
     );
     
     if (countUpdateError) {
       console.error('Bookmark count update error:', countUpdateError);
+    } else {
+      // Update the tweet in cache with the new bookmark count
+      updateTweetInCache(tweetId, (tweet) => ({
+        ...tweet,
+        bookmarks_count: decrementResult || Math.max(0, (tweet.bookmarks_count || 0) - 1)
+      }));
     }
     
     return true;
@@ -175,6 +188,7 @@ export async function getBookmarkedTweets(limit: number = 20, offset: number = 0
       likes_count: tweet.likes_count,
       retweets_count: tweet.retweets_count,
       replies_count: tweet.replies_count,
+      bookmarks_count: tweet.bookmarks_count || 0,
       is_retweet: tweet.is_retweet,
       original_tweet_id: tweet.original_tweet_id,
       image_url: tweet.image_url,
