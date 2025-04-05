@@ -617,6 +617,12 @@ export type Database = {
         }
         Returns: Json
       }
+      decrement_bookmark_count: {
+        Args: {
+          tweet_id_param: string
+        }
+        Returns: number
+      }
       decrement_counter: {
         Args: {
           row_id: string
@@ -941,6 +947,12 @@ export type Database = {
           "": unknown
         }
         Returns: unknown
+      }
+      increment_bookmark_count: {
+        Args: {
+          tweet_id_param: string
+        }
+        Returns: number
       }
       increment_counter: {
         Args: {

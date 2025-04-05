@@ -1,9 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
-import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Heart, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { MessageSquare, Heart, MoreHorizontal, Trash2, Repeat, Share2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -263,7 +263,17 @@ const TweetCard: React.FC<TweetCardProps> = ({
               className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
               onClick={e => e.stopPropagation()}
             >
-              <Bookmark className="h-4 w-4" />
+              <Repeat className="h-4 w-4 mr-2" />
+              <span>{tweet.retweets_count || 0}</span>
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
+              onClick={e => e.stopPropagation()}
+            >
+              <Share2 className="h-4 w-4" />
             </Button>
           </div>
         </div>

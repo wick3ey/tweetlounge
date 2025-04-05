@@ -18,7 +18,6 @@ import Profile from "./pages/Profile";
 import ProfilePage from "./pages/ProfilePage";
 import Home from "./pages/Home";
 import Notifications from "./pages/Notifications";
-import Bookmarks from "./pages/Bookmarks";
 import Market from "./pages/Market";
 import TweetPage from "./pages/TweetPage";
 import NotFound from "./pages/NotFound";
@@ -86,11 +85,6 @@ const App = () => {
                   <Route path="/notifications" element={
                     <ProtectedRoute>
                       <Notifications />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/bookmarks" element={
-                    <ProtectedRoute>
-                      <Bookmarks />
                     </ProtectedRoute>
                   } />
                   <Route path="/market" element={
