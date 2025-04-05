@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
-import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet, getBookmarkCount } from '@/services/bookmarkService';
+import { bookmarkTweet, unbookmarkTweet, checkIfTweetBookmarked, getBookmarkCount } from '@/services/bookmarkService';
 import CommentList from '@/components/comment/CommentList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CommentForm from '../comment/CommentForm';
