@@ -31,7 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Layout from '@/components/layout/Layout';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
-import { VisuallyHidden } from '@/radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
