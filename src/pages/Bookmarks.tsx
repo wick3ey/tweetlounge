@@ -7,6 +7,7 @@ import TweetCard from '@/components/tweet/TweetCard';
 import Layout from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/ui/use-toast';
 
 const Bookmarks = () => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
@@ -14,6 +15,7 @@ const Bookmarks = () => {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const { toast } = useToast();
   const tweetsPerPage = 10;
 
   const fetchBookmarkedTweets = async (currentPage: number) => {
@@ -31,6 +33,11 @@ const Bookmarks = () => {
       setHasMore(data.length === tweetsPerPage);
     } catch (error) {
       console.error('Failed to fetch bookmarked tweets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load bookmarked tweets. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -60,12 +67,20 @@ const Bookmarks = () => {
       <div className="max-w-4xl mx-auto">
         <div className="sticky top-0 z-10 backdrop-blur-md bg-black/80 border-b border-gray-800 p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold">Bookmarks</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold flex items-center">
+                <BookmarkX className="h-5 w-5 mr-2 text-crypto-purple" />
+                Bookmarks
+              </h1>
+              <span className="text-gray-500 text-sm">
+                {tweets.length > 0 ? `${tweets.length} saved items` : ''}
+              </span>
+            </div>
             <Button 
-              variant="ghost" 
+              variant="outline" 
               size="sm" 
               onClick={handleRefresh}
-              className="text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+              className="text-sm text-crypto-purple hover:text-crypto-purple hover:bg-crypto-purple/10 border-crypto-purple/30"
             >
               Refresh
             </Button>
@@ -75,18 +90,25 @@ const Bookmarks = () => {
         <div className="divide-y divide-gray-800">
           {loading && page === 0 ? (
             <div className="flex justify-center items-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              <Loader2 className="h-8 w-8 animate-spin text-crypto-purple" />
               <span className="ml-2 text-gray-400">Loading bookmarks...</span>
             </div>
           ) : tweets.length === 0 ? (
             <div className="py-12 text-center">
-              <div className="mx-auto w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-4">
-                <BookmarkX className="h-6 w-6 text-gray-500" />
+              <div className="mx-auto w-16 h-16 rounded-full bg-crypto-purple/10 flex items-center justify-center mb-4">
+                <BookmarkX className="h-8 w-8 text-crypto-purple" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-1">No bookmarks yet</h3>
-              <p className="text-gray-500 text-sm max-w-md mx-auto">
+              <h3 className="text-xl font-semibold text-white mb-2">No bookmarks yet</h3>
+              <p className="text-gray-500 max-w-md mx-auto mb-6">
                 When you bookmark tweets, they'll appear here for easy access later. Bookmark tweets by clicking the bookmark icon.
               </p>
+              <Button
+                onClick={() => navigate('/home')}
+                variant="outline"
+                className="border-crypto-purple text-crypto-purple hover:bg-crypto-purple/10"
+              >
+                Explore posts
+              </Button>
             </div>
           ) : (
             <>
@@ -97,24 +119,30 @@ const Bookmarks = () => {
                     tweet={tweet}
                     onClick={() => handleTweetClick(tweet.id)}
                     onAction={handleRefresh}
+                    onError={(title, description) => {
+                      toast({
+                        title,
+                        description,
+                        variant: "destructive"
+                      });
+                    }}
                   />
                 ))}
               </div>
               
               {hasMore && (
-                <div className="p-4 flex justify-center">
+                <div className="p-6 flex justify-center">
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={handleLoadMore}
                     disabled={loading}
-                    className="border-gray-700 text-gray-300"
+                    className="border-crypto-purple text-crypto-purple hover:bg-crypto-purple/10 min-w-[120px]"
                   >
                     {loading ? (
-                      <>
+                      <div className="flex items-center">
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Loading...
-                      </>
+                      </div>
                     ) : (
                       'Load More'
                     )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -6,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { MessageSquare, Heart, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
+import { bookmarkTweet, unbookmarkTweet, checkIfTweetBookmarked, getBookmarkCount } from '@/services/bookmarkService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -17,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
+import { useToast } from '@/components/ui/use-toast';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -34,10 +37,14 @@ const TweetCard: React.FC<TweetCardProps> = ({
   onError
 }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
+  const [bookmarksCount, setBookmarksCount] = useState(0);
   
   const isOwnTweet = user && tweet.author_id === user.id;
   const displayTweet = tweet;
@@ -47,7 +54,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
     setLikesCount(tweet.likes_count || 0);
     
     if (user) {
-      checkLikeStatus();
+      checkInitialStatuses();
     }
     
     const unsubscribeComments = subscribeToCommentCountUpdates(
@@ -58,17 +65,32 @@ const TweetCard: React.FC<TweetCardProps> = ({
       }
     );
     
+    // Get the initial bookmark count
+    fetchBookmarkCount();
+    
     return () => {
       unsubscribeComments();
     };
   }, [tweet.id, user]);
   
-  const checkLikeStatus = async () => {
+  const checkInitialStatuses = async () => {
     try {
       const liked = await checkIfUserLikedTweet(tweet.id);
       setIsLiked(liked);
+      
+      const bookmarked = await checkIfTweetBookmarked(tweet.id);
+      setIsBookmarked(bookmarked);
     } catch (error) {
-      console.error('Error checking like status:', error);
+      console.error('Error checking tweet statuses:', error);
+    }
+  };
+  
+  const fetchBookmarkCount = async () => {
+    try {
+      const count = await getBookmarkCount(tweet.id);
+      setBookmarksCount(count);
+    } catch (error) {
+      console.error('Error fetching bookmark count:', error);
     }
   };
 
@@ -77,6 +99,11 @@ const TweetCard: React.FC<TweetCardProps> = ({
     
     if (!user) {
       if (onError) onError("Authentication Required", "You must be logged in to like tweets");
+      else toast({
+        title: "Authentication Required",
+        description: "You must be logged in to like tweets",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -96,8 +123,69 @@ const TweetCard: React.FC<TweetCardProps> = ({
     } catch (error) {
       console.error('Error liking tweet:', error);
       if (onError) onError("Error", "Failed to like tweet. Please try again.");
+      else toast({
+        title: "Error",
+        description: "Failed to like tweet. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsActionInProgress(false);
+    }
+  };
+  
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!user) {
+      if (onError) onError("Authentication Required", "You must be logged in to bookmark tweets");
+      else toast({
+        title: "Authentication Required", 
+        description: "You must be logged in to bookmark tweets",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (isBookmarking) return;
+    
+    try {
+      setIsBookmarking(true);
+      
+      let success;
+      if (isBookmarked) {
+        success = await unbookmarkTweet(tweet.id);
+        if (success) {
+          setIsBookmarked(false);
+          setBookmarksCount(prev => Math.max(0, prev - 1));
+          toast({
+            title: "Bookmark Removed",
+            description: "Post removed from your bookmarks"
+          });
+        }
+      } else {
+        success = await bookmarkTweet(tweet.id);
+        if (success) {
+          setIsBookmarked(true);
+          setBookmarksCount(prev => prev + 1);
+          toast({
+            title: "Bookmarked",
+            description: "Post saved to your bookmarks"
+          });
+        }
+      }
+      
+      if (success && onAction) {
+        onAction();
+      }
+    } catch (error) {
+      console.error('Error bookmarking tweet:', error);
+      toast({
+        title: "Error",
+        description: "Failed to bookmark tweet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsBookmarking(false);
     }
   };
   
@@ -119,6 +207,11 @@ const TweetCard: React.FC<TweetCardProps> = ({
     } catch (error) {
       console.error('Error deleting tweet:', error);
       if (onError) onError("Error", "Failed to delete tweet. Please try again.");
+      else toast({
+        title: "Error",
+        description: "Failed to delete tweet. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsActionInProgress(false);
     }
@@ -211,6 +304,10 @@ const TweetCard: React.FC<TweetCardProps> = ({
                     onClick={e => {
                       e.stopPropagation();
                       navigator.clipboard.writeText(window.location.origin + `/tweet/${tweet.id}`);
+                      toast({
+                        title: "Link Copied",
+                        description: "Tweet link copied to clipboard"
+                      });
                     }}
                   >
                     <Link to={`/tweet/${tweet.id}`} className="h-4 w-4 mr-2" onClick={e => e.stopPropagation()} />
@@ -260,10 +357,12 @@ const TweetCard: React.FC<TweetCardProps> = ({
             <Button 
               variant="ghost" 
               size="sm" 
-              className="flex items-center hover:text-crypto-blue hover:bg-crypto-blue/10 p-2 h-8"
-              onClick={e => e.stopPropagation()}
+              className={`flex items-center hover:text-crypto-purple hover:bg-crypto-purple/10 p-2 h-8 ${isBookmarked ? 'text-crypto-purple' : ''}`}
+              onClick={handleBookmark}
+              disabled={isBookmarking}
             >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className={`h-4 w-4 mr-2 ${isBookmarked ? 'fill-current' : ''}`} />
+              <span>{bookmarksCount}</span>
             </Button>
           </div>
         </div>

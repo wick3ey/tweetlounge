@@ -4,7 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
-import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
+import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet, getBookmarkCount } from '@/services/bookmarkService';
 import CommentList from '@/components/comment/CommentList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import CommentForm from '../comment/CommentForm';
@@ -39,6 +39,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const [likesCount, setLikesCount] = useState(tweet?.likes_count || 0);
+  const [bookmarksCount, setBookmarksCount] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,9 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
           const bookmarked = await checkIfTweetBookmarked(tweet.id);
           setIsBookmarked(bookmarked);
+          
+          const bookmarkCount = await getBookmarkCount(tweet.id);
+          setBookmarksCount(bookmarkCount);
         } catch (error) {
           console.error('Error checking tweet statuses:', error);
         }
@@ -152,6 +156,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     
     const newBookmarkedState = !isBookmarked;
     setIsBookmarked(newBookmarkedState);
+    setBookmarksCount(prev => newBookmarkedState ? prev + 1 : Math.max(0, prev - 1));
+    
     setIsBookmarking(true);
 
     try {
@@ -164,6 +170,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
       if (!success) {
         setIsBookmarked(!newBookmarkedState);
+        setBookmarksCount(prev => !newBookmarkedState ? prev + 1 : Math.max(0, prev - 1));
+        
         toast({
           title: "Error",
           description: "Failed to bookmark/unbookmark tweet.",
@@ -182,6 +190,8 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     } catch (error) {
       console.error('Error during bookmark operation:', error);
       setIsBookmarked(!newBookmarkedState);
+      setBookmarksCount(prev => !newBookmarkedState ? prev + 1 : Math.max(0, prev - 1));
+      
       toast({
         title: "Error",
         description: "An unexpected error occurred during the bookmark operation.",
@@ -311,6 +321,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
             disabled={isBookmarking}
           >
             <Bookmark className={`inline-block h-5 w-5 mr-1 ${isBookmarked ? 'fill-current' : ''}`} />
+            <span>{bookmarksCount}</span>
           </button>
           <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
             <Share2 className="inline-block h-5 w-5 mr-1" />
