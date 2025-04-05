@@ -1,29 +1,26 @@
-export type NotificationType = 'like' | 'comment' | 'retweet' | 'follow' | 'mention';
 
-export interface NotificationActor {
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-  isVerified?: boolean;
-}
-
-export interface NotificationTweet {
-  id: string;
-  content: string;
-  createdAt: string;
-}
+export type NotificationType = 
+  | 'like' 
+  | 'reply' 
+  | 'follow' 
+  | 'retweet' 
+  | 'mention'
+  | 'comment';
 
 export interface Notification {
   id: string;
-  userId: string;
-  actorId: string;
-  type: NotificationType;
-  tweetId?: string;
-  commentId?: string;
-  createdAt: string;
+  type: NotificationType | 'system';
+  content: string;
+  created_at: string;
   read: boolean;
-  actor: NotificationActor;
-  tweet?: NotificationTweet;
-  referencedTweet?: NotificationTweet;
-  // We won't add any deletion flag since we want to keep all notifications
+  sender?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  };
+  tweet?: {
+    id: string;
+    content: string;
+  };
 }

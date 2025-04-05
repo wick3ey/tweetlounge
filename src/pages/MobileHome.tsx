@@ -4,11 +4,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import MobileLayout from '@/components/layout/MobileLayout';
 import TweetFeed from '@/components/tweet/TweetFeed';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 
 const MobileHome: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(false);
   const { user } = useAuth();
+  const { profile } = useProfile();
   const isMobile = useIsMobile();
 
   // This component should only render on mobile devices
