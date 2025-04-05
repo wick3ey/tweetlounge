@@ -2,13 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { VerifiedIcon } from '@radix-ui/react-icons';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { MoreHorizontal, Heart, MessageSquare, Repeat, Share2, Bookmark, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageSquare, Repeat, Share2, Bookmark, Trash2, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { likeTweet, retweet, checkIfUserLikedTweet, checkIfUserRetweetedTweet, deleteTweet } from '@/services/tweetService';
-import { checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
+import { addBookmark, removeBookmark, checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
 import { useToast } from '@/components/ui/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/lib/supabase';
@@ -287,7 +286,9 @@ const TweetCard: React.FC<TweetCardProps> = ({
             <div>
               <Link to={`/profile/${tweet.author?.username}`} className="font-medium hover:underline">
                 {tweet.author?.display_name}
-                {tweet.author?.username === 'kryptoe2x' && <VerifiedIcon className="inline-block h-4 w-4 text-crypto-blue ml-1" />}
+                {tweet.author?.username === 'kryptoe2x' && (
+                  <CheckCircle className="inline-block h-4 w-4 text-crypto-blue ml-1" />
+                )}
               </Link>{' '}
               <span className="text-gray-500">@{tweet.author?.username}</span> ·{' '}
               <span className="text-gray-500">{formatDistanceToNow(new Date(tweet.created_at), { addSuffix: true })}</span>

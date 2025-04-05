@@ -2,7 +2,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
 import { updateTweetCount } from '@/utils/tweetCacheService';
-import { checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
 
 /**
  * Add a tweet to user's bookmarks
@@ -134,7 +133,7 @@ export const checkIfTweetBookmarked = async (tweetId: string): Promise<boolean> 
 /**
  * Get all bookmarked tweets for the current user
  */
-export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
+export const getBookmarkedTweets = async (limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> => {
   try {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
@@ -145,6 +144,7 @@ export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
       .from('bookmarks')
       .select(`
         tweet_id,
+        created_at,
         tweets:tweet_id (
           id,
           content,
@@ -168,7 +168,8 @@ export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
         )
       `)
       .eq('user_id', userData.user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Error fetching bookmarks:', error.message);
@@ -189,6 +190,7 @@ export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
         retweets_count: tweet.retweets_count || 0,
         replies_count: tweet.replies_count || 0,
         bookmarks_count: tweet.bookmarks_count || 0,
+        bookmarked_at: bookmark.created_at,
         author: createPartialProfile(tweet.profiles)
       };
     });
@@ -201,30 +203,33 @@ export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
 };
 
 /**
- * Check if a tweet is bookmarked by a specific user
+ * Check if a tweet is bookmarked by the current user
+ * This is just an alias for checkIfTweetBookmarked for clarity
  */
 export const checkIfUserBookmarkedTweet = async (tweetId: string): Promise<boolean> => {
+  return checkIfTweetBookmarked(tweetId);
+};
+
+/**
+ * Get the bookmark count for a tweet
+ */
+export const getBookmarkCount = async (tweetId: string): Promise<number> => {
   try {
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      return false;
+    const { data, error } = await supabase
+      .from('tweets')
+      .select('bookmarks_count')
+      .eq('id', tweetId)
+      .single();
+    
+    if (error || !data) {
+      console.error('Error getting bookmark count:', error?.message);
+      return 0;
     }
-
-    const { count, error } = await supabase
-      .from('bookmarks')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userData.user.id)
-      .eq('tweet_id', tweetId);
-
-    if (error) {
-      console.error('Error checking if tweet is bookmarked:', error.message);
-      return false;
-    }
-
-    return !!count;
+    
+    return data.bookmarks_count || 0;
   } catch (error) {
-    console.error('Error in checkIfUserBookmarkedTweet:', error);
-    return false;
+    console.error('Error in getBookmarkCount:', error);
+    return 0;
   }
 };
 
