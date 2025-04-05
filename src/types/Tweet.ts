@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   username: string;
@@ -53,16 +54,11 @@ export interface TweetWithAuthor {
   likes_count: number;
   retweets_count: number;
   replies_count: number;
-  bookmarks_count?: number; // Added bookmarks_count
+  bookmarks_count?: number;
   is_retweet: boolean;
   original_tweet_id?: string;
   image_url?: string;
-  bookmarked_at?: string; // For bookmark view
-  author?: {
-    username: string;
-    display_name: string;
-    avatar_url?: string;
-    avatar_nft_id?: string;
-    avatar_nft_chain?: string;
-  };
+  bookmarked_at?: string;
+  author?: Profile;
+  original_author?: Profile; // Added original_author property
 }

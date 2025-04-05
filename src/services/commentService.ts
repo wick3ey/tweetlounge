@@ -71,7 +71,7 @@ export const createComment = async (
   try {
     const { data: userData } = await supabase.auth.getUser();
     
-    if (!user || !user.user) {
+    if (!userData || !userData.user) {
       console.error('No authenticated user found when creating comment');
       return null;
     }
@@ -88,7 +88,7 @@ export const createComment = async (
       .insert({
         content,
         tweet_id: tweetId,
-        user_id: user.user.id,
+        user_id: userData.user.id,
         parent_reply_id: parentCommentId || null
       })
       .select(`
