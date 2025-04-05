@@ -156,12 +156,25 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Decrement like count directly
+      // First get the current like count
+      const { data: commentData, error: fetchError } = await supabase
+        .from('comments')
+        .select('likes_count')
+        .eq('id', commentId)
+        .single();
+      
+      if (fetchError || commentData === null) {
+        console.error('Error fetching comment like count:', fetchError?.message);
+        return false;
+      }
+      
+      // Decrement the count manually
+      const newCount = Math.max(0, (commentData.likes_count || 1) - 1);
+      
+      // Then update with the new count
       const { error: updateError } = await supabase
         .from('comments')
-        .update({ 
-          likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) 
-        })
+        .update({ likes_count: newCount })
         .eq('id', commentId);
       
       if (updateError) {
@@ -182,12 +195,25 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Increment like count directly
+      // First get the current like count
+      const { data: commentData, error: fetchError } = await supabase
+        .from('comments')
+        .select('likes_count')
+        .eq('id', commentId)
+        .single();
+      
+      if (fetchError || commentData === null) {
+        console.error('Error fetching comment like count:', fetchError?.message);
+        return false;
+      }
+      
+      // Increment the count manually
+      const newCount = (commentData.likes_count || 0) + 1;
+      
+      // Then update with the new count
       const { error: updateError } = await supabase
         .from('comments')
-        .update({ 
-          likes_count: supabase.rpc('increment_counter', { row_id: commentId })
-        })
+        .update({ likes_count: newCount })
         .eq('id', commentId);
       
       if (updateError) {
