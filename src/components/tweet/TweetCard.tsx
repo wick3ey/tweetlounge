@@ -1,15 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, MoreHorizontal, Trash2, Share2, Repeat, RepeatIcon } from 'lucide-react';
+import { MessageSquare, Heart, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import {
   likeTweet,
   deleteTweet,
-  checkIfUserLikedTweet,
-  repostTweet,
-  checkIfUserRepostedTweet
+  checkIfUserLikedTweet
 } from '@/services/tweetService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -41,11 +40,9 @@ const TweetCard: React.FC<TweetCardProps> = ({
 }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
-  const [isReposted, setIsReposted] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
-  const [repostsCount, setRepostsCount] = useState(tweet.retweets_count || 0);
 
   const isOwnTweet = user && tweet.author_id === user.id;
   const displayTweet = tweet;
@@ -56,11 +53,9 @@ const TweetCard: React.FC<TweetCardProps> = ({
 
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
-    setRepostsCount(tweet.retweets_count || 0);
 
     if (user) {
       checkLikeStatus();
-      checkRepostStatus();
     }
 
     const unsubscribeComments = subscribeToCommentCountUpdates(
@@ -82,15 +77,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
       setIsLiked(liked);
     } catch (error) {
       console.error('Error checking like status:', error);
-    }
-  };
-
-  const checkRepostStatus = async () => {
-    try {
-      const reposted = await checkIfUserRepostedTweet(tweet.id);
-      setIsReposted(reposted);
-    } catch (error) {
-      console.error('Error checking repost status:', error);
     }
   };
 
@@ -118,35 +104,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     } catch (error) {
       console.error('Error liking tweet:', error);
       if (onError) onError("Error", "Failed to like tweet. Please try again.");
-    } finally {
-      setIsActionInProgress(false);
-    }
-  };
-
-  const handleRepost = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (!user) {
-      if (onError) onError("Authentication Required", "You must be logged in to repost tweets");
-      return;
-    }
-
-    if (isActionInProgress) return;
-
-    try {
-      setIsActionInProgress(true);
-
-      const success = await repostTweet(tweet.id, isReposted);
-
-      if (success) {
-        setIsReposted(!isReposted);
-        setRepostsCount(prev => isReposted ? prev - 1 : prev + 1);
-
-        if (onAction) onAction();
-      }
-    } catch (error) {
-      console.error('Error reposting tweet:', error);
-      if (onError) onError("Error", "Failed to repost tweet. Please try again.");
     } finally {
       setIsActionInProgress(false);
     }
@@ -202,7 +159,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     >
       {tweet.is_retweet && (
         <div className="flex items-center text-gray-500 text-sm mb-2">
-          <Repeat className="h-3 w-3 mr-2" />
           <span>
             Reposted by {" "}
             <Link to={`/profile/${tweet.author?.username || 'user'}`} className="hover:underline" onClick={e => e.stopPropagation()}>
@@ -310,17 +266,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               <span>{repliesCount}</span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`flex items-center p-2 h-8 ${isReposted ? 'text-green-500 hover:text-green-600 hover:bg-green-500/10' : 'hover:text-green-500 hover:bg-green-500/10'}`}
-              onClick={handleRepost}
-              disabled={isActionInProgress}
-            >
-              <Repeat className={`h-4 w-4 mr-2 ${isReposted ? 'fill-green-500' : ''}`} />
-              <span>{repostsCount}</span>
             </Button>
 
             <Button

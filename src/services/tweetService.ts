@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, enhanceTweetData } from '@/types/Tweet';
 import { fetchTweetsWithCache, CACHE_KEYS, getTweetCacheKey } from '@/utils/tweetCacheService';
@@ -63,7 +64,7 @@ export const getTweetsForUser = async (
             cacheKey,
             async () => {
                 const { data, error } = await supabase
-                    .rpc('get_user_tweets_optimized', {
+                    .rpc('get_user_tweets_reliable', {
                         user_id: userId,
                         limit_count: limit,
                         offset_count: offset
@@ -91,6 +92,9 @@ export const getTweetsForUser = async (
     }
 };
 
+// For backward compatibility with components
+export const getUserTweets = getTweetsForUser;
+
 // Fetch a single tweet by ID
 export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | null> => {
     try {
@@ -102,7 +106,7 @@ export const getTweetById = async (tweetId: string): Promise<TweetWithAuthor | n
             cacheKey,
             async () => {
                 const { data, error } = await supabase
-                    .rpc('get_tweet_with_author_optimized', { tweet_id: tweetId });
+                    .rpc('get_tweet_with_author_reliable', { tweet_id: tweetId });
 
                 if (error) {
                     console.error(`[getTweetById] Error fetching tweet with ID ${tweetId}:`, error);
@@ -134,7 +138,7 @@ interface CreateTweetParams {
 }
 
 // Create a new tweet
-export const createTweet = async (content: string, imageFile?: File, is_retweet: boolean = false, original_tweet_id: string | null = null): Promise<any> => {
+export const createTweet = async (content: string, imageFile?: File): Promise<any> => {
     try {
         console.debug(`[createTweet] Creating tweet with content length: ${content.length}, hasImage: ${!!imageFile}`);
 
@@ -154,7 +158,9 @@ export const createTweet = async (content: string, imageFile?: File, is_retweet:
                 throw storageError;
             }
 
-            imageUrl = `${supabase.storageUrl}/tweet-images/${storageData.path}`;
+            // Construct the image URL using the public URL format
+            const publicURL = `${supabase.supabaseUrl}/storage/v1/object/public/tweet-images/${storageData.path}`;
+            imageUrl = publicURL;
             console.debug(`[createTweet] Image uploaded successfully. URL: ${imageUrl}`);
         }
 
@@ -170,9 +176,7 @@ export const createTweet = async (content: string, imageFile?: File, is_retweet:
         const tweetParams: CreateTweetParams = {
             content,
             image_url: imageUrl,
-            author_id,
-            is_retweet,
-            original_tweet_id
+            author_id
         };
 
         console.debug(`[createTweet] Inserting tweet into database`);
@@ -224,6 +228,79 @@ export const deleteTweet = async (tweetId: string): Promise<boolean> => {
             description: "Failed to delete tweet. Please try again.",
             variant: "destructive"
         });
+        return false;
+    }
+};
+
+// Check if a user liked a tweet
+export const checkIfUserLikedTweet = async (tweetId: string): Promise<boolean> => {
+    try {
+        const { data: user } = await supabase.auth.getUser();
+        if (!user || !user.user?.id) return false;
+
+        const { data, error } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('tweet_id', tweetId)
+            .eq('user_id', user.user.id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error checking like status:', error);
+            return false;
+        }
+
+        return !!data;
+    } catch (error) {
+        console.error('Error in checkIfUserLikedTweet:', error);
+        return false;
+    }
+};
+
+// Like or unlike a tweet
+export const likeTweet = async (tweetId: string, isCurrentlyLiked: boolean = false): Promise<boolean> => {
+    try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (!authData || !authData.user) {
+            console.error('User not authenticated');
+            return false;
+        }
+
+        const userId = authData.user.id;
+
+        if (isCurrentlyLiked) {
+            // Unlike the tweet
+            const { error } = await supabase
+                .from('likes')
+                .delete()
+                .eq('tweet_id', tweetId)
+                .eq('user_id', userId);
+
+            if (error) {
+                console.error('Error unliking tweet:', error);
+                return false;
+            }
+
+            return true;
+        } else {
+            // Like the tweet
+            const { error } = await supabase
+                .from('likes')
+                .insert([{ tweet_id: tweetId, user_id: userId }]);
+
+            if (error) {
+                // If duplicate key error, the tweet is already liked
+                if (error.code === '23505') {
+                    return true;
+                }
+                console.error('Error liking tweet:', error);
+                return false;
+            }
+
+            return true;
+        }
+    } catch (error) {
+        console.error('Error in likeTweet:', error);
         return false;
     }
 };

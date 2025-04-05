@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -101,7 +100,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
       const tweetIdToLike = tweet.id;
 
       if (tweetIdToLike) {
-        const success = await likeTweet(tweetIdToLike);
+        const success = await likeTweet(tweetIdToLike, isLiked);
         
         if (!success && mountedRef.current) {
           setIsLiked(!newLikedState);

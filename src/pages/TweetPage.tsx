@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -306,7 +305,7 @@ const TweetPage = () => {
     setIsLiking(true);
 
     try {
-      const success = await likeTweet(tweetId);
+      const success = await likeTweet(tweetId, isLiked);
       if (success) {
         // Update UI immediately
         const newLikedState = !isLiked;
