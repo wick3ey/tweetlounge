@@ -242,16 +242,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
   return (
     <div className="bg-black text-white rounded-lg shadow-md relative max-h-[90vh] flex flex-col">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onClose}
-        className="absolute top-2 right-2 text-white hover:bg-gray-800 rounded-full z-10"
-      >
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </Button>
-
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-start space-x-3">
           <Avatar className="h-10 w-10">
