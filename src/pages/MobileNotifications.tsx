@@ -9,10 +9,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare, Heart, Repeat2, Bell, User, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { NotificationType } from '@/types/Notification';
 
 interface Notification {
   id: string;
-  type: 'like' | 'reply' | 'follow' | 'retweet' | 'mention' | 'system';
+  type: NotificationType | 'system';
   content: string;
   created_at: string;
   read: boolean;
@@ -66,7 +67,18 @@ const MobileNotifications = () => {
       
       if (error) throw error;
       
-      setNotifications(data || []);
+      // Transform the data to match our Notification interface
+      const formattedNotifications: Notification[] = (data || []).map((notif: any) => ({
+        id: notif.id,
+        type: notif.type,
+        content: notif.content,
+        created_at: notif.created_at,
+        read: notif.read,
+        sender: notif.sender || undefined,
+        tweet: notif.tweet || undefined
+      }));
+      
+      setNotifications(formattedNotifications);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -107,6 +119,7 @@ const MobileNotifications = () => {
       case 'like':
         return <Heart className="h-4 w-4 text-red-500" />;
       case 'reply':
+      case 'comment':
         return <MessageSquare className="h-4 w-4 text-blue-500" />;
       case 'follow':
         return <User className="h-4 w-4 text-blue-500" />;

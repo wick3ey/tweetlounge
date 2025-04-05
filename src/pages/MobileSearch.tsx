@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Search, X, TrendingUp, User, MessageCircle, ArrowUpRight } from 'lucide-react';
+import { Search, X, TrendingUp, User, MessageSquare as MessageSquareIcon, ArrowUpRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,6 +16,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useCryptoData } from '@/utils/coingeckoService';
 import { useNewsData } from '@/utils/newsService';
+
+// Extending the NewsArticle interface to include the optional image property
+interface ExtendedNewsArticle extends Omit<import('@/utils/newsService').NewsArticle, 'image'> {
+  image?: string;
+}
 
 const MobileSearch = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,7 +36,10 @@ const MobileSearch = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { cryptoData } = useCryptoData();
-  const { newsArticles } = useNewsData();
+  const { newsArticles: originalNewsArticles } = useNewsData();
+  
+  // Convert the original news articles to extended ones with optional image
+  const newsArticles = originalNewsArticles as ExtendedNewsArticle[];
   
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -324,7 +332,7 @@ const MobileSearch = () => {
                     <p className="text-white text-sm mt-1 line-clamp-2">{tweet.content}</p>
                     <div className="flex items-center mt-2 space-x-4">
                       <div className="flex items-center text-gray-500 text-xs">
-                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                        <MessageSquareIcon className="h-3.5 w-3.5 mr-1" />
                         {tweet.comments_count || 0}
                       </div>
                       <div className="flex items-center text-gray-500 text-xs">
