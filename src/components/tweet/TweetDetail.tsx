@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow, format } from 'date-fns';
-import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal, X, Repeat } from 'lucide-react';
+import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal, X } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
-import { checkIfUserLikedTweet, likeTweet, deleteTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
+import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import CommentList from '@/components/comment/CommentList';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,13 +38,10 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isRetweeted, setIsRetweeted] = useState(false);
   const [repliesCount, setRepliesCount] = useState(tweet?.replies_count || 0);
   const [likesCount, setLikesCount] = useState(tweet?.likes_count || 0);
-  const [retweetsCount, setRetweetsCount] = useState(tweet?.retweets_count || 0);
   const [isLiking, setIsLiking] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
-  const [isRetweeting, setIsRetweeting] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const mountedRef = useRef(true);
@@ -58,7 +55,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
   useEffect(() => {
     setLikesCount(tweet?.likes_count || 0);
-    setRetweetsCount(tweet?.retweets_count || 0);
     
     const checkStatuses = async () => {
       if (tweet?.id && user) {
@@ -68,9 +64,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
           const bookmarked = await checkIfTweetBookmarked(tweet.id);
           if (mountedRef.current) setIsBookmarked(bookmarked);
-          
-          const retweeted = await checkIfUserRetweetedTweet(tweet.id);
-          if (mountedRef.current) setIsRetweeted(retweeted);
         } catch (error) {
           console.error('Error checking tweet statuses:', error);
         }
@@ -78,7 +71,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     };
     
     checkStatuses();
-  }, [tweet?.id, tweet?.likes_count, tweet?.retweets_count, user]);
+  }, [tweet?.id, tweet?.likes_count, user]);
 
   const handleCommentCountUpdated = (count: number) => {
     if (mountedRef.current) {
@@ -150,78 +143,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     } finally {
       if (mountedRef.current) {
         setIsLiking(false);
-      }
-    }
-  };
-
-  const toggleRetweet = async () => {
-    if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to repost this tweet.",
-      });
-      return;
-    }
-
-    if (isRetweeting) return;
-    
-    const newRetweetedState = !isRetweeted;
-    setIsRetweeted(newRetweetedState);
-    setRetweetsCount(prev => newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-    
-    setIsRetweeting(true);
-
-    try {
-      const tweetIdToRetweet = tweet.id;
-
-      if (tweetIdToRetweet) {
-        const success = await retweet(tweetIdToRetweet, isRetweeted);
-        
-        if (!success && mountedRef.current) {
-          setIsRetweeted(!newRetweetedState);
-          setRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-          
-          toast({
-            title: "Error",
-            description: "Failed to repost/unrepost tweet.",
-            variant: "destructive",
-          });
-        } else if (newRetweetedState) {
-          toast({
-            title: "Reposted",
-            description: "You reposted this tweet",
-          });
-        } else {
-          toast({
-            title: "Removed",
-            description: "Removed from your reposts",
-          });
-        }
-        
-        if (success) {
-          setTimeout(() => {
-            if (mountedRef.current && onAction) {
-              onAction();
-            }
-          }, 1000);
-        }
-      }
-    } catch (error) {
-      console.error('Error retweeting tweet:', error);
-      
-      if (mountedRef.current) {
-        setIsRetweeted(!newRetweetedState);
-        setRetweetsCount(prev => !newRetweetedState ? prev + 1 : Math.max(0, prev - 1));
-        
-        toast({
-          title: "Error",
-          description: "An unexpected error occurred during the repost operation.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      if (mountedRef.current) {
-        setIsRetweeting(false);
       }
     }
   };
@@ -362,20 +283,12 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
 
         <div className="flex mt-4 text-sm text-gray-500 space-x-6">
           <span>{repliesCount} {repliesCount === 1 ? 'Comment' : 'Comments'}</span>
-          <span>{retweetsCount} {retweetsCount === 1 ? 'Repost' : 'Reposts'}</span>
           <span>{likesCount} {likesCount === 1 ? 'Like' : 'Likes'}</span>
         </div>
 
         <div className="mt-3 pt-3 border-t border-gray-800 flex justify-between text-gray-500">
           <button className="hover:text-crypto-blue focus:outline-none transition-colors duration-100">
             <MessageSquare className="inline-block h-5 w-5 mr-1" />
-          </button>
-          <button 
-            onClick={toggleRetweet} 
-            className={`hover:text-crypto-green focus:outline-none ${isRetweeted ? 'text-crypto-green' : ''} transition-colors duration-100`}
-            disabled={isRetweeting}
-          >
-            <Repeat className={`inline-block h-5 w-5 mr-1 ${isRetweeted ? 'fill-current' : ''}`} />
           </button>
           <button 
             onClick={toggleLike} 

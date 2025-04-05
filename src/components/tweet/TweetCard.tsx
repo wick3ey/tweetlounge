@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, MoreHorizontal, Trash2, Repeat, Share2 } from 'lucide-react';
+import { MessageSquare, Heart, MoreHorizontal, Trash2, Share2 } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
-import { likeTweet, deleteTweet, checkIfUserLikedTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
+import { likeTweet, deleteTweet, checkIfUserLikedTweet } from '@/services/tweetService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -36,10 +36,8 @@ const TweetCard: React.FC<TweetCardProps> = ({
 }) => {
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
-  const [isRetweeted, setIsRetweeted] = useState(false);
   const [isActionInProgress, setIsActionInProgress] = useState(false);
   const [likesCount, setLikesCount] = useState(tweet.likes_count || 0);
-  const [retweetsCount, setRetweetsCount] = useState(tweet.retweets_count || 0);
   const [repliesCount, setRepliesCount] = useState(tweet.replies_count || 0);
   
   const isOwnTweet = user && tweet.author_id === user.id;
@@ -48,11 +46,9 @@ const TweetCard: React.FC<TweetCardProps> = ({
   
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
-    setRetweetsCount(tweet.retweets_count || 0);
     
     if (user) {
       checkLikeStatus();
-      checkRetweetStatus();
     }
     
     const unsubscribeComments = subscribeToCommentCountUpdates(
@@ -74,15 +70,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
       setIsLiked(liked);
     } catch (error) {
       console.error('Error checking like status:', error);
-    }
-  };
-
-  const checkRetweetStatus = async () => {
-    try {
-      const retweeted = await checkIfUserRetweetedTweet(tweet.id);
-      setIsRetweeted(retweeted);
-    } catch (error) {
-      console.error('Error checking retweet status:', error);
     }
   };
 
@@ -110,35 +97,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
     } catch (error) {
       console.error('Error liking tweet:', error);
       if (onError) onError("Error", "Failed to like tweet. Please try again.");
-    } finally {
-      setIsActionInProgress(false);
-    }
-  };
-
-  const handleRetweet = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    if (!user) {
-      if (onError) onError("Authentication Required", "You must be logged in to repost tweets");
-      return;
-    }
-    
-    if (isActionInProgress) return;
-    
-    try {
-      setIsActionInProgress(true);
-      
-      const success = await retweet(tweet.id, isRetweeted);
-      
-      if (success) {
-        setIsRetweeted(!isRetweeted);
-        setRetweetsCount(prev => isRetweeted ? prev - 1 : prev + 1);
-        
-        if (onAction) onAction();
-      }
-    } catch (error) {
-      console.error('Error retweeting:', error);
-      if (onError) onError("Error", "Failed to repost tweet. Please try again.");
     } finally {
       setIsActionInProgress(false);
     }
@@ -287,17 +245,6 @@ const TweetCard: React.FC<TweetCardProps> = ({
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               <span>{repliesCount}</span>
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className={`flex items-center p-2 h-8 ${isRetweeted ? 'text-crypto-green hover:text-crypto-green/80 hover:bg-crypto-green/10' : 'hover:text-crypto-green hover:bg-crypto-green/10'}`}
-              onClick={handleRetweet}
-              disabled={isActionInProgress}
-            >
-              <Repeat className={`h-4 w-4 mr-2 ${isRetweeted ? 'fill-current' : ''}`} />
-              <span>{retweetsCount}</span>
             </Button>
             
             <Button 
