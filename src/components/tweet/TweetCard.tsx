@@ -45,19 +45,21 @@ const TweetCard: React.FC<TweetCardProps> = ({
   
   useEffect(() => {
     setLikesCount(tweet.likes_count || 0);
-    setRepliesCount(tweet.replies_count || 0);
     
     if (user) {
       checkLikeStatus();
     }
     
-    const unsubscribe = subscribeToCommentCountUpdates(
+    const unsubscribeComments = subscribeToCommentCountUpdates(
       tweet.id,
-      (count) => setRepliesCount(count)
+      (count) => {
+        console.log(`[TweetCard] Received comment count update for tweet ${tweet.id}: ${count}`);
+        setRepliesCount(count);
+      }
     );
     
     return () => {
-      unsubscribe();
+      unsubscribeComments();
     };
   }, [tweet.id, user]);
   

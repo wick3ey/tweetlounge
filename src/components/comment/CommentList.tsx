@@ -4,11 +4,7 @@ import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  getExactCommentCount, 
-  syncCommentCount, 
-  subscribeToCommentCountUpdates 
-} from '@/services/commentCountService';
+import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -19,7 +15,7 @@ interface CommentListProps {
 const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated, onAction }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalComments, setTotalComments] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
 
   useEffect(() => {
     if (!tweetId) return;
@@ -27,9 +23,12 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     // Initial data load
     fetchComments();
     
-    // Set up realtime subscriptions
+    // Set up realtime subscriptions for comment count updates
     const unsubscribe = subscribeToCommentCountUpdates(tweetId, (count) => {
-      setTotalComments(count);
+      console.log(`[CommentList] Received updated comment count: ${count}`);
+      setCommentCount(count);
+      
+      // Propagate count update to parent components if needed
       if (onCommentCountUpdated) {
         onCommentCountUpdated(count);
       }
@@ -38,7 +37,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     return () => {
       unsubscribe();
     };
-  }, [tweetId]);
+  }, [tweetId, onCommentCountUpdated]);
 
   const fetchComments = async () => {
     if (!tweetId) return;
@@ -73,14 +72,6 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         return;
       }
       
-      // Get initial comment count and sync with database
-      const count = await syncCommentCount(tweetId);
-      setTotalComments(count);
-      
-      if (onCommentCountUpdated) {
-        onCommentCountUpdated(count);
-      }
-      
       if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
           id: comment.id,
@@ -89,7 +80,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           tweet_id: comment.tweet_id,
           parent_comment_id: comment.parent_reply_id,
           created_at: comment.created_at,
-          likes_count: comment.likes_count,
+          likes_count: comment.likes_count || 0,
           author: {
             username: comment.profiles.username,
             display_name: comment.profiles.display_name,
@@ -127,7 +118,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
   return (
     <div className="space-y-2">
       <div className="text-gray-500 font-medium py-2 border-b border-gray-800">
-        {totalComments} {totalComments === 1 ? 'Comment' : 'Comments'}
+        {commentCount} {commentCount === 1 ? 'Comment' : 'Comments'}
       </div>
       
       {comments.length === 0 ? (

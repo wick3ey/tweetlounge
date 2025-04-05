@@ -102,9 +102,9 @@ export const createComment = async (
       return null;
     }
     
-    // Update the comment count for the tweet using our new service
+    // Update the comment count for the tweet using our dedicated service
     const newCount = await syncCommentCount(tweetId);
-    console.log(`CommentService: Comment created: tweet ${tweetId} now has ${newCount} comments`);
+    console.log(`Comment created: tweet ${tweetId} now has ${newCount} comments`);
     
     // Update the tweet cache with the new count
     updateTweetInCache(tweetId, (tweet) => ({

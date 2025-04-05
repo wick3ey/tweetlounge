@@ -43,11 +43,9 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   const [isBookmarking, setIsBookmarking] = useState(false);
   const commentListRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const [showComments, setShowComments] = useState(true);
 
   useEffect(() => {
     setLikesCount(tweet?.likes_count || 0);
-    setRepliesCount(tweet?.replies_count || 0);
     
     const checkStatuses = async () => {
       if (tweet?.id && user) {
@@ -68,14 +66,17 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     if (tweet?.id) {
       const unsubscribe = subscribeToCommentCountUpdates(
         tweet.id,
-        (count) => setRepliesCount(count)
+        (count) => {
+          console.log(`[TweetDetail] Received comment count update for tweet ${tweet.id}: ${count}`);
+          setRepliesCount(count);
+        }
       );
       
       return () => {
         unsubscribe();
       };
     }
-  }, [tweet?.id, tweet?.likes_count, tweet?.replies_count, user]);
+  }, [tweet?.id, tweet?.likes_count, user]);
 
   const toggleLike = async () => {
     if (!user) {
@@ -216,6 +217,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
   };
 
   const handleCommentCountUpdated = (count: number) => {
+    console.log(`[TweetDetail] Comment count updated from CommentList: ${count}`);
     setRepliesCount(count);
   };
 
