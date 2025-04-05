@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileLayout from '@/components/layout/MobileLayout';
@@ -9,25 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MessageSquare, Heart, Repeat2, Bell, User, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { NotificationType } from '@/types/Notification';
-
-interface Notification {
-  id: string;
-  type: NotificationType | 'system';
-  content: string;
-  created_at: string;
-  read: boolean;
-  sender?: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-  };
-  tweet?: {
-    id: string;
-    content: string;
-  };
-}
+import { Notification, NotificationType } from '@/types/Notification';
 
 const MobileNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -70,12 +51,20 @@ const MobileNotifications = () => {
       // Transform the data to match our Notification interface
       const formattedNotifications: Notification[] = (data || []).map((notif: any) => ({
         id: notif.id,
-        type: notif.type,
+        type: notif.type as NotificationType,
         content: notif.content,
         created_at: notif.created_at,
         read: notif.read,
-        sender: notif.sender || undefined,
-        tweet: notif.tweet || undefined
+        actor: notif.sender ? {
+          id: notif.sender.id,
+          username: notif.sender.username,
+          displayName: notif.sender.display_name,
+          avatarUrl: notif.sender.avatar_url
+        } : undefined,
+        tweet: notif.tweet ? {
+          id: notif.tweet.id,
+          content: notif.tweet.content
+        } : undefined
       }));
       
       setNotifications(formattedNotifications);
@@ -171,9 +160,9 @@ const MobileNotifications = () => {
                         </div>
                       ) : (
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={notification.sender?.avatar_url} />
+                          <AvatarImage src={notification.actor?.avatarUrl} />
                           <AvatarFallback className="bg-blue-500/20">
-                            {notification.sender?.username.substring(0, 2).toUpperCase() || 'TX'}
+                            {notification.actor?.username.substring(0, 2).toUpperCase() || 'TX'}
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -183,9 +172,9 @@ const MobileNotifications = () => {
                       <div className="flex items-start">
                         <div className="mr-2">{getNotificationIcon(notification.type)}</div>
                         <div>
-                          {notification.sender && (
+                          {notification.actor && (
                             <span className="font-bold text-white">
-                              {notification.sender.display_name || notification.sender.username}
+                              {notification.actor.displayName || notification.actor.username}
                             </span>
                           )}
                           <span className="text-gray-300"> {notification.content}</span>

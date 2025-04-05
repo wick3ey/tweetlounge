@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import TweetCard from './TweetCard';
@@ -9,9 +8,10 @@ import { Loader } from 'lucide-react';
 interface TweetFeedProps {
   forceRefresh?: boolean;
   userId?: string;
+  onAction?: () => void; // handler for tweet interactions
 }
 
-const TweetFeed: React.FC<TweetFeedProps> = ({ forceRefresh = false, userId }) => {
+const TweetFeed: React.FC<TweetFeedProps> = ({ forceRefresh = false, userId, onAction }) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -51,6 +51,11 @@ const TweetFeed: React.FC<TweetFeedProps> = ({ forceRefresh = false, userId }) =
     // Re-fetch tweets after an action (like, retweet, etc.)
     // This is simple but not optimal for large lists - a better solution would update the specific tweet
     getTweets(20, 0, true).then(setTweets);
+    
+    // If parent component provided an onAction handler, call it
+    if (onAction) {
+      onAction();
+    }
   };
 
   const handleError = (title: string, description: string) => {

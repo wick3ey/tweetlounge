@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react'
 import Header from '@/components/layout/Header'
 import CryptoTicker from '@/components/crypto/CryptoTicker'
@@ -325,7 +324,7 @@ const Home: React.FC = () => {
               <ScrollArea className="flex-1">
                 <TweetFeed 
                   key={feedKey} 
-                  onCommentAdded={handleRefresh} 
+                  onAction={handleRefresh} 
                   forceRefresh={feedKey > 0}
                 />
               </ScrollArea>

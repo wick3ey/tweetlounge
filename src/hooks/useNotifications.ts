@@ -178,7 +178,8 @@ export function useNotifications() {
               type: payload.new.type as NotificationType,
               tweetId: payload.new.tweet_id,
               commentId: payload.new.comment_id,
-              createdAt: payload.new.created_at,
+              content: '',
+              created_at: payload.new.created_at,
               read: payload.new.read,
               actor: {
                 username: actorData.username,

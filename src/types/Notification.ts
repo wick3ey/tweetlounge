@@ -5,21 +5,32 @@ export type NotificationType =
   | 'follow' 
   | 'retweet' 
   | 'mention'
-  | 'comment';
+  | 'comment'
+  | 'system'; // Added system as a valid notification type
 
 export interface Notification {
   id: string;
-  type: NotificationType | 'system';
+  type: NotificationType;
   content: string;
   created_at: string;
   read: boolean;
-  sender?: {
-    id: string;
+  userId?: string;
+  actorId?: string;
+  tweetId?: string;
+  commentId?: string;
+  actor?: {
+    id?: string;
     username: string;
-    display_name: string;
-    avatar_url: string;
+    displayName: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
   };
   tweet?: {
+    id: string;
+    content: string;
+    createdAt?: string;
+  };
+  referencedTweet?: {
     id: string;
     content: string;
   };

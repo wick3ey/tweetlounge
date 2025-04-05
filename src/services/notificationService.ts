@@ -87,6 +87,7 @@ export async function getNotifications(userId: string) {
         
         const tweetData = notification.tweet_id ? tweetsMap[notification.tweet_id] : null;
 
+        // Format notification to match our updated type
         return {
           id: notification.id,
           userId: notification.user_id,
@@ -94,7 +95,8 @@ export async function getNotifications(userId: string) {
           type: notification.type as NotificationType,
           tweetId: notification.tweet_id,
           commentId: notification.comment_id,
-          createdAt: notification.created_at,
+          content: '', // Add a default content property 
+          created_at: notification.created_at,
           read: notification.read,
           actor: {
             username: actorProfile.username,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo, memo, Suspense, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -88,6 +87,8 @@ const NotificationIcon = memo(({ type }: { type: NotificationType }) => {
 const NotificationText = memo(({ notification }: { notification: Notification }) => {
   const { type, actor, commentId } = notification;
   
+  if (!actor) return <span>New notification</span>;
+  
   switch (type) {
     case 'like':
       if (commentId) {
@@ -153,8 +154,8 @@ const NotificationItem = memo(({
   isPriority?: boolean
 }) => {
   const formattedTime = useMemo(() => 
-    formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }), 
-    [notification.createdAt]
+    formatDistanceToNow(new Date(notification.created_at), { addSuffix: true }), 
+    [notification.created_at]
   );
   
   const tweetPreview = useMemo(() => {
@@ -166,7 +167,7 @@ const NotificationItem = memo(({
     return (
       <Card className="mt-2 ml-12 bg-gray-900/60 border-gray-800/70 overflow-hidden backdrop-blur-sm transition-colors hover:bg-gray-900/80">
         <CardContent className="p-3">
-          {notification.type === 'comment' && (
+          {notification.type === 'comment' && notification.actor && (
             <div className="flex items-center space-x-1 mb-1 text-xs text-gray-400">
               <span>Reply to</span>
               <span className="text-blue-400">@{notification.actor.username}</span>
@@ -178,7 +179,9 @@ const NotificationItem = memo(({
         </CardContent>
       </Card>
     );
-  }, [notification.tweet, notification.referencedTweet, notification.type, notification.actor.username]);
+  }, [notification.tweet, notification.referencedTweet, notification.type, notification.actor]);
+  
+  if (!notification.actor) return null;
   
   return (
     <div 
@@ -319,7 +322,6 @@ const VirtualizedNotificationList = ({
   }, [notifications, priorityIds]);
 
   const sortedNotifications = useMemo(() => {
-    // Sortera så att prioriterade notiser kommer först
     return [...itemsToRender].sort((a, b) => {
       if (a.isPriority && !b.isPriority) return -1;
       if (!a.isPriority && b.isPriority) return 1;
@@ -461,7 +463,6 @@ const Notifications = () => {
   const [priorityNotificationIds, setPriorityNotificationIds] = useState<string[]>([]);
 
   useEffect(() => {
-    // Filtrera notifikationer baserat på aktivt filter
     let filtered = [...notifications];
     
     if (activeFilter === "unread") {
@@ -482,8 +483,6 @@ const Notifications = () => {
   }, [notifications, activeFilter]);
 
   useEffect(() => {
-    // Hitta viktiga notifikationer baserat på vissa kriterier
-    // T.ex. från verifierade användare eller omnämnanden
     const priority = notifications
       .filter(n => (n.actor.isVerified || n.type === 'mention') && !n.read)
       .map(n => n.id);
@@ -498,7 +497,7 @@ const Notifications = () => {
     
     if (notification.tweetId) {
       navigate(`/tweet/${notification.tweetId}`);
-    } else if (notification.type === 'follow') {
+    } else if (notification.type === 'follow' && notification.actor) {
       navigate(`/profile/${notification.actor.username}`);
     }
   }, [markAsRead, navigate]);
