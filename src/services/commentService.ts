@@ -156,8 +156,18 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Decrement like count
-      await supabase.rpc('decrement_comment_like', { comment_id: commentId });
+      // Decrement like count directly
+      const { error: updateError } = await supabase
+        .from('comments')
+        .update({ 
+          likes_count: supabase.rpc('decrement_counter', { row_id: commentId }) 
+        })
+        .eq('id', commentId);
+      
+      if (updateError) {
+        console.error('Error updating comment like count:', updateError.message);
+        return false;
+      }
     } else {
       // Like the comment
       const { error } = await supabase
@@ -172,8 +182,18 @@ export const likeComment = async (commentId: string): Promise<boolean> => {
         return false;
       }
       
-      // Increment like count
-      await supabase.rpc('increment_comment_like', { comment_id: commentId });
+      // Increment like count directly
+      const { error: updateError } = await supabase
+        .from('comments')
+        .update({ 
+          likes_count: supabase.rpc('increment_counter', { row_id: commentId })
+        })
+        .eq('id', commentId);
+      
+      if (updateError) {
+        console.error('Error updating comment like count:', updateError.message);
+        return false;
+      }
     }
     
     return true;
