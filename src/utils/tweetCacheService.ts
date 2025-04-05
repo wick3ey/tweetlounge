@@ -66,7 +66,7 @@ export const setInMemoryCache = <T>(key: string, data: T, duration: number = CAC
 };
 
 /**
- * Get tweets from localStorage
+ * Get tweets from localStorage - with additional handling for resilient counts
  */
 export const getFromLocalStorage = <T>(key: string): T | null => {
   try {
@@ -78,6 +78,33 @@ export const getFromLocalStorage = <T>(key: string): T | null => {
     if (expires < Date.now()) {
       localStorage.removeItem(`tweet-cache-${key}`);
       return null;
+    }
+    
+    // If we have tweet data, ensure each tweet has the most up-to-date counts
+    // by checking our localStorage count cache
+    if (Array.isArray(data)) {
+      data.forEach((item: any) => {
+        if (item && item.id) {
+          // Check if we have more recent count data for this tweet
+          const countCache = localStorage.getItem(`tweet-count-${item.id}`);
+          if (countCache) {
+            try {
+              const countData = JSON.parse(countCache);
+              if (countData.timestamp > (item.countTimestamp || 0)) {
+                // Update with the more recent counts
+                item.replies_count = countData.replies_count ?? item.replies_count;
+                item.likes_count = countData.likes_count ?? item.likes_count;
+                item.retweets_count = countData.retweets_count ?? item.retweets_count;
+                item.bookmarks_count = countData.bookmarks_count ?? item.bookmarks_count;
+                item.countTimestamp = countData.timestamp;
+                console.log(`Updated cached tweet ${item.id} with latest counts`);
+              }
+            } catch (e) {
+              console.error(`Error parsing count cache for ${item.id}:`, e);
+            }
+          }
+        }
+      });
     }
     
     console.log(`LocalStorage cache hit for: ${key}`);
@@ -356,21 +383,76 @@ export const invalidateTweetCache = async (tweetId: string): Promise<void> => {
 };
 
 /**
- * Partial cache update for a specific tweet
+ * Update tweet count information in a separate count-specific cache
+ * This ensures counts are preserved across page refreshes
+ */
+export const updateTweetCount = (
+  tweetId: string, 
+  counts: {
+    replies_count?: number;
+    likes_count?: number;
+    retweets_count?: number;
+    bookmarks_count?: number;
+  }
+): void => {
+  try {
+    // Get existing count data if any
+    const existingData = localStorage.getItem(`tweet-count-${tweetId}`);
+    let countData = existingData ? JSON.parse(existingData) : {};
+    
+    // Update with new counts, preserving any existing ones
+    countData = {
+      ...countData,
+      ...counts,
+      timestamp: Date.now()
+    };
+    
+    // Store the updated counts
+    localStorage.setItem(`tweet-count-${tweetId}`, JSON.stringify(countData));
+    console.log(`Updated count cache for tweet ${tweetId}:`, counts);
+  } catch (err) {
+    console.error(`Error updating count cache for tweet ${tweetId}:`, err);
+  }
+};
+
+/**
+ * Partial cache update for a specific tweet with improved count tracking
  */
 export const updateTweetInCache = async (
   tweetId: string, 
   updater: (tweet: TweetWithAuthor) => TweetWithAuthor
 ): Promise<void> => {
   try {
+    // Track the counts separately for resilience across page refreshes
+    const beforeUpdate: Record<string, any> = {};
+    const afterUpdate: Record<string, any> = {};
+    
     // Update in memory cache
     for (const [key, cacheEntry] of memoryCache.entries()) {
-      if (key.includes('home-feed') || key.includes('user-tweets')) {
+      if (key.includes('home-feed') || key.includes('user-tweets') || key.includes('tweet-detail')) {
         const data = cacheEntry.data;
         if (Array.isArray(data)) {
-          const updatedData = data.map(tweet => 
-            tweet.id === tweetId ? updater(tweet) : tweet
-          );
+          const updatedData = data.map(tweet => {
+            if (tweet.id === tweetId) {
+              // Store counts before update
+              beforeUpdate.replies_count = tweet.replies_count;
+              beforeUpdate.likes_count = tweet.likes_count;
+              beforeUpdate.retweets_count = tweet.retweets_count;
+              beforeUpdate.bookmarks_count = tweet.bookmarks_count;
+              
+              // Apply the update
+              const updated = updater(tweet);
+              
+              // Store counts after update
+              afterUpdate.replies_count = updated.replies_count;
+              afterUpdate.likes_count = updated.likes_count;
+              afterUpdate.retweets_count = updated.retweets_count;
+              afterUpdate.bookmarks_count = updated.bookmarks_count;
+              
+              return updated;
+            }
+            return tweet;
+          });
           memoryCache.set(key, { ...cacheEntry, data: updatedData });
           console.log(`Updated tweet ${tweetId} in memory cache for key ${key}`);
         }
@@ -380,11 +462,11 @@ export const updateTweetInCache = async (
     // Update in localStorage
     for (const key in localStorage) {
       if (key.startsWith('tweet-cache-') && 
-          (key.includes('home-feed') || key.includes('user-tweets'))) {
+          (key.includes('home-feed') || key.includes('user-tweets') || key.includes('tweet-detail'))) {
         try {
           const cachedData = JSON.parse(localStorage.getItem(key) || '{}');
           if (cachedData.data && Array.isArray(cachedData.data)) {
-            cachedData.data = cachedData.data.map(tweet => 
+            cachedData.data = cachedData.data.map((tweet: any) => 
               tweet.id === tweetId ? updater(tweet) : tweet
             );
             localStorage.setItem(key, JSON.stringify(cachedData));
@@ -394,6 +476,29 @@ export const updateTweetInCache = async (
           console.error(`Error updating localStorage cache: ${e}`);
         }
       }
+    }
+    
+    // Update the separate count cache if any counts changed
+    const countsToUpdate: any = {};
+    
+    if (afterUpdate.replies_count !== undefined && afterUpdate.replies_count !== beforeUpdate.replies_count) {
+      countsToUpdate.replies_count = afterUpdate.replies_count;
+    }
+    
+    if (afterUpdate.likes_count !== undefined && afterUpdate.likes_count !== beforeUpdate.likes_count) {
+      countsToUpdate.likes_count = afterUpdate.likes_count;
+    }
+    
+    if (afterUpdate.retweets_count !== undefined && afterUpdate.retweets_count !== beforeUpdate.retweets_count) {
+      countsToUpdate.retweets_count = afterUpdate.retweets_count;
+    }
+    
+    if (afterUpdate.bookmarks_count !== undefined && afterUpdate.bookmarks_count !== beforeUpdate.bookmarks_count) {
+      countsToUpdate.bookmarks_count = afterUpdate.bookmarks_count;
+    }
+    
+    if (Object.keys(countsToUpdate).length > 0) {
+      updateTweetCount(tweetId, countsToUpdate);
     }
     
     // Try to also update in DB cache if it exists
