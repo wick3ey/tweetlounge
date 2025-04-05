@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 const COMMENT_COUNT_CHANNEL = 'comment-count-updates';
@@ -7,14 +8,31 @@ const activeSubscriptions = new Map<string, {
   broadcastChannel: any, 
   lastCount: number,
   lastChecked: number,
-  refCount: number // Add reference counting to track how many components are using this subscription
+  refCount: number
 }>();
+
+// In-memory cache for comment counts
+const commentCountCache = new Map<string, {
+  count: number,
+  timestamp: number,
+  expiryTime: number
+}>();
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Get the exact number of comments for a tweet directly from the database
  */
 export const getExactCommentCount = async (tweetId: string): Promise<number> => {
   try {
+    // Check cache first
+    const now = Date.now();
+    const cachedData = commentCountCache.get(tweetId);
+    
+    if (cachedData && now < cachedData.expiryTime) {
+      console.log(`Using cached comment count for tweet ${tweetId}: ${cachedData.count}`);
+      return cachedData.count;
+    }
+    
     const { count, error } = await supabase
       .from('comments')
       .select('id', { count: 'exact', head: true })
@@ -25,7 +43,16 @@ export const getExactCommentCount = async (tweetId: string): Promise<number> => 
       return 0;
     }
     
-    return typeof count === 'number' ? count : 0;
+    const commentCount = typeof count === 'number' ? count : 0;
+    
+    // Cache the result
+    commentCountCache.set(tweetId, {
+      count: commentCount,
+      timestamp: now,
+      expiryTime: now + CACHE_EXPIRY
+    });
+    
+    return commentCount;
   } catch (error) {
     console.error('Failed to get exact comment count:', error);
     return 0;
@@ -130,7 +157,7 @@ export const subscribeToCommentCountUpdates = (
   console.log(`Setting up comment count subscription for tweet ${tweetId}`);
   
   let initialCount = 0;
-  // Get initial count immediately
+  // Get initial count immediately, with cache prioritization
   getExactCommentCount(tweetId)
     .then(count => {
       console.log(`Initial comment count for tweet ${tweetId}: ${count}`);
@@ -147,6 +174,9 @@ export const subscribeToCommentCountUpdates = (
       table: 'comments',
       filter: `tweet_id=eq.${tweetId}`
     }, async () => {
+      // Invalidate cache on change
+      commentCountCache.delete(tweetId);
+      
       // When any change happens, get and sync the exact count
       const count = await syncCommentCount(tweetId);
       onCountUpdated(count);
@@ -159,6 +189,15 @@ export const subscribeToCommentCountUpdates = (
     .on('broadcast', { event: 'comment-count-update' }, (payload) => {
       if (payload.payload && payload.payload.tweetId === tweetId) {
         console.log(`Received broadcast count update for ${tweetId}: ${payload.payload.count}`);
+        
+        // Update cache with new value
+        const now = Date.now();
+        commentCountCache.set(tweetId, {
+          count: payload.payload.count,
+          timestamp: now,
+          expiryTime: now + CACHE_EXPIRY
+        });
+        
         onCountUpdated(payload.payload.count);
       }
     })
@@ -214,6 +253,13 @@ setInterval(() => {
       subscription.lastChecked = now;
     }
   });
+  
+  // Clean up expired cache entries
+  commentCountCache.forEach((value, key) => {
+    if (now > value.expiryTime) {
+      commentCountCache.delete(key);
+    }
+  });
 }, 60000); // Check every minute
 
 /**
@@ -223,5 +269,10 @@ export const debugLogActiveSubscriptions = () => {
   console.log(`[DEBUG] Active comment count subscriptions: ${activeSubscriptions.size}`);
   activeSubscriptions.forEach((sub, tweetId) => {
     console.log(`[DEBUG] - ${tweetId}: refCount=${sub.refCount}, lastCount=${sub.lastCount}, age=${(Date.now() - sub.lastChecked) / 1000}s`);
+  });
+  
+  console.log(`[DEBUG] Comment count cache entries: ${commentCountCache.size}`);
+  commentCountCache.forEach((cached, tweetId) => {
+    console.log(`[DEBUG] - ${tweetId}: count=${cached.count}, age=${(Date.now() - cached.timestamp) / 1000}s, expires in ${(cached.expiryTime - Date.now()) / 1000}s`);
   });
 };

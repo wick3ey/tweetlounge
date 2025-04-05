@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
@@ -12,11 +12,27 @@ interface CommentListProps {
   onAction?: () => void;
 }
 
+// Cache for comment data
+const commentCache = new Map<string, { 
+  comments: Comment[], 
+  timestamp: number, 
+  expiryTime: number 
+}>();
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+
 const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated, onAction }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentCount, setCommentCount] = useState(0);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!tweetId) return;
@@ -31,6 +47,8 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
       // Set up realtime subscriptions for comment count updates only if not already active
       const cleanup = !hasActiveCommentCountSubscription(tweetId) 
         ? subscribeToCommentCountUpdates(tweetId, (count) => {
+            if (!isMounted.current) return;
+            
             console.log(`[CommentList] Received updated comment count: ${count}`);
             setCommentCount(count);
             
@@ -47,8 +65,22 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
 
   const fetchComments = async () => {
     if (!tweetId) return;
-    
+
     setLoading(true);
+    
+    // Check if we have a valid cache entry
+    const now = Date.now();
+    const cacheKey = `comments-${tweetId}`;
+    const cachedData = commentCache.get(cacheKey);
+    
+    // Use cached data if available and not expired
+    if (cachedData && now < cachedData.expiryTime) {
+      console.log(`[CommentList] Using cached comments for tweet ${tweetId}`);
+      setComments(cachedData.comments);
+      setLoading(false);
+      return;
+    }
+    
     try {
       // Fetch parent comments
       const { data, error } = await supabase
@@ -75,10 +107,11 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         
       if (error) {
         console.error('Error fetching comments:', error);
+        setLoading(false);
         return;
       }
       
-      if (data) {
+      if (data && isMounted.current) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
           id: comment.id,
           content: comment.content,
@@ -96,17 +129,31 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           }
         }));
         
+        // Store in cache
+        commentCache.set(cacheKey, {
+          comments: formattedComments,
+          timestamp: now,
+          expiryTime: now + CACHE_EXPIRY
+        });
+        
         setComments(formattedComments);
       }
     } catch (error) {
       console.error('Failed to fetch comments:', error);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
   // Refresh comments when an action occurs (like a like)
   const handleCommentAction = () => {
+    // Force refresh the cache by removing the cached entry
+    if (tweetId) {
+      commentCache.delete(`comments-${tweetId}`);
+    }
+    
     fetchComments();
     if (onAction) {
       onAction();
@@ -146,5 +193,15 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     </div>
   );
 };
+
+// Clean up expired entries from the comment cache every minute
+setInterval(() => {
+  const now = Date.now();
+  commentCache.forEach((value, key) => {
+    if (now > value.expiryTime) {
+      commentCache.delete(key);
+    }
+  });
+}, 60000);
 
 export default CommentList;
