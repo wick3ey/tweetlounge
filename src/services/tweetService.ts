@@ -133,8 +133,6 @@ interface CreateTweetParams {
     content: string;
     image_url?: string | null;
     author_id: string;
-    is_retweet?: boolean;
-    original_tweet_id?: string | null;
 }
 
 // Create a new tweet
@@ -158,9 +156,12 @@ export const createTweet = async (content: string, imageFile?: File): Promise<an
                 throw storageError;
             }
 
-            // Construct the image URL using the public URL format
-            const publicURL = `${supabase.supabaseUrl}/storage/v1/object/public/tweet-images/${storageData.path}`;
-            imageUrl = publicURL;
+            // Use the getPublicUrl method to construct the proper public URL
+            const { data } = supabase.storage
+                .from('tweet-images')
+                .getPublicUrl(storageData.path);
+                
+            imageUrl = data.publicUrl;
             console.debug(`[createTweet] Image uploaded successfully. URL: ${imageUrl}`);
         }
 
