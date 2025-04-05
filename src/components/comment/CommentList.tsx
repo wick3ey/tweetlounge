@@ -4,7 +4,7 @@ import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { subscribeToCommentCountUpdates } from '@/services/commentCountService';
+import { subscribeToCommentCountUpdates, hasActiveCommentCountSubscription } from '@/services/commentCountService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -23,19 +23,21 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     // Initial data load
     fetchComments();
     
-    // Set up realtime subscriptions for comment count updates
-    const unsubscribe = subscribeToCommentCountUpdates(tweetId, (count) => {
-      console.log(`[CommentList] Received updated comment count: ${count}`);
-      setCommentCount(count);
-      
-      // Propagate count update to parent components if needed
-      if (onCommentCountUpdated) {
-        onCommentCountUpdated(count);
-      }
-    });
+    // Set up realtime subscriptions for comment count updates only if not already active
+    const cleanup = !hasActiveCommentCountSubscription(tweetId) 
+      ? subscribeToCommentCountUpdates(tweetId, (count) => {
+          console.log(`[CommentList] Received updated comment count: ${count}`);
+          setCommentCount(count);
+          
+          // Propagate count update to parent components if needed
+          if (onCommentCountUpdated) {
+            onCommentCountUpdated(count);
+          }
+        })
+      : () => console.log(`[CommentList] Using existing comment count subscription for ${tweetId}`);
     
     return () => {
-      unsubscribe();
+      cleanup();
     };
   }, [tweetId, onCommentCountUpdated]);
 

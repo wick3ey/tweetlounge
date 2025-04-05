@@ -62,21 +62,12 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     };
     
     checkStatuses();
-    
-    if (tweet?.id) {
-      const unsubscribe = subscribeToCommentCountUpdates(
-        tweet.id,
-        (count) => {
-          console.log(`[TweetDetail] Received comment count update for tweet ${tweet.id}: ${count}`);
-          setRepliesCount(count);
-        }
-      );
-      
-      return () => {
-        unsubscribe();
-      };
-    }
   }, [tweet?.id, tweet?.likes_count, user]);
+
+  const handleCommentCountUpdated = (count: number) => {
+    console.log(`[TweetDetail] Comment count updated from CommentList: ${count}`);
+    setRepliesCount(count);
+  };
 
   const toggleLike = async () => {
     if (!user) {
@@ -214,11 +205,6 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
     }
     
     onAction();
-  };
-
-  const handleCommentCountUpdated = (count: number) => {
-    console.log(`[TweetDetail] Comment count updated from CommentList: ${count}`);
-    setRepliesCount(count);
   };
 
   const handleCommentAction = () => {

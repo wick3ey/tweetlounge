@@ -1,7 +1,13 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 const COMMENT_COUNT_CHANNEL = 'comment-count-updates';
+// Keep track of active subscriptions to prevent duplicates
+const activeSubscriptions = new Map<string, { 
+  dbChannel: any, 
+  broadcastChannel: any, 
+  lastCount: number,
+  lastChecked: number
+}>();
 
 /**
  * Get the exact number of comments for a tweet directly from the database
@@ -33,6 +39,12 @@ export const syncCommentCount = async (tweetId: string): Promise<number> => {
     // Get exact count from database
     const commentCount = await getExactCommentCount(tweetId);
     
+    // Skip update if we already have this count stored
+    const subscription = activeSubscriptions.get(tweetId);
+    if (subscription && subscription.lastCount === commentCount) {
+      return commentCount;
+    }
+    
     // Update the tweet with exact count - important to use the direct database count
     const { error: updateError } = await supabase
       .from('tweets')
@@ -43,6 +55,11 @@ export const syncCommentCount = async (tweetId: string): Promise<number> => {
       console.error('Error updating tweet comment count:', updateError);
     } else {
       console.log(`Updated tweet ${tweetId} with comment count ${commentCount}`);
+      
+      // Update the stored count if we have an active subscription
+      if (subscription) {
+        subscription.lastCount = commentCount;
+      }
     }
     
     // Broadcast update to all clients
@@ -78,12 +95,29 @@ export const subscribeToCommentCountUpdates = (
   tweetId: string, 
   onCountUpdated: (count: number) => void
 ): (() => void) => {
+  // Check if we already have an active subscription for this tweet
+  if (activeSubscriptions.has(tweetId)) {
+    console.log(`Reusing existing comment count subscription for tweet ${tweetId}`);
+    
+    // Get initial count from existing subscription
+    const existingSubscription = activeSubscriptions.get(tweetId)!;
+    onCountUpdated(existingSubscription.lastCount);
+    
+    // Return the cleanup function
+    return () => {
+      // Don't actually clean up since other components may be using this subscription
+      console.log(`Skipping cleanup for shared subscription for tweet ${tweetId}`);
+    };
+  }
+  
   console.log(`Setting up comment count subscription for tweet ${tweetId}`);
   
+  let initialCount = 0;
   // Get initial count immediately
   getExactCommentCount(tweetId)
     .then(count => {
       console.log(`Initial comment count for tweet ${tweetId}: ${count}`);
+      initialCount = count;
       onCountUpdated(count);
     });
   
@@ -104,7 +138,7 @@ export const subscribeToCommentCountUpdates = (
     
   // Also subscribe to the broadcast channel for updates
   const broadcastChannel = supabase
-    .channel(COMMENT_COUNT_CHANNEL)
+    .channel(`broadcast-comments-${tweetId}`)
     .on('broadcast', { event: 'comment-count-update' }, (payload) => {
       if (payload.payload && payload.payload.tweetId === tweetId) {
         console.log(`Received broadcast count update for ${tweetId}: ${payload.payload.count}`);
@@ -113,10 +147,47 @@ export const subscribeToCommentCountUpdates = (
     })
     .subscribe();
     
+  // Store this subscription
+  activeSubscriptions.set(tweetId, { 
+    dbChannel, 
+    broadcastChannel, 
+    lastCount: initialCount,
+    lastChecked: Date.now()
+  });
+  
   // Return cleanup function
   return () => {
-    supabase.removeChannel(dbChannel);
-    supabase.removeChannel(broadcastChannel);
     console.log(`Removed comment count subscriptions for tweet ${tweetId}`);
+    
+    // Remove from active subscriptions
+    if (activeSubscriptions.has(tweetId)) {
+      const subscription = activeSubscriptions.get(tweetId)!;
+      supabase.removeChannel(subscription.dbChannel);
+      supabase.removeChannel(subscription.broadcastChannel);
+      activeSubscriptions.delete(tweetId);
+    }
   };
 };
+
+/**
+ * Check if a tweet has an active comment count subscription
+ */
+export const hasActiveCommentCountSubscription = (tweetId: string): boolean => {
+  return activeSubscriptions.has(tweetId);
+};
+
+// Clean up stale subscriptions every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  const FIVE_MINUTES = 5 * 60 * 1000;
+  
+  activeSubscriptions.forEach((subscription, tweetId) => {
+    // If a subscription is older than 5 minutes, clean it up
+    if (now - subscription.lastChecked > FIVE_MINUTES) {
+      console.log(`Cleaning up stale subscription for tweet ${tweetId}`);
+      supabase.removeChannel(subscription.dbChannel);
+      supabase.removeChannel(subscription.broadcastChannel);
+      activeSubscriptions.delete(tweetId);
+    }
+  });
+}, 60000); // Check every minute
