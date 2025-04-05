@@ -231,33 +231,12 @@ export const getTweets = async (
     if (shouldForceRefresh) {
       console.debug('[getTweets] Force refresh requested or initial load, bypassing all caches');
 
-      // Get tweets with detailed join for retweets
+      // Get tweets with join for profile and original tweet
       const { data, error } = await supabase
-        .from('tweets')
-        .select(`
-          *,
-          profiles!tweets_author_id_fkey (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            avatar_nft_id,
-            avatar_nft_chain
-          ),
-          original_tweet:original_tweet_id (
-            *,
-            original_author:author_id (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              avatar_nft_id,
-              avatar_nft_chain
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .rpc('get_tweets_with_authors_reliable', {
+          limit_count: limit,
+          offset_count: offset
+        });
 
       if (error) {
         console.error('[getTweets] Error fetching tweets:', error.message);
@@ -283,12 +262,48 @@ export const getTweets = async (
           is_retweet: tweet.is_retweet === true,
           original_tweet_id: tweet.original_tweet_id,
           image_url: tweet.image_url,
-          author: createPartialProfile(tweet.profiles)
+          author: {
+            id: tweet.author_id,
+            username: tweet.profile_username || 'user',
+            display_name: tweet.profile_display_name || 'User',
+            avatar_url: tweet.profile_avatar_url || '',
+            bio: null,
+            cover_url: null,
+            location: null,
+            website: null,
+            updated_at: null,
+            created_at: new Date().toISOString(),
+            ethereum_address: null,
+            solana_address: null,
+            avatar_nft_id: tweet.profile_avatar_nft_id || null,
+            avatar_nft_chain: tweet.profile_avatar_nft_chain || null,
+            followers_count: 0,
+            following_count: 0,
+            replies_sort_order: null
+          }
         };
 
-        // Add original author info for retweets
-        if (tweet.is_retweet && tweet.original_tweet && tweet.original_tweet.original_author) {
-          tweetWithAuthor.original_author = createPartialProfile(tweet.original_tweet.original_author);
+        // Add original author info for retweets if available in RPC result
+        if (tweet.is_retweet && tweet.original_tweet_id && tweet.original_author_id) {
+          tweetWithAuthor.original_author = {
+            id: tweet.original_author_id || '',
+            username: tweet.original_username || '',
+            display_name: tweet.original_display_name || '',
+            avatar_url: tweet.original_avatar_url || '',
+            bio: null,
+            cover_url: null,
+            location: null,
+            website: null,
+            updated_at: null,
+            created_at: new Date().toISOString(),
+            ethereum_address: null,
+            solana_address: null,
+            avatar_nft_id: tweet.original_avatar_nft_id || null,
+            avatar_nft_chain: tweet.original_avatar_nft_chain || null,
+            followers_count: 0,
+            following_count: 0,
+            replies_sort_order: null
+          };
         }
 
         return enhanceTweetData(tweetWithAuthor);
@@ -304,33 +319,12 @@ export const getTweets = async (
       async () => {
         console.debug('[getTweets] Cache miss, fetching from database');
 
-        // Same improved query as above
+        // Use the same RPC function
         const { data, error } = await supabase
-          .from('tweets')
-          .select(`
-            *,
-            profiles!tweets_author_id_fkey (
-              id,
-              username,
-              display_name,
-              avatar_url,
-              avatar_nft_id,
-              avatar_nft_chain
-            ),
-            original_tweet:original_tweet_id (
-              *,
-              original_author:author_id (
-                id,
-                username,
-                display_name,
-                avatar_url,
-                avatar_nft_id,
-                avatar_nft_chain
-              )
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
+          .rpc('get_tweets_with_authors_reliable', {
+            limit_count: limit,
+            offset_count: offset
+          });
 
         if (error) {
           console.error('[getTweets] Error fetching tweets:', error.message);
@@ -356,12 +350,48 @@ export const getTweets = async (
             is_retweet: tweet.is_retweet === true,
             original_tweet_id: tweet.original_tweet_id,
             image_url: tweet.image_url,
-            author: createPartialProfile(tweet.profiles)
+            author: {
+              id: tweet.author_id,
+              username: tweet.profile_username || 'user',
+              display_name: tweet.profile_display_name || 'User',
+              avatar_url: tweet.profile_avatar_url || '',
+              bio: null,
+              cover_url: null,
+              location: null,
+              website: null,
+              updated_at: null,
+              created_at: new Date().toISOString(),
+              ethereum_address: null,
+              solana_address: null,
+              avatar_nft_id: tweet.profile_avatar_nft_id || null,
+              avatar_nft_chain: tweet.profile_avatar_nft_chain || null,
+              followers_count: 0,
+              following_count: 0,
+              replies_sort_order: null
+            }
           };
 
-          // Add original author info for retweets
-          if (tweet.is_retweet && tweet.original_tweet && tweet.original_tweet.original_author) {
-            tweetWithAuthor.original_author = createPartialProfile(tweet.original_tweet.original_author);
+          // Add original author info for retweets if available in RPC result
+          if (tweet.is_retweet && tweet.original_tweet_id && tweet.original_author_id) {
+            tweetWithAuthor.original_author = {
+              id: tweet.original_author_id || '',
+              username: tweet.original_username || '',
+              display_name: tweet.original_display_name || '',
+              avatar_url: tweet.original_avatar_url || '',
+              bio: null,
+              cover_url: null,
+              location: null,
+              website: null,
+              updated_at: null,
+              created_at: new Date().toISOString(),
+              ethereum_address: null,
+              solana_address: null,
+              avatar_nft_id: tweet.original_avatar_nft_id || null,
+              avatar_nft_chain: tweet.original_avatar_nft_chain || null,
+              followers_count: 0,
+              following_count: 0,
+              replies_sort_order: null
+            };
           }
 
           return enhanceTweetData(tweetWithAuthor);
@@ -449,26 +479,13 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
     }
 
     // Fallback: Get tweets and profiles separately
-    // First get the tweets with more detailed query for retweets
+    // Use the user-specific RPC function
     const { data: tweetsData, error: tweetsError } = await supabase
-      .from('tweets')
-      .select(`
-        *,
-        original_tweet:original_tweet_id (
-          *,
-          original_author:author_id (
-            id,
-            username,
-            display_name,
-            avatar_url,
-            avatar_nft_id,
-            avatar_nft_chain
-          )
-        )
-      `)
-      .eq('author_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .rpc('get_user_tweets_reliable', {
+        user_id: userId,
+        limit_count: limit,
+        offset_count: offset
+      });
 
     if (tweetsError) {
       throw tweetsError;
@@ -489,24 +506,64 @@ export const getUserTweets = async (userId: string, limit = 20, offset = 0, forc
       console.warn('[getUserTweets] Error fetching profile, using placeholder:', profileError);
     }
 
-    // Combine the tweets with the profile
+    // Combine the tweets with the profile (now using RPC data)
     const tweetsWithAuthor: TweetWithAuthor[] = tweetsData.map(tweet => {
-      // Extract original tweet info if this is a retweet
-      let originalAuthor = null;
-      if (tweet.is_retweet && tweet.original_tweet) {
-        originalAuthor = createPartialProfile(tweet.original_tweet.original_author);
+      const tweetWithAuthor: TweetWithAuthor = {
+        id: tweet.id,
+        content: tweet.content,
+        author_id: tweet.author_id,
+        created_at: tweet.created_at,
+        likes_count: tweet.likes_count || 0,
+        retweets_count: tweet.retweets_count || 0,
+        replies_count: tweet.replies_count || 0,
+        is_retweet: tweet.is_retweet === true,
+        original_tweet_id: tweet.original_tweet_id,
+        image_url: tweet.image_url,
+        author: {
+          id: tweet.author_id,
+          username: tweet.username || 'user',
+          display_name: tweet.display_name || 'User',
+          avatar_url: tweet.avatar_url || '',
+          bio: null,
+          cover_url: null,
+          location: null,
+          website: null,
+          updated_at: null,
+          created_at: new Date().toISOString(),
+          ethereum_address: null,
+          solana_address: null,
+          avatar_nft_id: tweet.avatar_nft_id || null,
+          avatar_nft_chain: tweet.avatar_nft_chain || null,
+          followers_count: 0,
+          following_count: 0,
+          replies_sort_order: null
+        }
+      };
+
+      // Add original author info for retweets
+      if (tweet.is_retweet && tweet.original_tweet_id && tweet.original_author_id) {
+        tweetWithAuthor.original_author = {
+          id: tweet.original_author_id || '',
+          username: tweet.original_username || '',
+          display_name: tweet.original_display_name || '',
+          avatar_url: tweet.original_avatar_url || '',
+          bio: null,
+          cover_url: null,
+          location: null,
+          website: null,
+          updated_at: null,
+          created_at: new Date().toISOString(),
+          ethereum_address: null,
+          solana_address: null,
+          avatar_nft_id: tweet.original_avatar_nft_id || null,
+          avatar_nft_chain: tweet.original_avatar_nft_chain || null,
+          followers_count: 0,
+          following_count: 0,
+          replies_sort_order: null
+        };
       }
 
-      return {
-        ...tweet,
-        author: profileData ? createPartialProfile(profileData) : createPartialProfile({
-          id: userId,
-          username: 'unknown',
-          display_name: 'Unknown User',
-          avatar_url: '',
-        }),
-        original_author: originalAuthor
-      };
+      return tweetWithAuthor;
     });
 
     // Enrich data with additional display properties
