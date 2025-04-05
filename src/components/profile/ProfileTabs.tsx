@@ -64,6 +64,8 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
               username: originalTweet.username || 'user',
               display_name: originalTweet.display_name || 'User',
               avatar_url: originalTweet.avatar_url || '',
+              avatar_nft_id: originalTweet.avatar_nft_id,
+              avatar_nft_chain: originalTweet.avatar_nft_chain,
               bio: null,
               cover_url: null,
               location: null,
@@ -72,11 +74,9 @@ const ProfileTabs = ({ userId, isCurrentUser, solanaAddress }: ProfileTabsProps)
               created_at: new Date().toISOString(),
               ethereum_address: null,
               solana_address: null,
-              avatar_nft_id: originalTweet.avatar_nft_id,
-              avatar_nft_chain: originalTweet.avatar_nft_chain,
               followers_count: 0,
               following_count: 0,
-              replies_sort_order: originalTweet.replies_sort_order
+              replies_sort_order: null
             }
           };
         }
