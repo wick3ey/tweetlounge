@@ -5,7 +5,6 @@ import { useToast } from '@/components/ui/use-toast';
 
 type AuthContextType = {
   user: any | null;
-  setUser: (user: any | null) => void;
   signUp: (email: string, password: string, metadata?: object) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
@@ -22,58 +21,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // First set up auth state listener
+    // Get current user
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setLoading(false);
+    };
+
+    fetchUser();
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state change event:', event);
-      
-      if (session?.user) {
-        console.log('User authenticated in auth state change:', session.user.email);
-        setUser(session.user);
-      } else {
-        console.log('No user in auth state change');
-        setUser(null);
-      }
-      
+      setUser(session?.user || null);
       setLoading(false);
       
       // Show toasts for auth events
       if (event === 'SIGNED_IN') {
         toast({
-          title: 'Välkommen tillbaka!',
-          description: `Du har loggat in.`,
+          title: 'Welcome back!',
+          description: `You've successfully signed in.`,
         });
       } else if (event === 'SIGNED_OUT') {
         toast({
-          title: 'Utloggad',
-          description: 'Du har loggat ut.',
+          title: 'Signed out',
+          description: 'You have been signed out.',
         });
       } else if (event === 'USER_UPDATED') {
         toast({
-          title: 'Profil uppdaterad',
-          description: 'Din användarprofil har uppdaterats.',
+          title: 'Profile updated',
+          description: 'Your user profile has been updated.',
         });
       }
     });
-
-    // Then check for existing session
-    const getInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log('Initial session found:', session.user.email);
-          setUser(session.user);
-        } else {
-          console.log('No initial session found');
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Error getting initial session:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getInitialSession();
 
     return () => {
       subscription.unsubscribe();
@@ -86,8 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
-          data: metadata,
-          emailRedirectTo: `${window.location.origin}/home`
+          data: metadata
         }
       });
       
@@ -100,11 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Improved error handling for username conflicts
       if (error.message && error.message.includes('profiles_username_unique')) {
         toast({
-          title: 'Användarnamnet finns redan',
-          description: 'Välj ett annat användarnamn.',
+          title: 'Username already taken',
+          description: 'Please choose a different username.',
           variant: 'destructive',
         });
-        return { error: { message: 'Användarnamnet är redan taget. Välj ett annat användarnamn.' } };
+        return { error: { message: 'This username is already taken. Please choose a different username.' } };
       }
       
       return { error };
@@ -140,14 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      console.log('Initiating Google sign-in, current origin:', window.location.origin);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/home`,
-          queryParams: {
-            prompt: 'select_account',  // Force Google to show account selector
-          }
+          redirectTo: window.location.origin,
         }
       });
       
@@ -177,7 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
-    setUser,
     signUp,
     signInWithEmail,
     signOut,

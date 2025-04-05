@@ -6,6 +6,7 @@ import {
   Bell, 
   Mail, 
   User, 
+  Bookmark, 
   BarChart2,
   MessageSquare,
   Settings,
@@ -36,6 +37,7 @@ const LeftSidebar = () => {
       badge: unreadCount > 0 ? unreadCount : null 
     },
     { icon: Mail, label: 'Messages', path: '/messages' },
+    { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
     { icon: BarChart2, label: 'Market', path: '/market' },
     { icon: Compass, label: 'Discover', path: '/discover' },
     { icon: Settings, label: 'Settings', path: '/settings' }

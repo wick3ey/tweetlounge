@@ -1,99 +1,222 @@
-import React, { useState, useEffect } from 'react';
-import { TweetWithAuthor } from '@/types/Tweet';
-import TweetCard from './TweetCard';
+
+import { useState, useEffect } from 'react';
 import { getTweets } from '@/services/tweetService';
+import TweetCard from '@/components/tweet/TweetCard';
+import TweetDetail from '@/components/tweet/TweetDetail';
+import { TweetWithAuthor } from '@/types/Tweet';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { supabase } from '@/lib/supabase';
 
 interface TweetFeedProps {
-  forceRefresh?: boolean;
   userId?: string;
-  onAction?: () => void; // handler for tweet interactions
+  limit?: number;
+  onCommentAdded?: () => void;
 }
 
-const TweetFeed: React.FC<TweetFeedProps> = ({ forceRefresh = false, userId, onAction }) => {
+const TweetFeed = ({ userId, limit = 20, onCommentAdded }: TweetFeedProps) => {
   const [tweets, setTweets] = useState<TweetWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTweet, setSelectedTweet] = useState<TweetWithAuthor | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchTweets = async () => {
-      try {
-        setLoading(true);
-        
-        let fetchedTweets;
-        
-        // If userId is provided, we'll fetch tweets for that specific user
-        if (userId) {
-          const { getUserTweets } = await import('@/services/tweetService');
-          fetchedTweets = await getUserTweets(userId, 20, 0, forceRefresh);
-        } else {
-          fetchedTweets = await getTweets(20, 0, forceRefresh);
+    fetchTweets();
+  }, [limit, userId]);
+
+  const fetchTweets = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const fetchedTweets = await getTweets(limit, 0);
+      
+      // Process tweets to get original tweet information for retweets
+      const processedTweets = await Promise.all(fetchedTweets.map(async (tweet) => {
+        if (tweet.is_retweet && tweet.original_tweet_id) {
+          try {
+            // Get the original tweet with author information
+            const { data: originalTweetData, error: originalTweetError } = await supabase
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweet.original_tweet_id });
+            
+            if (originalTweetError) {
+              console.error('Error fetching original tweet:', originalTweetError);
+              return tweet;
+            }
+            
+            if (originalTweetData && originalTweetData.length > 0) {
+              const originalTweet = originalTweetData[0];
+              
+              // IMPORTANT: Copy both the original author AND the content
+              return {
+                ...tweet,
+                // Use the original tweet's content
+                content: originalTweet.content,
+                image_url: originalTweet.image_url,
+                // Add the original author information
+                original_author: {
+                  id: originalTweet.author_id,
+                  username: originalTweet.username,
+                  display_name: originalTweet.display_name,
+                  avatar_url: originalTweet.avatar_url || '',
+                  avatar_nft_id: originalTweet.avatar_nft_id,
+                  avatar_nft_chain: originalTweet.avatar_nft_chain
+                }
+              };
+            }
+          } catch (err) {
+            console.error('Error fetching original tweet:', err);
+          }
         }
         
-        setTweets(fetchedTweets);
-      } catch (error) {
-        console.error('Error fetching tweets:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load tweets. Please try again.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
+        return tweet;
+      }));
+      
+      // Log a sample tweet for debugging
+      if (processedTweets.length > 0) {
+        console.log('Sample tweet data:', processedTweets[0]);
       }
-    };
-
-    fetchTweets();
-  }, [forceRefresh, toast, userId]);
-
-  const handleAction = () => {
-    // Re-fetch tweets after an action (like, retweet, etc.)
-    // This is simple but not optimal for large lists - a better solution would update the specific tweet
-    getTweets(20, 0, true).then(setTweets);
-    
-    // If parent component provided an onAction handler, call it
-    if (onAction) {
-      onAction();
+      
+      setTweets(processedTweets);
+    } catch (err) {
+      console.error('Failed to fetch tweets:', err);
+      setError('Failed to load tweets. Please try again later.');
+      
+      toast({
+        title: 'Error',
+        description: 'Failed to load tweets. Please try again later.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleError = (title: string, description: string) => {
+  const handleRefresh = async () => {
+    try {
+      setLoading(true);
+      const freshTweets = await getTweets(limit, 0);
+      setTweets(freshTweets);
+    } catch (err) {
+      console.error('Failed to refresh tweets:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh tweets.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTweetClick = (tweet: TweetWithAuthor) => {
+    setSelectedTweet(tweet);
+    setIsDetailOpen(true);
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setSelectedTweet(null); // Clear selected tweet to prevent stale references
+    // Refresh the feed when closing the detail view to show updated likes/comments
+    handleRefresh();
+  };
+
+  const handleCommentAdded = (tweetId: string) => {
+    // Update the comment count for a specific tweet in the state
+    setTweets(prevTweets => 
+      prevTweets.map(tweet => 
+        tweet.id === tweetId 
+          ? { ...tweet, replies_count: (tweet.replies_count || 0) + 1 } 
+          : tweet
+      )
+    );
+    
+    // Also trigger parent callback if provided
+    if (onCommentAdded) {
+      onCommentAdded();
+    }
+  };
+
+  const handleTweetDeleted = (deletedTweetId: string) => {
+    // Remove the deleted tweet from the state without needing a full refresh
+    setTweets(prevTweets => prevTweets.filter(tweet => tweet.id !== deletedTweetId));
+    
+    // Close the detail dialog if the deleted tweet was being viewed
+    if (selectedTweet && selectedTweet.id === deletedTweetId) {
+      setIsDetailOpen(false);
+      setSelectedTweet(null);
+    }
+    
     toast({
-      title,
-      description,
-      variant: "destructive"
+      title: "Tweet Deleted",
+      description: "Your tweet has been successfully deleted."
     });
   };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8">
-        <Loader className="animate-spin h-8 w-8 text-blue-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-crypto-blue" />
+        <span className="ml-2 text-gray-400">Loading tweets...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-red-500 mb-4">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-crypto-blue text-white px-4 py-2 rounded-full hover:bg-crypto-blue/80"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
   if (tweets.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center text-gray-500">
-        <p className="text-xl font-semibold mb-2">No tweets yet</p>
-        <p>Tweets will show up here once posted.</p>
+      <div className="p-6 text-center border-b border-gray-800 bg-black">
+        <p className="text-gray-400">No tweets yet. Be the first to post!</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
-      {tweets.map(tweet => (
-        <TweetCard 
-          key={tweet.id} 
-          tweet={tweet} 
-          onAction={handleAction}
-          onError={handleError}
-        />
-      ))}
-    </div>
+    <>
+      <div className="tweet-feed bg-black">
+        {tweets.map((tweet) => (
+          <TweetCard
+            key={tweet.id}
+            tweet={tweet}
+            onClick={() => handleTweetClick(tweet)}
+            onAction={handleRefresh}
+            onDelete={handleTweetDeleted}
+          />
+        ))}
+      </div>
+
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-2xl bg-black border-gray-800 p-0 max-h-[90vh] overflow-hidden">
+          {selectedTweet && (
+            <TweetDetail 
+              tweet={selectedTweet} 
+              onClose={handleCloseDetail}
+              onAction={handleRefresh}
+              onDelete={handleTweetDeleted}
+              onCommentAdded={handleCommentAdded}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

@@ -45,59 +45,6 @@ interface DexToolsTokenPrice {
 // Cache key prefix for wallet tokens
 const WALLET_TOKENS_CACHE_KEY_PREFIX = 'wallet_tokens_';
 
-// In-memory cache for faster repeat access
-const inMemoryCache: Record<string, { data: TokensResponse, timestamp: number }> = {};
-const MEMORY_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-// Track API rate limiting to avoid excessive retries
-const apiFailures = {
-  dexTools: {
-    failures: 0,
-    lastFailure: 0,
-    backoffPeriod: 30000, // Initial 30 second backoff
-    maxConsecutiveRequests: 2, // Limit concurrent requests to prevent rate limiting
-    currentRequests: 0
-  }
-};
-
-// Reset the backoff period when API starts working again
-const resetBackoff = (api: 'dexTools') => {
-  apiFailures[api].failures = 0;
-  apiFailures[api].backoffPeriod = 30000;
-};
-
-// Increase backoff period exponentially
-const increaseBackoff = (api: 'dexTools') => {
-  apiFailures[api].failures += 1;
-  apiFailures[api].lastFailure = Date.now();
-  // Exponential backoff with a cap at 5 minutes
-  apiFailures[api].backoffPeriod = Math.min(apiFailures[api].backoffPeriod * 2, 5 * 60 * 1000);
-  console.warn(`Increasing backoff period for ${api} API to ${apiFailures[api].backoffPeriod}ms after ${apiFailures[api].failures} failures`);
-};
-
-// Check if we should skip API calls due to recent failures
-const shouldSkipApiCall = (api: 'dexTools'): boolean => {
-  const now = Date.now();
-  const { failures, lastFailure, backoffPeriod, currentRequests, maxConsecutiveRequests } = apiFailures[api];
-  
-  // If we're already at the maximum number of concurrent requests
-  if (currentRequests >= maxConsecutiveRequests) {
-    return true;
-  }
-  
-  // If we have recent failures and we're still in the backoff period
-  if (failures > 0 && (now - lastFailure) < backoffPeriod) {
-    return true;
-  }
-  
-  // If too many consecutive failures, back off more
-  if (failures > 5) {
-    return true;
-  }
-  
-  return false;
-};
-
 /**
  * Fetch tokens from a wallet address
  * @param address The wallet address
@@ -109,29 +56,12 @@ export const fetchWalletTokens = async (
   try {
     console.log(`Fetching Solana tokens for address: ${address}`);
     
-    // Check in-memory cache first for fastest possible response
-    const memoryCacheKey = `${WALLET_TOKENS_CACHE_KEY_PREFIX}${address}`;
-    const now = Date.now();
-    
-    if (inMemoryCache[memoryCacheKey] && 
-        (now - inMemoryCache[memoryCacheKey].timestamp) < MEMORY_CACHE_DURATION) {
-      console.log(`Using in-memory cached wallet tokens for address: ${address}`);
-      return inMemoryCache[memoryCacheKey].data;
-    }
-    
-    // Then check persistent cache
+    // Check if we have cached data for this wallet
     const cacheKey = `${WALLET_TOKENS_CACHE_KEY_PREFIX}${address}`;
     const cachedData = await getCachedData<TokensResponse>(cacheKey);
     
     if (cachedData && cachedData.tokens.length > 0) {
       console.log(`Using cached wallet tokens for address: ${address}`);
-      
-      // Store in memory cache for future use
-      inMemoryCache[memoryCacheKey] = {
-        data: cachedData,
-        timestamp: now
-      };
-      
       return cachedData;
     }
     
@@ -151,146 +81,61 @@ export const fetchWalletTokens = async (
       return { tokens: [] };
     }
     
+    console.log(`Solana tokens raw response:`, data);
+    
     if (!data.tokens || !Array.isArray(data.tokens)) {
       console.error(`Invalid token data response structure for Solana:`, data);
       return { tokens: [] };
     }
     
-    // For initial fast loading, let's create a simplified version first without full DexTools enrichment
-    const basicProcessedTokens = data.tokens.map((token: any) => {
+    // Process the tokens with enhanced information from DexTools API
+    const processedTokensPromises = data.tokens.map(async (token: any) => {
       const tokenAddress = token.address || address;
-      const formattedName = formatTokenName(tokenAddress, token.name);
       
-      return {
-        name: formattedName,
-        symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
-        logo: token.logo,
-        logoURI: token.logo,
-        amount: token.amount,
-        usdValue: token.usdValue,
-        decimals: token.decimals,
-        address: tokenAddress,
-        chain: 'solana' as const,
-        explorerUrl: getExplorerUrl(tokenAddress),
-        dexScreenerUrl: getDexScreenerUrl(tokenAddress),
-        priceChange24h: token.priceChange24h || 0
-      };
+      try {
+        // Try to fetch additional token information from DexTools API
+        const enrichedToken = await enrichTokenWithDexToolsInfo(token);
+        return enrichedToken;
+      } catch (error) {
+        console.warn(`Could not fetch DexTools data for token ${tokenAddress}:`, error);
+        
+        // Fallback to basic formatting if DexTools API fails
+        const formattedName = formatTokenName(tokenAddress, token.name);
+        
+        return {
+          ...token,
+          name: formattedName,
+          symbol: token.symbol !== 'UNKNOWN' ? token.symbol : formattedName,
+          chain: 'solana',
+          explorerUrl: getExplorerUrl(tokenAddress),
+          dexScreenerUrl: getDexScreenerUrl(tokenAddress),
+          logoURI: token.logo, // Map logo to logoURI for compatibility
+          priceChange24h: token.priceChange24h || 0 // Default to 0 if not provided
+        };
+      }
     });
     
+    const processedTokens = await Promise.all(processedTokensPromises);
+    console.log(`Successfully processed ${processedTokens.length} Solana tokens`);
+    
     const result = { 
-      tokens: basicProcessedTokens,
+      tokens: processedTokens,
       solPrice: data.solPrice 
     };
     
-    // Cache the basic processed tokens data
-    try {
-      await setCachedData(
-        cacheKey,
-        result,
-        CACHE_DURATIONS.MEDIUM,
-        'solana'
-      );
-    } catch (cacheError) {
-      console.warn(`Error caching token data: ${cacheError}`);
-      // Continue despite cache error - we still have the data
-    }
-    
-    // Store in memory cache
-    inMemoryCache[memoryCacheKey] = {
-      data: result,
-      timestamp: now
-    };
-    
-    // In the background, start the enrichment process for more complete data
-    // Using a small delay to not block the UI thread
-    setTimeout(() => {
-      enrichTokensInBackground(basicProcessedTokens, data.solPrice, cacheKey, memoryCacheKey);
-    }, 100);
+    // Cache the processed tokens data
+    await setCachedData(
+      cacheKey,
+      result,
+      CACHE_DURATIONS.MEDIUM,
+      'solana'
+    );
     
     return result;
     
   } catch (error) {
     console.error(`Error in fetchWalletTokens for Solana:`, error);
     return { tokens: [] }; // Return empty array in case of error
-  }
-};
-
-/**
- * Enrich tokens in the background without blocking the UI
- */
-const enrichTokensInBackground = async (
-  basicTokens: Token[], 
-  solPrice: number | undefined, 
-  cacheKey: string,
-  memoryCacheKey: string
-) => {
-  try {
-    // If we've had multiple API failures, skip enrichment temporarily
-    if (shouldSkipApiCall('dexTools')) {
-      console.log(`Skipping DexTools enrichment due to recent API failures. Will retry later.`);
-      return;
-    }
-
-    // Process tokens in smaller batches to avoid overwhelming the API
-    const batchSize = 2; // Reduced from 3 to 2 to decrease likelihood of rate limiting
-    let enrichedTokens: Token[] = [...basicTokens];
-    
-    for (let i = 0; i < basicTokens.length; i += batchSize) {
-      const batch = basicTokens.slice(i, i + batchSize);
-      
-      // Process each batch with a delay between batches
-      const batchPromises = batch.map(async (token) => {
-        try {
-          // Skip extra API calls for SOL
-          if (token.symbol === 'SOL' && token.name === 'Solana') {
-            return token;
-          }
-          
-          // Try to enrich with DexTools data
-          const enrichedToken = await enrichTokenWithDexToolsInfo(token);
-          return enrichedToken;
-        } catch (error) {
-          console.warn(`Error enriching token ${token.address}:`, error);
-          return token; // Keep original on error
-        }
-      });
-      
-      const batchResults = await Promise.all(batchPromises);
-      
-      // Update our enriched tokens array
-      batchResults.forEach((enrichedToken, index) => {
-        const originalIndex = i + index;
-        if (originalIndex < enrichedTokens.length) {
-          enrichedTokens[originalIndex] = enrichedToken;
-        }
-      });
-      
-      // Add delay between batches to avoid rate limiting - increased from 1 second to 2 seconds
-      if (i + batchSize < basicTokens.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-    
-    if (!enrichedTokens.length) return;
-    
-    // Update caches with enriched data
-    const result = { tokens: enrichedTokens, solPrice };
-    
-    try {
-      await setCachedData(cacheKey, result, CACHE_DURATIONS.MEDIUM, 'solana');
-    } catch (cacheError) {
-      console.warn(`Error updating cache with enriched tokens: ${cacheError}`);
-      // Continue despite cache error
-    }
-    
-    inMemoryCache[memoryCacheKey] = {
-      data: result,
-      timestamp: Date.now()
-    };
-    
-    console.log('Background token enrichment complete');
-  } catch (error) {
-    console.error('Error in background token enrichment:', error);
   }
 };
 
@@ -309,91 +154,112 @@ const formatTokenName = (tokenAddress: string, name?: string): string => {
 /**
  * Enrich token with data from DexTools API
  */
-const enrichTokenWithDexToolsInfo = async (token: Token): Promise<Token> => {
+const enrichTokenWithDexToolsInfo = async (token: any): Promise<Token> => {
   const tokenAddress = token.address;
   
   // Skip API calls for known tokens like SOL that we already have good data for
   if (token.symbol === 'SOL' && token.name === 'Solana' && token.logo) {
-    return token;
-  }
-  
-  // Check if we should skip API calls due to rate limiting
-  if (shouldSkipApiCall('dexTools')) {
-    return token;
-  }
-
-  try {
-    // Increment current requests counter
-    apiFailures.dexTools.currentRequests++;
-
-    // We'll try to get both token info and price data, but only use what succeeds
-    let tokenInfo: DexToolsTokenInfo | null = null;
-    let priceData: DexToolsTokenPrice | null = null;
-    
-    try {
-      // Try to get token metadata from DexTools via Supabase Edge Function
-      // This moves the API call to the server to avoid CORS issues
-      const { data: infoData, error: infoError } = await supabase.functions.invoke('getDexToolsInfo', {
-        body: { tokenAddress, chain: 'solana', type: 'token' }
-      });
-      
-      if (!infoError && infoData && infoData.success) {
-        tokenInfo = infoData.data;
-      }
-    } catch (infoErr) {
-      console.warn(`Error fetching DexTools token info: ${infoErr}`);
-    }
-    
-    // Add a small delay between requests to help avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    try {
-      // Try to get token price data from DexTools via Supabase Edge Function
-      const { data: priceDataResponse, error: priceError } = await supabase.functions.invoke('getDexToolsInfo', {
-        body: { tokenAddress, chain: 'solana', type: 'price' }
-      });
-      
-      if (!priceError && priceDataResponse && priceDataResponse.success) {
-        priceData = priceDataResponse.data;
-      }
-    } catch (priceErr) {
-      console.warn(`Error fetching DexTools price: ${priceErr}`);
-    }
-    
-    // If either API call succeeds, reset backoff
-    if (tokenInfo || priceData) {
-      resetBackoff('dexTools');
-    } else {
-      increaseBackoff('dexTools');
-    }
-    
-    // Calculate USD value based on token amount and price
-    let usdValue: string | undefined = token.usdValue;
-    if (priceData && priceData.price) {
-      const amount = parseFloat(token.amount);
-      // Ensure we have a valid number for the calculation
-      if (!isNaN(amount)) {
-        usdValue = (amount * priceData.price).toFixed(2);
-      }
-    }
-    
     return {
       ...token,
-      name: tokenInfo?.name || token.name,
-      symbol: tokenInfo?.symbol || token.symbol,
-      logo: tokenInfo?.logo || token.logo,
-      logoURI: tokenInfo?.logo || token.logoURI,
-      usdValue: usdValue,
-      decimals: tokenInfo?.decimals || token.decimals,
-      priceChange24h: priceData?.variation24h || token.priceChange24h || 0
+      chain: 'solana',
+      explorerUrl: getExplorerUrl(tokenAddress),
+      dexScreenerUrl: getDexScreenerUrl(tokenAddress),
+      logoURI: token.logo,
+      priceChange24h: token.priceChange24h || 0
     };
+  }
+  
+  // Get token metadata from DexTools
+  const tokenInfo = await fetchDexToolsTokenInfo(tokenAddress);
+  
+  // Get token price data from DexTools
+  const priceData = await fetchDexToolsTokenPrice(tokenAddress);
+  
+  // Calculate USD value based on token amount and price
+  let usdValue: string | undefined = token.usdValue;
+  if (priceData && priceData.price) {
+    const amount = parseFloat(token.amount);
+    // Ensure we have a valid number for the calculation
+    if (!isNaN(amount)) {
+      usdValue = (amount * priceData.price).toFixed(2);
+    }
+  }
+  
+  return {
+    name: tokenInfo?.name || formatTokenName(tokenAddress, token.name),
+    symbol: tokenInfo?.symbol || (token.symbol !== 'UNKNOWN' ? token.symbol : formatTokenName(tokenAddress, token.name)),
+    logo: tokenInfo?.logo || token.logo,
+    logoURI: tokenInfo?.logo || token.logo,
+    amount: token.amount,
+    usdValue: usdValue,
+    decimals: tokenInfo?.decimals || token.decimals,
+    address: tokenAddress,
+    chain: 'solana',
+    explorerUrl: getExplorerUrl(tokenAddress),
+    dexScreenerUrl: getDexScreenerUrl(tokenAddress),
+    priceChange24h: priceData?.variation24h || token.priceChange24h || 0
+  };
+};
+
+/**
+ * Fetch token info from DexTools API
+ */
+const fetchDexToolsTokenInfo = async (tokenAddress: string): Promise<DexToolsTokenInfo | null> => {
+  try {
+    console.log(`Fetching DexTools info for token: ${tokenAddress}`);
+    const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}`, {
+      method: 'GET',
+      headers: {
+        'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`DexTools API returned status ${response.status} for token ${tokenAddress}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    if (result.statusCode === 200 && result.data) {
+      console.log(`Successfully fetched DexTools token info for ${tokenAddress}`);
+      return result.data;
+    }
+    
+    return null;
   } catch (error) {
-    // If we get an error, increase backoff period
-    increaseBackoff('dexTools');
-    return token;
-  } finally {
-    // Decrement current requests counter
-    apiFailures.dexTools.currentRequests--;
+    console.warn(`Error fetching DexTools token info for ${tokenAddress}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Fetch token price from DexTools API
+ */
+const fetchDexToolsTokenPrice = async (tokenAddress: string): Promise<DexToolsTokenPrice | null> => {
+  try {
+    console.log(`Fetching DexTools price for token: ${tokenAddress}`);
+    const response = await fetch(`https://public-api.dextools.io/trial/v2/token/solana/${tokenAddress}/price`, {
+      method: 'GET',
+      headers: {
+        'X-API-KEY': 'XE9c5ofzgr2FA5t096AjT70CO45koL0mcZA0HOHd'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`DexTools API returned status ${response.status} for token price ${tokenAddress}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    if (result.statusCode === 200 && result.data) {
+      console.log(`Successfully fetched DexTools price info for ${tokenAddress}`);
+      return result.data;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn(`Error fetching DexTools price for ${tokenAddress}:`, error);
+    return null;
   }
 };
 

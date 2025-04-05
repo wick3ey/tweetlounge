@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
+import { TweetWithAuthor } from '@/types/Tweet';
 import Layout from '@/components/layout/Layout';
 import CommentList from '@/components/comment/CommentList';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, ArrowLeft, Share2, MoreHorizontal, Heart, MessageSquare, Bookmark } from 'lucide-react';
+import { Loader2, ArrowLeft, Share2, MoreHorizontal, Heart, Repeat, MessageSquare, Bookmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
@@ -14,10 +14,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { followUser, unfollowUser, isFollowing } from '@/services/profileService';
 import CommentForm from '@/components/comment/CommentForm';
-import { checkIfUserLikedTweet, likeTweet } from '@/services/tweetService';
+import { checkIfUserLikedTweet, likeTweet, retweet, checkIfUserRetweetedTweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
 import { VerifiedBadge } from '@/components/ui/badge';
-import { debugLogActiveSubscriptions } from '@/services/commentCountService';
 
 const TweetPage = () => {
   const { tweetId } = useParams();
@@ -28,18 +27,14 @@ const TweetPage = () => {
   const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [isRetweeted, setIsRetweeted] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isLiking, setIsLiking] = useState(false);
-  const [localLikesCount, setLocalLikesCount] = useState(0);
-  const [localRepliesCount, setLocalRepliesCount] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile } = useProfile();
 
   useEffect(() => {
-    debugLogActiveSubscriptions();
-    
     const fetchTweet = async () => {
       try {
         setLoading(true);
@@ -70,32 +65,32 @@ const TweetPage = () => {
           is_retweet: tweetData.is_retweet,
           original_tweet_id: tweetData.original_tweet_id,
           image_url: tweetData.image_url,
-          author: createPartialProfile({
+          author: {
             id: tweetData.author_id,
             username: tweetData.username,
             display_name: tweetData.display_name,
             avatar_url: tweetData.avatar_url || '',
             avatar_nft_id: tweetData.avatar_nft_id,
             avatar_nft_chain: tweetData.avatar_nft_chain
-          })
+          }
         };
 
-        if (formattedTweet.is_retweet && formattedTweet.original_tweet_id) {
+        if (tweetData.is_retweet && tweetData.original_tweet_id) {
           try {
             const { data: originalTweetData } = await supabase
-              .rpc('get_tweet_with_author_reliable', { tweet_id: formattedTweet.original_tweet_id });
+              .rpc('get_tweet_with_author_reliable', { tweet_id: tweetData.original_tweet_id });
             
             if (originalTweetData && originalTweetData.length > 0) {
               const originalTweet = originalTweetData[0];
               
-              formattedTweet.original_author = createPartialProfile({
+              formattedTweet.original_author = {
                 id: originalTweet.author_id,
                 username: originalTweet.username,
                 display_name: originalTweet.display_name,
                 avatar_url: originalTweet.avatar_url || '',
                 avatar_nft_id: originalTweet.avatar_nft_id,
                 avatar_nft_chain: originalTweet.avatar_nft_chain
-              });
+              };
             }
           } catch (err) {
             console.error('Error fetching original tweet author:', err);
@@ -103,8 +98,6 @@ const TweetPage = () => {
         }
 
         setTweet(formattedTweet);
-        setLocalLikesCount(formattedTweet.likes_count || 0);
-        setLocalRepliesCount(formattedTweet.replies_count || 0);
         
         checkIfUserIsAuthor(tweetData.author_id);
         
@@ -131,10 +124,6 @@ const TweetPage = () => {
     if (tweetId) {
       fetchTweet();
     }
-    
-    return () => {
-      debugLogActiveSubscriptions();
-    };
   }, [tweetId, toast, user]);
 
   const checkIfUserIsAuthor = async (authorId: string) => {
@@ -158,6 +147,9 @@ const TweetPage = () => {
     try {
       const liked = await checkIfUserLikedTweet(tweetId);
       setIsLiked(liked);
+
+      const retweeted = await checkIfUserRetweetedTweet(tweetId);
+      setIsRetweeted(retweeted);
 
       const bookmarked = await checkIfTweetBookmarked(tweetId);
       setIsBookmarked(bookmarked);
@@ -225,16 +217,12 @@ const TweetPage = () => {
           }
 
           const tweetData = data[0];
-          if (tweet) {
-            setLocalLikesCount(tweetData.likes_count || 0);
-            setLocalRepliesCount(tweetData.replies_count || 0);
-            
-            setTweet(prev => prev ? {
-              ...prev,
-              likes_count: tweetData.likes_count,
-              replies_count: tweetData.replies_count
-            } : null);
-          }
+          setTweet(prev => prev ? {
+            ...prev,
+            likes_count: tweetData.likes_count,
+            retweets_count: tweetData.retweets_count,
+            replies_count: tweetData.replies_count
+          } : null);
         } catch (err) {
           console.error('Failed to refresh tweet:', err);
         }
@@ -286,9 +274,6 @@ const TweetPage = () => {
   const handleCommentSubmit = () => {
     handleTweetAction();
     setShowReplyForm(false);
-    
-    // Immediately increment the local replies count for better UX
-    setLocalRepliesCount(prev => prev + 1);
   };
 
   const handleLikeToggle = async () => {
@@ -301,28 +286,19 @@ const TweetPage = () => {
       return;
     }
 
-    if (!tweetId || isLiking) return;
-    setIsLiking(true);
+    if (!tweetId) return;
 
     try {
-      const success = await likeTweet(tweetId, isLiked);
+      const success = await likeTweet(tweetId);
       if (success) {
-        // Update UI immediately
-        const newLikedState = !isLiked;
-        setIsLiked(newLikedState);
-        setLocalLikesCount(prev => newLikedState ? prev + 1 : Math.max(0, prev - 1));
-        
-        if (newLikedState) {
+        setIsLiked(!isLiked);
+        handleTweetAction();
+        if (!isLiked) {
           toast({
             title: "Liked",
             description: "You liked this post",
           });
         }
-        
-        // Still trigger the refresh after a delay
-        setTimeout(() => {
-          handleTweetAction();
-        }, 500);
       } else {
         toast({
           title: "Error",
@@ -337,8 +313,44 @@ const TweetPage = () => {
         description: "An unexpected error occurred",
         variant: "destructive",
       });
-    } finally {
-      setIsLiking(false);
+    }
+  };
+
+  const handleRetweetToggle = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "You need to be logged in to repost",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!tweetId) return;
+
+    try {
+      const success = await retweet(tweetId);
+      if (success) {
+        setIsRetweeted(!isRetweeted);
+        handleTweetAction();
+        toast({
+          title: isRetweeted ? "Repost Removed" : "Reposted",
+          description: isRetweeted ? "You removed your repost" : "You reposted this post",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to repost",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error retweeting:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 
@@ -450,6 +462,11 @@ const TweetPage = () => {
         <div className="max-w-[600px] mx-auto">
           <article className="border-b border-gray-800">
             <div className="p-4">
+              <div className="flex items-center gap-1 text-gray-500 text-sm mb-3">
+                <Repeat className="h-4 w-4 mr-1" />
+                <span>{tweet.author?.display_name} reposted</span>
+              </div>
+              
               <div className="flex items-start mb-2">
                 <Link to={`/profile/${displayedAuthor?.username}`} className="mr-3 flex-shrink-0">
                   <Avatar className="h-12 w-12 rounded-full">
@@ -523,7 +540,7 @@ const TweetPage = () => {
                 <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
                   <span>{getFormattedDate(tweet.created_at)}</span>
                   <span className="mx-1">·</span>
-                  <span>{localLikesCount + localRepliesCount} Views</span>
+                  <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
                 </div>
               </div>
               
@@ -533,19 +550,26 @@ const TweetPage = () => {
                   onClick={() => setShowReplyForm(!showReplyForm)}
                 >
                   <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
-                  <span>{localRepliesCount}</span>
+                  <span>{tweet.replies_count || 0}</span>
+                </button>
+                
+                <button 
+                  className={`flex items-center space-x-1 transition-colors ${isRetweeted ? 'text-crypto-green' : 'hover:text-crypto-green'}`}
+                  onClick={handleRetweetToggle}
+                >
+                  <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
+                  <span>{tweet.retweets_count || 0}</span>
                 </button>
                 
                 <button 
                   className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-crypto-red' : 'hover:text-crypto-red'}`}
                   onClick={handleLikeToggle}
-                  disabled={isLiking}
                 >
                   <Heart 
                     className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
                     strokeWidth={isLiked ? 0 : 1.5}
                   />
-                  <span>{localLikesCount}</span>
+                  <span>{tweet.likes_count || 0}</span>
                 </button>
                 
                 <button 
@@ -607,7 +631,6 @@ const TweetPage = () => {
             <CommentList 
               tweetId={tweet.id} 
               onCommentCountUpdated={(count) => {
-                setLocalRepliesCount(count);
                 if (tweet) {
                   setTweet(prev => prev ? { ...prev, replies_count: count } : null);
                 }
@@ -713,7 +736,7 @@ const TweetPage = () => {
               <div className="flex items-center text-gray-500 mt-3 mb-3 text-sm">
                 <span>{getFormattedDate(tweet.created_at)}</span>
                 <span className="mx-1">·</span>
-                <span>{localLikesCount + localRepliesCount} Views</span>
+                <span>{tweet.replies_count + tweet.retweets_count + tweet.likes_count} Views</span>
               </div>
             </div>
             
@@ -723,19 +746,26 @@ const TweetPage = () => {
                 onClick={() => setShowReplyForm(!showReplyForm)}
               >
                 <MessageSquare className={`h-5 w-5 ${showReplyForm ? 'text-crypto-blue' : ''}`} />
-                <span>{localRepliesCount}</span>
+                <span>{tweet.replies_count || 0}</span>
+              </button>
+              
+              <button 
+                className={`flex items-center space-x-1 transition-colors ${isRetweeted ? 'text-crypto-green' : 'hover:text-crypto-green'}`}
+                onClick={handleRetweetToggle}
+              >
+                <Repeat className={`h-5 w-5 ${isRetweeted ? 'fill-current text-crypto-green' : ''}`} />
+                <span>{tweet.retweets_count || 0}</span>
               </button>
               
               <button 
                 className={`flex items-center space-x-1 transition-colors ${isLiked ? 'text-crypto-red' : 'hover:text-crypto-red'}`}
                 onClick={handleLikeToggle}
-                disabled={isLiking}
               >
                 <Heart 
                   className={`h-5 w-5 ${isLiked ? 'fill-current text-crypto-red' : ''}`} 
                   strokeWidth={isLiked ? 0 : 1.5}
                 />
-                <span>{localLikesCount}</span>
+                <span>{tweet.likes_count || 0}</span>
               </button>
               
               <button 
@@ -797,7 +827,6 @@ const TweetPage = () => {
           <CommentList 
             tweetId={tweet.id} 
             onCommentCountUpdated={(count) => {
-              setLocalRepliesCount(count);
               if (tweet) {
                 setTweet(prev => prev ? { ...prev, replies_count: count } : null);
               }

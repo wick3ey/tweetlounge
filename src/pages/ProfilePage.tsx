@@ -6,14 +6,16 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useToast } from "@/components/ui/use-toast";
 import Profile from "./Profile";
 import { Loader } from "lucide-react";
-import Layout from "@/components/layout/Layout";
+import LeftSidebar from "@/components/layout/LeftSidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
+import Navbar from "@/components/layout/Navbar";
 import { getProfileByUsername } from "@/services/profileService";
 
 const ProfilePage = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading, refreshProfile } = useProfile();
+  const { profile, isLoading: profileLoading } = useProfile();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(true);
@@ -89,7 +91,7 @@ const ProfilePage = () => {
       <div className="min-h-screen bg-crypto-black flex flex-col items-center justify-center px-4">
         <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
           <h1 className="text-2xl font-bold mb-4 text-crypto-blue font-display">User not found</h1>
-          <p className="text-gray-400 mb-6">The user you're looking for doesn't exist or has been removed.</p>
+          <p className="text-crypto-lightgray mb-6">The user you're looking for doesn't exist or has been removed.</p>
           <button 
             onClick={() => navigate('/home')}
             className="bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
@@ -102,9 +104,16 @@ const ProfilePage = () => {
   }
 
   return (
-    <Layout>
-      <Profile username={username} isOwnProfile={viewingOwnProfile} />
-    </Layout>
+    <div className="min-h-screen bg-crypto-black">
+      <Navbar />
+      <div className="container mx-auto flex flex-col lg:flex-row">
+        <LeftSidebar />
+        <main className="flex-1 min-h-screen border-x border-crypto-gray/30">
+          <Profile username={username} isOwnProfile={viewingOwnProfile} />
+        </main>
+        <RightSidebar />
+      </div>
+    </div>
   );
 };
 

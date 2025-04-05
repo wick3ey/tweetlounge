@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { subscribeToCommentCountUpdates, hasActiveCommentCountSubscription } from '@/services/commentCountService';
 
 interface CommentListProps {
   tweetId?: string;
@@ -12,77 +11,22 @@ interface CommentListProps {
   onAction?: () => void;
 }
 
-// Cache for comment data
-const commentCache = new Map<string, { 
-  comments: Comment[], 
-  timestamp: number, 
-  expiryTime: number 
-}>();
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
-
 const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdated, onAction }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [commentCount, setCommentCount] = useState(0);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const isMounted = useRef(true);
+  const [totalComments, setTotalComments] = useState(0);
 
   useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!tweetId) return;
-    
-    // Initial data load
-    fetchComments();
-    
-    // Initialize subscription once
-    if (!hasInitialized) {
-      setHasInitialized(true);
-      
-      // Set up realtime subscriptions for comment count updates only if not already active
-      const cleanup = !hasActiveCommentCountSubscription(tweetId) 
-        ? subscribeToCommentCountUpdates(tweetId, (count) => {
-            if (!isMounted.current) return;
-            
-            console.log(`[CommentList] Received updated comment count: ${count}`);
-            setCommentCount(count);
-            
-            // Propagate count update to parent components if needed
-            if (onCommentCountUpdated) {
-              onCommentCountUpdated(count);
-            }
-          })
-        : () => console.log(`[CommentList] Using existing comment count subscription for ${tweetId}`);
-      
-      return cleanup;
+    if (tweetId) {
+      fetchComments();
     }
-  }, [tweetId, onCommentCountUpdated]);
+  }, [tweetId]);
 
   const fetchComments = async () => {
     if (!tweetId) return;
-
+    
     setLoading(true);
-    
-    // Check if we have a valid cache entry
-    const now = Date.now();
-    const cacheKey = `comments-${tweetId}`;
-    const cachedData = commentCache.get(cacheKey);
-    
-    // Use cached data if available and not expired
-    if (cachedData && now < cachedData.expiryTime) {
-      console.log(`[CommentList] Using cached comments for tweet ${tweetId}`);
-      setComments(cachedData.comments);
-      setLoading(false);
-      return;
-    }
-    
     try {
-      // Fetch parent comments
       const { data, error } = await supabase
         .from('comments')
         .select(`
@@ -107,11 +51,31 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
         
       if (error) {
         console.error('Error fetching comments:', error);
-        setLoading(false);
         return;
       }
       
-      if (data && isMounted.current) {
+      // Get the total count of comments for this tweet
+      const { count, error: countError } = await supabase
+        .from('comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('tweet_id', tweetId);
+        
+      if (countError) {
+        console.error('Error counting comments:', countError);
+      } else {
+        const commentCount = count || 0;
+        setTotalComments(commentCount);
+        
+        // Notify parent component about the updated comment count
+        if (onCommentCountUpdated) {
+          onCommentCountUpdated(commentCount);
+        }
+        
+        // Update the tweet's replies_count if it doesn't match the actual count
+        updateTweetRepliesCount(tweetId, commentCount);
+      }
+      
+      if (data) {
         const formattedComments: Comment[] = data.map((comment: any) => ({
           id: comment.id,
           content: comment.content,
@@ -119,7 +83,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           tweet_id: comment.tweet_id,
           parent_comment_id: comment.parent_reply_id,
           created_at: comment.created_at,
-          likes_count: comment.likes_count || 0,
+          likes_count: comment.likes_count,
           author: {
             username: comment.profiles.username,
             display_name: comment.profiles.display_name,
@@ -129,31 +93,50 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
           }
         }));
         
-        // Store in cache
-        commentCache.set(cacheKey, {
-          comments: formattedComments,
-          timestamp: now,
-          expiryTime: now + CACHE_EXPIRY
-        });
-        
         setComments(formattedComments);
       }
     } catch (error) {
       console.error('Failed to fetch comments:', error);
     } finally {
-      if (isMounted.current) {
-        setLoading(false);
+      setLoading(false);
+    }
+  };
+
+  // Update the tweet's replies_count to match the actual comment count
+  const updateTweetRepliesCount = async (tweetId: string, commentCount: number) => {
+    try {
+      // First get the current replies_count
+      const { data: tweetData, error: tweetError } = await supabase
+        .from('tweets')
+        .select('replies_count')
+        .eq('id', tweetId)
+        .single();
+        
+      if (tweetError) {
+        console.error('Error fetching tweet:', tweetError);
+        return;
       }
+      
+      // Only update if the count doesn't match
+      if (tweetData && tweetData.replies_count !== commentCount) {
+        const { error: updateError } = await supabase
+          .from('tweets')
+          .update({ replies_count: commentCount })
+          .eq('id', tweetId);
+          
+        if (updateError) {
+          console.error('Error updating tweet replies count:', updateError);
+        } else {
+          console.log(`Updated tweet ${tweetId} replies_count to ${commentCount}`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update tweet replies count:', err);
     }
   };
 
   // Refresh comments when an action occurs (like a like)
   const handleCommentAction = () => {
-    // Force refresh the cache by removing the cached entry
-    if (tweetId) {
-      commentCache.delete(`comments-${tweetId}`);
-    }
-    
     fetchComments();
     if (onAction) {
       onAction();
@@ -171,7 +154,7 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
   return (
     <div className="space-y-2">
       <div className="text-gray-500 font-medium py-2 border-b border-gray-800">
-        {commentCount} {commentCount === 1 ? 'Comment' : 'Comments'}
+        {totalComments} {totalComments === 1 ? 'Comment' : 'Comments'}
       </div>
       
       {comments.length === 0 ? (
@@ -193,15 +176,5 @@ const CommentList: React.FC<CommentListProps> = ({ tweetId, onCommentCountUpdate
     </div>
   );
 };
-
-// Clean up expired entries from the comment cache every minute
-setInterval(() => {
-  const now = Date.now();
-  commentCache.forEach((value, key) => {
-    if (now > value.expiryTime) {
-      commentCache.delete(key);
-    }
-  });
-}, 60000);
 
 export default CommentList;

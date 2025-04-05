@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import ProfileHeader from '@/components/profile/ProfileHeader';
 import ProfileEditForm from '@/components/profile/ProfileEditForm';
 import ProfileTabs from '@/components/profile/ProfileTabs';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabase';
-import { Loader, Image } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader, Settings, Image } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,13 +16,12 @@ import {
 import { verifyNFTOwnership } from '@/utils/nftService';
 import NFTBrowser from '@/components/profile/NFTBrowser';
 import { getProfileByUsername, isFollowing } from '@/services/profileService';
-import { getUserTweets } from '@/services/tweetService';
-import { fetchProfileDataWithCache } from '@/utils/profileCacheService';
-import { CACHE_DURATIONS } from '@/utils/cacheService';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
-const prefetchMap = new Map<string, boolean>();
+const CryptoTag = ({ children }: { children: React.ReactNode }) => (
+  <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-crypto-blue/10 text-crypto-blue dark:bg-crypto-blue/20 dark:text-crypto-lightgray">
+    {children}
+  </div>
+);
 
 interface ProfileProps {
   username?: string;
@@ -49,30 +48,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   const isLoading = isOwnProfile ? currentProfileLoading : isLoadingProfile;
   const error = isOwnProfile ? currentProfileError : profileError;
   
-  const prefetchProfileData = useCallback(async (userId: string) => {
-    if (prefetchMap.get(userId)) return;
-    
-    prefetchMap.set(userId, true);
-    
-    console.log(`Prefetching data for user ${userId}`);
-    
-    try {
-      fetchProfileDataWithCache(
-        userId,
-        'posts',
-        async () => {
-          console.log(`Prefetching posts for user ${userId}`);
-          return await getUserTweets(userId);
-        },
-        { limit: 20, offset: 0 },
-        CACHE_DURATIONS.MEDIUM,
-        false
-      ).catch(err => console.warn('Prefetch error (non-critical):', err));
-    } catch (error) {
-      console.warn('Prefetch error (non-critical):', error);
-    }
-  }, []);
-  
   useEffect(() => {
     const checkFollowStatus = async () => {
       if (isOwnProfile || !user || !viewedProfile) return;
@@ -95,14 +70,9 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           setIsLoadingProfile(true);
           setProfileError(null);
           
-          console.time('fetchProfileDetails');
           const profileData = await getProfileByUsername(username);
-          console.timeEnd('fetchProfileDetails');
-          
           if (profileData) {
             setViewedProfile(profileData);
-            
-            prefetchProfileData(profileData.id);
             
             try {
               const { data, error } = await supabase
@@ -130,7 +100,7 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     };
     
     fetchViewedProfile();
-  }, [username, isOwnProfile, prefetchProfileData]);
+  }, [username, isOwnProfile]);
   
   useEffect(() => {
     const fetchUserCreationDate = async () => {
@@ -150,8 +120,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
           if (data && 'created_at' in data) {
             setUserCreatedAt(data.created_at);
           }
-          
-          prefetchProfileData(user.id);
         } catch (error) {
           console.error("Error in fetchUserCreationDate:", error);
         }
@@ -159,16 +127,18 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     };
     
     fetchUserCreationDate();
-  }, [user, isOwnProfile, prefetchProfileData]);
+  }, [user, isOwnProfile]);
   
   useEffect(() => {
     const checkNFTVerification = async () => {
       if (profile && user) {
+        console.log("Checking NFT verification for profile:", profile);
         const isVerified = await verifyNFTOwnership(
           isOwnProfile ? user.id : profile.id,
           profile.ethereum_address,
           profile.solana_address
         );
+        console.log("NFT verification result:", isVerified);
         setIsNFTVerified(isVerified);
       }
     };
@@ -177,47 +147,6 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
       checkNFTVerification();
     }
   }, [profile, isLoading, user, isOwnProfile]);
-  
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center shadow-lg">
-          <Loader className="h-12 w-12 animate-spin text-crypto-blue" />
-          <p className="mt-4 text-crypto-blue font-medium animate-pulse">Loading profile...</p>
-        </Card>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md shadow-lg">
-          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
-          >
-            Try Again
-          </button>
-        </Card>
-      </div>
-    );
-  }
-  
-  if (!profile) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <Card className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center shadow-lg">
-          <div className="text-crypto-lightgray mb-4">Profile not found or you're not logged in.</div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
-          >Try Again</button>
-        </Card>
-      </div>
-    );
-  }
   
   const handleEditProfile = () => {
     setIsEditing(true);
@@ -245,6 +174,47 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
     setIsUserFollowing(!isUserFollowing);
   };
   
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl flex flex-col items-center">
+          <Loader className="h-12 w-12 animate-spin text-crypto-blue" />
+          <p className="mt-4 text-crypto-blue font-medium animate-pulse">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md">
+          <div className="text-crypto-red mb-4 text-center">Error loading profile: {error}</div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="bg-crypto-darkgray border border-crypto-gray p-8 rounded-xl max-w-md text-center">
+          <div className="text-crypto-lightgray mb-4">Profile not found or you're not logged in.</div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full bg-crypto-blue hover:bg-crypto-darkblue text-white px-4 py-2 rounded-lg"
+          >Try Again</button>
+        </div>
+      </div>
+    );
+  }
+  
   const formatWebsiteUrl = (url: string | null): string | null => {
     if (!url) return null;
     
@@ -253,44 +223,34 @@ const Profile = ({ username, isOwnProfile }: ProfileProps) => {
   
   return (
     <div className="w-full bg-crypto-black text-crypto-text">
-      <ScrollArea className="h-screen">
-        <div className="pb-20">
-          <ProfileHeader
-            userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-            username={profile?.username || 'username'}
-            displayName={profile?.display_name || 'Display Name'}
-            avatarUrl={profile?.avatar_url || undefined}
-            coverUrl={profile?.cover_url || undefined}
-            bio={profile?.bio || undefined}
-            location={profile?.location || undefined}
-            website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
-            ethereumAddress={profile?.ethereum_address}
-            solanaAddress={profile?.solana_address}
-            isCurrentUser={isOwnProfile}
-            followersCount={profile?.followers_count || 0}
-            followingCount={profile?.following_count || 0}
-            joinedDate={userCreatedAt || new Date().toISOString()}
-            onEditProfile={handleEditProfile}
-            onOpenNFTBrowser={handleOpenNFTBrowser}
-            isFollowing={isUserFollowing}
-            onFollow={handleFollowAction}
-            isNFTVerified={isNFTVerified}
-            onAvatarClick={handleOpenProfileImage}
-          />
-          
-          <Suspense fallback={
-            <div className="flex justify-center items-center py-16">
-              <Loader className="h-8 w-8 animate-spin text-crypto-blue" />
-            </div>
-          }>
-            <ProfileTabs 
-              userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
-              isCurrentUser={isOwnProfile}
-              solanaAddress={profile?.solana_address}
-            />
-          </Suspense>
-        </div>
-      </ScrollArea>
+      <ProfileHeader
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+        username={profile?.username || 'username'}
+        displayName={profile?.display_name || 'Display Name'}
+        avatarUrl={profile?.avatar_url || undefined}
+        coverUrl={profile?.cover_url || undefined}
+        bio={profile?.bio || undefined}
+        location={profile?.location || undefined}
+        website={profile?.website ? formatWebsiteUrl(profile.website) : undefined}
+        ethereumAddress={profile?.ethereum_address}
+        solanaAddress={profile?.solana_address}
+        isCurrentUser={isOwnProfile}
+        followersCount={profile?.followers_count || 0}
+        followingCount={profile?.following_count || 0}
+        joinedDate={userCreatedAt || new Date().toISOString()}
+        onEditProfile={handleEditProfile}
+        onOpenNFTBrowser={handleOpenNFTBrowser}
+        isFollowing={isUserFollowing}
+        onFollow={handleFollowAction}
+        isNFTVerified={isNFTVerified}
+        onAvatarClick={handleOpenProfileImage}
+      />
+      
+      <ProfileTabs 
+        userId={isOwnProfile ? (user?.id || '') : (profile?.id || '')}
+        isCurrentUser={isOwnProfile}
+        solanaAddress={profile?.solana_address}
+      />
       
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-crypto-darkgray border-crypto-gray">

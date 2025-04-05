@@ -137,30 +137,36 @@ function dispatch(action: Action) {
   })
 }
 
-// Modified to be a silent no-op function by default
-function toast({ ...props }: Toast): { id: string; dismiss: () => void; update: (props: ToasterToast) => void } {
-  // Only store the toast info but don't actually show it
-  // This is a silent toast that doesn't display
+type Toast = Omit<ToasterToast, "id">
+
+function toast({ ...props }: Toast) {
   const id = genId()
-  
-  const update = (props: ToasterToast) => {
-    // No-op - don't actually update anything
-    return
-  }
-  
-  const dismiss = () => {
-    // No-op - nothing to dismiss
-    return
-  }
+
+  const update = (props: ToasterToast) =>
+    dispatch({
+      type: "UPDATE_TOAST",
+      toast: { ...props, id },
+    })
+  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+
+  dispatch({
+    type: "ADD_TOAST",
+    toast: {
+      ...props,
+      id,
+      open: true,
+      onOpenChange: (open) => {
+        if (!open) dismiss()
+      },
+    },
+  })
 
   return {
-    id,
+    id: id,
     dismiss,
     update,
   }
 }
-
-type Toast = Omit<ToasterToast, "id">
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)

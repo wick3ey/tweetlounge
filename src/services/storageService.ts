@@ -1,24 +1,26 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export const validateTweetsBucket = async () => {
+export const createBucketIfNotExists = async () => {
   // Check if bucket exists
-  const { data: buckets, error } = await supabase.storage.listBuckets();
+  const { data: buckets } = await supabase.storage.listBuckets();
   
-  if (error) {
-    console.error('Error checking buckets:', error);
-    return false;
-  }
-  
-  const bucketExists = buckets?.some(bucket => bucket.name === 'tweets');
+  const bucketExists = buckets?.some(bucket => bucket.name === 'tweet-images');
   
   if (!bucketExists) {
-    console.error('Tweets bucket does not exist. Please contact administrator.');
-    return false;
+    // Create bucket if it doesn't exist
+    const { error } = await supabase.storage.createBucket('tweet-images', {
+      public: true
+    });
+    
+    if (error) {
+      console.error('Error creating bucket:', error);
+      return false;
+    }
   }
   
   return true;
 };
 
-// Call this function when your app initializes to validate that the bucket exists
-validateTweetsBucket();
+// Call this function when your app initializes
+createBucketIfNotExists();

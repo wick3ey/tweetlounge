@@ -1,9 +1,9 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { BadgeCheck } from "lucide-react";
 
 const badgeVariants = cva(
   "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -15,20 +15,16 @@ const badgeVariants = cva(
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+          "border-transparent bg-red-500 text-white hover:bg-red-500/80",
+        success:
+          "border-transparent bg-green-500 text-white hover:bg-green-500/80",
         outline: "text-foreground",
-        success: 
-          "border-transparent bg-emerald-500 text-white hover:bg-emerald-600"
-      },
-      size: {
-        default: "px-2.5 py-0.5 text-xs",
-        sm: "px-2 py-0.5 text-[0.625rem]",
-        lg: "px-2.5 py-0.5 text-sm",
+        verified:
+          "inline-flex items-center justify-center p-0 bg-crypto-blue rounded-full w-4 h-4 flex-shrink-0",
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
     },
   }
 )
@@ -37,18 +33,18 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, size, ...props }: BadgeProps) {
+function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant, size }), className)} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
   )
 }
 
-function VerifiedBadge({ className }: { className?: string }) {
+function VerifiedBadge({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <span className={cn("inline-flex", className)}>
-      <BadgeCheck className="h-4 w-4 text-blue-500" />
-    </span>
+    <Badge variant="verified" className={cn("ml-1", className)} {...props}>
+      <Check className="h-2.5 w-2.5 text-white stroke-[3]" />
+    </Badge>
   )
 }
 
-export { Badge, badgeVariants, VerifiedBadge }
+export { Badge, VerifiedBadge, badgeVariants }

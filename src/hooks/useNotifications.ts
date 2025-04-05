@@ -1,140 +1,200 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
 import { Notification, NotificationType } from '@/types/Notification';
-import { markNotificationAsRead, markAllNotificationsAsRead as markAllRead, getNotifications } from '@/services/notificationService';
-import { 
-  getCachedNotifications, 
-  cacheNotifications, 
-  updateCachedNotification,
-  addCachedNotification,
-  markAllCachedNotificationsAsRead
-} from '@/utils/notificationCacheService';
+import { markNotificationAsRead, markAllNotificationsAsRead as markAllRead } from '@/services/notificationService';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useAuth();
-  
-  const isFetchingRef = useRef(false);
-  const hasInitializedRef = useRef(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!user || hasInitializedRef.current) return;
-    
-    const cachedData = getCachedNotifications(user.id);
-    if (cachedData) {
-      setNotifications(cachedData);
-      setUnreadCount(cachedData.filter(n => !n.read).length);
-      setLoading(false);
-      
-      setTimeout(() => fetchNotificationsFromDB(false), 0);
-    }
-    
-    hasInitializedRef.current = true;
-  }, [user]);
-
-  const fetchNotifications = useCallback(async (forceFresh: boolean = false) => {
-    if (!user || isFetchingRef.current) return;
-    
-    try {
-      const shouldShowLoading = notifications.length === 0;
-      if (shouldShowLoading) {
-        setLoading(true);
-      }
-      
-      isFetchingRef.current = true;
-      
-      if (!forceFresh) {
-        const cachedData = getCachedNotifications(user.id);
-        if (cachedData) {
-          setNotifications(cachedData);
-          setUnreadCount(cachedData.filter(n => !n.read).length);
-          
-          setTimeout(() => fetchNotificationsFromDB(false), 10);
-          return;
-        }
-      }
-      
-      await fetchNotificationsFromDB(true);
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-      const cachedData = getCachedNotifications(user.id);
-      if (cachedData) {
-        setNotifications(cachedData);
-        setUnreadCount(cachedData.filter(n => !n.read).length);
-      }
-    } finally {
-      setLoading(false);
-      isFetchingRef.current = false;
-    }
-  }, [user, notifications.length]);
-
-  const fetchNotificationsFromDB = async (updateUI: boolean = true) => {
+  // Fetch notifications
+  const fetchNotifications = async () => {
     if (!user) return;
     
     try {
-      const notificationsData = await getNotifications(user.id);
+      setLoading(true);
       
-      if (updateUI) {
-        setNotifications(notificationsData);
-        setUnreadCount(notificationsData.filter(n => !n.read).length);
+      // First, fetch notifications
+      const { data: notificationsData, error: notificationsError } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (notificationsError) {
+        console.error('Error fetching notifications:', notificationsError);
+        throw notificationsError;
+      }
+
+      // Then fetch profile data for each actor_id
+      const actorIds = notificationsData.map(notification => notification.actor_id);
+      
+      if (actorIds.length === 0) {
+        setNotifications([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
       }
       
-      return notificationsData;
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+        .in('id', actorIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+
+      // Create a map of actor_id to profile data for quick lookup
+      const profilesMap = profilesData.reduce((map, profile) => {
+        map[profile.id] = profile;
+        return map;
+      }, {});
+
+      // Get all tweet IDs to fetch their content
+      const tweetIds = notificationsData
+        .filter(n => n.tweet_id)
+        .map(n => n.tweet_id);
+      
+      let tweetsMap = {};
+      
+      if (tweetIds.length > 0) {
+        const { data: tweetsData, error: tweetsError } = await supabase
+          .from('tweets')
+          .select('id, content, created_at')
+          .in('id', tweetIds);
+          
+        if (tweetsError) {
+          console.error('Error fetching tweets:', tweetsError);
+        } else if (tweetsData) {
+          tweetsMap = tweetsData.reduce((map, tweet) => {
+            map[tweet.id] = tweet;
+            return map;
+          }, {});
+        }
+      }
+
+      // Combine notification data with actor profile data and tweet data
+      const formattedNotifications: Notification[] = notificationsData.map((notification) => {
+        const actorProfile = profilesMap[notification.actor_id] || {
+          username: 'unknown',
+          display_name: 'Unknown User',
+          avatar_url: null
+        };
+        
+        const tweetData = notification.tweet_id ? tweetsMap[notification.tweet_id] : null;
+
+        return {
+          id: notification.id,
+          userId: notification.user_id,
+          actorId: notification.actor_id,
+          type: notification.type as NotificationType,
+          tweetId: notification.tweet_id,
+          commentId: notification.comment_id,
+          createdAt: notification.created_at,
+          read: notification.read,
+          actor: {
+            username: actorProfile.username,
+            displayName: actorProfile.display_name,
+            avatarUrl: actorProfile.avatar_url,
+            isVerified: !!(actorProfile.avatar_nft_id && actorProfile.avatar_nft_chain)
+          },
+          tweet: tweetData ? {
+            id: tweetData.id,
+            content: tweetData.content,
+            createdAt: tweetData.created_at
+          } : undefined
+        };
+      });
+
+      setNotifications(formattedNotifications);
+      
+      // Count unread notifications
+      const unread = formattedNotifications.filter(n => !n.read).length;
+      setUnreadCount(unread);
     } catch (error) {
-      console.error('Failed to fetch notifications from DB:', error);
-      throw error;
+      console.error('Failed to fetch notifications:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load notifications. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Mark notification as read
   const handleMarkAsRead = async (notificationId: string) => {
-    if (!user || !notificationId) return;
+    if (!user) return;
     
     try {
-      updateCachedNotification(user.id, notificationId, { read: true });
-      
-      setNotifications(prev => prev.map(notification => 
-        notification.id === notificationId ? { ...notification, read: true } : notification
-      ));
-      
-      setUnreadCount(prev => Math.max(0, prev - 1));
-      
       const success = await markNotificationAsRead(notificationId);
-      
-      if (!success) {
-        console.error('Failed to mark notification as read in database');
+
+      if (success) {
+        // Update local state
+        setNotifications(prev => prev.map(notification => 
+          notification.id === notificationId 
+            ? { ...notification, read: true } 
+            : notification
+        ));
+        
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update notification. Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
+  // Mark all notifications as read
   const handleMarkAllAsRead = async () => {
     if (!user || unreadCount === 0) return;
     
     try {
-      markAllCachedNotificationsAsRead(user.id);
-      
-      setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
-      setUnreadCount(0);
-      
       const success = await markAllRead(user.id);
-      
-      if (!success) {
-        console.error('Failed to mark all notifications as read in database');
+
+      if (success) {
+        // Update local state
+        setNotifications(prev => prev.map(notification => ({ ...notification, read: true })));
+        setUnreadCount(0);
+        
+        toast({
+          title: 'Success',
+          description: 'All notifications marked as read',
+        });
       }
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update notifications. Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
+  // Setup real-time subscription for new notifications
   useEffect(() => {
     if (!user) return;
     
+    // Initial fetch
     fetchNotifications();
     
+    // Set up real-time subscription
     const channel = supabase
       .channel('notifications-changes')
       .on(
@@ -146,30 +206,32 @@ export function useNotifications() {
           filter: `user_id=eq.${user.id}`
         },
         async (payload) => {
+          // When new notification is received, fetch the actor details separately
           try {
-            const [actorResponse, tweetResponse] = await Promise.all([
-              supabase
-                .from('profiles')
-                .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
-                .eq('id', payload.new.actor_id)
-                .single(),
-                
-              payload.new.tweet_id ? 
-                supabase
-                  .from('tweets')
-                  .select('id, content, created_at')
-                  .eq('id', payload.new.tweet_id)
-                  .single() : 
-                Promise.resolve({ data: null, error: null })
-            ]);
+            const { data: actorData, error: actorError } = await supabase
+              .from('profiles')
+              .select('username, display_name, avatar_url, avatar_nft_id, avatar_nft_chain')
+              .eq('id', payload.new.actor_id)
+              .single();
 
-            if (actorResponse.error) {
-              console.error('Error fetching actor details:', actorResponse.error);
+            if (actorError) {
+              console.error('Error fetching actor details:', actorError);
               return;
             }
             
-            const actorData = actorResponse.data;
-            const tweetData = tweetResponse.data;
+            // If notification has a tweet_id, fetch tweet details
+            let tweetData = null;
+            if (payload.new.tweet_id) {
+              const { data, error } = await supabase
+                .from('tweets')
+                .select('id, content, created_at')
+                .eq('id', payload.new.tweet_id)
+                .single();
+                
+              if (!error) {
+                tweetData = data;
+              }
+            }
 
             const newNotification: Notification = {
               id: payload.new.id,
@@ -178,8 +240,7 @@ export function useNotifications() {
               type: payload.new.type as NotificationType,
               tweetId: payload.new.tweet_id,
               commentId: payload.new.comment_id,
-              content: '',
-              created_at: payload.new.created_at,
+              createdAt: payload.new.created_at,
               read: payload.new.read,
               actor: {
                 username: actorData.username,
@@ -194,45 +255,18 @@ export function useNotifications() {
               } : undefined
             };
 
-            addCachedNotification(user.id, newNotification);
-            
+            // Add to notifications
             setNotifications(prev => [newNotification, ...prev]);
             
+            // Update unread count
             if (!newNotification.read) {
               setUnreadCount(prev => prev + 1);
             }
+            
+            // Show toast notification
+            showNotificationToast(newNotification);
           } catch (error) {
             console.error('Error processing new notification:', error);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          if (payload.new && payload.old) {
-            const updatedId = payload.new.id;
-            const wasRead = payload.old.read;
-            const isReadNow = payload.new.read;
-            
-            if (wasRead !== isReadNow) {
-              updateCachedNotification(user.id, updatedId, { read: isReadNow });
-              
-              setNotifications(prev => 
-                prev.map(n => n.id === updatedId ? { ...n, read: isReadNow } : n)
-              );
-              
-              if (!wasRead && isReadNow) {
-                setUnreadCount(prev => Math.max(0, prev - 1));
-              } else if (wasRead && !isReadNow) {
-                setUnreadCount(prev => prev + 1);
-              }
-            }
           }
         }
       )
@@ -241,7 +275,42 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchNotifications]);
+  }, [user]);
+
+  // Show a toast notification for new notifications
+  const showNotificationToast = (notification: Notification) => {
+    let title = 'New Notification';
+    let description = '';
+    
+    switch (notification.type) {
+      case 'like':
+        if (notification.commentId) {
+          description = `${notification.actor.displayName} liked your comment`;
+        } else {
+          description = `${notification.actor.displayName} liked your tweet`;
+        }
+        break;
+      case 'comment':
+        description = `${notification.actor.displayName} commented on your tweet`;
+        break;
+      case 'retweet':
+        description = `${notification.actor.displayName} retweeted your tweet`;
+        break;
+      case 'follow':
+        description = `${notification.actor.displayName} started following you`;
+        break;
+      case 'mention':
+        description = `${notification.actor.displayName} mentioned you`;
+        break;
+      default:
+        description = 'You have a new notification';
+    }
+    
+    toast({
+      title,
+      description,
+    });
+  };
 
   return {
     notifications,
