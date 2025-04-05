@@ -1,17 +1,19 @@
+
 import React, { useState, useEffect } from 'react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { VerifiedIcon } from '@radix-ui/react-icons';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { ThreeDots, Heart, MessageSquare, Repeat, Share2, Bookmark, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Heart, MessageSquare, Repeat, Share2, Bookmark, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { likeTweet, retweet, checkIfUserLikedTweet, checkIfUserRetweetedTweet, deleteTweet } from '@/services/tweetService';
-import { addBookmark, removeBookmark, checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
+import { checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
 import { useToast } from '@/components/ui/use-toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/lib/supabase';
 import { updateTweetCount } from '@/utils/tweetCacheService';
+import { CryptoButton } from '@/components/ui/crypto-button';
 
 interface TweetCardProps {
   tweet: TweetWithAuthor;
@@ -186,6 +188,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
       setIsBookmarkProcessing(true);
       
       if (isBookmarked) {
+        // We'll implement this function in bookmarkService
         await removeBookmark(tweet.id);
         setIsBookmarked(false);
         setBookmarksCount(prev => Math.max(0, prev - 1));
@@ -198,6 +201,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
           description: "Tweet has been removed from your bookmarks",
         });
       } else {
+        // We'll implement this function in bookmarkService
         await addBookmark(tweet.id);
         setIsBookmarked(true);
         setBookmarksCount(prev => prev + 1);
@@ -293,7 +297,7 @@ const TweetCard: React.FC<TweetCardProps> = ({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <CryptoButton variant="ghost" className="h-8 w-8 p-0 rounded-full hover:bg-gray-900">
-                    <ThreeDots className="h-5 w-5" />
+                    <MoreHorizontal className="h-5 w-5" />
                     <span className="sr-only">Open menu</span>
                   </CryptoButton>
                 </DropdownMenuTrigger>

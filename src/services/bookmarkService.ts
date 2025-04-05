@@ -1,209 +1,243 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { TweetWithAuthor, createPartialProfile } from '@/types/Tweet';
-import { updateTweetInCache } from '@/utils/tweetCacheService';
+import { updateTweetCount } from '@/utils/tweetCacheService';
+import { checkIfUserBookmarkedTweet } from '@/services/bookmarkService';
 
 /**
- * Checks if a tweet is bookmarked by the current user
+ * Add a tweet to user's bookmarks
  */
-export async function checkIfTweetBookmarked(tweetId: string): Promise<boolean> {
+export const addBookmark = async (tweetId: string): Promise<boolean> => {
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-    
-    if (!user) {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      console.error('User auth error:', userError?.message);
       return false;
     }
-    
-    const { count } = await supabase
-      .from('bookmarks')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('tweet_id', tweetId);
-    
-    return count ? count > 0 : false;
-  } catch (error) {
-    console.error('Error checking bookmark status:', error);
-    return false;
-  }
-}
 
-/**
- * Gets the number of bookmarks for a tweet
- */
-export async function getBookmarkCount(tweetId: string): Promise<number> {
-  try {
-    const { data, error } = await supabase
+    const { error } = await supabase
+      .from('bookmarks')
+      .insert({
+        user_id: userData.user.id,
+        tweet_id: tweetId
+      });
+
+    if (error) {
+      console.error('Error adding bookmark:', error.message);
+      return false;
+    }
+
+    // Update the bookmarks count in the tweet
+    const { data: tweetData, error: countError } = await supabase
       .from('tweets')
       .select('bookmarks_count')
       .eq('id', tweetId)
       .single();
-    
-    if (error) {
-      console.error('Error getting bookmark count:', error);
-      return 0;
+      
+    if (!countError && tweetData) {
+      const currentCount = tweetData.bookmarks_count || 0;
+      const newCount = currentCount + 1;
+      
+      await supabase
+        .from('tweets')
+        .update({ bookmarks_count: newCount })
+        .eq('id', tweetId);
+      
+      // Update local cache
+      updateTweetCount(tweetId, { bookmarks_count: newCount });
     }
-    
-    return data?.bookmarks_count || 0;
-  } catch (error) {
-    console.error('Error getting bookmark count:', error);
-    return 0;
-  }
-}
 
-/**
- * Bookmarks a tweet
- */
-export async function bookmarkTweet(tweetId: string): Promise<boolean> {
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-    
-    if (!user) {
-      throw new Error('User must be logged in to bookmark a tweet');
-    }
-    
-    // Check if bookmark already exists
-    const { count: existingBookmark } = await supabase
-      .from('bookmarks')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('tweet_id', tweetId);
-    
-    if (existingBookmark) {
-      console.log('Tweet already bookmarked');
-      return true;
-    }
-    
-    // Create bookmark
-    const { error: bookmarkError } = await supabase
-      .from('bookmarks')
-      .insert({
-        user_id: user.id,
-        tweet_id: tweetId
-      });
-    
-    if (bookmarkError) {
-      console.error('Bookmark creation error:', bookmarkError);
-      return false;
-    }
-    
-    // Update bookmark count using SQL function
-    const { data: incrementResult, error: countUpdateError } = await supabase.rpc(
-      'increment_bookmark_count', 
-      { tweet_id_param: tweetId }
-    );
-    
-    if (countUpdateError) {
-      console.error('Bookmark count update error:', countUpdateError);
-    } else {
-      // Update the tweet in cache with the new bookmark count
-      updateTweetInCache(tweetId, (tweet) => ({
-        ...tweet,
-        bookmarks_count: incrementResult || (tweet.bookmarks_count || 0) + 1
-      }));
-    }
-    
     return true;
   } catch (error) {
-    console.error('Bookmark creation failed:', error);
+    console.error('Error in addBookmark:', error);
     return false;
   }
-}
+};
 
 /**
- * Removes a bookmark from a tweet
+ * Remove a tweet from user's bookmarks
  */
-export async function unbookmarkTweet(tweetId: string): Promise<boolean> {
+export const removeBookmark = async (tweetId: string): Promise<boolean> => {
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-    
-    if (!user) {
-      throw new Error('User must be logged in to remove a bookmark');
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      console.error('User auth error:', userError?.message);
+      return false;
     }
-    
-    // Delete bookmark
-    const { error: deleteError } = await supabase
+
+    const { error } = await supabase
       .from('bookmarks')
       .delete()
-      .eq('user_id', user.id)
+      .eq('user_id', userData.user.id)
       .eq('tweet_id', tweetId);
-    
-    if (deleteError) {
-      console.error('Bookmark removal error:', deleteError);
+
+    if (error) {
+      console.error('Error removing bookmark:', error.message);
       return false;
     }
     
-    // Update bookmark count using SQL function
-    const { data: decrementResult, error: countUpdateError } = await supabase.rpc(
-      'decrement_bookmark_count', 
-      { tweet_id_param: tweetId }
-    );
-    
-    if (countUpdateError) {
-      console.error('Bookmark count update error:', countUpdateError);
-    } else {
-      // Update the tweet in cache with the new bookmark count
-      updateTweetInCache(tweetId, (tweet) => ({
-        ...tweet,
-        bookmarks_count: decrementResult || Math.max(0, (tweet.bookmarks_count || 0) - 1)
-      }));
+    // Update the bookmarks count in the tweet
+    const { data: tweetData, error: countError } = await supabase
+      .from('tweets')
+      .select('bookmarks_count')
+      .eq('id', tweetId)
+      .single();
+      
+    if (!countError && tweetData) {
+      const currentCount = tweetData.bookmarks_count || 0;
+      const newCount = Math.max(0, currentCount - 1);
+      
+      await supabase
+        .from('tweets')
+        .update({ bookmarks_count: newCount })
+        .eq('id', tweetId);
+      
+      // Update local cache
+      updateTweetCount(tweetId, { bookmarks_count: newCount });
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Bookmark removal failed:', error);
+    console.error('Error in removeBookmark:', error);
     return false;
   }
-}
+};
 
 /**
- * Gets all bookmarked tweets for the current user
+ * Check if a tweet is bookmarked by the current user
  */
-export async function getBookmarkedTweets(limit: number = 20, offset: number = 0): Promise<TweetWithAuthor[]> {
+export const checkIfTweetBookmarked = async (tweetId: string): Promise<boolean> => {
   try {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-    
-    if (!user) {
-      throw new Error('User must be logged in to view bookmarks');
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return false;
     }
-    
-    const { data, error } = await supabase.rpc(
-      'get_bookmarked_tweets',
-      { p_user_id: user.id, limit_count: limit, offset_count: offset }
-    );
-    
+
+    const { count, error } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userData.user.id)
+      .eq('tweet_id', tweetId);
+
     if (error) {
-      console.error('Error fetching bookmarked tweets:', error);
+      console.error('Error checking bookmark:', error.message);
+      return false;
+    }
+
+    return count ? count > 0 : false;
+  } catch (error) {
+    console.error('Error in checkIfTweetBookmarked:', error);
+    return false;
+  }
+};
+
+/**
+ * Get all bookmarked tweets for the current user
+ */
+export const getBookmarkedTweets = async (): Promise<TweetWithAuthor[]> => {
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
       return [];
     }
-    
-    return data.map((tweet: any) => ({
-      id: tweet.id,
-      content: tweet.content,
-      author_id: tweet.author_id,
-      created_at: tweet.created_at,
-      likes_count: tweet.likes_count,
-      retweets_count: tweet.retweets_count,
-      replies_count: tweet.replies_count,
-      bookmarks_count: tweet.bookmarks_count || 0,
-      is_retweet: tweet.is_retweet,
-      original_tweet_id: tweet.original_tweet_id,
-      image_url: tweet.image_url,
-      bookmarked_at: tweet.bookmarked_at,
-      author: createPartialProfile({
-        id: tweet.author_id,
-        username: tweet.username,
-        display_name: tweet.display_name,
-        avatar_url: tweet.avatar_url || '',
-        avatar_nft_id: tweet.avatar_nft_id,
-        avatar_nft_chain: tweet.avatar_nft_chain
-      })
-    }));
+
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select(`
+        tweet_id,
+        tweets:tweet_id (
+          id,
+          content,
+          created_at,
+          author_id,
+          image_url,
+          is_retweet,
+          original_tweet_id,
+          likes_count,
+          retweets_count,
+          replies_count,
+          bookmarks_count,
+          profiles:author_id (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            avatar_nft_id,
+            avatar_nft_chain
+          )
+        )
+      `)
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching bookmarks:', error.message);
+      return [];
+    }
+
+    const bookmarkedTweets: TweetWithAuthor[] = data.map((bookmark: any) => {
+      const tweet = bookmark.tweets;
+      return {
+        id: tweet.id,
+        content: tweet.content,
+        created_at: tweet.created_at,
+        author_id: tweet.author_id,
+        image_url: tweet.image_url,
+        is_retweet: tweet.is_retweet,
+        original_tweet_id: tweet.original_tweet_id,
+        likes_count: tweet.likes_count || 0,
+        retweets_count: tweet.retweets_count || 0,
+        replies_count: tweet.replies_count || 0,
+        bookmarks_count: tweet.bookmarks_count || 0,
+        author: createPartialProfile(tweet.profiles)
+      };
+    });
+
+    return bookmarkedTweets;
   } catch (error) {
-    console.error('Error fetching bookmarked tweets:', error);
+    console.error('Error in getBookmarkedTweets:', error);
     return [];
   }
-}
+};
+
+/**
+ * Check if a tweet is bookmarked by a specific user
+ */
+export const checkIfUserBookmarkedTweet = async (tweetId: string): Promise<boolean> => {
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+      return false;
+    }
+
+    const { count, error } = await supabase
+      .from('bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userData.user.id)
+      .eq('tweet_id', tweetId);
+
+    if (error) {
+      console.error('Error checking if tweet is bookmarked:', error.message);
+      return false;
+    }
+
+    return !!count;
+  } catch (error) {
+    console.error('Error in checkIfUserBookmarkedTweet:', error);
+    return false;
+  }
+};
+
+/**
+ * Bookmark a tweet
+ */
+export const bookmarkTweet = async (tweetId: string): Promise<boolean> => {
+  return addBookmark(tweetId);
+};
+
+/**
+ * Unbookmark a tweet
+ */
+export const unbookmarkTweet = async (tweetId: string): Promise<boolean> => {
+  return removeBookmark(tweetId);
+};

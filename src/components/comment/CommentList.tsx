@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Comment } from '@/types/Comment';
 import CommentCard from './CommentCard';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { countTweetComments } from '@/services/commentService';
 import { updateTweetCount } from '@/utils/tweetCacheService';
 
