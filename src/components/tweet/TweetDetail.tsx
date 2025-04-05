@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatDistanceToNow } from 'date-fns';
-import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
+import { MessageSquare, Heart, Bookmark, Share2, Trash2, MoreHorizontal, X } from 'lucide-react';
 import { TweetWithAuthor } from '@/types/Tweet';
 import { checkIfUserLikedTweet, likeTweet, deleteTweet } from '@/services/tweetService';
 import { checkIfTweetBookmarked, bookmarkTweet, unbookmarkTweet } from '@/services/bookmarkService';
@@ -248,19 +248,7 @@ const TweetDetail: React.FC<TweetDetailProps> = ({
         onClick={onClose}
         className="absolute top-2 right-2 text-white hover:bg-gray-800 rounded-full z-10"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-4 w-4"
-        >
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
+        <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </Button>
 

@@ -95,7 +95,7 @@ const NotificationText = memo(({ notification }: { notification: Notification })
           <div className="flex items-center flex-wrap">
             <span className="font-semibold text-white">{actor.displayName}</span>
             {actor.isVerified && <VerifiedBadge className="ml-1" />}
-            <span className="ml-1 text-gray-300">gillade din kommentar</span>
+            <span className="ml-1 text-gray-300">liked your comment</span>
           </div>
         );
       }
@@ -103,7 +103,7 @@ const NotificationText = memo(({ notification }: { notification: Notification })
         <div className="flex items-center flex-wrap">
           <span className="font-semibold text-white">{actor.displayName}</span>
           {actor.isVerified && <VerifiedBadge className="ml-1" />}
-          <span className="ml-1 text-gray-300">gillade din tweet</span>
+          <span className="ml-1 text-gray-300">liked your tweet</span>
         </div>
       );
     case 'comment':
@@ -111,7 +111,7 @@ const NotificationText = memo(({ notification }: { notification: Notification })
         <div className="flex items-center flex-wrap">
           <span className="font-semibold text-white">{actor.displayName}</span>
           {actor.isVerified && <VerifiedBadge className="ml-1" />}
-          <span className="ml-1 text-gray-300">svarade på din tweet</span>
+          <span className="ml-1 text-gray-300">replied to your tweet</span>
         </div>
       );
     case 'retweet':
@@ -119,7 +119,7 @@ const NotificationText = memo(({ notification }: { notification: Notification })
         <div className="flex items-center flex-wrap">
           <span className="font-semibold text-white">{actor.displayName}</span>
           {actor.isVerified && <VerifiedBadge className="ml-1" />}
-          <span className="ml-1 text-gray-300">retweetade ditt inlägg</span>
+          <span className="ml-1 text-gray-300">retweeted your post</span>
         </div>
       );
     case 'follow':
@@ -127,7 +127,7 @@ const NotificationText = memo(({ notification }: { notification: Notification })
         <div className="flex items-center flex-wrap">
           <span className="font-semibold text-white">{actor.displayName}</span>
           {actor.isVerified && <VerifiedBadge className="ml-1" />}
-          <span className="ml-1 text-gray-300">följer dig nu</span>
+          <span className="ml-1 text-gray-300">is now following you</span>
         </div>
       );
     case 'mention':
@@ -135,11 +135,11 @@ const NotificationText = memo(({ notification }: { notification: Notification })
         <div className="flex items-center flex-wrap">
           <span className="font-semibold text-white">{actor.displayName}</span>
           {actor.isVerified && <VerifiedBadge className="ml-1" />}
-          <span className="ml-1 text-gray-300">nämnde dig i en tweet</span>
+          <span className="ml-1 text-gray-300">mentioned you in a tweet</span>
         </div>
       );
     default:
-      return <span>Ny notifikation</span>;
+      return <span>New notification</span>;
   }
 });
 
@@ -168,7 +168,7 @@ const NotificationItem = memo(({
         <CardContent className="p-3">
           {notification.type === 'comment' && (
             <div className="flex items-center space-x-1 mb-1 text-xs text-gray-400">
-              <span>Svar till</span>
+              <span>Reply to</span>
               <span className="text-blue-400">@{notification.actor.username}</span>
             </div>
           )}
@@ -230,23 +230,23 @@ const NotificationItem = memo(({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700 text-gray-200">
-                    <DropdownMenuLabel className="text-xs text-gray-400">Alternativ</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs text-gray-400">Options</DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-gray-700/50" />
                     <DropdownMenuItem className="text-sm hover:text-white focus:text-white">
-                      <Clock className="mr-2 h-4 w-4" /> Dölj för 30 dagar
+                      <Clock className="mr-2 h-4 w-4" /> Hide for 30 days
                     </DropdownMenuItem>
                     {!notification.read ? (
                       <DropdownMenuItem className="text-sm hover:text-white focus:text-white">
-                        <CheckCircle className="mr-2 h-4 w-4" /> Markera som läst
+                        <CheckCircle className="mr-2 h-4 w-4" /> Mark as read
                       </DropdownMenuItem>
                     ) : (
                       <DropdownMenuItem className="text-sm hover:text-white focus:text-white">
-                        <BookmarkIcon className="mr-2 h-4 w-4" /> Spara för senare
+                        <BookmarkIcon className="mr-2 h-4 w-4" /> Save for later
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator className="bg-gray-700/50" />
                     <DropdownMenuItem className="text-sm text-red-400 hover:text-red-300 focus:text-red-300">
-                      <Trash2 className="mr-2 h-4 w-4" /> Ta bort
+                      <Trash2 className="mr-2 h-4 w-4" /> Remove
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -266,7 +266,7 @@ const NotificationItem = memo(({
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center hover:text-blue-400 transition-colors cursor-pointer" onClick={(e) => e.stopPropagation()}>
                     <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                    <span>Svara</span>
+                    <span>Reply</span>
                   </div>
                   <div className="flex items-center hover:text-green-400 transition-colors cursor-pointer" onClick={(e) => e.stopPropagation()}>
                     <Repeat className="h-3.5 w-3.5 mr-1.5" />
@@ -354,9 +354,9 @@ const EmptyNotifications = () => (
     <div className="mx-auto w-16 h-16 rounded-full bg-gray-800/70 flex items-center justify-center mb-4 border border-gray-700/50 shadow-lg shadow-black/20">
       <Bell className="h-7 w-7 text-gray-400" />
     </div>
-    <h3 className="text-lg font-semibold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Inga notiser än</h3>
+    <h3 className="text-lg font-semibold text-white mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">No notifications yet</h3>
     <p className="text-gray-400 text-sm max-w-xs mx-auto">
-      När någon interagerar med dina tweets eller profil kommer du se det här
+      When someone interacts with your tweets or profile you'll see it here
     </p>
   </div>
 );
@@ -384,7 +384,7 @@ const NotificationFilterBar = ({
             }`}
             onClick={() => setActiveFilter("all")}
           >
-            Alla
+            All
           </Button>
           <Button
             variant={activeFilter === "unread" ? "default" : "ghost"}
@@ -396,7 +396,7 @@ const NotificationFilterBar = ({
             }`}
             onClick={() => setActiveFilter("unread")}
           >
-            Olästa
+            Unread
             {unreadCount > 0 && (
               <Badge className="ml-1.5 bg-blue-500 text-xs h-5 min-w-5 flex items-center justify-center">{unreadCount}</Badge>
             )}
@@ -411,7 +411,7 @@ const NotificationFilterBar = ({
             }`}
             onClick={() => setActiveFilter("mentions")}
           >
-            Omnämnanden
+            Mentions
           </Button>
           <Button
             variant={activeFilter === "follows" ? "default" : "ghost"}
@@ -423,7 +423,7 @@ const NotificationFilterBar = ({
             }`}
             onClick={() => setActiveFilter("follows")}
           >
-            Följare
+            Followers
           </Button>
           <Button
             variant={activeFilter === "likes" ? "default" : "ghost"}
@@ -435,7 +435,7 @@ const NotificationFilterBar = ({
             }`}
             onClick={() => setActiveFilter("likes")}
           >
-            Gilla
+            Likes
           </Button>
         </div>
       </div>
@@ -508,14 +508,14 @@ const Notifications = () => {
     try {
       await fetchNotifications(true);
       toast({
-        title: "Uppdaterad",
-        description: "Notifikationer uppdaterade",
+        title: "Updated",
+        description: "Notifications updated",
         duration: 2000
       });
     } catch (error) {
       toast({
-        title: "Fel",
-        description: "Kunde inte uppdatera notifikationer",
+        title: "Error",
+        description: "Could not update notifications",
         variant: "destructive"
       });
     } finally {
@@ -529,14 +529,14 @@ const Notifications = () => {
     try {
       await markAllAsRead();
       toast({
-        title: "Klart",
-        description: "Alla notifikationer markerade som lästa",
+        title: "Done",
+        description: "All notifications marked as read",
         duration: 2000
       });
     } catch (error) {
       toast({
-        title: "Fel",
-        description: "Kunde inte markera notifikationer som lästa",
+        title: "Error",
+        description: "Could not mark notifications as read",
         variant: "destructive"
       });
     }
@@ -554,7 +554,7 @@ const Notifications = () => {
     return (
       <>
         <VisuallyHidden asChild>
-          <h2>Alla notifikationer</h2>
+          <h2>All notifications</h2>
         </VisuallyHidden>
         
         <VirtualizedNotificationList 
@@ -573,9 +573,9 @@ const Notifications = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Notifikationer
+                Notifications
                 {unreadCount > 0 && (
-                  <Badge className="ml-2 bg-blue-500 text-xs">{unreadCount} nya</Badge>
+                  <Badge className="ml-2 bg-blue-500 text-xs">{unreadCount} new</Badge>
                 )}
               </h1>
             </div>
@@ -591,10 +591,10 @@ const Notifications = () => {
                       className="text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-full"
                     >
                       <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      <span className="sr-only md:not-sr-only md:ml-2">Uppdatera</span>
+                      <span className="sr-only md:not-sr-only md:ml-2">Refresh</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Uppdatera notifikationer</TooltipContent>
+                  <TooltipContent side="bottom">Refresh notifications</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               
@@ -607,10 +607,10 @@ const Notifications = () => {
                       className="text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-full"
                     >
                       <Settings className="h-4 w-4" />
-                      <span className="sr-only md:not-sr-only md:ml-2">Inställningar</span>
+                      <span className="sr-only md:not-sr-only md:ml-2">Settings</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Notifikationsinställningar</TooltipContent>
+                  <TooltipContent side="bottom">Notification settings</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               
@@ -625,10 +625,10 @@ const Notifications = () => {
                       className="text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-full"
                     >
                       <CheckCircle className="h-4 w-4" />
-                      <span className="sr-only md:not-sr-only md:ml-2">Markera alla som lästa</span>
+                      <span className="sr-only md:not-sr-only md:ml-2">Mark all as read</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Markera alla som lästa</TooltipContent>
+                  <TooltipContent side="bottom">Mark all as read</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
