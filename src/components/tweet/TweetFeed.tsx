@@ -7,11 +7,13 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ErrorDialog } from '@/components/ui/error-dialog';
 import { updateTweetCommentCount } from '@/services/commentService';
 import { getFromLocalStorage, setInLocalStorage, updateTweetInCache } from '@/utils/tweetCacheService';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 interface TweetFeedProps {
   userId?: string;
@@ -528,12 +530,14 @@ const TweetFeed = ({ userId, limit = TWEETS_PER_PAGE, onCommentAdded, forceRefre
     return (
       <div className="p-6 text-center">
         <p className="text-red-500 mb-4">{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="bg-crypto-blue text-white px-4 py-2 rounded-full hover:bg-crypto-blue/80"
+        <Button 
+          variant="default"
+          onClick={() => fetchTweets(true, true)}
+          className="bg-crypto-blue text-white hover:bg-crypto-blue/80 flex items-center gap-2"
         >
+          <RefreshCw className="h-4 w-4" />
           Try Again
-        </button>
+        </Button>
       </div>
     );
   }
